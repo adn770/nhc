@@ -1,23 +1,31 @@
-//! RoofOp rasterisation — Phase 8.1c.2 of
-//! `plans/nhc_ir_migration_plan.md`.
+//! RoofOp rasterisation — Phase 8.1c.2 of the IR migration plan,
+//! ported to the Painter trait in Phase 2.15b of
+//! `plans/nhc_pure_ir_plan.md`.
 //!
 //! Mirrors the Python reference at `_draw_roof_from_ir` in
 //! `nhc/rendering/ir_to_svg.py`. Both rasterisers walk the same
 //! splitmix64 stream seeded with `RoofOp.rng_seed` so shingle
-//! widths and shade picks agree value-for-value; the SVG path
-//! emits clip-path-bounded fragments and the tiny-skia path uses
-//! a polygon `Mask` for the same clipping. The synthetic-IR PSNR
-//! gate at `tests/unit/test_ir_png_parity.py` exercises both paths
-//! against a tiny-skia-rendered `reference.png` at PSNR > 40 dB.
-
-use tiny_skia::{
-    Color, FillRule, LineCap, Mask, Paint, PathBuilder, Rect, Stroke,
-};
+//! widths and shade picks agree value-for-value. The synthetic-IR
+//! PSNR gate at `tests/unit/test_ir_png_parity.py` exercises this
+//! handler against a tiny-skia-rendered `reference.png` at
+//! PSNR ≥ 35 dB.
+//!
+//! Roof is handler-only (no `primitives/roof.rs`). The Python side
+//! has its own `_draw_roof_from_ir` SVG emitter that does NOT call
+//! the Rust FFI, so this commit REPLACES the legacy direct
+//! tiny-skia calls with `SkiaPainter` calls outright — no dual
+//! path needed. The region clip becomes a `push_clip(EvenOdd)` /
+//! `pop_clip` envelope around all the helpers, mirroring the
+//! handler-only ports of `terrain_detail` (Phase 2.12) and the
+//! wood-floor branch of `floor_detail` (Phase 2.15a).
 
 use crate::ir::{FloorIR, OpEntry, Region, RoofOp};
+use crate::painter::{
+    Color, FillRule, LineCap, Paint, Painter, PathOps, Rect as PRect,
+    SkiaPainter, Stroke, Vec2,
+};
 use crate::rng::SplitMix64;
 
-use super::polygon_path::build_outline_path;
 use super::RasterCtx;
 
 
@@ -136,25 +144,24 @@ fn geometry_mode(shape_tag: &str, polygon: &[(f32, f32)]) -> Mode {
 // ── Paint helpers ──────────────────────────────────────────────
 
 
-fn rgb_paint(rgb: (u8, u8, u8), alpha: f32) -> Paint<'static> {
-    let mut p = Paint::default();
-    p.set_color(Color::from_rgba8(rgb.0, rgb.1, rgb.2, (alpha * 255.0) as u8));
-    p.anti_alias = true;
-    p
+fn rgb_paint(rgb: (u8, u8, u8), alpha: f32) -> Paint {
+    Paint::solid(Color::rgba(rgb.0, rgb.1, rgb.2, alpha))
 }
 
 fn ridge_stroke() -> Stroke {
-    let mut s = Stroke::default();
-    s.width = RIDGE_WIDTH;
-    s.line_cap = LineCap::Butt;
-    s
+    Stroke {
+        width: RIDGE_WIDTH,
+        line_cap: LineCap::Butt,
+        ..Stroke::default()
+    }
 }
 
 fn shingle_stroke() -> Stroke {
-    let mut s = Stroke::default();
-    s.width = SHINGLE_STROKE_WIDTH;
-    s.line_cap = LineCap::Butt;
-    s
+    Stroke {
+        width: SHINGLE_STROKE_WIDTH,
+        line_cap: LineCap::Butt,
+        ..Stroke::default()
+    }
 }
 
 
@@ -165,8 +172,7 @@ fn draw_shingle_region(
     x: f32, y: f32, w: f32, h: f32,
     shades: &[(u8, u8, u8); 3],
     rng: &mut RoofRng,
-    mask: Option<&Mask>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
     vertical_courses: bool,
 ) {
     let stroke = shingle_stroke();
@@ -188,22 +194,18 @@ fn draw_shingle_region(
                 let vb = (sy + sw_j).min(y + h);
                 let vh = vb - vy;
                 if vh > 0.0 {
-                    if let Some(rect) = Rect::from_xywh(cx, vy, SHINGLE_HEIGHT, vh) {
-                        let fill = rgb_paint(shade, 1.0);
-                        ctx.pixmap.fill_rect(rect, &fill, ctx.transform, mask);
-                        let mut pb = PathBuilder::new();
-                        pb.move_to(cx, vy);
-                        pb.line_to(cx + SHINGLE_HEIGHT, vy);
-                        pb.line_to(cx + SHINGLE_HEIGHT, vy + vh);
-                        pb.line_to(cx, vy + vh);
-                        pb.close();
-                        if let Some(path) = pb.finish() {
-                            ctx.pixmap.stroke_path(
-                                &path, &stroke_paint, &stroke,
-                                ctx.transform, mask,
-                            );
-                        }
-                    }
+                    let fill = rgb_paint(shade, 1.0);
+                    painter.fill_rect(
+                        PRect::new(cx, vy, SHINGLE_HEIGHT, vh),
+                        &fill,
+                    );
+                    let mut path = PathOps::new();
+                    path.move_to(Vec2::new(cx, vy));
+                    path.line_to(Vec2::new(cx + SHINGLE_HEIGHT, vy));
+                    path.line_to(Vec2::new(cx + SHINGLE_HEIGHT, vy + vh));
+                    path.line_to(Vec2::new(cx, vy + vh));
+                    path.close();
+                    painter.stroke_path(&path, &stroke_paint, &stroke);
                 }
                 sy += sw_j;
             }
@@ -227,22 +229,18 @@ fn draw_shingle_region(
             let vr = (sx + sw_j).min(x + w);
             let vw = vr - vx;
             if vw > 0.0 {
-                if let Some(rect) = Rect::from_xywh(vx, cy, vw, SHINGLE_HEIGHT) {
-                    let fill = rgb_paint(shade, 1.0);
-                    ctx.pixmap.fill_rect(rect, &fill, ctx.transform, mask);
-                    let mut pb = PathBuilder::new();
-                    pb.move_to(vx, cy);
-                    pb.line_to(vx + vw, cy);
-                    pb.line_to(vx + vw, cy + SHINGLE_HEIGHT);
-                    pb.line_to(vx, cy + SHINGLE_HEIGHT);
-                    pb.close();
-                    if let Some(path) = pb.finish() {
-                        ctx.pixmap.stroke_path(
-                            &path, &stroke_paint, &stroke,
-                            ctx.transform, mask,
-                        );
-                    }
-                }
+                let fill = rgb_paint(shade, 1.0);
+                painter.fill_rect(
+                    PRect::new(vx, cy, vw, SHINGLE_HEIGHT),
+                    &fill,
+                );
+                let mut path = PathOps::new();
+                path.move_to(Vec2::new(vx, cy));
+                path.line_to(Vec2::new(vx + vw, cy));
+                path.line_to(Vec2::new(vx + vw, cy + SHINGLE_HEIGHT));
+                path.line_to(Vec2::new(vx, cy + SHINGLE_HEIGHT));
+                path.close();
+                painter.stroke_path(&path, &stroke_paint, &stroke);
             }
             sx += sw_j;
         }
@@ -257,40 +255,31 @@ fn draw_gable_sides(
     sunlit: &[(u8, u8, u8); 3],
     shadow: &[(u8, u8, u8); 3],
     rng: &mut RoofRng,
-    mask: Option<&Mask>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let ridge_paint = rgb_paint((0, 0, 0), 1.0);
     let stroke = ridge_stroke();
     if horizontal {
         // Horizontal ridge — vertical courses (long axis runs
         // perpendicular to the ridge).
-        draw_shingle_region(px, py, pw, ph / 2.0, shadow, rng, mask, ctx, true);
+        draw_shingle_region(px, py, pw, ph / 2.0, shadow, rng, painter, true);
         draw_shingle_region(
-            px, py + ph / 2.0, pw, ph / 2.0, sunlit, rng, mask, ctx, true,
+            px, py + ph / 2.0, pw, ph / 2.0, sunlit, rng, painter, true,
         );
-        let mut pb = PathBuilder::new();
-        pb.move_to(px, py + ph / 2.0);
-        pb.line_to(px + pw, py + ph / 2.0);
-        if let Some(path) = pb.finish() {
-            ctx.pixmap.stroke_path(
-                &path, &ridge_paint, &stroke, ctx.transform, mask,
-            );
-        }
+        let mut path = PathOps::new();
+        path.move_to(Vec2::new(px, py + ph / 2.0));
+        path.line_to(Vec2::new(px + pw, py + ph / 2.0));
+        painter.stroke_path(&path, &ridge_paint, &stroke);
     } else {
         // Vertical ridge — horizontal courses (default).
-        draw_shingle_region(px, py, pw / 2.0, ph, shadow, rng, mask, ctx, false);
+        draw_shingle_region(px, py, pw / 2.0, ph, shadow, rng, painter, false);
         draw_shingle_region(
-            px + pw / 2.0, py, pw / 2.0, ph, sunlit, rng, mask, ctx, false,
+            px + pw / 2.0, py, pw / 2.0, ph, sunlit, rng, painter, false,
         );
-        let mut pb = PathBuilder::new();
-        pb.move_to(px + pw / 2.0, py);
-        pb.line_to(px + pw / 2.0, py + ph);
-        if let Some(path) = pb.finish() {
-            ctx.pixmap.stroke_path(
-                &path, &ridge_paint, &stroke, ctx.transform, mask,
-            );
-        }
+        let mut path = PathOps::new();
+        path.move_to(Vec2::new(px + pw / 2.0, py));
+        path.line_to(Vec2::new(px + pw / 2.0, py + ph));
+        painter.stroke_path(&path, &ridge_paint, &stroke);
     }
 }
 
@@ -299,8 +288,7 @@ fn draw_pyramid_sides(
     sunlit: &[(u8, u8, u8); 3],
     shadow: &[(u8, u8, u8); 3],
     rng: &mut RoofRng,
-    mask: Option<&Mask>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let n = polygon.len();
     if n == 0 {
@@ -318,34 +306,24 @@ fn draw_pyramid_sides(
         let is_shadow = my < cy - 1e-3 || (mx < cx - 1e-3 && my < cy + 1e-3);
         let palette = if is_shadow { shadow } else { sunlit };
         let fill_rgb = *rng.choice(palette);
-        let mut pb = PathBuilder::new();
-        pb.move_to(a.0, a.1);
-        pb.line_to(b.0, b.1);
-        pb.line_to(cx, cy);
-        pb.close();
-        if let Some(path) = pb.finish() {
-            let fill = rgb_paint(fill_rgb, 1.0);
-            ctx.pixmap.fill_path(
-                &path, &fill, FillRule::Winding, ctx.transform, mask,
-            );
-            ctx.pixmap.stroke_path(
-                &path, &stroke_paint, &stroke, ctx.transform, mask,
-            );
-        }
+        let mut path = PathOps::new();
+        path.move_to(Vec2::new(a.0, a.1));
+        path.line_to(Vec2::new(b.0, b.1));
+        path.line_to(Vec2::new(cx, cy));
+        path.close();
+        let fill = rgb_paint(fill_rgb, 1.0);
+        painter.fill_path(&path, &fill, FillRule::Winding);
+        painter.stroke_path(&path, &stroke_paint, &stroke);
     }
     // Ridge spokes from centre to each polygon vertex.
     let ridge_paint = rgb_paint((0, 0, 0), 1.0);
     let ridge_stroke_def = ridge_stroke();
-    let mut pb = PathBuilder::new();
+    let mut path = PathOps::new();
     for &(vx, vy) in polygon {
-        pb.move_to(cx, cy);
-        pb.line_to(vx, vy);
+        path.move_to(Vec2::new(cx, cy));
+        path.line_to(Vec2::new(vx, vy));
     }
-    if let Some(path) = pb.finish() {
-        ctx.pixmap.stroke_path(
-            &path, &ridge_paint, &ridge_stroke_def, ctx.transform, mask,
-        );
-    }
+    painter.stroke_path(&path, &ridge_paint, &ridge_stroke_def);
 }
 
 
@@ -372,15 +350,49 @@ fn polygon_coords(region: &Region<'_>) -> Vec<(f32, f32)> {
     verts.iter().map(|v| (v.x(), v.y())).collect()
 }
 
-fn build_clip_mask(
-    region: &Region<'_>,
-    ctx: &RasterCtx<'_>,
-) -> Option<Mask> {
+/// Walk the roof region's outline into a `PathOps` clip path.
+/// Mirrors the legacy `build_clip_mask` (which built a tiny-skia
+/// `Mask` from the same outline) — the SkiaPainter intersects the
+/// clip via `Mask::fill_path`/`intersect_path` internally so the
+/// pixel-level clipping semantics are preserved. Returns `None`
+/// when the region has no outline; the caller drops the clip and
+/// paints unclipped.
+fn build_clip_pathops(region: &Region<'_>) -> Option<PathOps> {
     let outline = region.outline()?;
-    let path = build_outline_path(&outline)?;
-    let mut mask = Mask::new(ctx.pixmap.width(), ctx.pixmap.height())?;
-    mask.fill_path(&path, FillRule::EvenOdd, true, ctx.transform);
-    Some(mask)
+    let verts = outline.vertices()?;
+    if verts.is_empty() {
+        return None;
+    }
+    let rings = outline.rings();
+    let ring_iter: Vec<(usize, usize)> = match rings {
+        Some(r) if r.len() > 0 => r
+            .iter()
+            .map(|pr| (pr.start() as usize, pr.count() as usize))
+            .collect(),
+        _ => vec![(0, verts.len())],
+    };
+    let mut path = PathOps::new();
+    let mut any = false;
+    for (start, count) in ring_iter {
+        if count < 2 {
+            continue;
+        }
+        for j in 0..count {
+            let v = verts.get(start + j);
+            let p = Vec2::new(v.x(), v.y());
+            if j == 0 {
+                path.move_to(p);
+            } else {
+                path.line_to(p);
+            }
+        }
+        path.close();
+        any = true;
+    }
+    if !any {
+        return None;
+    }
+    Some(path)
 }
 
 /// Public dispatch entry. Registered against `Op::RoofOp` in
@@ -411,7 +423,7 @@ pub(super) fn draw(
     let mut rng = RoofRng::new(op.rng_seed());
     let sunlit = shade_palette(tint, true);
     let shadow = shade_palette(tint, false);
-    let mask = build_clip_mask(&region, ctx);
+    let clip = build_clip_pathops(&region);
     let mode = geometry_mode(shape_tag, &polygon);
     let (mut min_x, mut max_x) = (f32::INFINITY, f32::NEG_INFINITY);
     let (mut min_y, mut max_y) = (f32::INFINITY, f32::NEG_INFINITY);
@@ -423,14 +435,25 @@ pub(super) fn draw(
     }
     let pw = max_x - min_x;
     let ph = max_y - min_y;
+
+    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+    let pushed = if let Some(clip_path) = clip.as_ref() {
+        painter.push_clip(clip_path, FillRule::EvenOdd);
+        true
+    } else {
+        false
+    };
     match mode {
         Mode::Gable => draw_gable_sides(
             min_x, min_y, pw, ph, pw >= ph,
-            &sunlit, &shadow, &mut rng, mask.as_ref(), ctx,
+            &sunlit, &shadow, &mut rng, &mut painter,
         ),
         Mode::Pyramid => draw_pyramid_sides(
-            &polygon, &sunlit, &shadow, &mut rng, mask.as_ref(), ctx,
+            &polygon, &sunlit, &shadow, &mut rng, &mut painter,
         ),
+    }
+    if pushed {
+        painter.pop_clip();
     }
 }
 
@@ -478,5 +501,19 @@ mod tests {
         let u = rng.inner.next_u64();
         // Reference value cross-checked against the Python helper.
         assert_eq!(u, 0xb4dc9bd462de412b);
+    }
+
+    #[test]
+    fn shingle_stroke_uses_documented_width_and_cap() {
+        let s = shingle_stroke();
+        assert_eq!(s.width, SHINGLE_STROKE_WIDTH);
+        assert_eq!(s.line_cap, LineCap::Butt);
+    }
+
+    #[test]
+    fn ridge_stroke_uses_documented_width_and_cap() {
+        let s = ridge_stroke();
+        assert_eq!(s.width, RIDGE_WIDTH);
+        assert_eq!(s.line_cap, LineCap::Butt);
     }
 }
