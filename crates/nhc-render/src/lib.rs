@@ -17,6 +17,7 @@
 
 pub mod geometry;
 pub mod ir;
+pub mod painter;
 pub mod perlin;
 pub mod primitives;
 pub mod python_random;
