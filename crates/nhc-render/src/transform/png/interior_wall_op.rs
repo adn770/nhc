@@ -1,5 +1,6 @@
 //! InteriorWallOp rasterisation — Phase 1.18 of
-//! `plans/nhc_pure_ir_plan.md`.
+//! `plans/nhc_pure_ir_plan.md`, ported to the Painter trait in
+//! Phase 2.15c.
 //!
 //! Reads `InteriorWallOp.outline` + `InteriorWallOp.style` from the
 //! IR and strokes a line between each consecutive vertex pair.
@@ -13,10 +14,19 @@
 //!
 //! Stroke width is `CELL * 0.25 = 8.0px`, linecap `Round`.
 //! Mirrors `_draw_interior_wall_op_from_ir` in `ir_to_svg.py`.
-
-use tiny_skia::{Color, LineCap, Paint, PathBuilder, Stroke};
+//!
+//! Interior walls are open polylines with NO clip envelope — they
+//! are not region perimeters, so the handler simply constructs a
+//! `SkiaPainter::with_transform` over the active pixmap and emits
+//! one `stroke_path` call. First of the four v4-op handler ports
+//! (interior_wall_op, corridor_wall_op, exterior_wall_op,
+//! floor_op) required for Phase 2.16 (transform/svg/) to share
+//! dispatch via the Painter trait.
 
 use crate::ir::{FloorIR, OpEntry, WallStyle};
+use crate::painter::{
+    Color, LineCap, Paint, Painter, PathOps, SkiaPainter, Stroke, Vec2,
+};
 
 use super::RasterCtx;
 
@@ -30,16 +40,13 @@ const STONE_RGB: (u8, u8, u8) = (0x6E, 0x6E, 0x6E);
 const BRICK_RGB: (u8, u8, u8) = (0x9E, 0x50, 0x40);
 const WOOD_RGB: (u8, u8, u8) = (0x8B, 0x5E, 0x3C);
 
-fn interior_wall_paint(style: WallStyle) -> Paint<'static> {
+fn interior_wall_paint(style: WallStyle) -> Paint {
     let (r, g, b) = match style {
         WallStyle::PartitionBrick => BRICK_RGB,
         WallStyle::PartitionWood => WOOD_RGB,
         _ => STONE_RGB, // PartitionStone + DungeonInk + fallback
     };
-    let mut p = Paint::default();
-    p.set_color(Color::from_rgba8(r, g, b, 0xFF));
-    p.anti_alias = true;
-    p
+    Paint::solid(Color::rgba(r, g, b, 1.0))
 }
 
 fn interior_wall_stroke() -> Stroke {
@@ -74,22 +81,22 @@ pub(super) fn draw(
     let paint = interior_wall_paint(style);
     let stroke = interior_wall_stroke();
 
-    let mut pb = PathBuilder::new();
+    let mut path = PathOps::new();
     let mut first = true;
     for v in verts.iter() {
+        let p = Vec2::new(v.x(), v.y());
         if first {
-            pb.move_to(v.x(), v.y());
+            path.move_to(p);
             first = false;
         } else {
-            pb.line_to(v.x(), v.y());
+            path.line_to(p);
         }
     }
-    let path = match pb.finish() {
-        Some(p) => p,
-        None => return,
-    };
-    ctx.pixmap
-        .stroke_path(&path, &paint, &stroke, ctx.transform, None);
+    if path.is_empty() {
+        return;
+    }
+    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+    painter.stroke_path(&path, &paint, &stroke);
 }
 
 #[cfg(test)]
@@ -250,5 +257,14 @@ mod tests {
             (BG_R, BG_G, BG_B),
             "pixel far from wall should remain parchment BG"
         );
+    }
+
+    /// Stroke width and linecap are the documented constants —
+    /// pinned so a future refactor can't silently widen the wall.
+    #[test]
+    fn interior_wall_stroke_uses_documented_width_and_cap() {
+        let s = super::interior_wall_stroke();
+        assert_eq!(s.width, super::INTERIOR_WALL_WIDTH);
+        assert_eq!(s.line_cap, crate::painter::LineCap::Round);
     }
 }
