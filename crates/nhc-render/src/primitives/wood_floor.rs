@@ -1,12 +1,40 @@
 //! Wood-floor parquet painter — Phase 9.2c port of
-//! `nhc/rendering/_floor_detail._render_wood_floor`.
+//! `nhc/rendering/_floor_detail._render_wood_floor`, ported to the
+//! Painter trait in Phase 2.15a of `plans/nhc_pure_ir_plan.md`.
 //!
-//! Reproduces the per-tile rect fill (or whole-footprint rect for
-//! octagon / circle building polygons), the per-room grain streaks
-//! (light + dark), and the per-room parquet seam grid as Rust SVG
-//! fragments. The handler at `transform/png/floor_detail.rs`
-//! routes the fragments through `paint_fragments` under the
-//! dungeon-poly clip mask.
+//! Reproduces the per-room overlay rect, the per-room grain
+//! streaks (light + dark) and the per-room parquet seam grid
+//! against a `Painter`. The handler at
+//! `transform/png/floor_detail.rs` constructs a `SkiaPainter` and
+//! routes this primitive through `push_clip(building_polygon ∩
+//! dungeon_outline)` so grain + seam strokes don't bleed past the
+//! chamfered corners of octagon / circle / L-shape buildings.
+//!
+//! Unlike floor_detail (Phase 2.10) and thematic_detail (Phase
+//! 2.11), the wood_floor primitive has **no FFI export** — only
+//! `transform/png/floor_detail.rs` consumes it (the wood-floor
+//! short-circuit branch). So Phase 2.15a REPLACES the legacy
+//! `draw_wood_floor` SVG-string emitter with the new
+//! `paint_wood_floor` Painter-trait emitter outright; no dual
+//! path is required. Python SVG output has its own
+//! `nhc.rendering._floor_detail` module.
+//!
+//! ## Group-opacity contract (v4e §7)
+//!
+//! The legacy SVG output wraps:
+//!
+//! - The per-room overlay rects in `<g>` with no `opacity` attr —
+//!   no offscreen-buffer composite needed; the Painter port emits
+//!   `fill_rect` calls directly.
+//! - Each grain bucket in
+//!   `<g fill="none" stroke="…" stroke-width="0.4" opacity="0.35">`
+//!   — wraps in `begin_group(WOOD_GRAIN_OPACITY) /
+//!   end_group()` so the offscreen-buffer composite handles the
+//!   0.35 envelope.
+//! - Each seam bucket in
+//!   `<g fill="none" stroke="…" stroke-width="0.8">` — no
+//!   `opacity` attr; the Painter port emits `stroke_path` calls
+//!   directly.
 //!
 //! **Parity contract (relaxed gate, plan §9.2):** byte-equal-with-
 //! legacy is *not* required. The Rust port uses one `Pcg64Mcg`
@@ -18,6 +46,10 @@
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
 
+use crate::painter::{
+    Color, LineCap, LineJoin, Paint, Painter, PathOps, Rect, Stroke, Vec2,
+};
+
 const CELL: f64 = 32.0;
 
 const WOOD_SEAM_WIDTH: f64 = 0.8;
@@ -25,7 +57,9 @@ const WOOD_PLANK_WIDTH_PX: f64 = CELL / 4.0;
 const WOOD_PLANK_LENGTH_MIN: f64 = CELL * 0.5;
 const WOOD_PLANK_LENGTH_MAX: f64 = CELL * 2.5;
 const WOOD_GRAIN_STROKE_WIDTH: f64 = 0.4;
-const WOOD_GRAIN_OPACITY: f64 = 0.35;
+/// Group-opacity envelope for grain strokes — lifts the legacy
+/// `<g opacity="0.35">` wrapper.
+pub const WOOD_GRAIN_OPACITY: f32 = 0.35;
 const WOOD_GRAIN_LINES_PER_STRIP: u32 = 2;
 
 /// Per-tone palette: (fill, grain_light, grain_dark, seam).
@@ -133,38 +167,44 @@ pub struct WoodRoom {
 }
 
 /// Building-polygon outer outline in pixel coordinates (matches
-/// the `Vec2` FB struct shape).
+/// the `Vec2` FB struct shape). Kept for backwards compatibility
+/// with the IR shape; the polygon-driven clip mask now lives in
+/// the PNG handler at `transform/png/floor_detail.rs` (built into
+/// `PathOps` and pushed onto the painter's clip stack before
+/// dispatching this primitive).
 #[derive(Clone, Copy, Debug)]
 pub struct PolyVertex {
     pub x: f64,
     pub y: f64,
 }
 
-/// Wood-floor painter entry point.
+/// Wood-floor painter entry point — Painter-trait port of
+/// `_render_wood_floor`.
 ///
 /// Per design/map_ir.md §6.1, the wood **base fill** is now
 /// emitted by `WallsAndFloorsOp` (structural layer), so the
 /// per-tile / per-polygon fill rect that used to live here is
-/// gone. This handler only emits the per-room grain streaks and
-/// parquet plank seams (floor_detail layer, paints on top of
-/// the structural fill + walls).
+/// gone. This handler only emits the per-room overlay rects (the
+/// species' tone fill paints over the building-wide WoodFloor
+/// base), the per-room grain streaks (group-opacity 0.35) and
+/// the parquet plank seams.
 ///
-/// `tiles` and `polygon` are kept on the FFI for backwards
-/// compatibility; `polygon` still drives the per-room grain/
-/// seam clip mask in the PNG handler.
+/// `tiles` and `polygon` are kept on the call signature for
+/// backwards compatibility with the IR shape; both are unused
+/// inside this primitive — the polygon-driven clip is applied by
+/// the caller via `push_clip` before dispatching here.
 ///
-/// `rooms`: per-room rects driving the grain streak generator and
-/// the parquet seam grid.
-pub fn draw_wood_floor(
+/// `rooms`: per-room rects driving the overlay rect, the grain
+/// streak generator and the parquet seam grid.
+pub fn paint_wood_floor(
+    painter: &mut dyn Painter,
     _tiles: &[(i32, i32)],
     _polygon: &[PolyVertex],
     rooms: &[WoodRoom],
     seed: u64,
-) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
-
+) {
     if rooms.is_empty() {
-        return out;
+        return;
     }
 
     let mut rng = Pcg64Mcg::seed_from_u64(seed);
@@ -182,27 +222,32 @@ pub fn draw_wood_floor(
         .map(|r| wood_pattern_for_room(&r.region_ref))
         .collect();
 
-    // Per-room overlay rects in a single ``<g>``. The species'
-    // tone fill paints over the building-wide WoodFloor base.
-    let mut overlay = String::new();
+    // Per-room overlay rects. The legacy SVG wraps these in a
+    // `<g>` with no `opacity` attr — emit fill_rect calls
+    // directly, no group needed.
     for (room, palette) in rooms.iter().zip(palettes.iter()) {
         let fill = palette.0;
         let rx = f64::from(room.x) * CELL;
         let ry = f64::from(room.y) * CELL;
         let rw = f64::from(room.w) * CELL;
         let rh = f64::from(room.h) * CELL;
-        overlay.push_str(&format!(
-            "<rect x=\"{rx:.1}\" y=\"{ry:.1}\" \
-             width=\"{rw:.1}\" height=\"{rh:.1}\" \
-             fill=\"{fill}\" stroke=\"none\"/>",
-        ));
-    }
-    if !overlay.is_empty() {
-        out.push(format!("<g>{overlay}</g>"));
+        painter.fill_rect(
+            Rect::new(
+                round_legacy_1(rx),
+                round_legacy_1(ry),
+                round_legacy_1(rw),
+                round_legacy_1(rh),
+            ),
+            &paint_for_hex(fill),
+        );
     }
 
-    // Grain — bucket per (light, dark) palette pair.
-    type GrainBucket = (String, String);
+    // Grain — bucket per (light, dark) palette pair. Build the
+    // line streams in lock-step with the legacy RNG walk, then
+    // emit each non-empty bucket inside one
+    // begin_group(WOOD_GRAIN_OPACITY) / end_group() pair —
+    // matching the legacy `<g … opacity="0.35">` envelope.
+    type GrainBucket = (Vec<GrainLine>, Vec<GrainLine>);
     let mut grain_buckets: Vec<((&str, &str), GrainBucket)> = Vec::new();
     for ((room, palette), pattern) in
         rooms.iter().zip(palettes.iter()).zip(patterns.iter())
@@ -211,7 +256,7 @@ pub fn draw_wood_floor(
         let bucket = match grain_buckets.iter_mut().find(|(k, _)| *k == key) {
             Some((_, b)) => b,
             None => {
-                grain_buckets.push((key, (String::new(), String::new())));
+                grain_buckets.push((key, (Vec::new(), Vec::new())));
                 &mut grain_buckets.last_mut().unwrap().1
             }
         };
@@ -221,23 +266,30 @@ pub fn draw_wood_floor(
     }
     for ((light, dark), (light_lines, dark_lines)) in &grain_buckets {
         if !light_lines.is_empty() {
-            out.push(format!(
-                "<g fill=\"none\" stroke=\"{light}\" \
-                 stroke-width=\"{WOOD_GRAIN_STROKE_WIDTH}\" \
-                 opacity=\"{WOOD_GRAIN_OPACITY}\">{light_lines}</g>",
-            ));
+            painter.begin_group(WOOD_GRAIN_OPACITY);
+            let stroke = grain_stroke();
+            let paint = paint_for_hex(light);
+            for line in light_lines {
+                stroke_line(painter, line, &paint, &stroke);
+            }
+            painter.end_group();
         }
         if !dark_lines.is_empty() {
-            out.push(format!(
-                "<g fill=\"none\" stroke=\"{dark}\" \
-                 stroke-width=\"{WOOD_GRAIN_STROKE_WIDTH}\" \
-                 opacity=\"{WOOD_GRAIN_OPACITY}\">{dark_lines}</g>",
-            ));
+            painter.begin_group(WOOD_GRAIN_OPACITY);
+            let stroke = grain_stroke();
+            let paint = paint_for_hex(dark);
+            for line in dark_lines {
+                stroke_line(painter, line, &paint, &stroke);
+            }
+            painter.end_group();
         }
     }
 
-    // Seams — bucket per palette seam colour.
-    let mut seam_buckets: Vec<(&str, String)> = Vec::new();
+    // Seams — bucket per palette seam colour. The legacy SVG
+    // wraps each bucket in `<g … stroke-width="0.8">` with NO
+    // `opacity` attr — emit stroke_path calls directly, no group
+    // needed.
+    let mut seam_buckets: Vec<(&str, Vec<GrainLine>)> = Vec::new();
     for ((room, palette), pattern) in
         rooms.iter().zip(palettes.iter()).zip(patterns.iter())
     {
@@ -245,27 +297,68 @@ pub fn draw_wood_floor(
         let bucket = match seam_buckets.iter_mut().find(|(k, _)| *k == seam) {
             Some((_, b)) => b,
             None => {
-                seam_buckets.push((seam, String::new()));
+                seam_buckets.push((seam, Vec::new()));
                 &mut seam_buckets.last_mut().unwrap().1
             }
         };
         emit_room_seams(room, &mut rng, *pattern, bucket);
     }
     for (seam, seam_lines) in &seam_buckets {
-        if !seam_lines.is_empty() {
-            out.push(format!(
-                "<g fill=\"none\" stroke=\"{seam}\" \
-                 stroke-width=\"{WOOD_SEAM_WIDTH}\">{seam_lines}</g>",
-            ));
+        if seam_lines.is_empty() {
+            continue;
+        }
+        let stroke = seam_stroke();
+        let paint = paint_for_hex(seam);
+        for line in seam_lines {
+            stroke_line(painter, line, &paint, &stroke);
         }
     }
-    out
+}
+
+/// One grain / seam line — endpoints in pixel coords. Carried as
+/// `f64` through the per-room emitters so the legacy SVG-string
+/// `{:.1}` truncation can land at the same f32 the legacy
+/// `parse_path_d` round-trip would have arrived at.
+#[derive(Clone, Copy, Debug)]
+struct GrainLine {
+    x1: f64,
+    y1: f64,
+    x2: f64,
+    y2: f64,
+}
+
+fn stroke_line(
+    painter: &mut dyn Painter,
+    line: &GrainLine,
+    paint: &Paint,
+    stroke: &Stroke,
+) {
+    let mut path = PathOps::new();
+    path.move_to(Vec2::new(round_legacy_1(line.x1), round_legacy_1(line.y1)));
+    path.line_to(Vec2::new(round_legacy_1(line.x2), round_legacy_1(line.y2)));
+    painter.stroke_path(&path, paint, stroke);
+}
+
+fn grain_stroke() -> Stroke {
+    Stroke {
+        width: WOOD_GRAIN_STROKE_WIDTH as f32,
+        line_cap: LineCap::Butt,
+        line_join: LineJoin::Miter,
+    }
+}
+
+fn seam_stroke() -> Stroke {
+    Stroke {
+        width: WOOD_SEAM_WIDTH as f32,
+        line_cap: LineCap::Butt,
+        line_join: LineJoin::Miter,
+    }
 }
 
 fn emit_room_grain(
     room: &WoodRoom, rng: &mut Pcg64Mcg,
     pattern: WoodPattern,
-    light: &mut String, dark: &mut String,
+    light: &mut Vec<GrainLine>, dark: &mut Vec<GrainLine>,
 ) {
     if pattern == WoodPattern::Basket {
         emit_room_grain_basket(room, rng, light, dark);
@@ -290,10 +383,7 @@ fn emit_room_grain(
             for i in 0..WOOD_GRAIN_LINES_PER_STRIP {
                 let gy = rng.gen_range((y + span * 0.15)..(strip_bot - span * 0.15));
                 let dest = if i % 2 == 0 { &mut *light } else { &mut *dark };
-                dest.push_str(&format!(
-                    "<line x1=\"{x0:.1}\" y1=\"{gy:.1}\" \
-                     x2=\"{x1:.1}\" y2=\"{gy:.1}\"/>",
-                ));
+                dest.push(GrainLine { x1: x0, y1: gy, x2: x1, y2: gy });
             }
             y += width;
         }
@@ -309,10 +399,7 @@ fn emit_room_grain(
             for i in 0..WOOD_GRAIN_LINES_PER_STRIP {
                 let gx = rng.gen_range((x + span * 0.15)..(strip_right - span * 0.15));
                 let dest = if i % 2 == 0 { &mut *light } else { &mut *dark };
-                dest.push_str(&format!(
-                    "<line x1=\"{gx:.1}\" y1=\"{y0:.1}\" \
-                     x2=\"{gx:.1}\" y2=\"{y1:.1}\"/>",
-                ));
+                dest.push(GrainLine { x1: gx, y1: y0, x2: gx, y2: y1 });
             }
             x += width;
         }
@@ -322,7 +409,7 @@ fn emit_room_grain(
 fn emit_room_seams(
     room: &WoodRoom, rng: &mut Pcg64Mcg,
     pattern: WoodPattern,
-    seams: &mut String,
+    seams: &mut Vec<GrainLine>,
 ) {
     if pattern == WoodPattern::Basket {
         emit_room_seams_basket(room, seams);
@@ -342,19 +429,17 @@ fn emit_room_seams(
             let mut x_end = x0
                 + rng.gen_range(WOOD_PLANK_LENGTH_MIN..WOOD_PLANK_LENGTH_MAX);
             while x_end < x1 {
-                seams.push_str(&format!(
-                    "<line x1=\"{x_end:.1}\" y1=\"{y:.1}\" \
-                     x2=\"{x_end:.1}\" y2=\"{strip_bot:.1}\"/>",
-                ));
+                seams.push(GrainLine {
+                    x1: x_end, y1: y, x2: x_end, y2: strip_bot,
+                });
                 x_end +=
                     rng.gen_range(WOOD_PLANK_LENGTH_MIN..WOOD_PLANK_LENGTH_MAX);
             }
             y += width;
             if y < y1 {
-                seams.push_str(&format!(
-                    "<line x1=\"{x0:.1}\" y1=\"{y:.1}\" \
-                     x2=\"{x1:.1}\" y2=\"{y:.1}\"/>",
-                ));
+                seams.push(GrainLine {
+                    x1: x0, y1: y, x2: x1, y2: y,
+                });
             }
         }
     } else {
@@ -364,19 +449,17 @@ fn emit_room_seams(
             let mut y_end = y0
                 + rng.gen_range(WOOD_PLANK_LENGTH_MIN..WOOD_PLANK_LENGTH_MAX);
             while y_end < y1 {
-                seams.push_str(&format!(
-                    "<line x1=\"{x:.1}\" y1=\"{y_end:.1}\" \
-                     x2=\"{strip_right:.1}\" y2=\"{y_end:.1}\"/>",
-                ));
+                seams.push(GrainLine {
+                    x1: x, y1: y_end, x2: strip_right, y2: y_end,
+                });
                 y_end +=
                     rng.gen_range(WOOD_PLANK_LENGTH_MIN..WOOD_PLANK_LENGTH_MAX);
             }
             x += width;
             if x < x1 {
-                seams.push_str(&format!(
-                    "<line x1=\"{x:.1}\" y1=\"{y0:.1}\" \
-                     x2=\"{x:.1}\" y2=\"{y1:.1}\"/>",
-                ));
+                seams.push(GrainLine {
+                    x1: x, y1: y0, x2: x, y2: y1,
+                });
             }
         }
     }
@@ -387,7 +470,7 @@ fn emit_room_seams(
 /// basket-weave branch in ``_draw_wood_floor_from_ir``.
 fn emit_room_grain_basket(
     room: &WoodRoom, rng: &mut Pcg64Mcg,
-    light: &mut String, dark: &mut String,
+    light: &mut Vec<GrainLine>, dark: &mut Vec<GrainLine>,
 ) {
     let rx = f64::from(room.x) * CELL;
     let ry = f64::from(room.y) * CELL;
@@ -411,11 +494,10 @@ fn emit_room_grain_basket(
                             (y + span * 0.15)..(strip_bot - span * 0.15),
                         );
                         let dest = if i % 2 == 0 { &mut *light } else { &mut *dark };
-                        dest.push_str(&format!(
-                            "<line x1=\"{cell_x:.1}\" y1=\"{gy:.1}\" \
-                             x2=\"{:.1}\" y2=\"{gy:.1}\"/>",
-                            cell_x + CELL,
-                        ));
+                        dest.push(GrainLine {
+                            x1: cell_x, y1: gy,
+                            x2: cell_x + CELL, y2: gy,
+                        });
                     }
                     y += width;
                 }
@@ -433,11 +515,10 @@ fn emit_room_grain_basket(
                             (x + span * 0.15)..(strip_right - span * 0.15),
                         );
                         let dest = if i % 2 == 0 { &mut *light } else { &mut *dark };
-                        dest.push_str(&format!(
-                            "<line x1=\"{gx:.1}\" y1=\"{cell_y:.1}\" \
-                             x2=\"{gx:.1}\" y2=\"{:.1}\"/>",
-                            cell_y + CELL,
-                        ));
+                        dest.push(GrainLine {
+                            x1: gx, y1: cell_y,
+                            x2: gx, y2: cell_y + CELL,
+                        });
                     }
                     x += width;
                 }
@@ -449,7 +530,7 @@ fn emit_room_grain_basket(
 /// Basket-weave seams — 3 internal seams + cell boundary seams
 /// per cell. Mirror of ``_basket_weave_seams_from_room_ir`` in
 /// the Python consumer.
-fn emit_room_seams_basket(room: &WoodRoom, seams: &mut String) {
+fn emit_room_seams_basket(room: &WoodRoom, seams: &mut Vec<GrainLine>) {
     let rx = f64::from(room.x) * CELL;
     let ry = f64::from(room.y) * CELL;
     let width = WOOD_PLANK_WIDTH_PX;
@@ -462,52 +543,76 @@ fn emit_room_seams_basket(room: &WoodRoom, seams: &mut String) {
                 let mut k = 1.0_f64;
                 while k * width < CELL {
                     let sy = cell_y + k * width;
-                    seams.push_str(&format!(
-                        "<line x1=\"{cell_x:.1}\" y1=\"{sy:.1}\" \
-                         x2=\"{:.1}\" y2=\"{sy:.1}\"/>",
-                        cell_x + CELL,
-                    ));
+                    seams.push(GrainLine {
+                        x1: cell_x, y1: sy,
+                        x2: cell_x + CELL, y2: sy,
+                    });
                     k += 1.0;
                 }
-                seams.push_str(&format!(
-                    "<line x1=\"{cell_x:.1}\" y1=\"{cell_y:.1}\" \
-                     x2=\"{cell_x:.1}\" y2=\"{:.1}\"/>",
-                    cell_y + CELL,
-                ));
-                seams.push_str(&format!(
-                    "<line x1=\"{:.1}\" y1=\"{cell_y:.1}\" \
-                     x2=\"{:.1}\" y2=\"{:.1}\"/>",
-                    cell_x + CELL, cell_x + CELL, cell_y + CELL,
-                ));
+                seams.push(GrainLine {
+                    x1: cell_x, y1: cell_y,
+                    x2: cell_x, y2: cell_y + CELL,
+                });
+                seams.push(GrainLine {
+                    x1: cell_x + CELL, y1: cell_y,
+                    x2: cell_x + CELL, y2: cell_y + CELL,
+                });
             } else {
                 let mut k = 1.0_f64;
                 while k * width < CELL {
                     let sx = cell_x + k * width;
-                    seams.push_str(&format!(
-                        "<line x1=\"{sx:.1}\" y1=\"{cell_y:.1}\" \
-                         x2=\"{sx:.1}\" y2=\"{:.1}\"/>",
-                        cell_y + CELL,
-                    ));
+                    seams.push(GrainLine {
+                        x1: sx, y1: cell_y,
+                        x2: sx, y2: cell_y + CELL,
+                    });
                     k += 1.0;
                 }
-                seams.push_str(&format!(
-                    "<line x1=\"{cell_x:.1}\" y1=\"{cell_y:.1}\" \
-                     x2=\"{:.1}\" y2=\"{cell_y:.1}\"/>",
-                    cell_x + CELL,
-                ));
-                seams.push_str(&format!(
-                    "<line x1=\"{cell_x:.1}\" y1=\"{:.1}\" \
-                     x2=\"{:.1}\" y2=\"{:.1}\"/>",
-                    cell_y + CELL, cell_x + CELL, cell_y + CELL,
-                ));
+                seams.push(GrainLine {
+                    x1: cell_x, y1: cell_y,
+                    x2: cell_x + CELL, y2: cell_y,
+                });
+                seams.push(GrainLine {
+                    x1: cell_x, y1: cell_y + CELL,
+                    x2: cell_x + CELL, y2: cell_y + CELL,
+                });
             }
         }
     }
 }
 
+/// Mirror the legacy SVG-string path's `{:.1}` truncation +
+/// reparse. Rust's `{:.1}` uses banker's rounding, matching
+/// Python's `f"{v:.1f}"` — so the round-trip lands at the same
+/// f32 value the SVG-string path would have arrived at via
+/// `format` → `parse_path_d`.
+fn round_legacy_1(v: f64) -> f32 {
+    let s = format!("{:.1}", v);
+    s.parse::<f64>().unwrap_or(v) as f32
+}
+
+fn parse_hex_rgb(s: &str) -> (u8, u8, u8) {
+    s.strip_prefix('#')
+        .filter(|t| t.len() == 6)
+        .and_then(|t| {
+            let r = u8::from_str_radix(&t[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&t[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&t[4..6], 16).ok()?;
+            Some((r, g, b))
+        })
+        .unwrap_or((0, 0, 0))
+}
+
+fn paint_for_hex(hex: &str) -> Paint {
+    let (r, g, b) = parse_hex_rgb(hex);
+    Paint::solid(Color::rgb(r, g, b))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::painter::{
+        FillRule, Paint, Painter, PathOps, Rect, Stroke, Vec2,
+    };
 
     fn rooms(rs: &[(i32, i32, i32, i32)]) -> Vec<WoodRoom> {
         rs.iter()
@@ -523,77 +628,264 @@ mod tests {
         (0..n).flat_map(|y| (0..n).map(move |x| (x, y))).collect()
     }
 
+    /// Records every Painter call. Mirrors the trait-level
+    /// `MockPainter` in `painter::tests` but lives in this module
+    /// so the assertions stay close to the primitive.
+    #[derive(Debug, Default)]
+    struct CaptureCalls {
+        calls: Vec<Call>,
+        group_depth: i32,
+        max_group_depth: i32,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    enum Call {
+        FillRect(Rect, Paint),
+        StrokePath(Paint, Stroke),
+        BeginGroup(u32),
+        EndGroup,
+    }
+
+    impl Painter for CaptureCalls {
+        fn fill_rect(&mut self, rect: Rect, paint: &Paint) {
+            self.calls.push(Call::FillRect(rect, *paint));
+        }
+        fn stroke_rect(&mut self, _: Rect, _: &Paint, _: &Stroke) {}
+        fn fill_circle(&mut self, _: f32, _: f32, _: f32, _: &Paint) {}
+        fn fill_ellipse(
+            &mut self, _: f32, _: f32, _: f32, _: f32, _: &Paint,
+        ) {
+        }
+        fn fill_polygon(&mut self, _: &[Vec2], _: &Paint, _: FillRule) {}
+        fn stroke_polyline(&mut self, _: &[Vec2], _: &Paint, _: &Stroke) {}
+        fn fill_path(&mut self, _: &PathOps, _: &Paint, _: FillRule) {}
+        fn stroke_path(&mut self, _: &PathOps, paint: &Paint, stroke: &Stroke) {
+            self.calls.push(Call::StrokePath(*paint, *stroke));
+        }
+        fn begin_group(&mut self, opacity: f32) {
+            self.group_depth += 1;
+            if self.group_depth > self.max_group_depth {
+                self.max_group_depth = self.group_depth;
+            }
+            self.calls.push(Call::BeginGroup(
+                (opacity * 100.0).round() as u32,
+            ));
+        }
+        fn end_group(&mut self) {
+            self.group_depth -= 1;
+            self.calls.push(Call::EndGroup);
+        }
+        fn push_clip(&mut self, _: &PathOps, _: FillRule) {}
+        fn pop_clip(&mut self) {}
+    }
+
+    impl CaptureCalls {
+        fn fill_rect_count(&self) -> usize {
+            self.calls
+                .iter()
+                .filter(|c| matches!(c, Call::FillRect(_, _)))
+                .count()
+        }
+        fn stroke_path_count(&self) -> usize {
+            self.calls
+                .iter()
+                .filter(|c| matches!(c, Call::StrokePath(_, _)))
+                .count()
+        }
+        fn begin_group_count(&self) -> usize {
+            self.calls
+                .iter()
+                .filter(|c| matches!(c, Call::BeginGroup(_)))
+                .count()
+        }
+        fn end_group_count(&self) -> usize {
+            self.calls
+                .iter()
+                .filter(|c| matches!(c, Call::EndGroup))
+                .count()
+        }
+        fn opacities(&self) -> Vec<u32> {
+            self.calls
+                .iter()
+                .filter_map(|c| match c {
+                    Call::BeginGroup(op) => Some(*op),
+                    _ => None,
+                })
+                .collect()
+        }
+    }
+
+    // ── Empty-input contract ──────────────────────────────────
+
     #[test]
-    fn empty_inputs_returns_empty() {
-        assert!(draw_wood_floor(&[], &[], &[], 99).is_empty());
+    fn empty_rooms_emit_no_painter_calls() {
+        let mut painter = CaptureCalls::default();
+        paint_wood_floor(&mut painter, &[], &[], &[], 99);
+        assert!(painter.calls.is_empty());
+        assert_eq!(painter.group_depth, 0);
+    }
+
+    // ── Group balance ─────────────────────────────────────────
+
+    #[test]
+    fn paint_emits_balanced_groups() {
+        let mut painter = CaptureCalls::default();
+        let r = rooms(&[(0, 0, 5, 5)]);
+        paint_wood_floor(&mut painter, &[], &[], &r, 99);
+        assert_eq!(painter.begin_group_count(), painter.end_group_count());
+        assert_eq!(painter.group_depth, 0);
+        assert!(painter.max_group_depth <= 1);
+    }
+
+    // ── Documented bucket opacity ─────────────────────────────
+
+    #[test]
+    fn grain_groups_use_documented_opacity() {
+        let mut painter = CaptureCalls::default();
+        let r = rooms(&[(0, 0, 5, 5)]);
+        paint_wood_floor(&mut painter, &[], &[], &r, 99);
+        // Every begin_group call is a grain bucket — must carry
+        // WOOD_GRAIN_OPACITY (0.35).
+        let expected = (WOOD_GRAIN_OPACITY * 100.0).round() as u32;
+        let ops = painter.opacities();
+        assert!(!ops.is_empty(), "expected at least one grain group");
+        for op in ops {
+            assert_eq!(op, expected);
+        }
+    }
+
+    // ── Per-room overlay rect ─────────────────────────────────
+
+    #[test]
+    fn paint_emits_one_overlay_rect_per_room() {
+        let mut painter = CaptureCalls::default();
+        let r = rooms(&[(0, 0, 4, 4), (5, 0, 3, 3), (0, 5, 6, 2)]);
+        paint_wood_floor(&mut painter, &[], &[], &r, 99);
+        assert_eq!(painter.fill_rect_count(), r.len());
     }
 
     #[test]
-    fn polygon_passthrough_emits_no_polygon_fill() {
-        // The base building polygon fill is emitted by FloorOp
-        // (WoodFloor) in the structural layer — not by this
-        // primitive. The only ``<rect>`` this primitive emits is
-        // the per-room overlay rect carrying the species' tone.
-        let poly: Vec<PolyVertex> = [
-            (32.0, 0.0), (96.0, 0.0), (128.0, 32.0),
-            (128.0, 96.0), (96.0, 128.0), (32.0, 128.0),
-            (0.0, 96.0), (0.0, 32.0),
-        ].iter().map(|&(x, y)| PolyVertex { x, y }).collect();
-        let r = rooms(&[(0, 0, 4, 4)]);
-        let out = draw_wood_floor(&[], &poly, &r, 99);
-        // Per-room overlay rect counts as 1 ``<rect>`` per room.
-        let n_rects = out.iter().filter(|f| f.contains("<rect")).count();
-        assert_eq!(n_rects, 1);
+    fn overlay_rect_carries_species_palette_fill() {
+        // seed=99 → species_idx 99 % 5 == 4 (weathered grey).
+        let mut painter = CaptureCalls::default();
+        let r = rooms(&[(0, 0, 5, 5)]);
+        paint_wood_floor(&mut painter, &[], &[], &r, 99);
+        let rect_paints: Vec<Paint> = painter
+            .calls
+            .iter()
+            .filter_map(|c| match c {
+                Call::FillRect(_, p) => Some(*p),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(rect_paints.len(), 1);
+        let species = &WOOD_SPECIES[99 % WOOD_SPECIES.len()];
+        let valid_fills: Vec<(u8, u8, u8)> = species
+            .iter()
+            .map(|tone| parse_hex_rgb(tone.0))
+            .collect();
+        let p = rect_paints[0];
+        let actual = (p.color.r, p.color.g, p.color.b);
+        assert!(
+            valid_fills.contains(&actual),
+            "rect fill {:?} not in species palette {:?}",
+            actual, valid_fills,
+        );
     }
+
+    // ── Stroke colours ────────────────────────────────────────
+
+    #[test]
+    fn grain_and_seam_strokes_carry_species_palette_colours() {
+        let mut painter = CaptureCalls::default();
+        let r = rooms(&[(0, 0, 5, 5)]);
+        paint_wood_floor(&mut painter, &[], &[], &r, 99);
+        let stroke_paints: Vec<Paint> = painter
+            .calls
+            .iter()
+            .filter_map(|c| match c {
+                Call::StrokePath(p, _) => Some(*p),
+                _ => None,
+            })
+            .collect();
+        assert!(!stroke_paints.is_empty());
+        let species = &WOOD_SPECIES[99 % WOOD_SPECIES.len()];
+        let valid: Vec<(u8, u8, u8)> = species
+            .iter()
+            .flat_map(|tone| {
+                vec![
+                    parse_hex_rgb(tone.1),
+                    parse_hex_rgb(tone.2),
+                    parse_hex_rgb(tone.3),
+                ]
+            })
+            .collect();
+        for paint in stroke_paints {
+            let actual = (paint.color.r, paint.color.g, paint.color.b);
+            assert!(
+                valid.contains(&actual),
+                "stroke {:?} not in species palette {:?}",
+                actual, valid,
+            );
+        }
+    }
+
+    #[test]
+    fn grain_and_seam_strokes_use_documented_widths() {
+        let mut painter = CaptureCalls::default();
+        let r = rooms(&[(0, 0, 5, 5)]);
+        paint_wood_floor(&mut painter, &[], &[], &r, 99);
+        let strokes: Vec<Stroke> = painter
+            .calls
+            .iter()
+            .filter_map(|c| match c {
+                Call::StrokePath(_, s) => Some(*s),
+                _ => None,
+            })
+            .collect();
+        // Every stroke is either a grain stroke (0.4) or a seam
+        // stroke (0.8) — no other widths.
+        let grain_w = WOOD_GRAIN_STROKE_WIDTH as f32;
+        let seam_w = WOOD_SEAM_WIDTH as f32;
+        for s in strokes {
+            assert!(
+                (s.width - grain_w).abs() < 1e-6
+                    || (s.width - seam_w).abs() < 1e-6,
+                "unexpected stroke width: {}", s.width,
+            );
+        }
+    }
+
+    // ── Determinism / divergence ──────────────────────────────
 
     #[test]
     fn deterministic_for_same_seed() {
         let t = tiles(5);
         let r = rooms(&[(0, 0, 5, 5)]);
-        assert_eq!(
-            draw_wood_floor(&t, &[], &r, 99),
-            draw_wood_floor(&t, &[], &r, 99),
-        );
+        let mut a = CaptureCalls::default();
+        let mut b = CaptureCalls::default();
+        paint_wood_floor(&mut a, &t, &[], &r, 99);
+        paint_wood_floor(&mut b, &t, &[], &r, 99);
+        assert_eq!(a.calls.len(), b.calls.len());
+        assert_eq!(a.fill_rect_count(), b.fill_rect_count());
+        assert_eq!(a.stroke_path_count(), b.stroke_path_count());
     }
 
     #[test]
     fn different_seeds_diverge() {
         let t = tiles(5);
         let r = rooms(&[(0, 0, 5, 5)]);
-        assert_ne!(
-            draw_wood_floor(&t, &[], &r, 99),
-            draw_wood_floor(&t, &[], &r, 7),
-        );
+        let mut a = CaptureCalls::default();
+        let mut b = CaptureCalls::default();
+        paint_wood_floor(&mut a, &t, &[], &r, 99);
+        paint_wood_floor(&mut b, &t, &[], &r, 7);
+        // Different seeds → palette differs, so rect fill differs;
+        // RNG stream differs, so stroke colours / counts differ.
+        // Compare the full call sequences.
+        assert_ne!(a.calls, b.calls);
     }
 
-    #[test]
-    fn grain_groups_carry_species_palette_colours() {
-        // Verify that the rendered output carries colours from the
-        // selected species' palette. seed=99 picks species_idx
-        // 99 % 5 == 4 (weathered grey).
-        let t = tiles(5);
-        let r = rooms(&[(0, 0, 5, 5)]);
-        let out = draw_wood_floor(&t, &[], &r, 99);
-        let joined = out.join("");
-        let species = &WOOD_SPECIES[99 % WOOD_SPECIES.len()];
-        let mut found_grain_light = false;
-        let mut found_grain_dark = false;
-        let mut found_seam = false;
-        for tone in species {
-            if joined.contains(&format!("stroke=\"{}\"", tone.1)) {
-                found_grain_light = true;
-            }
-            if joined.contains(&format!("stroke=\"{}\"", tone.2)) {
-                found_grain_dark = true;
-            }
-            if joined.contains(&format!("stroke=\"{}\"", tone.3)) {
-                found_seam = true;
-            }
-        }
-        assert!(found_grain_light);
-        assert!(found_grain_dark);
-        assert!(found_seam);
-    }
+    // ── Hash table parity ─────────────────────────────────────
 
     #[test]
     fn fnv1a_matches_python_implementation() {

@@ -1,17 +1,21 @@
 //! Floor-detail op rasterisation — Phase 5.3.2 of
 //! `plans/nhc_ir_migration_plan.md`, with the wood-floor short-
-//! circuit ported in Phase 9.2c, and the floor-detail-proper path
+//! circuit ported in Phase 9.2c, the floor-detail-proper path
 //! migrated to the Painter trait in Phase 2.10 of
-//! `plans/nhc_pure_ir_plan.md`.
+//! `plans/nhc_pure_ir_plan.md`, and the wood-floor short-circuit
+//! ported to the Painter trait in Phase 2.15a.
 //!
 //! Mirrors `_draw_floor_detail_from_ir`. Two modes:
 //!
 //! - Wood-floor short-circuit (`wood_tiles` / `wood_rooms` /
 //!   `wood_building_polygon` populated) — dispatch through
-//!   `primitives::wood_floor::draw_wood_floor` and paint with the
-//!   dungeon-poly clip mask applied uniformly. Stays on the
-//!   `paint_fragments` SVG-string round-trip until 2.15 ports the
-//!   `wood_floor` primitive to the Painter trait.
+//!   `primitives::wood_floor::paint_wood_floor` against a
+//!   `SkiaPainter`. The dungeon-interior outline (when present)
+//!   and the building polygon are pushed onto the painter's clip
+//!   stack as `PathOps`; nested `push_clip` calls intersect, so
+//!   the grain + seam strokes paint inside `dungeon ∩ building`
+//!   without bleeding past the chamfered corners of octagon /
+//!   circle / L-shape buildings.
 //! - Otherwise: floor-detail-proper (`tiles` + `is_corridor` +
 //!   `seed` + `theme` + `macabre`) flows through
 //!   `primitives::floor_detail::floor_detail_shapes` to produce
@@ -28,14 +32,14 @@
 //!
 //! Bucket compositing: the legacy SVG output wraps each non-empty
 //! bucket in `<g opacity="…">` (`0.5` cracks, `0.45` scratches,
-//! `0.8` stones). Pre-2.10 the PNG handler dispatched to
+//! `0.8` stones for floor-detail-proper; `0.35` grain for
+//! wood-floor). Pre-2.10 the PNG handler dispatched to
 //! `paint_fragments`, which routes each `<g opacity>` envelope
 //! through `paint_offscreen_group` (Phase 5.10's offscreen-buffer
-//! composite). Phase 2.10 lifts that into the Painter trait via
-//! `SkiaPainter::begin_group` / `end_group` so the SVG-string
-//! round-trip is no longer needed for floor-detail-proper.
-
-use tiny_skia::{FillRule as SkFillRule, Mask, PathBuilder};
+//! composite). Phases 2.10 / 2.15a lift that into the Painter
+//! trait via `SkiaPainter::begin_group` / `end_group` so the
+//! SVG-string round-trip is no longer needed for either path —
+//! the `paint_fragments` import is gone.
 
 use crate::ir::{FloorDetailOp, FloorIR, OpEntry, Outline};
 use crate::painter::{FillRule, PathOps, Painter, SkiaPainter, Vec2};
@@ -43,11 +47,9 @@ use crate::primitives::floor_detail::{
     floor_detail_shapes, paint_floor_detail_side,
 };
 use crate::primitives::wood_floor::{
-    draw_wood_floor, PolyVertex, WoodRoom,
+    paint_wood_floor, PolyVertex, WoodRoom,
 };
 
-use super::fragment::paint_fragments;
-use super::polygon_path::build_outline_path;
 use super::RasterCtx;
 
 pub(super) fn draw(
@@ -60,11 +62,10 @@ pub(super) fn draw(
         None => return,
     };
 
-    // Wood-floor short-circuit (Phase 9.2c). When any of the
-    // structured fields is populated, dispatch through the
-    // `wood_floor` primitive and short-circuit the regular
-    // floor-detail flow. Stays on the `paint_fragments` SVG path
-    // until Phase 2.15 ports `wood_floor` to the Painter trait.
+    // Wood-floor short-circuit (Phase 9.2c, ported to the
+    // Painter trait in Phase 2.15a). When any of the structured
+    // fields is populated, dispatch through the `wood_floor`
+    // primitive and short-circuit the regular floor-detail flow.
     let wood_rooms: Vec<WoodRoom> = op
         .wood_rooms()
         .map(|v| {
@@ -98,17 +99,37 @@ pub(super) fn draw(
         || !wood_tiles.is_empty()
         || !wood_polygon.is_empty()
     {
-        let frags = draw_wood_floor(
-            &wood_tiles, &wood_polygon, &wood_rooms, op.seed(),
-        );
         // The wood base fill now lives in WallsAndFloorsOp
-        // (structural layer); this op only paints grain + seam
-        // strokes. Clip them to the building polygon so they
-        // don't bleed past the chamfered / curved corners of
-        // octagon / circle / L-shape buildings, intersected
-        // with the dungeon clip when both are present.
-        let clip_mask = build_wood_clip_mask(&op, fir, &wood_polygon, ctx);
-        paint_fragments(&frags, 1.0, clip_mask.as_ref(), ctx);
+        // (structural layer); this op only paints the per-room
+        // overlay rect, the grain + seam strokes. Clip them to
+        // the building polygon so they don't bleed past the
+        // chamfered / curved corners of octagon / circle /
+        // L-shape buildings, intersected with the dungeon clip
+        // when both are present.
+        let dungeon_clip = build_clip_pathops(&op, fir);
+        let building_clip = polygon_to_pathops(&wood_polygon);
+
+        let mut painter =
+            SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+
+        // Push dungeon clip first (when present), then the
+        // building polygon — push_clip intersects with the
+        // current top, so the result is `dungeon ∩ building`.
+        let mut pushed = 0;
+        if let Some(clip) = dungeon_clip.as_ref() {
+            painter.push_clip(clip, FillRule::EvenOdd);
+            pushed += 1;
+        }
+        if let Some(clip) = building_clip.as_ref() {
+            painter.push_clip(clip, FillRule::EvenOdd);
+            pushed += 1;
+        }
+        paint_wood_floor(
+            &mut painter, &wood_tiles, &wood_polygon, &wood_rooms, op.seed(),
+        );
+        for _ in 0..pushed {
+            painter.pop_clip();
+        }
         return;
     }
 
@@ -206,58 +227,21 @@ fn outline_to_pathops(outline: &Outline<'_>) -> Option<PathOps> {
     Some(path)
 }
 
-/// Wood-floor clip mask: building polygon intersected with the
-/// dungeon clip when both are present. The grain + seam strokes
-/// from `draw_wood_floor` are bbox-aligned to each room rect, so
-/// without this mask they bleed past the chamfered corners of
-/// octagon / circle / L-shape building footprints.
-///
-/// Used only by the wood-floor short-circuit path which still
-/// dispatches through `paint_fragments` (the legacy SVG-string
-/// route). Phase 2.15 will port that dispatch to the Painter
-/// trait too.
-fn build_wood_clip_mask(
-    op: &FloorDetailOp<'_>,
-    fir: &FloorIR<'_>,
-    polygon: &[PolyVertex],
-    ctx: &RasterCtx<'_>,
-) -> Option<Mask> {
-    let dungeon = build_dungeon_mask(op, fir, ctx);
+/// Build a `PathOps` clip from the wood-floor's building polygon.
+/// Returns `None` when the polygon has fewer than 3 vertices —
+/// the caller drops that clip layer and falls back to the
+/// dungeon clip alone (matching the legacy `build_wood_clip_mask`
+/// short-circuit).
+fn polygon_to_pathops(polygon: &[PolyVertex]) -> Option<PathOps> {
     if polygon.len() < 3 {
-        return dungeon;
+        return None;
     }
-    let mut pb = PathBuilder::new();
+    let mut path = PathOps::new();
     let first = polygon[0];
-    pb.move_to(first.x as f32, first.y as f32);
+    path.move_to(Vec2::new(first.x as f32, first.y as f32));
     for v in &polygon[1..] {
-        pb.line_to(v.x as f32, v.y as f32);
+        path.line_to(Vec2::new(v.x as f32, v.y as f32));
     }
-    pb.close();
-    let bldg_path = pb.finish()?;
-    if let Some(mut mask) = dungeon {
-        // Mask::intersect_path keeps only the pixels inside the
-        // building polygon AND the dungeon clip mask.
-        mask.intersect_path(
-            &bldg_path, SkFillRule::EvenOdd, true, ctx.transform,
-        );
-        return Some(mask);
-    }
-    let mut mask = Mask::new(ctx.pixmap.width(), ctx.pixmap.height())?;
-    mask.fill_path(&bldg_path, SkFillRule::EvenOdd, true, ctx.transform);
-    Some(mask)
-}
-
-fn build_dungeon_mask(
-    op: &FloorDetailOp<'_>,
-    fir: &FloorIR<'_>,
-    ctx: &RasterCtx<'_>,
-) -> Option<Mask> {
-    let region_id = op.region_ref().filter(|r| !r.is_empty())?;
-    let regions = fir.regions()?;
-    let region = regions.iter().find(|r| r.id() == region_id)?;
-    let outline = region.outline()?;
-    let path = build_outline_path(&outline)?;
-    let mut mask = Mask::new(ctx.pixmap.width(), ctx.pixmap.height())?;
-    mask.fill_path(&path, SkFillRule::EvenOdd, true, ctx.transform);
-    Some(mask)
+    path.close();
+    Some(path)
 }
