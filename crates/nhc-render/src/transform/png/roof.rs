@@ -167,9 +167,51 @@ fn draw_shingle_region(
     rng: &mut RoofRng,
     mask: Option<&Mask>,
     ctx: &mut RasterCtx<'_>,
+    vertical_courses: bool,
 ) {
     let stroke = shingle_stroke();
     let stroke_paint = rgb_paint((0, 0, 0), SHINGLE_STROKE_OPACITY);
+    if vertical_courses {
+        // Transposed layout — columns instead of rows; long axis
+        // vertical. Used for horizontal-ridge gables so the
+        // courses run perpendicular to the ridge. Mirror of the
+        // Python ``_roof_shingle_region(vertical_courses=True)``
+        // branch.
+        let mut col = 0;
+        let mut cx = x;
+        while cx < x + w {
+            let mut sy = if col % 2 == 1 { y - SHINGLE_WIDTH / 2.0 } else { y };
+            while sy < y + h {
+                let sw_j = SHINGLE_WIDTH + rng.uniform(-SHINGLE_JITTER, SHINGLE_JITTER);
+                let shade = *rng.choice(shades);
+                let vy = sy.max(y);
+                let vb = (sy + sw_j).min(y + h);
+                let vh = vb - vy;
+                if vh > 0.0 {
+                    if let Some(rect) = Rect::from_xywh(cx, vy, SHINGLE_HEIGHT, vh) {
+                        let fill = rgb_paint(shade, 1.0);
+                        ctx.pixmap.fill_rect(rect, &fill, ctx.transform, mask);
+                        let mut pb = PathBuilder::new();
+                        pb.move_to(cx, vy);
+                        pb.line_to(cx + SHINGLE_HEIGHT, vy);
+                        pb.line_to(cx + SHINGLE_HEIGHT, vy + vh);
+                        pb.line_to(cx, vy + vh);
+                        pb.close();
+                        if let Some(path) = pb.finish() {
+                            ctx.pixmap.stroke_path(
+                                &path, &stroke_paint, &stroke,
+                                ctx.transform, mask,
+                            );
+                        }
+                    }
+                }
+                sy += sw_j;
+            }
+            cx += SHINGLE_HEIGHT;
+            col += 1;
+        }
+        return;
+    }
     let mut row = 0;
     let mut cy = y;
     while cy < y + h {
@@ -188,8 +230,6 @@ fn draw_shingle_region(
                 if let Some(rect) = Rect::from_xywh(vx, cy, vw, SHINGLE_HEIGHT) {
                     let fill = rgb_paint(shade, 1.0);
                     ctx.pixmap.fill_rect(rect, &fill, ctx.transform, mask);
-                    // Stroke around the shingle — tiny-skia has no
-                    // stroke_rect, so build a 4-segment path.
                     let mut pb = PathBuilder::new();
                     pb.move_to(vx, cy);
                     pb.line_to(vx + vw, cy);
@@ -223,9 +263,11 @@ fn draw_gable_sides(
     let ridge_paint = rgb_paint((0, 0, 0), 1.0);
     let stroke = ridge_stroke();
     if horizontal {
-        draw_shingle_region(px, py, pw, ph / 2.0, shadow, rng, mask, ctx);
+        // Horizontal ridge — vertical courses (long axis runs
+        // perpendicular to the ridge).
+        draw_shingle_region(px, py, pw, ph / 2.0, shadow, rng, mask, ctx, true);
         draw_shingle_region(
-            px, py + ph / 2.0, pw, ph / 2.0, sunlit, rng, mask, ctx,
+            px, py + ph / 2.0, pw, ph / 2.0, sunlit, rng, mask, ctx, true,
         );
         let mut pb = PathBuilder::new();
         pb.move_to(px, py + ph / 2.0);
@@ -236,9 +278,10 @@ fn draw_gable_sides(
             );
         }
     } else {
-        draw_shingle_region(px, py, pw / 2.0, ph, shadow, rng, mask, ctx);
+        // Vertical ridge — horizontal courses (default).
+        draw_shingle_region(px, py, pw / 2.0, ph, shadow, rng, mask, ctx, false);
         draw_shingle_region(
-            px + pw / 2.0, py, pw / 2.0, ph, sunlit, rng, mask, ctx,
+            px + pw / 2.0, py, pw / 2.0, ph, sunlit, rng, mask, ctx, false,
         );
         let mut pb = PathBuilder::new();
         pb.move_to(px + pw / 2.0, py);

@@ -1889,20 +1889,54 @@ def _roof_shade_palette(tint: str, *, sunlit: bool) -> list[str]:
 def _roof_shingle_region(
     x: float, y: float, w: float, h: float,
     shades: list[str], rng: _SplitMix64,
+    *, vertical_courses: bool = False,
 ) -> list[str]:
     """Running-bond rows of shingle rects filling a bounding box.
 
-    Each shingle's drawn width is clamped to ``[x, x + w]`` so the
-    last shingle of a row never bleeds past the region's right edge
-    and odd rows' running-bond offset shingle (which starts at
-    ``x - sw / 2``) is trimmed at the left edge. Without the clamp,
-    gable roofs with a vertical ridge show shadow shingles crossing
-    the ridge into the sunlit side (and vice versa).
+    Each shingle's drawn rect is clamped to ``[x, x + w] × [y, y +
+    h]`` so it never bleeds past the region's edges. Without the
+    clamp, gable roofs show shadow shingles crossing the ridge into
+    the sunlit side (and vice versa).
+
+    By default shingles lay in *horizontal* courses (rows running
+    left-right, long axis horizontal) — correct when the ridge is
+    vertical (shingles run perpendicular to the ridge, parallel to
+    the eaves on the left + right).
+
+    When ``vertical_courses=True``, the layout transposes: columns
+    run top-down with the running-bond offset on alternate columns
+    (``y`` instead of ``x``), and each shingle's drawn rect is
+    ``sh × sw_j`` (long axis vertical). Used for horizontal-ridge
+    gables so the courses run perpendicular to the ridge.
     """
     sw = _ROOF_SHINGLE_WIDTH
     sh = _ROOF_SHINGLE_HEIGHT
     jitter = _ROOF_SHINGLE_JITTER
     frags: list[str] = []
+    if vertical_courses:
+        col = 0
+        cx = x
+        while cx < x + w:
+            sy = y - (sw / 2 if col % 2 else 0)
+            while sy < y + h:
+                sw_j = sw + rng.uniform(-jitter, jitter)
+                shade = rng.choice(shades)
+                vy = max(sy, y)
+                vb = min(sy + sw_j, y + h)
+                vh = vb - vy
+                if vh > 0:
+                    frags.append(
+                        f'<rect x="{cx:.1f}" y="{vy:.1f}" '
+                        f'width="{sh:.1f}" height="{vh:.1f}" '
+                        f'fill="{shade}" '
+                        f'stroke="{_ROOF_SHINGLE_STROKE}" '
+                        f'stroke-opacity="{_ROOF_SHINGLE_STROKE_OPACITY}" '
+                        f'stroke-width="{_ROOF_SHINGLE_STROKE_WIDTH}"/>'
+                    )
+                sy += sw_j
+            cx += sh
+            col += 1
+        return frags
     row = 0
     cy = y
     while cy < y + h:
@@ -1910,7 +1944,6 @@ def _roof_shingle_region(
         while sx < x + w:
             sw_j = sw + rng.uniform(-jitter, jitter)
             shade = rng.choice(shades)
-            # Clamp the shingle to the region bbox.
             vx = max(sx, x)
             vr = min(sx + sw_j, x + w)
             vw = vr - vx
@@ -1937,11 +1970,16 @@ def _roof_gable_sides(
 ) -> list[str]:
     frags: list[str] = []
     if horizontal:
+        # Horizontal ridge — shingles laid in vertical courses so
+        # their long axis runs perpendicular to the ridge (i.e.
+        # parallel to the rake / down-slope direction).
         frags.extend(_roof_shingle_region(
             px, py, pw, ph / 2, shadow_shades, rng,
+            vertical_courses=True,
         ))
         frags.extend(_roof_shingle_region(
             px, py + ph / 2, pw, ph / 2, sunlit_shades, rng,
+            vertical_courses=True,
         ))
         frags.append(
             f'<line x1="{px:.1f}" y1="{py + ph / 2:.1f}" '
@@ -1950,6 +1988,9 @@ def _roof_gable_sides(
             f'stroke-width="{_ROOF_RIDGE_WIDTH}"/>'
         )
     else:
+        # Vertical ridge — shingles laid in horizontal courses
+        # (default) so their long axis runs perpendicular to the
+        # ridge.
         frags.extend(_roof_shingle_region(
             px, py, pw / 2, ph, shadow_shades, rng,
         ))
