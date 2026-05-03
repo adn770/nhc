@@ -15,8 +15,19 @@
 //! - 5.4.5 Field Stone — 10 % per-tile probabilistic ellipse.
 //! - 5.4.6 Cart Tracks — paired rails + cross-tie per tile.
 //! - 5.4.7 Ore Deposit — diamond glint per ore-deposit wall tile.
+//!
+//! Phase 2.13a of `plans/nhc_pure_ir_plan.md` ports the
+//! cobblestone branch to the Painter trait. The remaining six
+//! sub-handlers stay on the legacy `paint_fragments` SVG-string
+//! path until their respective 2.13b–2.13g commits land. To
+//! coexist without conflicting `&mut Pixmap` borrows, the
+//! `SkiaPainter` is constructed inside a scoped block around the
+//! ported variant only — the legacy sub-handlers run AFTER the
+//! painter drops, so their `RasterCtx`-based `&mut Pixmap` borrows
+//! are unaffected.
 
 use crate::ir::{DecoratorOp, FloorIR, OpEntry};
+use crate::painter::SkiaPainter;
 use crate::primitives;
 
 use super::fragment::paint_fragments;
@@ -33,7 +44,17 @@ pub(super) fn draw(
     };
     let seed = op.seed();
 
-    draw_cobblestone(&op, seed, ctx);
+    // Painter-trait ports (Phase 2.13a–g land one branch at a
+    // time). Scope the SkiaPainter to a block so its `&mut Pixmap`
+    // borrow drops before the legacy sub-handlers run.
+    {
+        let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+        paint_cobblestone(&op, seed, &mut painter);
+    }
+
+    // Legacy `paint_fragments` sub-handlers. These will port to
+    // the Painter trait one at a time in 2.13b–g; until each ships,
+    // they own the `&mut Pixmap` via `RasterCtx` directly.
     draw_brick(&op, seed, ctx);
     draw_flagstone(&op, seed, ctx);
     draw_opus_romano(&op, seed, ctx);
@@ -42,7 +63,11 @@ pub(super) fn draw(
     draw_ore_deposit(&op, seed, ctx);
 }
 
-fn draw_cobblestone(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
+fn paint_cobblestone(
+    op: &DecoratorOp<'_>,
+    seed: u64,
+    painter: &mut SkiaPainter<'_>,
+) {
     let variants = match op.cobblestone() {
         Some(v) => v,
         None => return,
@@ -55,8 +80,7 @@ fn draw_cobblestone(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
         if tiles.is_empty() {
             continue;
         }
-        let frags = primitives::cobblestone::draw_cobblestone(&tiles, seed);
-        paint_fragments(&frags, 1.0, None, ctx);
+        primitives::cobblestone::paint_cobblestone(painter, &tiles, seed);
     }
 }
 
