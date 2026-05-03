@@ -1,33 +1,40 @@
 //! FloorOp rasterisation — Phase 1.17 / 1.18 of
-//! `plans/nhc_pure_ir_plan.md`.
+//! `plans/nhc_pure_ir_plan.md`, ported to the Painter trait in
+//! Phase 2.15f (the LAST of four v4-op handler ports —
+//! interior_wall_op 2.15c, corridor_wall_op 2.15d,
+//! exterior_wall_op 2.15e, floor_op 2.15f).
 //!
 //! Reads `FloorOp.outline` + `FloorOp.style` from the IR and
-//! fills via tiny-skia primitives.
+//! fills via the [`Painter`] trait.
 //!
 //! Dispatch by `outline.descriptor_kind`:
 //! - `Polygon` + `DungeonFloor`: walk `outline.vertices`, build a
-//!   filled path (white floor colour, `FillRule::Winding`).
+//!   filled `PathOps` (white floor colour, `FillRule::Winding` —
+//!   or `FillRule::EvenOdd` when the outline carries multiple rings,
+//!   to punch interior holes for annular corridor wraps).
 //! - `Polygon` + `CaveFloor`: Phase 1.18 — runs the real cave
 //!   geometry pipeline (`cave_path_from_outline`) reading
 //!   `FloorOp.outline.vertices`. The 1.17 provisional bridge that
 //!   read the legacy `cave_region` SVG-path string is retired here.
 //!   Phase 1.19 (stop legacy emit) is now unblocked for cave geometry.
-//! - `Circle`: tiny-skia `PathBuilder::push_oval` centered on
-//!   `(cx, cy)` with radius `rx`.
-//! - `Pill`: tiny-skia `PathBuilder::push_rounded_rect` covering
-//!   `[cx-rx, cy-ry, 2*rx, 2*ry]` with corner radius `min(rx,ry)`.
+//! - `Circle`: `Painter::fill_ellipse` centred on `(cx, cy)` with
+//!   `(rx, ry) = (r, r)`.
+//! - `Pill`: SVG-equivalent rounded rect built from a `PathOps`
+//!   ladder (cubic-Bézier KAPPA ≈ 0.5523 corners), filled via
+//!   `Painter::fill_path`.
 //!
 //! The `walls_and_floors.rs` legacy floor pass is gated off when
 //! FloorOps are present: `draw_corridor_tiles`, `draw_rect_rooms`,
 //! and `draw_cave_region` are all suppressed. Wall passes are gated
 //! off by Phase 1.18 wall-op handlers (see `exterior_wall_op.rs`).
 
-use tiny_skia::{Color, FillRule, Paint, PathBuilder, Rect};
-
 use crate::geometry::cave_path_from_outline;
 use crate::ir::{FloorIR, FloorStyle, Op, OpEntry, OutlineKind};
+use crate::painter::{
+    Color, FillRule, Paint, Painter, PathOps, SkiaPainter, Vec2,
+};
 
-use super::path_parser::parse_path_d;
+use super::path_parser::parse_path_d_pathops;
 use super::RasterCtx;
 
 // Colour constants — match the existing palette in
@@ -45,35 +52,16 @@ const WOOD_FLOOR_R: u8 = 0xB5;
 const WOOD_FLOOR_G: u8 = 0x8B;
 const WOOD_FLOOR_B: u8 = 0x5A;
 
-fn dungeon_floor_paint() -> Paint<'static> {
-    let mut p = Paint::default();
-    p.set_color(Color::from_rgba8(FLOOR_R, FLOOR_G, FLOOR_B, 0xFF));
-    p.anti_alias = true;
-    p
+fn dungeon_floor_paint() -> Paint {
+    Paint::solid(Color::rgba(FLOOR_R, FLOOR_G, FLOOR_B, 1.0))
 }
 
-fn cave_floor_paint() -> Paint<'static> {
-    let mut p = Paint::default();
-    p.set_color(Color::from_rgba8(
-        CAVE_FLOOR_R,
-        CAVE_FLOOR_G,
-        CAVE_FLOOR_B,
-        0xFF,
-    ));
-    p.anti_alias = true;
-    p
+fn cave_floor_paint() -> Paint {
+    Paint::solid(Color::rgba(CAVE_FLOOR_R, CAVE_FLOOR_G, CAVE_FLOOR_B, 1.0))
 }
 
-fn wood_floor_paint() -> Paint<'static> {
-    let mut p = Paint::default();
-    p.set_color(Color::from_rgba8(
-        WOOD_FLOOR_R,
-        WOOD_FLOOR_G,
-        WOOD_FLOOR_B,
-        0xFF,
-    ));
-    p.anti_alias = true;
-    p
+fn wood_floor_paint() -> Paint {
+    Paint::solid(Color::rgba(WOOD_FLOOR_R, WOOD_FLOOR_G, WOOD_FLOOR_B, 1.0))
 }
 
 /// Return `true` if the IR contains any `FloorOp` entries.
@@ -130,14 +118,20 @@ pub(super) fn draw(
         None => return,
     };
     let style = op.style();
+    // Construct the painter once at the dispatch entry; every
+    // descriptor branch drives it through `&mut dyn Painter` so the
+    // Phase 2.16 SVG branch can swap impls without touching this
+    // file again.
+    let mut painter =
+        SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
     match outline.descriptor_kind() {
-        OutlineKind::Circle => draw_circle(&outline, style, ctx),
-        OutlineKind::Pill => draw_pill(&outline, style, ctx),
+        OutlineKind::Circle => draw_circle(&outline, style, &mut painter),
+        OutlineKind::Pill => draw_pill(&outline, style, &mut painter),
         OutlineKind::Polygon => {
             if style == FloorStyle::CaveFloor {
-                draw_cave_floor(&outline, fir, ctx);
+                draw_cave_floor(&outline, fir, &mut painter);
             } else {
-                draw_polygon(&outline, style, ctx);
+                draw_polygon(&outline, style, &mut painter);
             }
         }
         _ => {}
@@ -179,28 +173,28 @@ fn find_region<'a>(
 fn draw_polygon(
     outline: &crate::ir::Outline<'_>,
     style: FloorStyle,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let verts = match outline.vertices() {
         Some(v) if v.len() >= 3 => v,
         _ => return,
     };
     let rings = outline.rings();
-    let mut pb = PathBuilder::new();
+    let mut path = PathOps::new();
     let mut any = false;
     let mut multi_ring = false;
 
-    let push_ring = |pb: &mut PathBuilder, start: usize, count: usize| -> bool {
+    let push_ring = |path: &mut PathOps, start: usize, count: usize| -> bool {
         if count < 2 || start + count > verts.len() {
             return false;
         }
         let v0 = verts.get(start);
-        pb.move_to(v0.x(), v0.y());
+        path.move_to(Vec2::new(v0.x(), v0.y()));
         for j in 1..count {
             let v = verts.get(start + j);
-            pb.line_to(v.x(), v.y());
+            path.line_to(Vec2::new(v.x(), v.y()));
         }
-        pb.close();
+        path.close();
         true
     };
 
@@ -208,13 +202,13 @@ fn draw_polygon(
         Some(rs) if rs.len() > 0 => {
             multi_ring = true;
             for r in rs.iter() {
-                if push_ring(&mut pb, r.start() as usize, r.count() as usize) {
+                if push_ring(&mut path, r.start() as usize, r.count() as usize) {
                     any = true;
                 }
             }
         }
         _ => {
-            if push_ring(&mut pb, 0, verts.len()) {
+            if push_ring(&mut path, 0, verts.len()) {
                 any = true;
             }
         }
@@ -223,30 +217,20 @@ fn draw_polygon(
     if !any {
         return;
     }
-    let path = match pb.finish() {
-        Some(p) => p,
-        None => return,
-    };
     let paint = floor_paint(style);
     let fill_rule = if multi_ring {
         FillRule::EvenOdd
     } else {
         FillRule::Winding
     };
-    ctx.pixmap.fill_path(
-        &path,
-        &paint,
-        fill_rule,
-        ctx.transform,
-        None,
-    );
+    painter.fill_path(&path, &paint, fill_rule);
 }
 
-/// Circle descriptor — tiny-skia `push_oval`.
+/// Circle descriptor — `Painter::fill_ellipse` with `rx == ry`.
 fn draw_circle(
     outline: &crate::ir::Outline<'_>,
     style: FloorStyle,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let cx = outline.cx();
     let cy = outline.cy();
@@ -254,24 +238,8 @@ fn draw_circle(
     if r <= 0.0 {
         return;
     }
-    let rect = match Rect::from_xywh(cx - r, cy - r, r * 2.0, r * 2.0) {
-        Some(rect) => rect,
-        None => return,
-    };
-    let mut pb = PathBuilder::new();
-    pb.push_oval(rect);
-    let path = match pb.finish() {
-        Some(p) => p,
-        None => return,
-    };
     let paint = floor_paint(style);
-    ctx.pixmap.fill_path(
-        &path,
-        &paint,
-        FillRule::Winding,
-        ctx.transform,
-        None,
-    );
+    painter.fill_ellipse(cx, cy, r, r, &paint);
 }
 
 /// Pill descriptor — SVG-equivalent `<rect rx ry>` rounded rect.
@@ -285,7 +253,7 @@ fn draw_circle(
 fn draw_pill(
     outline: &crate::ir::Outline<'_>,
     style: FloorStyle,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let cx = outline.cx();
     let cy = outline.cy();
@@ -303,30 +271,36 @@ fn draw_pill(
     // Cubic Bézier kappa for a quarter-circle arc.
     const KAPPA: f32 = 0.5523;
     let k = r * KAPPA;
-    let mut pb = PathBuilder::new();
+    let mut path = PathOps::new();
     // Start at top-left corner, moving right along the top edge.
-    pb.move_to(x0 + r, y0);
-    pb.line_to(x1 - r, y0); // top edge
-    pb.cubic_to(x1 - r + k, y0, x1, y0 + r - k, x1, y0 + r); // top-right
-    pb.line_to(x1, y1 - r); // right edge
-    pb.cubic_to(x1, y1 - r + k, x1 - r + k, y1, x1 - r, y1); // bottom-right
-    pb.line_to(x0 + r, y1); // bottom edge
-    pb.cubic_to(x0 + r - k, y1, x0, y1 - r + k, x0, y1 - r); // bottom-left
-    pb.line_to(x0, y0 + r); // left edge
-    pb.cubic_to(x0, y0 + r - k, x0 + r - k, y0, x0 + r, y0); // top-left
-    pb.close();
-    let path = match pb.finish() {
-        Some(p) => p,
-        None => return,
-    };
+    path.move_to(Vec2::new(x0 + r, y0));
+    path.line_to(Vec2::new(x1 - r, y0)); // top edge
+    path.cubic_to(
+        Vec2::new(x1 - r + k, y0),
+        Vec2::new(x1, y0 + r - k),
+        Vec2::new(x1, y0 + r),
+    ); // top-right
+    path.line_to(Vec2::new(x1, y1 - r)); // right edge
+    path.cubic_to(
+        Vec2::new(x1, y1 - r + k),
+        Vec2::new(x1 - r + k, y1),
+        Vec2::new(x1 - r, y1),
+    ); // bottom-right
+    path.line_to(Vec2::new(x0 + r, y1)); // bottom edge
+    path.cubic_to(
+        Vec2::new(x0 + r - k, y1),
+        Vec2::new(x0, y1 - r + k),
+        Vec2::new(x0, y1 - r),
+    ); // bottom-left
+    path.line_to(Vec2::new(x0, y0 + r)); // left edge
+    path.cubic_to(
+        Vec2::new(x0, y0 + r - k),
+        Vec2::new(x0 + r - k, y0),
+        Vec2::new(x0 + r, y0),
+    ); // top-left
+    path.close();
     let paint = floor_paint(style);
-    ctx.pixmap.fill_path(
-        &path,
-        &paint,
-        FillRule::Winding,
-        ctx.transform,
-        None,
-    );
+    painter.fill_path(&path, &paint, FillRule::Winding);
 }
 
 /// CaveFloor — Phase 1.18 real consumer: runs the cave geometry
@@ -339,11 +313,15 @@ fn draw_pill(
 ///   → densify(0.8*CELL) → jitter_ring_outward(seed + 0x5A17E5)
 ///   → smooth_closed_path`
 ///
-/// Phase 1.19 (stop legacy emit) is now unblocked for cave geometry.
+/// The SVG `d=` string returned by `cave_path_from_outline` is
+/// re-parsed into a backend-agnostic [`PathOps`] via
+/// [`parse_path_d_pathops`] (the Painter twin of `parse_path_d`)
+/// so the Painter dispatch can drive it without a tiny-skia
+/// dependency at this layer.
 fn draw_cave_floor(
     outline: &crate::ir::Outline<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let verts = match outline.vertices() {
         Some(v) if v.len() >= 4 => v,
@@ -359,22 +337,16 @@ fn draw_cave_floor(
         Some(d) if !d.is_empty() => d,
         _ => return,
     };
-    let path = match parse_path_d(d) {
+    let path = match parse_path_d_pathops(d) {
         Some(p) => p,
         None => return,
     };
     let paint = cave_floor_paint();
-    ctx.pixmap.fill_path(
-        &path,
-        &paint,
-        FillRule::EvenOdd,
-        ctx.transform,
-        None,
-    );
+    painter.fill_path(&path, &paint, FillRule::EvenOdd);
 }
 
 /// Select the fill paint by `FloorStyle`.
-fn floor_paint(style: FloorStyle) -> Paint<'static> {
+fn floor_paint(style: FloorStyle) -> Paint {
     match style {
         FloorStyle::CaveFloor => cave_floor_paint(),
         FloorStyle::WoodFloor => wood_floor_paint(),
@@ -1213,5 +1185,20 @@ mod tests {
         use super::extract_d_from_path;
         let s = "<path d=\"M0,0 L10,10 Z\"/>";
         assert_eq!(extract_d_from_path(s), Some("M0,0 L10,10 Z"));
+    }
+
+    // ── Phase 2.15f sanity: floor paints round-trip via Painter ──
+
+    /// All three FloorStyle palette colours feed through
+    /// `Color::rgba(.., 1.0)`. Pin the fully-opaque alpha so a
+    /// future Painter refactor can't accidentally drop it (e.g. by
+    /// switching to `Color::rgb` without preserving alpha = 1.0)
+    /// and silently composite floors onto the parchment BG.
+    #[test]
+    fn floor_paints_are_fully_opaque() {
+        use super::{cave_floor_paint, dungeon_floor_paint, wood_floor_paint};
+        assert_eq!(dungeon_floor_paint().color.a, 1.0);
+        assert_eq!(cave_floor_paint().color.a, 1.0);
+        assert_eq!(wood_floor_paint().color.a, 1.0);
     }
 }
