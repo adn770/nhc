@@ -1,15 +1,20 @@
 //! Fountain surface feature — Phase 5.4.9 of
-//! `plans/nhc_ir_migration_plan.md`.
+//! `plans/nhc_ir_migration_plan.md`, ported to the Painter trait
+//! in Phase 2.14b of `plans/nhc_pure_ir_plan.md` (the second of
+//! four fixture ports — well / fountain / tree / bush).
 //!
-//! Mirrors `_draw_fountain_from_ir`: walks `op.tiles` +
-//! `op.shape` (5 variants — Round / Square / LargeRound /
-//! LargeSquare / Cross) and delegates to
-//! `primitives::fountain::draw_fountain`.
+//! Walks `op.tiles` + `op.shape` (5 variants — Round / Square /
+//! LargeRound / LargeSquare / Cross) and dispatches each tile
+//! through `primitives::fountain::paint_fountain` via a
+//! `SkiaPainter` constructed for the dispatch scope. Fixtures are
+//! NO group-opacity (plan §2.14), so `paint_fountain` composites
+//! stamps directly without a `begin_group` / `end_group`
+//! envelope.
 
 use crate::ir::{FloorIR, OpEntry};
+use crate::painter::SkiaPainter;
 use crate::primitives;
 
-use super::fragment::paint_fragments;
 use super::RasterCtx;
 
 pub(super) fn draw(
@@ -29,6 +34,6 @@ pub(super) fn draw(
         return;
     }
     let shape = op.shape().0 as u8;
-    let frags = primitives::fountain::draw_fountain(&tiles, shape);
-    paint_fragments(&frags, 1.0, None, ctx);
+    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+    primitives::fountain::paint_fountain(&mut painter, &tiles, shape);
 }
