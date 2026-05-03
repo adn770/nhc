@@ -16,11 +16,11 @@
 //! - 5.4.6 Cart Tracks — paired rails + cross-tie per tile.
 //! - 5.4.7 Ore Deposit — diamond glint per ore-deposit wall tile.
 //!
-//! Phases 2.13a–2.13c of `plans/nhc_pure_ir_plan.md` port the
-//! cobblestone, brick, and flagstone branches to the Painter
-//! trait. The remaining four sub-handlers stay on the legacy
-//! `paint_fragments` SVG-string path until their respective
-//! 2.13d–2.13g commits land. To coexist without conflicting
+//! Phases 2.13a–2.13d of `plans/nhc_pure_ir_plan.md` port the
+//! cobblestone, brick, flagstone, and opus_romano branches to the
+//! Painter trait. The remaining three sub-handlers stay on the
+//! legacy `paint_fragments` SVG-string path until their respective
+//! 2.13e–2.13g commits land. To coexist without conflicting
 //! `&mut Pixmap` borrows, the `SkiaPainter` is constructed inside
 //! a scoped block around the ported variants only — the legacy
 //! sub-handlers run AFTER the painter drops, so their
@@ -52,12 +52,12 @@ pub(super) fn draw(
         paint_cobblestone(&op, seed, &mut painter);
         paint_brick(&op, seed, &mut painter);
         paint_flagstone(&op, seed, &mut painter);
+        paint_opus_romano(&op, seed, &mut painter);
     }
 
     // Legacy `paint_fragments` sub-handlers. These will port to
-    // the Painter trait one at a time in 2.13d–g; until each ships,
+    // the Painter trait one at a time in 2.13e–g; until each ships,
     // they own the `&mut Pixmap` via `RasterCtx` directly.
-    draw_opus_romano(&op, seed, ctx);
     draw_field_stone(&op, seed, ctx);
     draw_cart_tracks(&op, seed, ctx);
     draw_ore_deposit(&op, seed, ctx);
@@ -126,7 +126,11 @@ fn paint_flagstone(
     }
 }
 
-fn draw_opus_romano(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
+fn paint_opus_romano(
+    op: &DecoratorOp<'_>,
+    seed: u64,
+    painter: &mut SkiaPainter<'_>,
+) {
     let variants = match op.opus_romano() {
         Some(v) => v,
         None => return,
@@ -139,8 +143,7 @@ fn draw_opus_romano(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
         if tiles.is_empty() {
             continue;
         }
-        let frags = primitives::opus_romano::draw_opus_romano(&tiles, seed);
-        paint_fragments(&frags, 1.0, None, ctx);
+        primitives::opus_romano::paint_opus_romano(painter, &tiles, seed);
     }
 }
 
