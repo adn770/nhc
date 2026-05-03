@@ -20,8 +20,10 @@
 //! and this module diverge, the design wins.
 
 pub mod skia;
+pub mod svg;
 
 pub use skia::SkiaPainter;
+pub use svg::SvgPainter;
 
 /// 2D point or vector in pixel space.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
