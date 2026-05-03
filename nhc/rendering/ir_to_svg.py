@@ -2591,11 +2591,10 @@ def _render_masonry_wall_run(
 # The detection is done via a pre-scan helper (_collect_consumed_wall_ops)
 # that is called from each legacy handler's entry point.
 #
-# Phase 1.16b-3: DungeonInk ExteriorWallOp is NOW in scope. The emitter
-# still populates wall_segments / smooth_walls / wall_extensions_d in
-# WallsAndFloorsOp for legacy fallback; _draw_walls_and_floors_from_ir
-# suppresses them when CorridorWallOp + DungeonInk ExteriorWallOps are
-# both present. Phase 1.19 will stop populating those fields.
+# Phase 1.16b-3: DungeonInk ExteriorWallOp is NOW in scope. As of
+# Phase 1.27 the legacy WallsAndFloorsOp is gone from the schema, so
+# CorridorWallOp + DungeonInk ExteriorWallOps own every dungeon wall
+# pixel; no legacy-field suppression is needed here.
 
 _EXTERIOR_WALL_IN_SCOPE = frozenset({
     # Phase 1.16 in-scope ExteriorWallOp styles. DungeonInk (0) added
@@ -2815,9 +2814,9 @@ def _draw_exterior_wall_op_from_ir(
     - ``DungeonInk`` (0): walks polygon outline with cuts via
       ``_walk_polygon_with_cuts``, emits ``<path>`` with DungeonInk
       stroke. Handles both rect (4-vertex) and smooth (8+ vertex)
-      room outlines. Suppression of legacy fields is coordinated
-      by ``_draw_walls_and_floors_from_ir`` via
-      ``_has_consumed_dungeon_exterior_wall_ops``.
+      room outlines. The Phase 1.27 schema cut removed the legacy
+      WallsAndFloorsOp fallback, so no cross-handler suppression
+      is needed.
     """
     import math
     from nhc.rendering.ir._fb.Outline import OutlineT
@@ -3224,8 +3223,9 @@ _OP_HANDLERS[Op.Op.InteriorWallOp] = _draw_interior_wall_op_from_ir
 # Suppression:
 # _has_consumed_dungeon_exterior_wall_ops(fir) — True when all
 #     DungeonInk ExteriorWallOps are consumed (CorridorWallOp also
-#     present). Used by _draw_walls_and_floors_from_ir to suppress
-#     wall_segments / smooth_walls / wall_extensions_d.
+#     present). Used by _draw_corridor_wall_op_from_ir as a guard
+#     so the corridor-edge walk only runs when the DungeonInk
+#     consumer is fully active.
 
 
 def _walkable_tiles_from_ir(
@@ -3501,9 +3501,9 @@ def _smooth_corridor_stubs(
     This prevents double-painting at the junction between the last
     corridor tile and the smooth room boundary.
 
-    ``corridor_tiles`` and ``walkable`` are pre-computed sets passed by
-    ``_draw_walls_and_floors_from_ir`` to avoid redundant traversal.
-    When None, they are derived from ``fir`` internally.
+    ``corridor_tiles`` and ``walkable`` are optional pre-computed sets
+    that callers may pass to avoid redundant traversal. When None,
+    they are derived from ``fir`` internally.
 
     Returns an empty list for IRs with no smooth None_ cuts (e.g.
     rect-only dungeon floors like seed42).

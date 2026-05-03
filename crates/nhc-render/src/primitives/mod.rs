@@ -35,5 +35,4 @@ pub mod stairs;
 pub mod terrain_detail;
 pub mod terrain_tints;
 pub mod thematic_detail;
-pub mod walls_and_floors;
 pub mod wood_floor;
