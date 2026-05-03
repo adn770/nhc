@@ -19,6 +19,10 @@
 //! Surface authority: `design/map_ir_v4e.md` §7. When the design
 //! and this module diverge, the design wins.
 
+pub mod skia;
+
+pub use skia::SkiaPainter;
+
 /// 2D point or vector in pixel space.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Vec2 {
