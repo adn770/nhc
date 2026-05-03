@@ -1,15 +1,18 @@
 //! Well surface feature — Phase 5.4.8 of
-//! `plans/nhc_ir_migration_plan.md`.
+//! `plans/nhc_ir_migration_plan.md`, ported to the Painter trait
+//! in Phase 2.14a of `plans/nhc_pure_ir_plan.md` (the first of
+//! four fixture ports — well / fountain / tree / bush).
 //!
-//! Mirrors `_draw_well_from_ir`: walks `op.tiles` + `op.shape`,
-//! delegates to `primitives::well::draw_well` for the fragment
-//! list (round / square keystone arcs + pool), then rasterises
-//! via the shared fragment helper.
+//! Walks `op.tiles` + `op.shape`, then dispatches each tile
+//! through `primitives::well::paint_well` via a `SkiaPainter`
+//! constructed for the dispatch scope. Fixtures are NO group-
+//! opacity (plan §2.14), so `paint_well` composites stamps
+//! directly without a `begin_group` / `end_group` envelope.
 
 use crate::ir::{FloorIR, OpEntry};
+use crate::painter::SkiaPainter;
 use crate::primitives;
 
-use super::fragment::paint_fragments;
 use super::RasterCtx;
 
 pub(super) fn draw(
@@ -29,6 +32,6 @@ pub(super) fn draw(
         return;
     }
     let shape = op.shape().0 as u8;
-    let frags = primitives::well::draw_well(&tiles, shape);
-    paint_fragments(&frags, 1.0, None, ctx);
+    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+    primitives::well::paint_well(&mut painter, &tiles, shape);
 }
