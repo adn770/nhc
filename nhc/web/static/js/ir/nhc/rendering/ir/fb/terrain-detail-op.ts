@@ -47,22 +47,15 @@ theme(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-clipRegion():string|null
-clipRegion(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-clipRegion(optionalEncoding?:any):string|Uint8Array|null {
+regionRef():string|null
+regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+regionRef(optionalEncoding?:any):string|Uint8Array|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-regionRef():string|null
-regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-regionRef(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
-  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
-}
-
 static startTerrainDetailOp(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(4);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -81,12 +74,8 @@ static addTheme(builder:flatbuffers.Builder, themeOffset:flatbuffers.Offset) {
   builder.addFieldOffset(2, themeOffset, 0);
 }
 
-static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(3, clipRegionOffset, 0);
-}
-
 static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(4, regionRefOffset, 0);
+  builder.addFieldOffset(3, regionRefOffset, 0);
 }
 
 static endTerrainDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -94,12 +83,11 @@ static endTerrainDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createTerrainDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createTerrainDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
   TerrainDetailOp.startTerrainDetailOp(builder);
   TerrainDetailOp.addTiles(builder, tilesOffset);
   TerrainDetailOp.addSeed(builder, seed);
   TerrainDetailOp.addTheme(builder, themeOffset);
-  TerrainDetailOp.addClipRegion(builder, clipRegionOffset);
   TerrainDetailOp.addRegionRef(builder, regionRefOffset);
   return TerrainDetailOp.endTerrainDetailOp(builder);
 }

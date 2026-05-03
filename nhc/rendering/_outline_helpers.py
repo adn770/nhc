@@ -1,11 +1,8 @@
-"""Outline / Cut emitter helpers for the v4 IR.
+"""Outline / Cut emitter helpers for the v4e IR.
 
-Phase 1.3 of plans/nhc_pure_ir_plan.md ships pure-data converters
-from existing :class:`nhc.dungeon.model.Rect` / :class:`Room` / cave
-coordinate / door geometry to :class:`OutlineT` and :class:`CutT`
-instances. No emitter integration in this commit — the helpers stand
-alone; future commits 1.4 – 1.14 wire them into ``_floor_layers.py``
-so each per-shape port lands behind its own parity gate.
+Pure-data converters from existing :class:`nhc.dungeon.model.Rect` /
+:class:`Room` / cave coordinate / door geometry to :class:`OutlineT`
+and :class:`CutT` instances.
 
 The helpers are deliberately narrow:
 
@@ -22,12 +19,9 @@ The helpers are deliberately narrow:
   neighbouring door features, and emits one :class:`CutT` per door
   with start / end at the shared tile-edge midpoints in pixel
   coords. ``CutStyle`` is picked from the door feature string per
-  the mapping pinned in plan §1.11.
+  the door-feature → CutStyle mapping below.
 - ``cuts_for_enclosure_gates`` resolves enclosure gate triples
-  ``(edge_idx, t_center, half_px)`` to pixel-space Cut pairs;
-  ``GateStyle.Wood`` → ``CutStyle.WoodGate``,
-  ``GateStyle.Portcullis`` → ``CutStyle.PortcullisGate``
-  (plan §1.14).
+  ``(edge_idx, t_center, half_px)`` to pixel-space Cut pairs.
 
 All vertex coords are in pixel space (tile coord × CELL); no
 PADDING is applied — that is the renderer's job (the legacy SVG
@@ -50,7 +44,6 @@ from nhc.rendering._room_outlines import (
 from nhc.rendering._svg_helpers import _find_doorless_openings
 from nhc.rendering.ir._fb.Cut import CutT
 from nhc.rendering.ir._fb.CutStyle import CutStyle
-from nhc.rendering.ir._fb.GateStyle import GateStyle
 from nhc.rendering.ir._fb.Outline import OutlineT
 from nhc.rendering.ir._fb.OutlineKind import OutlineKind
 from nhc.rendering.ir._fb.Vec2 import Vec2T
@@ -98,7 +91,6 @@ def _polygon_outline(
     out.descriptorKind = OutlineKind.Polygon
     out.closed = closed
     out.vertices = [_vec2(x, y) for x, y in vertices]
-    out.cuts = []
     return out
 
 
@@ -311,7 +303,6 @@ def outline_from_circle(room: Room) -> OutlineT:
     out.descriptorKind = OutlineKind.Circle
     out.closed = True
     out.vertices = []
-    out.cuts = []
     out.cx = float(px + pw / 2)
     out.cy = float(py + ph / 2)
     out.rx = float(radius)
@@ -358,7 +349,6 @@ def outline_from_pill(room: Room) -> OutlineT:
     out.descriptorKind = OutlineKind.Pill
     out.closed = True
     out.vertices = []
-    out.cuts = []
     out.cx = float(bx + bw / 2.0)
     out.cy = float(by + bh / 2.0)
     out.rx = float(bw / 2.0)
@@ -425,8 +415,8 @@ def cuts_for_room_doors(
     shared tile edge between the room tile and the door tile;
     Cut.style is picked via :data:`_DOOR_FEATURE_TO_CUT_STYLE`.
 
-    Future commit 1.11 will use this helper from inside the
-    emitter pass that populates :type:`ExteriorWallOp.outline.cuts`.
+    The emitter populates the resulting cuts on
+    :type:`ExteriorWallOp.cuts`.
     """
     floor = room.floor_tiles()
     cuts: list[CutT] = []
@@ -469,19 +459,10 @@ def cuts_for_room_doors(
 # ── Enclosure gate cut resolution ─────────────────────────────
 
 
-# Mapping from GateStyle enum value to the v4 CutStyle.
-# GateStyle.Wood=0 → CutStyle.WoodGate=1
-# GateStyle.Portcullis=1 → CutStyle.PortcullisGate=2
-_GATE_STYLE_TO_CUT_STYLE: dict[int, int] = {
-    GateStyle.Wood: CutStyle.WoodGate,
-    GateStyle.Portcullis: CutStyle.PortcullisGate,
-}
-
-
 def cuts_for_enclosure_gates(
     polygon_px: list[tuple[float, float]],
     gates: list[tuple[int, float, float]],
-    gate_style: int,
+    cut_style: int,
 ) -> list[CutT]:
     """Resolve enclosure gate triples to pixel-space Cut pairs.
 
@@ -494,18 +475,15 @@ def cuts_for_enclosure_gates(
     The gate's pixel center is ``lerp(p0, p1, t_center)``. The cut
     start / end are ``center ± half_px * unit_dir`` along the edge.
 
-    ``gate_style`` is the :class:`GateStyle` enum value from the legacy
-    ``EnclosureOp``; it is mapped to the corresponding :class:`CutStyle`
-    via :data:`_GATE_STYLE_TO_CUT_STYLE`. An unknown gate_style falls
-    through to ``CutStyle.None_`` (bare gap).
+    ``cut_style`` is the v4e :class:`CutStyle` to stamp on each gate
+    (typically ``CutStyle.WoodGate`` or ``CutStyle.PortcullisGate``).
 
-    Used by :func:`emit_site_enclosure` (Phase 1.14) to populate
-    :type:`ExteriorWallOpT.outline.cuts` for palisade / fortification
+    Used by :func:`emit_site_enclosure` to populate
+    :type:`ExteriorWallOp.cuts` for palisade / fortification
     enclosures. Mirrors the door-cut resolution approach of
     :func:`cuts_for_building_doors` / :func:`cuts_for_room_doors` but
     operates on parametric edge geometry rather than tile adjacency.
     """
-    cut_style = _GATE_STYLE_TO_CUT_STYLE.get(gate_style, CutStyle.None_)
     n = len(polygon_px)
     cuts: list[CutT] = []
 
@@ -552,8 +530,8 @@ def cuts_for_building_doors(
     after building a Room-like adapter object so the door-side /
     pixel-edge logic stays in one place.
 
-    Used by :func:`emit_building_walls` (Phase 1.12) to populate
-    :type:`ExteriorWallOpT.outline.cuts` for masonry buildings.
+    Used by :func:`emit_building_walls` to populate
+    :type:`ExteriorWallOp.cuts` for masonry buildings.
     """
     from types import SimpleNamespace
 

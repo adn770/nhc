@@ -73,8 +73,8 @@ def _vec2(x: float, y: float) -> Vec2T:
 def _pack_floor_ir_with_region(region: RegionT) -> bytes:
     """Pack a minimal FloorIR carrying ``region`` for round-trip tests."""
     fir = FloorIRT()
-    fir.major = 3
-    fir.minor = 2
+    fir.major = 4
+    fir.minor = 0
     fir.widthTiles = 16
     fir.heightTiles = 16
     fir.cell = 32
@@ -86,27 +86,17 @@ def _pack_floor_ir_with_region(region: RegionT) -> bytes:
     fir.ops = []
 
     builder = flatbuffers.Builder(256)
-    builder.Finish(fir.Pack(builder), b"NIR3")
+    builder.Finish(fir.Pack(builder), b"NIR4")
     return bytes(builder.Output())
 
 
 # ── Schema bump ────────────────────────────────────────────────
 
 
-def test_schema_minor_at_least_2(emitted) -> None:
-    """1.22: SCHEMA_MINOR is at least 2 (Region.outline added at 1.22).
-
-    Subsequent v4e sub-phases (1.23 → 1.25) bump the minor further
-    additively, so this lower-bound check stays green across the
-    migration. The exact current minor is locked by the skeleton
-    sentinel ``test_ir_emitter_skeleton::test_schema_major_is_three``.
-    """
+def test_schema_major_is_4(emitted) -> None:
+    """NIR4: SCHEMA_MAJOR = 4."""
     _, _, fir = emitted
-    assert fir.major == 3
-    assert fir.minor >= 2, (
-        f"expected schema minor ≥ 2 (Phase 1.22 bumped to 2), got "
-        f"{fir.minor}; Region.outline is required from 1.22 onward."
-    )
+    assert fir.major == 4, f"expected major=4, got {fir.major}"
 
 
 # ── Outline parallel population ────────────────────────────────
@@ -124,63 +114,10 @@ def test_every_region_has_an_outline(emitted) -> None:
         )
 
 
-def test_outline_vertices_mirror_polygon_paths(emitted) -> None:
-    """Polygonal kinds: outline.vertices ≡ polygon.paths point-for-point."""
-    _, _, fir = emitted
-    for region in fir.regions:
-        rid = region.id.decode() if isinstance(region.id, bytes) else region.id
-        if region.outline.descriptorKind != OutlineKind.Polygon:
-            continue
-        if region.polygon is None or not region.polygon.paths:
-            continue
-        legacy = [(v.x, v.y) for v in region.polygon.paths]
-        new = [(v.x, v.y) for v in (region.outline.vertices or [])]
-        assert new == legacy, (
-            f"region {rid!r}: outline.vertices ({len(new)} pts) does "
-            f"not match polygon.paths ({len(legacy)} pts). The "
-            "outline must mirror the polygon point-for-point."
-        )
-
-
-def test_outline_rings_match_polygon_rings_for_multiring(emitted) -> None:
-    """Multi-ring polygons: outline.rings mirrors polygon.rings.
-
-    Single-ring polygons leave outline.rings empty per v4e §4
-    ("rings: [PathRange]; multi-ring partitioning; empty == single
-    ring"). The legacy Polygon table uses a redundant 1-entry
-    ``rings`` for single rings; the v4e Outline collapses that to
-    the empty default.
-    """
-    _, _, fir = emitted
-    for region in fir.regions:
-        rid = region.id.decode() if isinstance(region.id, bytes) else region.id
-        if region.outline.descriptorKind != OutlineKind.Polygon:
-            continue
-        if region.polygon is None:
-            continue
-        legacy_rings = list(region.polygon.rings or [])
-        new_rings = list(region.outline.rings or [])
-        if len(legacy_rings) <= 1:
-            assert len(new_rings) == 0, (
-                f"region {rid!r}: single-ring polygon should leave "
-                f"outline.rings empty (v4e §4); got {len(new_rings)} "
-                "ring entries."
-            )
-        else:
-            assert len(new_rings) == len(legacy_rings), (
-                f"region {rid!r}: multi-ring outline must mirror "
-                f"every ring (got {len(new_rings)} new vs "
-                f"{len(legacy_rings)} legacy)."
-            )
-            for i, (lr, nr) in enumerate(zip(legacy_rings, new_rings)):
-                assert (nr.start, nr.count, nr.isHole) == (
-                    lr.start, lr.count, lr.isHole,
-                ), (
-                    f"region {rid!r} ring {i}: outline ring "
-                    f"({nr.start},{nr.count},hole={nr.isHole}) does "
-                    f"not match polygon ring "
-                    f"({lr.start},{lr.count},hole={lr.isHole})."
-                )
+# NIR4: tests pinning "Region.outline mirrors Region.polygon" deleted —
+# the schema cut removed Region.polygon, so the parallel-emission
+# regression tests are no longer applicable; Region.outline is the
+# only canonical geometry source.
 
 
 def test_outline_closed_flag_is_true(emitted) -> None:
@@ -488,11 +425,10 @@ def test_circle_room_emits_region_with_circle_descriptor() -> None:
     assert region.outline.cy > 0.0
     assert region.outline.rx > 0.0
     assert region.outline.ry > 0.0
-    # Region.polygon is the polygonised approximation (shadow handler
-    # reads ``region.Polygon()``); it must carry vertices so the
-    # polygon-shadow primitive has something to draw.
-    assert region.polygon is not None
-    assert len(region.polygon.paths or []) >= 8
+    # NIR4: Region.polygon retired; outline.vertices carries the
+    # polygonised approximation for polygon-vertex consumers.
+    assert region.outline.vertices is not None
+    assert len(region.outline.vertices or []) >= 8
 
 
 def test_pill_room_emits_region_with_pill_descriptor() -> None:
@@ -513,10 +449,10 @@ def test_pill_room_emits_region_with_pill_descriptor() -> None:
     assert region.outline.cy > 0.0
     assert region.outline.rx > 0.0
     assert region.outline.ry > 0.0
-    # ``Region.polygon`` carries a polygonised approximation that
-    # the shadow handler consumes via ``region.Polygon()``.
-    assert region.polygon is not None
-    assert len(region.polygon.paths or []) >= 4
+    # NIR4: Region.polygon retired; outline.vertices carries the
+    # polygonised approximation for polygon-vertex consumers.
+    assert region.outline.vertices is not None
+    assert len(region.outline.vertices or []) >= 4
 
 
 # ── Phase 1.26d-2 (scope-reduced) — merged corridor Region ─────
@@ -715,20 +651,14 @@ def test_circle_room_region_outline_carries_polygonised_vertices() -> None:
     assert circle_region.outline.descriptorKind == OutlineKind.Circle
     assert pill_region.outline.descriptorKind == OutlineKind.Pill
 
-    # 1.26g: outline.vertices carries the polygonised approximation
-    # — same point count and coords as polygon.paths.
+    # NIR4: Region.polygon retired; outline.vertices is the canonical
+    # polygonised approximation for descriptor-shape Regions.
     for region, label in (
         (circle_region, "circle"),
         (pill_region, "pill"),
     ):
         outline_verts = [(v.x, v.y) for v in (region.outline.vertices or [])]
-        polygon_paths = [(p.x, p.y) for p in (region.polygon.paths or [])]
-        assert outline_verts and polygon_paths, (
-            f"{label}: both outline.vertices and polygon.paths must be "
-            f"populated (1.26g mirrors polygon → outline)."
-        )
-        assert outline_verts == polygon_paths, (
-            f"{label}: outline.vertices must mirror polygon.paths "
-            f"point-for-point. Got "
-            f"{len(outline_verts)} vs {len(polygon_paths)} points."
+        assert outline_verts, (
+            f"{label}: outline.vertices must carry the polygonised "
+            f"approximation (NIR4)."
         )

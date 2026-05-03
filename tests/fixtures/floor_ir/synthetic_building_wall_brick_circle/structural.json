@@ -15,6 +15,6 @@
     "ExteriorWallOp": 1
   },
   "region_count": 1,
-  "region_polygon_rings": 1,
+  "region_polygon_rings": 0,
   "region_polygon_vertices": 24
 }

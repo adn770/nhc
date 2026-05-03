@@ -22,7 +22,7 @@ class OpEntry(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def OpEntryBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # OpEntry
     def Init(self, buf, pos):
@@ -69,18 +69,14 @@ def OpEntryEnd(builder):
 def End(builder):
     return OpEntryEnd(builder)
 
-import nhc.rendering.ir._fb.BuildingExteriorWallOp
-import nhc.rendering.ir._fb.BuildingInteriorWallOp
 import nhc.rendering.ir._fb.BushFeatureOp
 import nhc.rendering.ir._fb.CorridorWallOp
 import nhc.rendering.ir._fb.DecoratorOp
-import nhc.rendering.ir._fb.EnclosureOp
 import nhc.rendering.ir._fb.ExteriorWallOp
 import nhc.rendering.ir._fb.FloorDetailOp
 import nhc.rendering.ir._fb.FloorGridOp
 import nhc.rendering.ir._fb.FloorOp
 import nhc.rendering.ir._fb.FountainFeatureOp
-import nhc.rendering.ir._fb.GenericProceduralOp
 import nhc.rendering.ir._fb.HatchOp
 import nhc.rendering.ir._fb.InteriorWallOp
 import nhc.rendering.ir._fb.Op
@@ -91,7 +87,6 @@ import nhc.rendering.ir._fb.TerrainDetailOp
 import nhc.rendering.ir._fb.TerrainTintOp
 import nhc.rendering.ir._fb.ThematicDetailOp
 import nhc.rendering.ir._fb.TreeFeatureOp
-import nhc.rendering.ir._fb.WallsAndFloorsOp
 import nhc.rendering.ir._fb.WellFeatureOp
 try:
     from typing import Union
@@ -107,7 +102,7 @@ class OpEntryT(object):
         op = None,
     ):
         self.opType = opType  # type: int
-        self.op = op  # type: Union[None, 'nhc.rendering.ir._fb.ShadowOp.ShadowOpT', 'nhc.rendering.ir._fb.HatchOp.HatchOpT', 'nhc.rendering.ir._fb.WallsAndFloorsOp.WallsAndFloorsOpT', 'nhc.rendering.ir._fb.TerrainTintOp.TerrainTintOpT', 'nhc.rendering.ir._fb.FloorGridOp.FloorGridOpT', 'nhc.rendering.ir._fb.FloorDetailOp.FloorDetailOpT', 'nhc.rendering.ir._fb.ThematicDetailOp.ThematicDetailOpT', 'nhc.rendering.ir._fb.TerrainDetailOp.TerrainDetailOpT', 'nhc.rendering.ir._fb.StairsOp.StairsOpT', 'nhc.rendering.ir._fb.TreeFeatureOp.TreeFeatureOpT', 'nhc.rendering.ir._fb.BushFeatureOp.BushFeatureOpT', 'nhc.rendering.ir._fb.WellFeatureOp.WellFeatureOpT', 'nhc.rendering.ir._fb.FountainFeatureOp.FountainFeatureOpT', 'nhc.rendering.ir._fb.GenericProceduralOp.GenericProceduralOpT', 'nhc.rendering.ir._fb.DecoratorOp.DecoratorOpT', 'nhc.rendering.ir._fb.RoofOp.RoofOpT', 'nhc.rendering.ir._fb.EnclosureOp.EnclosureOpT', 'nhc.rendering.ir._fb.BuildingExteriorWallOp.BuildingExteriorWallOpT', 'nhc.rendering.ir._fb.BuildingInteriorWallOp.BuildingInteriorWallOpT', 'nhc.rendering.ir._fb.FloorOp.FloorOpT', 'nhc.rendering.ir._fb.InteriorWallOp.InteriorWallOpT', 'nhc.rendering.ir._fb.ExteriorWallOp.ExteriorWallOpT', 'nhc.rendering.ir._fb.CorridorWallOp.CorridorWallOpT']
+        self.op = op  # type: Union[None, 'nhc.rendering.ir._fb.ShadowOp.ShadowOpT', 'nhc.rendering.ir._fb.HatchOp.HatchOpT', 'nhc.rendering.ir._fb.TerrainTintOp.TerrainTintOpT', 'nhc.rendering.ir._fb.FloorGridOp.FloorGridOpT', 'nhc.rendering.ir._fb.FloorDetailOp.FloorDetailOpT', 'nhc.rendering.ir._fb.ThematicDetailOp.ThematicDetailOpT', 'nhc.rendering.ir._fb.TerrainDetailOp.TerrainDetailOpT', 'nhc.rendering.ir._fb.StairsOp.StairsOpT', 'nhc.rendering.ir._fb.TreeFeatureOp.TreeFeatureOpT', 'nhc.rendering.ir._fb.BushFeatureOp.BushFeatureOpT', 'nhc.rendering.ir._fb.WellFeatureOp.WellFeatureOpT', 'nhc.rendering.ir._fb.FountainFeatureOp.FountainFeatureOpT', 'nhc.rendering.ir._fb.DecoratorOp.DecoratorOpT', 'nhc.rendering.ir._fb.RoofOp.RoofOpT', 'nhc.rendering.ir._fb.FloorOp.FloorOpT', 'nhc.rendering.ir._fb.InteriorWallOp.InteriorWallOpT', 'nhc.rendering.ir._fb.ExteriorWallOp.ExteriorWallOpT', 'nhc.rendering.ir._fb.CorridorWallOp.CorridorWallOpT']
 
     @classmethod
     def InitFromBuf(cls, buf, pos):

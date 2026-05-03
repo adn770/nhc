@@ -22,43 +22,36 @@ class FloorGridOp(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def FloorGridOpBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # FloorGridOp
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
     # FloorGridOp
-    def ClipRegion(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
-        if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
-
-    # FloorGridOp
     def Seed(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return 0
 
     # FloorGridOp
     def Theme(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
     # FloorGridOp
     def Scale(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
         return 1.0
 
     # FloorGridOp
     def Tiles(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 12
@@ -70,55 +63,49 @@ class FloorGridOp(object):
 
     # FloorGridOp
     def TilesLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # FloorGridOp
     def TilesIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         return o == 0
 
     # FloorGridOp
     def RegionRef(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
 def FloorGridOpStart(builder):
-    builder.StartObject(6)
+    builder.StartObject(5)
 
 def Start(builder):
     FloorGridOpStart(builder)
 
-def FloorGridOpAddClipRegion(builder, clipRegion):
-    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(clipRegion), 0)
-
-def AddClipRegion(builder, clipRegion):
-    FloorGridOpAddClipRegion(builder, clipRegion)
-
 def FloorGridOpAddSeed(builder, seed):
-    builder.PrependUint64Slot(1, seed, 0)
+    builder.PrependUint64Slot(0, seed, 0)
 
 def AddSeed(builder, seed):
     FloorGridOpAddSeed(builder, seed)
 
 def FloorGridOpAddTheme(builder, theme):
-    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(theme), 0)
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(theme), 0)
 
 def AddTheme(builder, theme):
     FloorGridOpAddTheme(builder, theme)
 
 def FloorGridOpAddScale(builder, scale):
-    builder.PrependFloat32Slot(3, scale, 1.0)
+    builder.PrependFloat32Slot(2, scale, 1.0)
 
 def AddScale(builder, scale):
     FloorGridOpAddScale(builder, scale)
 
 def FloorGridOpAddTiles(builder, tiles):
-    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(tiles), 0)
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(tiles), 0)
 
 def AddTiles(builder, tiles):
     FloorGridOpAddTiles(builder, tiles)
@@ -130,7 +117,7 @@ def StartTilesVector(builder, numElems):
     return FloorGridOpStartTilesVector(builder, numElems)
 
 def FloorGridOpAddRegionRef(builder, regionRef):
-    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
 
 def AddRegionRef(builder, regionRef):
     FloorGridOpAddRegionRef(builder, regionRef)
@@ -152,14 +139,12 @@ class FloorGridOpT(object):
     # FloorGridOpT
     def __init__(
         self,
-        clipRegion = None,
         seed = 0,
         theme = None,
         scale = 1.0,
         tiles = None,
         regionRef = None,
     ):
-        self.clipRegion = clipRegion  # type: Optional[str]
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
         self.scale = scale  # type: float
@@ -187,7 +172,6 @@ class FloorGridOpT(object):
     def _UnPack(self, floorGridOp):
         if floorGridOp is None:
             return
-        self.clipRegion = floorGridOp.ClipRegion()
         self.seed = floorGridOp.Seed()
         self.theme = floorGridOp.Theme()
         self.scale = floorGridOp.Scale()
@@ -203,8 +187,6 @@ class FloorGridOpT(object):
 
     # FloorGridOpT
     def Pack(self, builder):
-        if self.clipRegion is not None:
-            clipRegion = builder.CreateString(self.clipRegion)
         if self.theme is not None:
             theme = builder.CreateString(self.theme)
         if self.tiles is not None:
@@ -215,8 +197,6 @@ class FloorGridOpT(object):
         if self.regionRef is not None:
             regionRef = builder.CreateString(self.regionRef)
         FloorGridOpStart(builder)
-        if self.clipRegion is not None:
-            FloorGridOpAddClipRegion(builder, clipRegion)
         FloorGridOpAddSeed(builder, self.seed)
         if self.theme is not None:
             FloorGridOpAddTheme(builder, theme)

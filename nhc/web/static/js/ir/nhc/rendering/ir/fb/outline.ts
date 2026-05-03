@@ -4,7 +4,6 @@
 
 import * as flatbuffers from 'flatbuffers';
 
-import { Cut } from '../../../../nhc/rendering/ir/fb/cut.js';
 import { OutlineKind } from '../../../../nhc/rendering/ir/fb/outline-kind.js';
 import { PathRange } from '../../../../nhc/rendering/ir/fb/path-range.js';
 import { Vec2 } from '../../../../nhc/rendering/ir/fb/vec2.js';
@@ -38,58 +37,48 @@ verticesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
-cuts(index: number, obj?:Cut):Cut|null {
-  const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? (obj || new Cut()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
-}
-
-cutsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
-}
-
 closed():boolean {
-  const offset = this.bb!.__offset(this.bb_pos, 8);
+  const offset = this.bb!.__offset(this.bb_pos, 6);
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : true;
 }
 
 descriptorKind():OutlineKind {
-  const offset = this.bb!.__offset(this.bb_pos, 10);
+  const offset = this.bb!.__offset(this.bb_pos, 8);
   return offset ? this.bb!.readUint8(this.bb_pos + offset) : OutlineKind.Polygon;
 }
 
 cx():number {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
+  const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
 cy():number {
-  const offset = this.bb!.__offset(this.bb_pos, 14);
+  const offset = this.bb!.__offset(this.bb_pos, 12);
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
 rx():number {
-  const offset = this.bb!.__offset(this.bb_pos, 16);
+  const offset = this.bb!.__offset(this.bb_pos, 14);
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
 ry():number {
-  const offset = this.bb!.__offset(this.bb_pos, 18);
+  const offset = this.bb!.__offset(this.bb_pos, 16);
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
 rings(index: number, obj?:PathRange):PathRange|null {
-  const offset = this.bb!.__offset(this.bb_pos, 20);
+  const offset = this.bb!.__offset(this.bb_pos, 18);
   return offset ? (obj || new PathRange()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 12, this.bb!) : null;
 }
 
 ringsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 20);
+  const offset = this.bb!.__offset(this.bb_pos, 18);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 static startOutline(builder:flatbuffers.Builder) {
-  builder.startObject(9);
+  builder.startObject(8);
 }
 
 static addVertices(builder:flatbuffers.Builder, verticesOffset:flatbuffers.Offset) {
@@ -100,48 +89,32 @@ static startVerticesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(8, numElems, 4);
 }
 
-static addCuts(builder:flatbuffers.Builder, cutsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(1, cutsOffset, 0);
-}
-
-static createCutsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
-  builder.startVector(4, data.length, 4);
-  for (let i = data.length - 1; i >= 0; i--) {
-    builder.addOffset(data[i]!);
-  }
-  return builder.endVector();
-}
-
-static startCutsVector(builder:flatbuffers.Builder, numElems:number) {
-  builder.startVector(4, numElems, 4);
-}
-
 static addClosed(builder:flatbuffers.Builder, closed:boolean) {
-  builder.addFieldInt8(2, +closed, +true);
+  builder.addFieldInt8(1, +closed, +true);
 }
 
 static addDescriptorKind(builder:flatbuffers.Builder, descriptorKind:OutlineKind) {
-  builder.addFieldInt8(3, descriptorKind, OutlineKind.Polygon);
+  builder.addFieldInt8(2, descriptorKind, OutlineKind.Polygon);
 }
 
 static addCx(builder:flatbuffers.Builder, cx:number) {
-  builder.addFieldFloat32(4, cx, 0.0);
+  builder.addFieldFloat32(3, cx, 0.0);
 }
 
 static addCy(builder:flatbuffers.Builder, cy:number) {
-  builder.addFieldFloat32(5, cy, 0.0);
+  builder.addFieldFloat32(4, cy, 0.0);
 }
 
 static addRx(builder:flatbuffers.Builder, rx:number) {
-  builder.addFieldFloat32(6, rx, 0.0);
+  builder.addFieldFloat32(5, rx, 0.0);
 }
 
 static addRy(builder:flatbuffers.Builder, ry:number) {
-  builder.addFieldFloat32(7, ry, 0.0);
+  builder.addFieldFloat32(6, ry, 0.0);
 }
 
 static addRings(builder:flatbuffers.Builder, ringsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(8, ringsOffset, 0);
+  builder.addFieldOffset(7, ringsOffset, 0);
 }
 
 static startRingsVector(builder:flatbuffers.Builder, numElems:number) {
@@ -153,10 +126,9 @@ static endOutline(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createOutline(builder:flatbuffers.Builder, verticesOffset:flatbuffers.Offset, cutsOffset:flatbuffers.Offset, closed:boolean, descriptorKind:OutlineKind, cx:number, cy:number, rx:number, ry:number, ringsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createOutline(builder:flatbuffers.Builder, verticesOffset:flatbuffers.Offset, closed:boolean, descriptorKind:OutlineKind, cx:number, cy:number, rx:number, ry:number, ringsOffset:flatbuffers.Offset):flatbuffers.Offset {
   Outline.startOutline(builder);
   Outline.addVertices(builder, verticesOffset);
-  Outline.addCuts(builder, cutsOffset);
   Outline.addClosed(builder, closed);
   Outline.addDescriptorKind(builder, descriptorKind);
   Outline.addCx(builder, cx);

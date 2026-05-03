@@ -25,69 +25,58 @@ static getSizePrefixedRootAsFloorGridOp(bb:flatbuffers.ByteBuffer, obj?:FloorGri
   return (obj || new FloorGridOp()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
 }
 
-clipRegion():string|null
-clipRegion(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-clipRegion(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 4);
-  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
-}
-
 seed():bigint {
-  const offset = this.bb!.__offset(this.bb_pos, 6);
+  const offset = this.bb!.__offset(this.bb_pos, 4);
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
 theme():string|null
 theme(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
 theme(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 8);
+  const offset = this.bb!.__offset(this.bb_pos, 6);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
 scale():number {
-  const offset = this.bb!.__offset(this.bb_pos, 10);
+  const offset = this.bb!.__offset(this.bb_pos, 8);
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 1.0;
 }
 
 tiles(index: number, obj?:FloorGridTile):FloorGridTile|null {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
+  const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? (obj || new FloorGridTile()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 12, this.bb!) : null;
 }
 
 tilesLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
+  const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 regionRef():string|null
 regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
 regionRef(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 14);
+  const offset = this.bb!.__offset(this.bb_pos, 12);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
 static startFloorGridOp(builder:flatbuffers.Builder) {
-  builder.startObject(6);
-}
-
-static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(0, clipRegionOffset, 0);
+  builder.startObject(5);
 }
 
 static addSeed(builder:flatbuffers.Builder, seed:bigint) {
-  builder.addFieldInt64(1, seed, BigInt('0'));
+  builder.addFieldInt64(0, seed, BigInt('0'));
 }
 
 static addTheme(builder:flatbuffers.Builder, themeOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(2, themeOffset, 0);
+  builder.addFieldOffset(1, themeOffset, 0);
 }
 
 static addScale(builder:flatbuffers.Builder, scale:number) {
-  builder.addFieldFloat32(3, scale, 1.0);
+  builder.addFieldFloat32(2, scale, 1.0);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(4, tilesOffset, 0);
+  builder.addFieldOffset(3, tilesOffset, 0);
 }
 
 static startTilesVector(builder:flatbuffers.Builder, numElems:number) {
@@ -95,7 +84,7 @@ static startTilesVector(builder:flatbuffers.Builder, numElems:number) {
 }
 
 static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(5, regionRefOffset, 0);
+  builder.addFieldOffset(4, regionRefOffset, 0);
 }
 
 static endFloorGridOp(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -103,9 +92,8 @@ static endFloorGridOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createFloorGridOp(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, scale:number, tilesOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createFloorGridOp(builder:flatbuffers.Builder, seed:bigint, themeOffset:flatbuffers.Offset, scale:number, tilesOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
   FloorGridOp.startFloorGridOp(builder);
-  FloorGridOp.addClipRegion(builder, clipRegionOffset);
   FloorGridOp.addSeed(builder, seed);
   FloorGridOp.addTheme(builder, themeOffset);
   FloorGridOp.addScale(builder, scale);

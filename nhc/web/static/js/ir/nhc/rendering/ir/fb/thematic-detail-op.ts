@@ -77,22 +77,15 @@ theme(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-clipRegion():string|null
-clipRegion(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-clipRegion(optionalEncoding?:any):string|Uint8Array|null {
+regionRef():string|null
+regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+regionRef(optionalEncoding?:any):string|Uint8Array|null {
   const offset = this.bb!.__offset(this.bb_pos, 14);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-regionRef():string|null
-regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-regionRef(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 16);
-  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
-}
-
 static startThematicDetailOp(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(6);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -143,12 +136,8 @@ static addTheme(builder:flatbuffers.Builder, themeOffset:flatbuffers.Offset) {
   builder.addFieldOffset(4, themeOffset, 0);
 }
 
-static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(5, clipRegionOffset, 0);
-}
-
 static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(6, regionRefOffset, 0);
+  builder.addFieldOffset(5, regionRefOffset, 0);
 }
 
 static endThematicDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -156,14 +145,13 @@ static endThematicDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createThematicDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, isCorridorOffset:flatbuffers.Offset, wallCornersOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createThematicDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, isCorridorOffset:flatbuffers.Offset, wallCornersOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
   ThematicDetailOp.startThematicDetailOp(builder);
   ThematicDetailOp.addTiles(builder, tilesOffset);
   ThematicDetailOp.addIsCorridor(builder, isCorridorOffset);
   ThematicDetailOp.addWallCorners(builder, wallCornersOffset);
   ThematicDetailOp.addSeed(builder, seed);
   ThematicDetailOp.addTheme(builder, themeOffset);
-  ThematicDetailOp.addClipRegion(builder, clipRegionOffset);
   ThematicDetailOp.addRegionRef(builder, regionRefOffset);
   return ThematicDetailOp.endThematicDetailOp(builder);
 }

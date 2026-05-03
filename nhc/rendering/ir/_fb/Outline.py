@@ -22,7 +22,7 @@ class Outline(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def OutlineBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # Outline
     def Init(self, buf, pos):
@@ -53,75 +53,50 @@ class Outline(object):
         return o == 0
 
     # Outline
-    def Cuts(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
-        if o != 0:
-            x = self._tab.Vector(o)
-            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
-            x = self._tab.Indirect(x)
-            from nhc.rendering.ir._fb.Cut import Cut
-            obj = Cut()
-            obj.Init(self._tab.Bytes, x)
-            return obj
-        return None
-
-    # Outline
-    def CutsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
-
-    # Outline
-    def CutsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
-        return o == 0
-
-    # Outline
     def Closed(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return True
 
     # Outline
     def DescriptorKind(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 0
 
     # Outline
     def Cx(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
         return 0.0
 
     # Outline
     def Cy(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
         return 0.0
 
     # Outline
     def Rx(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
         return 0.0
 
     # Outline
     def Ry(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
         return 0.0
 
     # Outline
     def Rings(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         if o != 0:
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 12
@@ -133,18 +108,18 @@ class Outline(object):
 
     # Outline
     def RingsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # Outline
     def RingsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         return o == 0
 
 def OutlineStart(builder):
-    builder.StartObject(9)
+    builder.StartObject(8)
 
 def Start(builder):
     OutlineStart(builder)
@@ -161,56 +136,44 @@ def OutlineStartVerticesVector(builder, numElems):
 def StartVerticesVector(builder, numElems):
     return OutlineStartVerticesVector(builder, numElems)
 
-def OutlineAddCuts(builder, cuts):
-    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(cuts), 0)
-
-def AddCuts(builder, cuts):
-    OutlineAddCuts(builder, cuts)
-
-def OutlineStartCutsVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
-def StartCutsVector(builder, numElems):
-    return OutlineStartCutsVector(builder, numElems)
-
 def OutlineAddClosed(builder, closed):
-    builder.PrependBoolSlot(2, closed, 1)
+    builder.PrependBoolSlot(1, closed, 1)
 
 def AddClosed(builder, closed):
     OutlineAddClosed(builder, closed)
 
 def OutlineAddDescriptorKind(builder, descriptorKind):
-    builder.PrependUint8Slot(3, descriptorKind, 0)
+    builder.PrependUint8Slot(2, descriptorKind, 0)
 
 def AddDescriptorKind(builder, descriptorKind):
     OutlineAddDescriptorKind(builder, descriptorKind)
 
 def OutlineAddCx(builder, cx):
-    builder.PrependFloat32Slot(4, cx, 0.0)
+    builder.PrependFloat32Slot(3, cx, 0.0)
 
 def AddCx(builder, cx):
     OutlineAddCx(builder, cx)
 
 def OutlineAddCy(builder, cy):
-    builder.PrependFloat32Slot(5, cy, 0.0)
+    builder.PrependFloat32Slot(4, cy, 0.0)
 
 def AddCy(builder, cy):
     OutlineAddCy(builder, cy)
 
 def OutlineAddRx(builder, rx):
-    builder.PrependFloat32Slot(6, rx, 0.0)
+    builder.PrependFloat32Slot(5, rx, 0.0)
 
 def AddRx(builder, rx):
     OutlineAddRx(builder, rx)
 
 def OutlineAddRy(builder, ry):
-    builder.PrependFloat32Slot(7, ry, 0.0)
+    builder.PrependFloat32Slot(6, ry, 0.0)
 
 def AddRy(builder, ry):
     OutlineAddRy(builder, ry)
 
 def OutlineAddRings(builder, rings):
-    builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(rings), 0)
+    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(rings), 0)
 
 def AddRings(builder, rings):
     OutlineAddRings(builder, rings)
@@ -227,7 +190,6 @@ def OutlineEnd(builder):
 def End(builder):
     return OutlineEnd(builder)
 
-import nhc.rendering.ir._fb.Cut
 import nhc.rendering.ir._fb.PathRange
 import nhc.rendering.ir._fb.Vec2
 try:
@@ -241,7 +203,6 @@ class OutlineT(object):
     def __init__(
         self,
         vertices = None,
-        cuts = None,
         closed = True,
         descriptorKind = 0,
         cx = 0.0,
@@ -251,7 +212,6 @@ class OutlineT(object):
         rings = None,
     ):
         self.vertices = vertices  # type: Optional[List[nhc.rendering.ir._fb.Vec2.Vec2T]]
-        self.cuts = cuts  # type: Optional[List[nhc.rendering.ir._fb.Cut.CutT]]
         self.closed = closed  # type: bool
         self.descriptorKind = descriptorKind  # type: int
         self.cx = cx  # type: float
@@ -289,14 +249,6 @@ class OutlineT(object):
                 else:
                     vec2_ = nhc.rendering.ir._fb.Vec2.Vec2T.InitFromObj(outline.Vertices(i))
                     self.vertices.append(vec2_)
-        if not outline.CutsIsNone():
-            self.cuts = []
-            for i in range(outline.CutsLength()):
-                if outline.Cuts(i) is None:
-                    self.cuts.append(None)
-                else:
-                    cut_ = nhc.rendering.ir._fb.Cut.CutT.InitFromObj(outline.Cuts(i))
-                    self.cuts.append(cut_)
         self.closed = outline.Closed()
         self.descriptorKind = outline.DescriptorKind()
         self.cx = outline.Cx()
@@ -319,14 +271,6 @@ class OutlineT(object):
             for i in reversed(range(len(self.vertices))):
                 self.vertices[i].Pack(builder)
             vertices = builder.EndVector()
-        if self.cuts is not None:
-            cutslist = []
-            for i in range(len(self.cuts)):
-                cutslist.append(self.cuts[i].Pack(builder))
-            OutlineStartCutsVector(builder, len(self.cuts))
-            for i in reversed(range(len(self.cuts))):
-                builder.PrependUOffsetTRelative(cutslist[i])
-            cuts = builder.EndVector()
         if self.rings is not None:
             OutlineStartRingsVector(builder, len(self.rings))
             for i in reversed(range(len(self.rings))):
@@ -335,8 +279,6 @@ class OutlineT(object):
         OutlineStart(builder)
         if self.vertices is not None:
             OutlineAddVertices(builder, vertices)
-        if self.cuts is not None:
-            OutlineAddCuts(builder, cuts)
         OutlineAddClosed(builder, self.closed)
         OutlineAddDescriptorKind(builder, self.descriptorKind)
         OutlineAddCx(builder, self.cx)

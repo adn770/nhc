@@ -20,7 +20,7 @@ use tiny_skia::{Color, FillRule, Mask, Paint, Rect, Transform};
 
 use crate::ir::{FloorIR, OpEntry, TerrainKind, TerrainTintOp};
 
-use super::polygon_path::build_polygon_path;
+use super::polygon_path::build_outline_path;
 use super::RasterCtx;
 
 const CELL: f32 = 32.0;
@@ -234,18 +234,11 @@ fn build_clip_mask(
     fir: &FloorIR<'_>,
     ctx: &RasterCtx<'_>,
 ) -> Option<Mask> {
-    // Phase 1.25 — prefer op.region_ref; fall back to clip_region.
-    let region_id = op
-        .region_ref()
-        .filter(|r| !r.is_empty())
-        .or_else(|| op.clip_region())?;
-    if region_id.is_empty() {
-        return None;
-    }
+    let region_id = op.region_ref().filter(|r| !r.is_empty())?;
     let regions = fir.regions()?;
     let region = regions.iter().find(|r| r.id() == region_id)?;
-    let polygon = region.polygon()?;
-    let path = build_polygon_path(&polygon)?;
+    let outline = region.outline()?;
+    let path = build_outline_path(&outline)?;
     let (w, h) = (ctx.pixmap.width(), ctx.pixmap.height());
     let mut mask = Mask::new(w, h)?;
     mask.fill_path(&path, FillRule::EvenOdd, true, ctx.transform);

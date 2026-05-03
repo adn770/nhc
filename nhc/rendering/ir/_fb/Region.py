@@ -22,7 +22,7 @@ class Region(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def RegionBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # Region
     def Init(self, buf, pos):
@@ -43,26 +43,15 @@ class Region(object):
         return 0
 
     # Region
-    def Polygon(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
-        if o != 0:
-            x = self._tab.Indirect(o + self._tab.Pos)
-            from nhc.rendering.ir._fb.Polygon import Polygon
-            obj = Polygon()
-            obj.Init(self._tab.Bytes, x)
-            return obj
-        return None
-
-    # Region
     def ShapeTag(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
     # Region
     def Outline(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
             from nhc.rendering.ir._fb.Outline import Outline
@@ -72,7 +61,7 @@ class Region(object):
         return None
 
 def RegionStart(builder):
-    builder.StartObject(5)
+    builder.StartObject(4)
 
 def Start(builder):
     RegionStart(builder)
@@ -89,20 +78,14 @@ def RegionAddKind(builder, kind):
 def AddKind(builder, kind):
     RegionAddKind(builder, kind)
 
-def RegionAddPolygon(builder, polygon):
-    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(polygon), 0)
-
-def AddPolygon(builder, polygon):
-    RegionAddPolygon(builder, polygon)
-
 def RegionAddShapeTag(builder, shapeTag):
-    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(shapeTag), 0)
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(shapeTag), 0)
 
 def AddShapeTag(builder, shapeTag):
     RegionAddShapeTag(builder, shapeTag)
 
 def RegionAddOutline(builder, outline):
-    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(outline), 0)
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(outline), 0)
 
 def AddOutline(builder, outline):
     RegionAddOutline(builder, outline)
@@ -114,7 +97,6 @@ def End(builder):
     return RegionEnd(builder)
 
 import nhc.rendering.ir._fb.Outline
-import nhc.rendering.ir._fb.Polygon
 try:
     from typing import Optional
 except:
@@ -127,13 +109,11 @@ class RegionT(object):
         self,
         id = None,
         kind = 0,
-        polygon = None,
         shapeTag = None,
         outline = None,
     ):
         self.id = id  # type: Optional[str]
         self.kind = kind  # type: int
-        self.polygon = polygon  # type: Optional[nhc.rendering.ir._fb.Polygon.PolygonT]
         self.shapeTag = shapeTag  # type: Optional[str]
         self.outline = outline  # type: Optional[nhc.rendering.ir._fb.Outline.OutlineT]
 
@@ -160,8 +140,6 @@ class RegionT(object):
             return
         self.id = region.Id()
         self.kind = region.Kind()
-        if region.Polygon() is not None:
-            self.polygon = nhc.rendering.ir._fb.Polygon.PolygonT.InitFromObj(region.Polygon())
         self.shapeTag = region.ShapeTag()
         if region.Outline() is not None:
             self.outline = nhc.rendering.ir._fb.Outline.OutlineT.InitFromObj(region.Outline())
@@ -170,8 +148,6 @@ class RegionT(object):
     def Pack(self, builder):
         if self.id is not None:
             id = builder.CreateString(self.id)
-        if self.polygon is not None:
-            polygon = self.polygon.Pack(builder)
         if self.shapeTag is not None:
             shapeTag = builder.CreateString(self.shapeTag)
         if self.outline is not None:
@@ -180,8 +156,6 @@ class RegionT(object):
         if self.id is not None:
             RegionAddId(builder, id)
         RegionAddKind(builder, self.kind)
-        if self.polygon is not None:
-            RegionAddPolygon(builder, polygon)
         if self.shapeTag is not None:
             RegionAddShapeTag(builder, shapeTag)
         if self.outline is not None:

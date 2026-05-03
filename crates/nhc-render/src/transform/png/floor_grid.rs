@@ -17,7 +17,7 @@ use crate::ir::{FloorIR, FloorGridOp, OpEntry};
 use crate::primitives::floor_grid::draw_floor_grid;
 
 use super::path_parser::parse_path_d;
-use super::polygon_path::build_polygon_path;
+use super::polygon_path::build_outline_path;
 use super::RasterCtx;
 
 const GRID_WIDTH: f32 = 0.3;
@@ -106,18 +106,11 @@ fn build_clip_mask(
     fir: &FloorIR<'_>,
     ctx: &RasterCtx<'_>,
 ) -> Option<Mask> {
-    // Phase 1.25 — prefer op.region_ref; fall back to clip_region.
-    let region_id = op
-        .region_ref()
-        .filter(|r| !r.is_empty())
-        .or_else(|| op.clip_region())?;
-    if region_id.is_empty() {
-        return None;
-    }
+    let region_id = op.region_ref().filter(|r| !r.is_empty())?;
     let regions = fir.regions()?;
     let region = regions.iter().find(|r| r.id() == region_id)?;
-    let polygon = region.polygon()?;
-    let path = build_polygon_path(&polygon)?;
+    let outline = region.outline()?;
+    let path = build_outline_path(&outline)?;
     let mut mask =
         Mask::new(ctx.pixmap.width(), ctx.pixmap.height())?;
     mask.fill_path(&path, FillRule::EvenOdd, true, ctx.transform);

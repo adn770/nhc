@@ -1,13 +1,10 @@
-//! EnclosureOp rasterisation — Phase 8.2c of
-//! `plans/nhc_ir_migration_plan.md`.
+//! Site enclosure chain helpers shared by the ExteriorWallOp dispatch.
 //!
-//! Mirrors `_draw_enclosure_from_ir` in `nhc/rendering/ir_to_svg.py`
-//! constant-for-constant. Walks the closed polygon, applies
-//! per-edge gate cuts, and dispatches each open sub-segment on
-//! `EnclosureStyle` (Palisade circles or Fortification battlement
-//! chain). Per-edge palisade RNG is splitmix64 seeded with
-//! `rng_seed + edge_idx`; both rasterisers consume the same
-//! sequence so PSNR > 40 dB on the synthetic-IR gate.
+//! Walks a closed polygon, applies per-edge cut spans (gates), and
+//! dispatches each open sub-segment to the Palisade circle pass or the
+//! Fortification battlement chain. Per-edge palisade RNG is splitmix64
+//! seeded with `rng_seed + edge_idx`. Used for ``WallStyle::Palisade``
+//! and ``WallStyle::FortificationMerlon`` styles.
 
 use std::f32::consts::SQRT_2;
 
@@ -15,10 +12,28 @@ use tiny_skia::{
     Color, FillRule, LineCap, Paint, PathBuilder, Rect, Stroke, Transform,
 };
 
-use crate::ir::{EnclosureOp, EnclosureStyle, FloorIR, OpEntry};
+use crate::ir::WallStyle;
 use crate::rng::SplitMix64;
 
 use super::RasterCtx;
+
+/// Discriminator passed to [`render_enclosure_polygon`]: collapses the
+/// two enclosure-bearing WallStyle variants into a 2-element enum.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub(super) enum EnclosureKind {
+    Palisade,
+    Fortification,
+}
+
+impl EnclosureKind {
+    pub(super) fn from_wall_style(style: WallStyle) -> Option<Self> {
+        match style {
+            WallStyle::Palisade => Some(Self::Palisade),
+            WallStyle::FortificationMerlon => Some(Self::Fortification),
+            _ => None,
+        }
+    }
+}
 
 
 // ── Fortification (battlement) constants ──────────────────────
@@ -339,101 +354,17 @@ fn palisade_door_rect(
 }
 
 
-// ── Dispatch entry ─────────────────────────────────────────────
-
-
-fn polygon_coords(op: &EnclosureOp<'_>) -> Vec<(f32, f32)> {
-    let polygon = match op.polygon() {
-        Some(p) => p,
-        None => return Vec::new(),
-    };
-    let paths = match polygon.paths() {
-        Some(p) => p,
-        None => return Vec::new(),
-    };
-    paths.iter().map(|v| (v.x(), v.y())).collect()
-}
-
-pub(super) fn draw(
-    entry: &OpEntry<'_>,
-    _fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
-) {
-    let op: EnclosureOp = match entry.op_as_enclosure_op() {
-        Some(o) => o,
-        None => return,
-    };
-    let polygon = polygon_coords(&op);
-    let n = polygon.len();
-    if n < 3 {
-        return;
-    }
-
-    // Group gates by edge into per-edge (lo, hi) cut spans + midpoints.
-    let (by_edge, midpoints) = gate_spans_per_edge(&polygon, op.gates());
-
-    render_enclosure_polygon(
-        &polygon,
-        &by_edge,
-        &midpoints,
-        op.style(),
-        op.corner_style().0,
-        op.rng_seed(),
-        ctx,
-    );
-}
-
-
-/// Convert a flat gate list into per-edge (lo, hi) span buckets +
-/// per-edge t_center midpoint buckets. Phase 1.20 splits this out so
-/// the new `ExteriorWallOp` Palisade / FortificationMerlon dispatch
-/// can call `render_enclosure_polygon` with already-grouped data.
-pub(super) fn gate_spans_per_edge(
-    polygon: &[(f32, f32)],
-    gates: Option<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<crate::ir::Gate<'_>>>>,
-) -> (Vec<Vec<(f32, f32)>>, Vec<Vec<f32>>) {
-    let n = polygon.len();
-    let mut by_edge: Vec<Vec<(f32, f32)>> = vec![Vec::new(); n];
-    let mut midpoints: Vec<Vec<f32>> = vec![Vec::new(); n];
-    if let Some(gates) = gates {
-        for g in gates.iter() {
-            let edge_idx = g.edge_idx() as usize;
-            if edge_idx >= n {
-                continue;
-            }
-            let a = polygon[edge_idx];
-            let b = polygon[(edge_idx + 1) % n];
-            let dx = b.0 - a.0;
-            let dy = b.1 - a.1;
-            let edge_len = (dx * dx + dy * dy).sqrt();
-            if edge_len < 1e-6 {
-                continue;
-            }
-            let half_t = g.half_px() / edge_len;
-            let lo = (g.t_center() - half_t).max(0.0);
-            let hi = (g.t_center() + half_t).min(1.0);
-            if hi > lo {
-                by_edge[edge_idx].push((lo, hi));
-                midpoints[edge_idx].push(g.t_center());
-            }
-        }
-    }
-    (by_edge, midpoints)
-}
+// ── Render entry ───────────────────────────────────────────────
 
 
 /// Render a Palisade or Fortification chain along `polygon` edges.
-///
-/// Phase 1.20 entry point — used by both the legacy `EnclosureOp`
-/// handler (above) and the new `ExteriorWallOp` dispatch's
-/// Palisade / FortificationMerlon branches. The inputs are
-/// op-shape-agnostic so the byte-equal contract holds across both
-/// paths.
+/// Used by the ExteriorWallOp dispatch's Palisade /
+/// FortificationMerlon branches.
 pub(super) fn render_enclosure_polygon(
     polygon: &[(f32, f32)],
     by_edge: &[Vec<(f32, f32)>],
     midpoints: &[Vec<f32>],
-    style: EnclosureStyle,
+    style: EnclosureKind,
     corner_style: i8,
     rng_seed: u64,
     ctx: &mut RasterCtx<'_>,
@@ -442,7 +373,7 @@ pub(super) fn render_enclosure_polygon(
     if n < 3 {
         return;
     }
-    if style == EnclosureStyle::Palisade {
+    if style == EnclosureKind::Palisade {
         for i in 0..n {
             let a = polygon[i];
             let b = polygon[(i + 1) % n];

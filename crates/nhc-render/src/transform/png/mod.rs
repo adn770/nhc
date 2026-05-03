@@ -30,7 +30,6 @@ mod svg_attr;
 
 // Per-primitive raster handlers — one module per Op kind.
 mod building_exterior_wall;
-mod building_interior_wall;
 mod bush;
 mod corridor_wall_op;
 mod decorator;
@@ -49,7 +48,6 @@ mod terrain_detail;
 mod terrain_tints;
 mod thematic_detail;
 mod tree;
-mod walls_and_floors;
 mod well;
 
 /// Background fill — matches `nhc/rendering/_svg_helpers.py:BG`
@@ -137,11 +135,11 @@ fn layer_ops() -> &'static HashMap<&'static str, &'static [Op]> {
         m.insert(
             "structural",
             &[
-                Op::WallsAndFloorsOp,
+                Op::FloorOp,
+                Op::ExteriorWallOp,
+                Op::InteriorWallOp,
+                Op::CorridorWallOp,
                 Op::RoofOp,
-                Op::EnclosureOp,
-                Op::BuildingExteriorWallOp,
-                Op::BuildingInteriorWallOp,
             ],
         );
         m.insert("terrain_tints", &[Op::TerrainTintOp]);
@@ -171,7 +169,6 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         let mut m: HashMap<u8, OpHandler> = HashMap::new();
         m.insert(Op::ShadowOp.0, shadow::draw);
         m.insert(Op::FloorOp.0, floor_op::draw);
-        m.insert(Op::WallsAndFloorsOp.0, walls_and_floors::draw);
         m.insert(Op::ExteriorWallOp.0, exterior_wall_op::draw);
         m.insert(Op::InteriorWallOp.0, interior_wall_op::draw);
         m.insert(Op::CorridorWallOp.0, corridor_wall_op::draw);
@@ -188,13 +185,6 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::BushFeatureOp.0, bush::draw);
         m.insert(Op::TerrainDetailOp.0, terrain_detail::draw);
         m.insert(Op::RoofOp.0, roof::draw);
-        m.insert(Op::EnclosureOp.0, enclosure::draw);
-        m.insert(
-            Op::BuildingExteriorWallOp.0, building_exterior_wall::draw,
-        );
-        m.insert(
-            Op::BuildingInteriorWallOp.0, building_interior_wall::draw,
-        );
         m
     })
 }

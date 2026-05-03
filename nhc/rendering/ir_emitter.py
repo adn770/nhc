@@ -44,10 +44,8 @@ from nhc.rendering.ir._fb import FloorKind, RegionKind
 from nhc.rendering.ir._fb.FeatureFlags import FeatureFlagsT
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
 from nhc.rendering.ir._fb.CornerStyle import CornerStyle
-from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
+from nhc.rendering.ir._fb.CutStyle import CutStyle
 from nhc.rendering.ir._fb.ExteriorWallOp import ExteriorWallOpT
-from nhc.rendering.ir._fb.GateStyle import GateStyle
-from nhc.rendering.ir._fb.InteriorWallMaterial import InteriorWallMaterial
 from nhc.rendering.ir._fb.InteriorWallOp import InteriorWallOpT
 from nhc.rendering.ir._fb.OpEntry import OpEntryT
 from nhc.rendering.ir._fb.Outline import OutlineT
@@ -59,22 +57,21 @@ from nhc.rendering.ir._fb.RoofOp import RoofOpT
 from nhc.rendering.ir._fb.RoofStyle import RoofStyle
 from nhc.rendering.ir._fb.TileCorner import TileCorner
 from nhc.rendering.ir._fb.Vec2 import Vec2T
-from nhc.rendering.ir._fb.WallMaterial import WallMaterial
 from nhc.rendering.ir._fb.WallStyle import WallStyle
 
 
 # Schema version stamped on every emitted buffer. Bumped per the
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
-SCHEMA_MAJOR = 3
-SCHEMA_MINOR = 7
+SCHEMA_MAJOR = 4
+SCHEMA_MINOR = 0
 # Legacy aliases — Phase 2.3 promoted the constants to public names so
 # the floor-artefact cache can validate disk-loaded IR against the
 # running build's schema. Kept until the next IR refactor sweep.
 _SCHEMA_MAJOR = SCHEMA_MAJOR
 _SCHEMA_MINOR = SCHEMA_MINOR
 
-_FILE_IDENTIFIER = b"NIR3"
+_FILE_IDENTIFIER = b"NIR4"
 
 
 _FLOOR_KIND_MAP: dict[str, int] = {
@@ -99,7 +96,7 @@ class FloorIRBuilder:
     ``site`` is set when ``build_floor_ir`` is invoked for a site
     surface (Phase 8.4); the :func:`emit_site_overlays` stage then
     emits Site + Building regions, ``RoofOp`` per building, and a
-    single ``EnclosureOp`` when the site has one.
+    single enclosure ``ExteriorWallOp`` when the site has one.
     """
 
     def __init__(self, ctx: RenderContext) -> None:
@@ -120,30 +117,26 @@ class FloorIRBuilder:
         region = RegionT()
         region.id = id
         region.kind = kind
-        region.polygon = polygon
         region.shapeTag = shape_tag
-        # Phase 1.22 of plans/nhc_pure_ir_plan.md — Region.outline
-        # ships parallel to Region.polygon. When the caller hasn't
-        # supplied an explicit outline (e.g. a Circle / Pill
-        # descriptor variant), derive one from the polygon: the
-        # vertex list mirrors ``polygon.paths`` and the multi-ring
-        # partitioning mirrors ``polygon.rings`` only when the
-        # polygon has more than one ring (single-ring outlines leave
-        # ``rings`` empty per design/map_ir_v4e.md §4 — the v4e
+        # When the caller hasn't supplied an explicit outline (e.g. a
+        # Circle / Pill descriptor variant), derive one from the
+        # polygon: the vertex list mirrors ``polygon.paths`` and the
+        # multi-ring partitioning mirrors ``polygon.rings`` only when
+        # the polygon has more than one ring (single-ring outlines
+        # leave ``rings`` empty per design/map_ir_v4e.md §4 — the v4e
         # shorthand: vertices IS the single ring).
         if outline is None:
             outline = _polygon_to_outline(polygon)
         else:
-            # Phase 1.26g — Circle / Pill descriptors arrive with
-            # ``vertices = []`` because they ship via the rasterisers'
-            # native primitives. Mirror the polygonised approximation
-            # from ``polygon.paths`` into ``outline.vertices`` so
+            # Circle / Pill descriptors arrive with ``vertices = []``
+            # because they ship via the rasterisers' native primitives.
+            # Mirror the polygonised approximation from
+            # ``polygon.paths`` into ``outline.vertices`` so
             # polygon-vertex consumers (room shadow handler, future
-            # consumers) can read everything from ``Region.outline``
-            # without falling back to ``Region.polygon``. Multi-ring
-            # polygons mirror their rings too. The descriptor stays
-            # canonical for rasterisers that dispatch on
-            # ``descriptor_kind``; vertices is a convenience copy
+            # consumers) can read everything from ``Region.outline``.
+            # Multi-ring polygons mirror their rings too. The
+            # descriptor stays canonical for rasterisers that dispatch
+            # on ``descriptor_kind``; vertices is a convenience copy
             # the descriptor consumers ignore.
             if not (outline.vertices or []) and polygon is not None:
                 outline.vertices = list(polygon.paths or [])
@@ -776,8 +769,7 @@ def emit_building_roofs(
             rngSeed=rng_seed,
         )
         entry = OpEntryT()
-        entry.opType = 16  # Op.RoofOp; explicit so this stays
-                           # decoupled from a circular Op import.
+        entry.opType = 14  # Op.RoofOp (post-1.27 union renumber).
         entry.op = op
         builder.add_op(entry)
 
@@ -786,13 +778,13 @@ def emit_site_enclosure(
     builder: FloorIRBuilder,
     polygon_tiles: list[tuple[float, float]],
     *,
-    style: int,
+    wall_style: int,
     gates: list[tuple[int, float, float]] | None = None,
     base_seed: int,
     corner_style: int = CornerStyle.Merlon,
-    gate_style: int = GateStyle.Wood,
+    cut_style: int = CutStyle.WoodGate,
 ) -> None:
-    """Emit one ``EnclosureOp`` for a site's enclosure ring.
+    """Emit one ``ExteriorWallOp`` for a site's enclosure ring.
 
     ``polygon_tiles`` is the closed enclosure polygon in *tile*
     coords (no closing duplicate); the helper translates to bare
@@ -800,88 +792,55 @@ def emit_site_enclosure(
     outer ``translate(padding, padding)`` adds PADDING once at
     paint time.
 
+    ``wall_style`` is one of ``WallStyle.Palisade`` /
+    ``WallStyle.FortificationMerlon``; other styles are no-ops.
     ``gates`` is a list of ``(edge_idx, t_center, half_px)`` triples
-    matching the legacy ``site.enclosure.gates`` shape.
-    ``base_seed`` is the floor's base RNG seed; per design/map_ir.md
-    §10 the EnclosureOp salt is ``+ 0xE101`` (per-edge palisade
-    streams seed at ``rng_seed + edge_idx``).
+    matching the legacy ``site.enclosure.gates`` shape; each becomes
+    a ``Cut`` on the emitted op with style ``cut_style``. ``base_seed``
+    is the floor's base RNG seed; per design/map_ir.md §10 the
+    enclosure salt is ``+ 0xE101`` (per-edge palisade streams seed
+    at ``rng_seed + edge_idx``).
 
-    No ``Region(kind=Site)`` registration is required for the
-    enclosure to render — the polygon travels with the op — but
-    callers typically call :func:`emit_site_region` first so other
-    ops (roofs, gates) can reference the surface bounds.
+    Registers ``Region(kind=Enclosure, id="enclosure")`` so the
+    emitted op resolves geometry through ``region_ref`` per
+    design/map_ir_v4e.md §3.
     """
     if len(polygon_tiles) < 3:
+        return
+    if wall_style not in (
+        WallStyle.Palisade, WallStyle.FortificationMerlon,
+    ):
         return
     coords_px = [
         (float(x * CELL), float(y * CELL))
         for x, y in polygon_tiles
     ]
     polygon = _coords_to_polygon(coords_px)
-    # Phase 1.20 — legacy EnclosureOp no longer emitted; coverage
-    # moved to ExteriorWallOp (WallStyle.Palisade /
-    # FortificationMerlon, gates encoded as Cut entries) below.
-    # Schema declaration stays until 1.22; back-compat reader in
-    # transform/png/enclosure.rs keeps 3.x cached buffers rendering.
-
-    # Phase 1.14 — parallel emission of ExteriorWallOp for enclosures.
-    # Per EnclosureStyle.Palisade / EnclosureStyle.Fortification the
-    # emitter ships one ExteriorWallOp { outline = closed polygon in
-    # pixel coords, style = WallStyle.Palisade |
-    # WallStyle.FortificationMerlon, corner_style = pass-through,
-    # cuts = gates-as-cuts } alongside the legacy EnclosureOp. Gate
-    # triples (edge_idx, t_center, half_px) are resolved to pixel-space
-    # Cut pairs via cuts_for_enclosure_gates; GateStyle.Wood /
-    # GateStyle.Portcullis map to CutStyle.WoodGate /
-    # CutStyle.PortcullisGate.
-    #
-    # The new op lands AFTER the legacy EnclosureOp so the 1.16+
-    # consumer switch can pick up the new path without reordering ops[];
-    # mirrors Phase 1.12 (building ExteriorWallOp) and Phase 1.13
-    # (InteriorWallOp).
-    _ENCLOSURE_WALL_STYLE_MAP = {
-        EnclosureStyle.Palisade: WallStyle.Palisade,
-        EnclosureStyle.Fortification: WallStyle.FortificationMerlon,
-    }
-    if style in _ENCLOSURE_WALL_STYLE_MAP:
-        from nhc.rendering._outline_helpers import (
-            cuts_for_enclosure_gates,
+    from nhc.rendering._outline_helpers import (
+        cuts_for_enclosure_gates,
+    )
+    if not any(
+        (r.id.decode() if isinstance(r.id, bytes) else r.id) == "enclosure"
+        for r in builder.regions
+    ):
+        builder.add_region(
+            id="enclosure",
+            kind=RegionKind.RegionKind.Enclosure,
+            polygon=polygon,
+            shape_tag="enclosure",
         )
-        # Phase 1.26e-2b — register the canonical
-        # Region(kind=Enclosure, id="enclosure") here so the new
-        # ExteriorWallOp's region_ref resolves without a separate
-        # caller. ``emit_site_overlays`` no longer registers it
-        # itself (it just calls into this helper).
-        if not any(
-            (r.id.decode() if isinstance(r.id, bytes) else r.id) == "enclosure"
-            for r in builder.regions
-        ):
-            builder.add_region(
-                id="enclosure",
-                kind=RegionKind.RegionKind.Enclosure,
-                polygon=polygon,
-                shape_tag="enclosure",
-            )
-        wall_op = ExteriorWallOpT()
-        # Phase 1.26e-2b — op.outline retired; Region.outline
-        # (registered above) carries the canonical outline. Op-level
-        # cuts (Phase 1.24) stay populated.
-        wall_op.outline = None
-        wall_op.style = _ENCLOSURE_WALL_STYLE_MAP[style]
-        wall_op.cornerStyle = corner_style
-        # Phase 1.20 — propagate the splitmix64 seed onto the new op
-        # so the consumer can derive per-edge sub-seeds without
-        # reading the paired EnclosureOp (which Phase 1.20 stops
-        # emitting). The salt + mask match the legacy emission above.
-        wall_op.rngSeed = (base_seed + 0xE101) & _SM64_MASK
-        wall_op.regionRef = "enclosure"
-        wall_op.cuts = cuts_for_enclosure_gates(
-            coords_px, list(gates or []), gate_style,
-        )
-        wall_entry = OpEntryT()
-        wall_entry.opType = 22  # Op.ExteriorWallOp
-        wall_entry.op = wall_op
-        builder.add_op(wall_entry)
+    wall_op = ExteriorWallOpT()
+    wall_op.style = wall_style
+    wall_op.cornerStyle = corner_style
+    wall_op.rngSeed = (base_seed + 0xE101) & _SM64_MASK
+    wall_op.regionRef = "enclosure"
+    wall_op.cuts = cuts_for_enclosure_gates(
+        coords_px, list(gates or []), cut_style,
+    )
+    wall_entry = OpEntryT()
+    wall_entry.opType = 17  # Op.ExteriorWallOp
+    wall_entry.op = wall_op
+    builder.add_op(wall_entry)
 
 
 # ── Phase 8.3: Building wall ops ───────────────────────────────
@@ -891,15 +850,21 @@ _DOOR_SUPPRESSING_FEATURES = frozenset({
     "door_open", "door_closed", "door_locked",
 })
 
-_WALL_MATERIAL_MAP: dict[str, int] = {
-    "brick": WallMaterial.Brick,
-    "stone": WallMaterial.Stone,
+# Building exterior wall material → ExteriorWallOp WallStyle.
+# Buildings with ``wall_material == "dungeon"`` skip exterior emit
+# (the dungeon perimeter walks through the standard ExteriorWallOp /
+# CorridorWallOp passes instead). Adobe / wood are forward-compat;
+# they fall through unmapped and skip exterior emit.
+_MASONRY_STYLE_MAP: dict[str, int] = {
+    "brick": WallStyle.MasonryBrick,
+    "stone": WallStyle.MasonryStone,
 }
 
-_INTERIOR_WALL_MATERIAL_MAP: dict[str, int] = {
-    "stone": InteriorWallMaterial.Stone,
-    "brick": InteriorWallMaterial.Brick,
-    "wood": InteriorWallMaterial.Wood,
+# Building interior partition material → InteriorWallOp WallStyle.
+_PARTITION_STYLE_MAP: dict[str, int] = {
+    "stone": WallStyle.PartitionStone,
+    "brick": WallStyle.PartitionBrick,
+    "wood": WallStyle.PartitionWood,
 }
 
 
@@ -1028,67 +993,38 @@ def emit_building_walls(
     base_seed: int,
     building_index: int = 0,
 ) -> None:
-    """Emit BuildingExterior + BuildingInteriorWallOps for one Building floor.
+    """Emit InteriorWallOps + ExteriorWallOp for one Building floor.
 
-    Skips ``BuildingExteriorWallOp`` when ``wall_material ==
-    "dungeon"`` so the existing WallsAndFloorsOp dungeon-wall pass
-    keeps painting them. Always emits ``BuildingInteriorWallOp``
-    (possibly with empty edges so the rasteriser dispatch table
-    still sees one op per building).
+    Per coalesced + door-filtered interior partition edge ships one
+    ``InteriorWallOp`` (open-polyline outline between two corner-grid
+    endpoints, style ``PartitionStone`` / ``PartitionBrick`` /
+    ``PartitionWood``). Per masonry-walled building ships one
+    ``ExteriorWallOp`` resolving geometry through
+    ``region_ref = "building.<i>"`` (style ``MasonryBrick`` /
+    ``MasonryStone``).
 
-    Op-emit order is ``BuildingInteriorWallOp ->
-    BuildingExteriorWallOp`` per design/map_ir.md §6.1. The curved
-    or clipped exterior masonry overlays any partition extension
-    into the rim zone, cleaning up T-junctions for circle /
-    octagon buildings (mirrors ``building.py:97-104``).
+    Buildings with ``wall_material == "dungeon"`` skip exterior emit
+    entirely — the dungeon perimeter walks through the standard
+    ExteriorWallOp / CorridorWallOp passes. Adobe / wood materials
+    skip the new op for now (forward-compat slots).
+
+    Door cuts on partitions are pre-filtered upstream by
+    ``_edge_has_visible_door`` inside ``_coalesced_interior_edges``:
+    a partition edge coinciding with a visible door tile is dropped
+    from the coalesced list rather than emitted as a Cut interval.
 
     Pre-condition: a ``Region(kind=Building, id="building.<i>")``
     must already be on ``builder.regions`` (typically via
     :func:`emit_building_regions`).
     """
-    region_id = f"building.{building_index}"
-    # Interior partitions emit first so the exterior masonry
-    # overlays them at the rim — see §6.1 paint order.
-    interior_material = _INTERIOR_WALL_MATERIAL_MAP.get(
-        getattr(building, "interior_wall_material", "stone"),
-        InteriorWallMaterial.Stone,
-    )
     edges = _coalesced_interior_edges(level)
-    # Phase 1.20 — legacy BuildingInteriorWallOp no longer emitted;
-    # coverage moved to InteriorWallOp (PartitionStone / Brick /
-    # Wood) below. Schema declaration stays until 1.22; back-compat
-    # reader in transform/png/building_interior_wall.rs keeps 3.x
-    # cached buffers rendering.
-
-    # Phase 1.13 — parallel emission of InteriorWallOp for partition
-    # lines. Per coalesced + door-filtered interior partition edge in
-    # ``edges`` the emitter ships one InteriorWallOp { outline:
-    # open-polyline (closed=False) with the two corner-grid endpoints
-    # in pixel coords, style: PartitionStone | PartitionBrick |
-    # PartitionWood, cuts: [] } alongside the legacy
-    # BuildingInteriorWallOp. Style maps 1:1 from the building's
-    # ``interior_wall_material`` per design/map_ir_v4.md §3 / §7.
-    #
-    # Door cuts on partitions are pre-filtered upstream by
-    # ``_edge_has_visible_door`` inside ``_coalesced_interior_edges``:
-    # a partition edge that coincides with a visible door tile is
-    # dropped from the coalesced list rather than emitted as a Cut
-    # interval. The partition line is therefore split at the door's
-    # tile edge — the gap is encoded as two separate InteriorWallOps
-    # with no Cut between them — so cuts stay empty by contract.
-    #
-    # The new ops land BEFORE both the legacy and new exterior wall
-    # ops to match the v4 paint order (slot 3 InteriorWallOp -> slot
-    # 5 ExteriorWallOp, per design/map_ir_v4.md §4).
-    _PARTITION_STYLE_MAP = {
-        InteriorWallMaterial.Stone: WallStyle.PartitionStone,
-        InteriorWallMaterial.Brick: WallStyle.PartitionBrick,
-        InteriorWallMaterial.Wood: WallStyle.PartitionWood,
-    }
+    # Interior partitions emit first so the exterior masonry overlays
+    # them at the rim — design/map_ir.md §6.1 paint order.
     if edges:
         from nhc.rendering._outline_helpers import outline_from_polygon
         partition_style = _PARTITION_STYLE_MAP.get(
-            interior_material, WallStyle.PartitionStone,
+            getattr(building, "interior_wall_material", "stone"),
+            WallStyle.PartitionStone,
         )
         for (ax, ay, a_corner, bx, by, b_corner) in edges:
             adx, ady = _tile_corner_delta(a_corner)
@@ -1100,74 +1036,25 @@ def emit_building_walls(
                 [point_a, point_b], closed=False,
             )
             wall_op.style = partition_style
-            # Phase 1.24 — op-level cuts mirror outline.cuts.
-            # Building partitions split at door positions
-            # upstream (via ``_edge_has_visible_door`` filtering
-            # in ``_coalesced_interior_edges``) so this list is
-            # typically empty; the field is on the table for
-            # v4e symmetry with ExteriorWallOp.
-            wall_op.cuts = list(wall_op.outline.cuts or [])
+            wall_op.cuts = []
             wall_entry = OpEntryT()
-            wall_entry.opType = 21  # Op.InteriorWallOp
+            wall_entry.opType = 16  # Op.InteriorWallOp
             wall_entry.op = wall_op
             builder.add_op(wall_entry)
 
-    # Phase 1.20 — legacy BuildingExteriorWallOp no longer emitted;
-    # coverage moved to ExteriorWallOp (MasonryBrick / MasonryStone)
-    # below. Schema declaration stays until 1.22; back-compat reader
-    # in transform/png/building_exterior_wall.rs keeps 3.x cached
-    # buffers rendering. The "dungeon" wall_material short-circuit
-    # still applies — for dungeon-walled buildings the new
-    # ExteriorWallOp pass below also skips the exterior emit.
     wall_material = building.wall_material
-
-    # Phase 1.12 — parallel emission of ExteriorWallOp for masonry
-    # buildings. Per Region(kind=Building) with wall_material in
-    # {"brick", "stone"} the emitter ships one ExteriorWallOp
-    # { outline = building footprint polygon, style = MasonryBrick |
-    # MasonryStone, corner_style = Merlon, cuts = [doors] } alongside
-    # the legacy BuildingExteriorWallOp. The masonry wall styles map
-    # 1:1 from the building's wall_material per design/map_ir_v4.md
-    # §3 / §7. ``wall_material == "dungeon"`` skips both ops (the
-    # dungeon perimeter walks the WallsAndFloorsOp pass instead);
-    # non-masonry materials (``adobe`` / ``wood``) skip the new op
-    # only — the v4 ``WallStyle`` enum reserves the masonry slots,
-    # and adobe / wood will get dedicated styles in a future phase.
-    #
-    # Door cuts ride on the shape-agnostic
-    # ``cuts_for_building_doors`` helper, which delegates to
-    # ``cuts_for_room_doors`` after wrapping the building's
-    # base_shape.floor_tiles(base_rect) in a Room-like adapter so the
-    # door-side / pixel-edge logic stays in one place.
-    #
-    # The new op lands AFTER the legacy BuildingExteriorWallOp so the
-    # 1.16+ consumer switch picks up the new path without reordering
-    # ops[]; mirrors the Phase 1.10 cave ExteriorWallOp placement.
-    _MASONRY_STYLE_MAP = {
-        "brick": WallStyle.MasonryBrick,
-        "stone": WallStyle.MasonryStone,
-    }
     if wall_material in _MASONRY_STYLE_MAP:
         from nhc.rendering._outline_helpers import cuts_for_building_doors
         wall_op = ExteriorWallOpT()
-        # Phase 1.26e-2b — op.outline retired; Region(kind=Building,
-        # id="building.<i>") (registered by emit_building_regions /
-        # emit_building_overlays) carries the canonical footprint.
-        # Op-level cuts (Phase 1.24) stay populated.
-        wall_op.outline = None
         wall_op.style = _MASONRY_STYLE_MAP[wall_material]
         wall_op.cornerStyle = CornerStyle.Merlon
-        # Phase 1.20 — propagate the splitmix64 seed onto the new op
-        # so the consumer can derive per-edge sub-seeds without
-        # reading the paired BuildingExteriorWallOp (which Phase 1.20
-        # stops emitting). Salt + mask match the legacy emission.
         wall_op.rngSeed = (
             base_seed + 0xBE71 + building_index
         ) & _SM64_MASK
         wall_op.regionRef = f"building.{building_index}"
         wall_op.cuts = cuts_for_building_doors(building, level)
         wall_entry = OpEntryT()
-        wall_entry.opType = 22  # Op.ExteriorWallOp
+        wall_entry.opType = 17  # Op.ExteriorWallOp
         wall_entry.op = wall_op
         builder.add_op(wall_entry)
 
@@ -1234,9 +1121,9 @@ def _collect_building_footprint_mask(
     for region in regions:
         if region.kind != RegionKind.RegionKind.Building:
             continue
-        if region.polygon is None:
+        if region.outline is None:
             continue
-        coords = [(v.x, v.y) for v in region.polygon.paths]
+        coords = [(v.x, v.y) for v in (region.outline.vertices or [])]
         if len(coords) < 3:
             continue
         # Tile bbox covering the polygon. Polygon coords are bare
@@ -1373,29 +1260,25 @@ def emit_hatch(builder: FloorIRBuilder) -> None:
 
 
 def emit_walls_and_floors(builder: FloorIRBuilder) -> None:
-    """Phase 1.d: emit WallsAndFloorsOp with pre-rendered smooth-room
-    fragments, structured rect rooms / corridor tiles, and combined
-    wall-segment / wall-extension strings."""
+    """Stamp-model walls + floors. Emits FloorOp / ExteriorWallOp /
+    InteriorWallOp / CorridorWallOp covering rooms, cave systems,
+    corridors, and dungeon walls per design/map_ir_v4e.md §3 / §5."""
     from nhc.rendering._floor_layers import _emit_walls_and_floors_ir
     _emit_walls_and_floors_ir(builder)
 
 
 def emit_building_overlays(builder: FloorIRBuilder) -> None:
-    """Phase 8.5 — building-floor composite overlays.
+    """Building-floor composite overlays.
 
     Fires when the level is one of ``site.buildings[i].floors[j]``
     (resolved by ``level.building_id`` matching a building id). The
     stage registers the Building's polygon as a Region and emits
-    ``BuildingExteriorWallOp`` + ``BuildingInteriorWallOp`` per
-    design/map_ir.md §6.1's Building paint order
-    (``WallsAndFloorsOp -> BuildingInteriorWallOp ->
-    BuildingExteriorWallOp``).
+    ``InteriorWallOp`` partitions + the masonry ``ExteriorWallOp``
+    via :func:`emit_building_walls`.
 
     Skips silently when there is no site context, when
     ``level.building_id`` is unset, or when the matching building
-    is not present in ``site.buildings`` — those branches stay on
-    the legacy ``render_building_floor_svg`` path until the rest of
-    the migration retires it.
+    is not present in ``site.buildings``.
     """
     site = builder.site
     if site is None:
@@ -1414,10 +1297,10 @@ def emit_building_overlays(builder: FloorIRBuilder) -> None:
     building_index, building = match
     emit_building_regions(builder, [building])
     # Patch the freshly added region's id from "building.0" to
-    # "building.<i>" so the BuildingExteriorWallOp's region_ref
-    # (which uses building_index) resolves cleanly when there's a
-    # mismatch between the emit_building_regions iteration index
-    # and the canonical building index in site.buildings.
+    # "building.<i>" so the masonry ExteriorWallOp's region_ref
+    # resolves cleanly when there's a mismatch between the
+    # emit_building_regions iteration index and the canonical
+    # building index in site.buildings.
     builder.regions[-1].id = f"building.{building_index}"
     emit_building_walls(
         builder, building, level,
@@ -1437,11 +1320,9 @@ def emit_site_overlays(builder: FloorIRBuilder) -> None:
     1. ``Region(kind=Site)`` covering the surface bounds.
     2. ``Region(kind=Building)`` per :attr:`Site.buildings` entry.
     3. ``RoofOp`` per building.
-    4. ``EnclosureOp`` when ``site.enclosure`` is set and the
-       enclosure kind is one we cover (palisade / fortification).
-
-    Runs after ``emit_walls_and_floors`` so the structural-layer
-    op order is `WallsAndFloorsOp → RoofOp → EnclosureOp`.
+    4. Enclosure ``ExteriorWallOp`` when ``site.enclosure`` is set
+       and the enclosure kind is one we cover (palisade /
+       fortification).
     """
     site = builder.site
     if site is None:
@@ -1466,9 +1347,9 @@ def emit_site_overlays(builder: FloorIRBuilder) -> None:
         return
     kind = enclosure.kind
     if kind == "palisade":
-        style_int = EnclosureStyle.Palisade
+        wall_style = WallStyle.Palisade
     elif kind == "fortification":
-        style_int = EnclosureStyle.Fortification
+        wall_style = WallStyle.FortificationMerlon
     else:
         # Forward-compat: unknown kind -> skip enclosure rather than
         # raise. Site SVG handles ruin / cottage / temple by skipping
@@ -1508,15 +1389,12 @@ def emit_site_overlays(builder: FloorIRBuilder) -> None:
         gates_param.append(
             (best_idx, best_t, float(length_tiles) * CELL / 2.0),
         )
-    # Phase 1.26e-2b — Region(kind=Enclosure, id="enclosure") is now
-    # registered inside :func:`emit_site_enclosure`; no separate
-    # add_region call here.
     emit_site_enclosure(
         builder,
         polygon_tiles=[
             (float(x), float(y)) for (x, y) in enclosure.polygon
         ],
-        style=style_int,
+        wall_style=wall_style,
         gates=gates_param,
         base_seed=builder.ctx.seed,
         corner_style=CornerStyle.Merlon,

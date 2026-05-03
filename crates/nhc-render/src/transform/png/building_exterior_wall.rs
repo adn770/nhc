@@ -1,12 +1,10 @@
-//! BuildingExteriorWallOp rasterisation — Phase 8.3c of
-//! `plans/nhc_ir_migration_plan.md`.
+//! Masonry chain helpers shared by the ExteriorWallOp dispatch.
 //!
-//! Mirrors `_draw_building_exterior_wall_from_ir` in
-//! `nhc/rendering/ir_to_svg.py` constant-for-constant. Walks the
-//! Building region polygon, applies the half-thickness vertex-
-//! extension trick so adjacent edges overlap at corners, and
+//! Walks a building footprint polygon, applies the half-thickness
+//! vertex-extension trick so adjacent edges overlap at corners, and
 //! renders a 2-strip running-bond chain per edge using splitmix64
-//! seeded `rng_seed + edge_idx`.
+//! seeded `rng_seed + edge_idx`. Used for ``WallStyle::MasonryBrick``
+//! and ``WallStyle::MasonryStone`` styles.
 
 use std::f32::consts::PI;
 
@@ -14,10 +12,30 @@ use tiny_skia::{
     Color, FillRule, LineCap, Paint, PathBuilder, Stroke, Transform,
 };
 
-use crate::ir::{BuildingExteriorWallOp, FloorIR, OpEntry, Region, WallMaterial};
+use crate::ir::WallStyle;
 use crate::rng::SplitMix64;
 
 use super::RasterCtx;
+
+/// Material discriminator passed to the masonry helpers (collapses
+/// the WallStyle::Masonry* variants into a 2-element enum so the
+/// renderer can pick palettes without re-matching the full WallStyle
+/// surface).
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub(super) enum MasonryMaterial {
+    Brick,
+    Stone,
+}
+
+impl MasonryMaterial {
+    pub(super) fn from_wall_style(style: WallStyle) -> Option<Self> {
+        match style {
+            WallStyle::MasonryBrick => Some(Self::Brick),
+            WallStyle::MasonryStone => Some(Self::Stone),
+            _ => None,
+        }
+    }
+}
 
 
 // Constants mirror nhc/rendering/_building_walls.py.
@@ -70,11 +88,10 @@ fn thin_stroke() -> Stroke {
 }
 
 
-fn material_palette(material: WallMaterial) -> ((u8, u8, u8), (u8, u8, u8)) {
-    if material == WallMaterial::Brick {
-        (BRICK_FILL_RGB, BRICK_SEAM_RGB)
-    } else {
-        (STONE_FILL_RGB, STONE_SEAM_RGB)
+fn material_palette(material: MasonryMaterial) -> ((u8, u8, u8), (u8, u8, u8)) {
+    match material {
+        MasonryMaterial::Brick => (BRICK_FILL_RGB, BRICK_SEAM_RGB),
+        MasonryMaterial::Stone => (STONE_FILL_RGB, STONE_SEAM_RGB),
     }
 }
 
@@ -212,62 +229,18 @@ fn render_diagonal_run(
 }
 
 
-fn polygon_coords(region: &Region<'_>) -> Vec<(f32, f32)> {
-    let polygon = match region.polygon() {
-        Some(p) => p,
-        None => return Vec::new(),
-    };
-    let paths = match polygon.paths() {
-        Some(p) => p,
-        None => return Vec::new(),
-    };
-    paths.iter().map(|v| (v.x(), v.y())).collect()
-}
-
-fn find_region<'a>(
-    fir: &FloorIR<'a>, region_ref: &str,
-) -> Option<Region<'a>> {
-    let regions = fir.regions()?;
-    regions.iter().find(|r| r.id() == region_ref)
-}
-
-
-pub(super) fn draw(
-    entry: &OpEntry<'_>,
-    fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
-) {
-    let _ = PI;  // keep import (stays used when atan2 lands).
-    let op: BuildingExteriorWallOp = match entry.op_as_building_exterior_wall_op() {
-        Some(o) => o,
-        None => return,
-    };
-    let region_ref = match op.region_ref() {
-        Some(r) => r,
-        None => return,
-    };
-    let region = match find_region(fir, region_ref) {
-        Some(r) => r,
-        None => return,
-    };
-    let polygon = polygon_coords(&region);
-    render_masonry_polygon(&polygon, op.material(), op.rng_seed(), ctx);
-}
-
-
 /// Render a masonry chain along each edge of the given polygon.
 ///
-/// Phase 1.20 entry point — used by both the legacy
-/// `BuildingExteriorWallOp` handler (above) and the new
-/// `ExteriorWallOp` dispatch's MasonryBrick / MasonryStone branch.
-/// Both paths feed identical inputs (polygon + material + seed) so the
-/// output is byte-equivalent regardless of which op carries the data.
+/// Used by the ExteriorWallOp dispatch's MasonryBrick / MasonryStone
+/// branch. Adjacent edges overlap by half the wall thickness at each
+/// vertex so corner squares paint fully.
 pub(super) fn render_masonry_polygon(
     polygon: &[(f32, f32)],
-    material: WallMaterial,
+    material: MasonryMaterial,
     rng_seed: u64,
     ctx: &mut RasterCtx<'_>,
 ) {
+    let _ = PI;  // keep import (stays used when atan2 lands).
     let n = polygon.len();
     if n < 3 {
         return;
@@ -327,10 +300,10 @@ mod tests {
 
     #[test]
     fn material_palette_brick_vs_stone() {
-        let (b_fill, b_seam) = material_palette(WallMaterial::Brick);
+        let (b_fill, b_seam) = material_palette(MasonryMaterial::Brick);
         assert_eq!(b_fill, BRICK_FILL_RGB);
         assert_eq!(b_seam, BRICK_SEAM_RGB);
-        let (s_fill, _) = material_palette(WallMaterial::Stone);
+        let (s_fill, _) = material_palette(MasonryMaterial::Stone);
         assert_eq!(s_fill, STONE_FILL_RGB);
     }
 }

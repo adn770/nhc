@@ -526,14 +526,11 @@ def _check_synthetic_fixture(
 
 
 def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
-    """Hand-build a FloorIR buf with one Site + Enclosure region + EnclosureOp."""
-    from nhc.rendering._svg_helpers import CELL
+    """Hand-build a FloorIR buf with one Site region + an enclosure ExteriorWallOp."""
     from nhc.rendering.ir._fb.CornerStyle import CornerStyle
-    from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
-    from nhc.rendering.ir._fb.RegionKind import RegionKind
+    from nhc.rendering.ir._fb.WallStyle import WallStyle
     from nhc.rendering.ir_emitter import (
-        FloorIRBuilder, _coords_to_polygon, emit_site_enclosure,
-        emit_site_region,
+        FloorIRBuilder, emit_site_enclosure, emit_site_region,
     )
 
     @dataclasses.dataclass
@@ -558,8 +555,8 @@ def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
     builder = FloorIRBuilder(_Ctx(level=_Level(width=width, height=height)))  # type: ignore[arg-type]
 
     style_map = {
-        "palisade": EnclosureStyle.Palisade,
-        "fortification": EnclosureStyle.Fortification,
+        "palisade": WallStyle.Palisade,
+        "fortification": WallStyle.FortificationMerlon,
     }
     corner_map = {
         "merlon": CornerStyle.Merlon,
@@ -567,24 +564,12 @@ def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
         "tower": CornerStyle.Tower,
     }
     emit_site_region(builder, (0, 0, width, height))
-    # Phase 1.26c — register the Enclosure Region before the
-    # ExteriorWallOp emits, mirroring ``emit_site_overlays``. The
-    # polygon coordinates match the wall op's outline (bare
-    # tile-pixel coords; renderer's outer translate adds PADDING).
-    enclosure_coords_px = [
-        (float(x * CELL), float(y * CELL))
-        for (x, y) in fx.polygon_tiles
-    ]
-    builder.add_region(
-        id="enclosure",
-        kind=RegionKind.Enclosure,
-        polygon=_coords_to_polygon(enclosure_coords_px),
-        shape_tag="enclosure",
-    )
+    # ``emit_site_enclosure`` registers the Region(kind=Enclosure)
+    # internally before emitting the ExteriorWallOp.
     emit_site_enclosure(
         builder,
         polygon_tiles=[(float(x), float(y)) for x, y in fx.polygon_tiles],
-        style=style_map[fx.style],
+        wall_style=style_map[fx.style],
         gates=list(fx.gates),
         base_seed=fx.seed,
         corner_style=corner_map[fx.corner_style],

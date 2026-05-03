@@ -22,57 +22,40 @@ class FloorOp(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def FloorOpBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # FloorOp
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
     # FloorOp
-    def Outline(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
-        if o != 0:
-            x = self._tab.Indirect(o + self._tab.Pos)
-            from nhc.rendering.ir._fb.Outline import Outline
-            obj = Outline()
-            obj.Init(self._tab.Bytes, x)
-            return obj
-        return None
-
-    # FloorOp
     def Style(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 0
 
     # FloorOp
     def RegionRef(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
 def FloorOpStart(builder):
-    builder.StartObject(3)
+    builder.StartObject(2)
 
 def Start(builder):
     FloorOpStart(builder)
 
-def FloorOpAddOutline(builder, outline):
-    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(outline), 0)
-
-def AddOutline(builder, outline):
-    FloorOpAddOutline(builder, outline)
-
 def FloorOpAddStyle(builder, style):
-    builder.PrependUint8Slot(1, style, 0)
+    builder.PrependUint8Slot(0, style, 0)
 
 def AddStyle(builder, style):
     FloorOpAddStyle(builder, style)
 
 def FloorOpAddRegionRef(builder, regionRef):
-    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
 
 def AddRegionRef(builder, regionRef):
     FloorOpAddRegionRef(builder, regionRef)
@@ -83,22 +66,15 @@ def FloorOpEnd(builder):
 def End(builder):
     return FloorOpEnd(builder)
 
-import nhc.rendering.ir._fb.Outline
-try:
-    from typing import Optional
-except:
-    pass
 
 class FloorOpT(object):
 
     # FloorOpT
     def __init__(
         self,
-        outline = None,
         style = 0,
         regionRef = None,
     ):
-        self.outline = outline  # type: Optional[nhc.rendering.ir._fb.Outline.OutlineT]
         self.style = style  # type: int
         self.regionRef = regionRef  # type: Optional[str]
 
@@ -123,20 +99,14 @@ class FloorOpT(object):
     def _UnPack(self, floorOp):
         if floorOp is None:
             return
-        if floorOp.Outline() is not None:
-            self.outline = nhc.rendering.ir._fb.Outline.OutlineT.InitFromObj(floorOp.Outline())
         self.style = floorOp.Style()
         self.regionRef = floorOp.RegionRef()
 
     # FloorOpT
     def Pack(self, builder):
-        if self.outline is not None:
-            outline = self.outline.Pack(builder)
         if self.regionRef is not None:
             regionRef = builder.CreateString(self.regionRef)
         FloorOpStart(builder)
-        if self.outline is not None:
-            FloorOpAddOutline(builder, outline)
         FloorOpAddStyle(builder, self.style)
         if self.regionRef is not None:
             FloorOpAddRegionRef(builder, regionRef)

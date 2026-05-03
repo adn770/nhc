@@ -19,8 +19,6 @@ import pytest
 
 from nhc.rendering.ir._fb.CornerStyle import CornerStyle
 from nhc.rendering.ir._fb.CutStyle import CutStyle
-from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
-from nhc.rendering.ir._fb.GateStyle import GateStyle
 from nhc.rendering.ir._fb.WallStyle import WallStyle
 from nhc.rendering.ir_emitter import (
     FloorIRBuilder,
@@ -71,7 +69,7 @@ def test_cuts_for_enclosure_gates_resolves_pixel_coords() -> None:
         (64.0, 448.0),
     ]
     gates = [(0, 0.5, 32.0)]
-    cuts = cuts_for_enclosure_gates(polygon_px, gates, GateStyle.Wood)
+    cuts = cuts_for_enclosure_gates(polygon_px, gates, CutStyle.WoodGate)
 
     assert len(cuts) == 1
     cut = cuts[0]
@@ -84,7 +82,7 @@ def test_cuts_for_enclosure_gates_resolves_pixel_coords() -> None:
 
 
 def test_cuts_for_enclosure_gates_portcullis_maps_to_portculligate() -> None:
-    """GateStyle.Portcullis resolves to CutStyle.PortcullisGate."""
+    """CutStyle.PortcullisGate resolves to CutStyle.PortcullisGate."""
     from nhc.rendering._outline_helpers import cuts_for_enclosure_gates
 
     polygon_px = [
@@ -94,7 +92,7 @@ def test_cuts_for_enclosure_gates_portcullis_maps_to_portculligate() -> None:
         (0.0, 256.0),
     ]
     gates = [(0, 0.5, 16.0)]
-    cuts = cuts_for_enclosure_gates(polygon_px, gates, GateStyle.Portcullis)
+    cuts = cuts_for_enclosure_gates(polygon_px, gates, CutStyle.PortcullisGate)
 
     assert len(cuts) == 1
     assert cuts[0].style == CutStyle.PortcullisGate
@@ -118,7 +116,7 @@ def test_cuts_for_enclosure_gates_vertical_edge() -> None:
         (0.0, 256.0),
     ]
     gates = [(1, 0.5, 16.0)]
-    cuts = cuts_for_enclosure_gates(polygon_px, gates, GateStyle.Wood)
+    cuts = cuts_for_enclosure_gates(polygon_px, gates, CutStyle.WoodGate)
 
     assert len(cuts) == 1
     cut = cuts[0]
@@ -139,7 +137,7 @@ def test_cuts_for_enclosure_gates_multiple_gates() -> None:
         (0.0, 320.0),
     ]
     gates = [(0, 0.5, 16.0), (2, 0.5, 16.0)]
-    cuts = cuts_for_enclosure_gates(polygon_px, gates, GateStyle.Wood)
+    cuts = cuts_for_enclosure_gates(polygon_px, gates, CutStyle.WoodGate)
 
     assert len(cuts) == 2
     assert all(c.style == CutStyle.WoodGate for c in cuts)
@@ -150,7 +148,7 @@ def test_cuts_for_enclosure_gates_empty_gates() -> None:
     from nhc.rendering._outline_helpers import cuts_for_enclosure_gates
 
     polygon_px = [(0.0, 0.0), (128.0, 0.0), (128.0, 128.0), (0.0, 128.0)]
-    cuts = cuts_for_enclosure_gates(polygon_px, [], GateStyle.Wood)
+    cuts = cuts_for_enclosure_gates(polygon_px, [], CutStyle.WoodGate)
     assert cuts == []
 
 
@@ -194,19 +192,14 @@ def test_palisade_emits_only_new_exterior_wall_op() -> None:
     emit_site_enclosure(
         builder,
         polygon_tiles=[(2, 2), (20, 2), (20, 14), (2, 14)],
-        style=EnclosureStyle.Palisade,
+        wall_style=WallStyle.Palisade,
         gates=None,
         base_seed=7,
     )
 
-    enclosure_ops = [
-        e for e in builder.ops if e.opType == Op.Op.EnclosureOp
-    ]
     ext_ops = _ext_wall_ops(builder)
-    assert enclosure_ops == [], (
-        "Phase 1.20: legacy EnclosureOp must not be emitted"
-    )
     assert len(ext_ops) == 1
+    # NIR4: legacy EnclosureOp removed from schema (structural).
     # Seed propagates onto the new op directly (Phase 1.20 schema add).
     assert ext_ops[0].op.rngSeed == (7 + 0xE101) & 0xFFFFFFFFFFFFFFFF
 
@@ -217,7 +210,7 @@ def test_fortification_emits_exterior_wall_op_with_fortmerlon_style() -> None:
     emit_site_enclosure(
         builder,
         polygon_tiles=[(2, 2), (20, 2), (20, 14), (2, 14)],
-        style=EnclosureStyle.Fortification,
+        wall_style=WallStyle.FortificationMerlon,
         gates=None,
         base_seed=7,
         corner_style=CornerStyle.Merlon,
@@ -234,7 +227,7 @@ def test_palisade_exterior_wall_op_has_palisade_style() -> None:
     emit_site_enclosure(
         builder,
         polygon_tiles=[(0, 0), (8, 0), (8, 8), (0, 8)],
-        style=EnclosureStyle.Palisade,
+        wall_style=WallStyle.Palisade,
         gates=None,
         base_seed=0,
     )
@@ -251,7 +244,7 @@ def test_enclosure_corner_style_preserved_on_exterior_wall_op() -> None:
         emit_site_enclosure(
             builder,
             polygon_tiles=[(2, 2), (20, 2), (20, 14), (2, 14)],
-            style=EnclosureStyle.Fortification,
+            wall_style=WallStyle.FortificationMerlon,
             gates=None,
             base_seed=7,
             corner_style=cs,
@@ -276,7 +269,7 @@ def test_wood_gate_resolves_to_woodgate_cut_at_edge_midpoint() -> None:
     emit_site_enclosure(
         builder,
         polygon_tiles=[(2, 2), (20, 2), (20, 14), (2, 14)],
-        style=EnclosureStyle.Palisade,
+        wall_style=WallStyle.Palisade,
         gates=[(0, 0.5, 32.0)],
         base_seed=7,
     )
@@ -306,10 +299,10 @@ def test_portcullis_gate_resolves_to_portcullisgate_cut() -> None:
     emit_site_enclosure(
         builder,
         polygon_tiles=[(0, 0), (8, 0), (8, 8), (0, 8)],
-        style=EnclosureStyle.Fortification,
+        wall_style=WallStyle.FortificationMerlon,
         gates=[(0, 0.5, 16.0)],
         base_seed=0,
-        gate_style=GateStyle.Portcullis,
+        cut_style=CutStyle.PortcullisGate,
     )
 
     ext_ops = _ext_wall_ops(builder)
@@ -329,18 +322,14 @@ def test_exactly_one_exterior_wall_op_per_enclosure() -> None:
     emit_site_enclosure(
         builder,
         polygon_tiles=[(2, 2), (20, 2), (20, 14), (2, 14)],
-        style=EnclosureStyle.Palisade,
+        wall_style=WallStyle.Palisade,
         gates=None,
         base_seed=7,
     )
 
-    enc_count = sum(
-        1 for e in builder.ops if e.opType == Op.Op.EnclosureOp
-    )
     ext_count = sum(
         1 for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
     )
-    assert enc_count == 0
     assert ext_count == 1
 
 
@@ -350,7 +339,7 @@ def test_too_few_vertices_emits_no_exterior_wall_op() -> None:
     emit_site_enclosure(
         builder,
         polygon_tiles=[(0, 0), (1, 0)],  # degenerate
-        style=EnclosureStyle.Palisade,
+        wall_style=WallStyle.Palisade,
         base_seed=0,
     )
     assert builder.ops == []
@@ -366,7 +355,7 @@ def test_exterior_wall_op_outline_vertices_match_polygon_px() -> None:
     emit_site_enclosure(
         builder,
         polygon_tiles=polygon_tiles,
-        style=EnclosureStyle.Palisade,
+        wall_style=WallStyle.Palisade,
         gates=None,
         base_seed=7,
     )
@@ -393,18 +382,14 @@ def test_emit_site_enclosure_yields_only_exterior_wall_op() -> None:
     emit_site_enclosure(
         builder,
         polygon_tiles=[(2, 2), (20, 2), (20, 14), (2, 14)],
-        style=EnclosureStyle.Palisade,
+        wall_style=WallStyle.Palisade,
         gates=None,
         base_seed=7,
     )
 
-    enc_count = sum(
-        1 for e in builder.ops if e.opType == Op.Op.EnclosureOp
-    )
     ext_count = sum(
         1 for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
     )
-    assert enc_count == 0
     assert ext_count == 1, (
         "Phase 1.20 emits exactly one ExteriorWallOp per enclosure"
     )

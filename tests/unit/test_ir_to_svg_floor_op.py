@@ -30,11 +30,12 @@ import flatbuffers
 import pytest
 
 from nhc.rendering._svg_helpers import CAVE_FLOOR_COLOR, FLOOR_COLOR
-from nhc.rendering.ir._fb import Op
-from nhc.rendering.ir._fb.FloorOp import FloorOpT, FloorOpStart, FloorOpEnd, FloorOpAddOutline, FloorOpAddStyle
+from nhc.rendering.ir._fb import Op, RegionKind
+from nhc.rendering.ir._fb.FloorOp import FloorOpT, FloorOpStart, FloorOpEnd, FloorOpAddStyle
 from nhc.rendering.ir._fb.FloorStyle import FloorStyle
 from nhc.rendering.ir._fb.Outline import OutlineT
 from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+from nhc.rendering.ir._fb.Region import RegionT
 
 
 # ── Helpers ────────────────────────────────────────────────────────
@@ -49,7 +50,6 @@ def _build_polygon_outline(
     out.descriptorKind = OutlineKind.Polygon
     out.closed = True
     out.vertices = []
-    out.cuts = []
     for x, y in vertices:
         v = Vec2T()
         v.x = x
@@ -65,7 +65,6 @@ def _build_circle_outline(
     out.descriptorKind = OutlineKind.Circle
     out.closed = True
     out.vertices = []
-    out.cuts = []
     out.cx = cx
     out.cy = cy
     out.rx = r
@@ -80,7 +79,6 @@ def _build_pill_outline(
     out.descriptorKind = OutlineKind.Pill
     out.closed = True
     out.vertices = []
-    out.cuts = []
     out.cx = cx
     out.cy = cy
     out.rx = rx
@@ -92,14 +90,16 @@ def _build_fir_buf_with_floor_op(
     outline: OutlineT,
     style: int,
 ) -> bytes:
-    """Serialise a minimal FloorIR containing one FloorOp entry."""
+    """Serialise a minimal FloorIR containing one FloorOp entry plus
+    a Region carrying the outline (NIR4: FloorOp.outline retired,
+    geometry resolves through region_ref → Region.outline)."""
     import flatbuffers
     from nhc.rendering.ir._fb.FloorIR import FloorIRT
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
 
     fir_t = FloorIRT()
-    fir_t.major = 3
-    fir_t.minor = 1
+    fir_t.major = 4
+    fir_t.minor = 0
     fir_t.widthTiles = 20
     fir_t.heightTiles = 20
     fir_t.cell = 32
@@ -107,8 +107,15 @@ def _build_fir_buf_with_floor_op(
     fir_t.ops = []
     fir_t.regions = []
 
+    region_id = "test-region"
+    region = RegionT()
+    region.id = region_id
+    region.kind = RegionKind.RegionKind.Room
+    region.outline = outline
+    fir_t.regions.append(region)
+
     floor_op = FloorOpT()
-    floor_op.outline = outline
+    floor_op.regionRef = region_id
     floor_op.style = style
 
     entry = OpEntryT()
@@ -116,7 +123,7 @@ def _build_fir_buf_with_floor_op(
     entry.op = floor_op
     fir_t.ops.append(entry)
 
-    _FILE_IDENTIFIER = b"NIR3"
+    _FILE_IDENTIFIER = b"NIR4"
     builder = flatbuffers.Builder(512)
     builder.Finish(fir_t.Pack(builder), _FILE_IDENTIFIER)
     return bytes(builder.Output())
@@ -251,68 +258,9 @@ def test_floor_op_consumer_replaces_rect_rooms() -> None:
     )
 
 
-def test_floor_op_fallback_to_legacy_when_absent() -> None:
-    """A 3.x FloorIR with no FloorOp still renders via legacy fields.
-
-    Build a minimal FloorIR with only WallsAndFloorsOp fields
-    (rect_rooms + corridor_tiles) and no FloorOp entries. The
-    consumer must fall back to the legacy path and produce floor
-    rects.
-    """
-    import flatbuffers
-    from nhc.rendering.ir._fb.FloorIR import FloorIRT
-    from nhc.rendering.ir._fb.WallsAndFloorsOp import WallsAndFloorsOpT
-    from nhc.rendering.ir._fb.OpEntry import OpEntryT
-    from nhc.rendering.ir._fb.RectRoom import RectRoomT
-    from nhc.rendering.ir._fb.TileCoord import TileCoordT
-    from nhc.rendering.ir_to_svg import ir_to_svg
-
-    fir_t = FloorIRT()
-    fir_t.major = 3
-    fir_t.minor = 1
-    fir_t.widthTiles = 10
-    fir_t.heightTiles = 10
-    fir_t.cell = 32
-    fir_t.padding = 32
-    fir_t.ops = []
-    fir_t.regions = []
-
-    # One rect room at (2, 2, 3, 3)
-    waf = WallsAndFloorsOpT()
-    rr = RectRoomT()
-    rr.x = 2
-    rr.y = 2
-    rr.w = 3
-    rr.h = 3
-    waf.rectRooms = [rr]
-    waf.corridorTiles = []
-    waf.smoothFillSvg = []
-    waf.smoothWallSvg = []
-    waf.wallSegments = []
-    waf.caveRegion = ""
-    waf.wallExtensionsD = ""
-
-    entry = OpEntryT()
-    entry.opType = Op.Op.WallsAndFloorsOp
-    entry.op = waf
-    fir_t.ops.append(entry)
-
-    _FILE_IDENTIFIER = b"NIR3"
-    builder = flatbuffers.Builder(512)
-    builder.Finish(fir_t.Pack(builder), _FILE_IDENTIFIER)
-    buf = bytes(builder.Output())
-    svg = ir_to_svg(buf)
-
-    # Legacy path emits a <rect> for the room (floor fill).
-    # The rect should be at pixel coords 2*32=64, 2*32=64, 3*32=96x96.
-    assert 'fill="#FFFFFF"' in svg, (
-        "Expected legacy floor rect in SVG when no FloorOp present; "
-        "fallback path may be broken"
-    )
-    # Specifically a rect element covering the room
-    assert 'x="64"' in svg or 'x="64.0"' in svg, (
-        "Expected rect at x=64 from legacy WallsAndFloorsOp rect_room"
-    )
+# NIR4: test_floor_op_fallback_to_legacy_when_absent deleted —
+# WallsAndFloorsOp was retired from the schema, so there is no
+# legacy fallback path to test.
 
 
 # ── Phase 1.15b: CaveFloor consumer tests ─────────────────────────
@@ -374,56 +322,9 @@ def test_cave_floor_op_consumer_replaces_legacy_cave_region() -> None:
 # ── Real-consumer follow-up tests (Phase 1.15b → real pipeline) ───
 
 
-def test_cave_floor_op_consumer_reads_outline_vertices_not_legacy_field() -> None:
-    """When a CaveFloor FloorOp is present, the consumer renders cave
-    fill from outline.vertices via buffer+jitter+smooth_closed_path,
-    NOT from WallsAndFloorsOp.cave_region. Smoke-test: clear cave_region
-    in the IR (replace with empty string in the raw bytes) and assert
-    the cave fill still renders correctly.
-
-    The real consumer derives cave geometry from FloorOp.outline.vertices
-    using the buffer+jitter+smooth_closed_path pipeline seeded from
-    fir.BaseSeed() + 0x5A17E5. The WallsAndFloorsOp.cave_region field
-    is no longer read for cave geometry.
-    """
-    import random
-    from shapely.geometry import Polygon as ShapelyPolygon
-
-    from nhc.rendering.ir_emitter import build_floor_ir
-    from nhc.rendering.ir_to_svg import ir_to_svg
-    from nhc.rendering.ir._fb.FloorIR import FloorIR, FloorIRT
-    from nhc.rendering.ir._fb.WallsAndFloorsOp import WallsAndFloorsOpT
-    from nhc.rendering.ir._fb import Op
-    from nhc.rendering.ir._fb.OpEntry import OpEntryT
-    from tests.fixtures.floor_ir._inputs import descriptor_inputs
-
-    inputs = descriptor_inputs("seed99_cave_cave_cave")
-    buf = build_floor_ir(
-        inputs.level, seed=inputs.seed, hatch_distance=2.0, vegetation=True,
-    )
-
-    # Deserialise, clear cave_region in WallsAndFloorsOp, re-serialise.
-    fir_t = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
-    for entry in (fir_t.ops or []):
-        if entry.opType == Op.Op.WallsAndFloorsOp:
-            entry.op.caveRegion = ""
-    import flatbuffers as _fb_module
-    _FILE_IDENTIFIER = b"NIR3"
-    builder = _fb_module.Builder(len(buf) + 64)
-    builder.Finish(fir_t.Pack(builder), _FILE_IDENTIFIER)
-    buf_no_cave_region = bytes(builder.Output())
-
-    svg = ir_to_svg(buf_no_cave_region)
-
-    # Even with cave_region cleared, the consumer must produce the cave fill.
-    assert CAVE_FLOOR_COLOR in svg, (
-        "CaveFloor FloorOp consumer must render cave fill from "
-        "outline.vertices (buffer+jitter pipeline), not from cave_region. "
-        "cave_region was cleared but cave fill is missing."
-    )
-    assert re.search(r'<path[^>]+d="[^"]*\bC\b', svg), (
-        "Expected Catmull-Rom bezier path from the buffer+jitter pipeline"
-    )
+# NIR4: test_cave_floor_op_consumer_reads_outline_vertices_not_legacy_field
+# deleted — WallsAndFloorsOp.cave_region is gone from the schema, so the
+# "consumer doesn't read cave_region" test has no legacy field to clear.
 
 
 def test_cave_floor_op_pipeline_matches_legacy_buffer_jitter_smooth() -> None:

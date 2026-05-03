@@ -22,54 +22,43 @@ class ExteriorWallOp(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def ExteriorWallOpBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # ExteriorWallOp
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
     # ExteriorWallOp
-    def Outline(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
-        if o != 0:
-            x = self._tab.Indirect(o + self._tab.Pos)
-            from nhc.rendering.ir._fb.Outline import Outline
-            obj = Outline()
-            obj.Init(self._tab.Bytes, x)
-            return obj
-        return None
-
-    # ExteriorWallOp
     def Style(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 0
 
     # ExteriorWallOp
     def CornerStyle(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 0
 
     # ExteriorWallOp
     def RngSeed(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return 0
 
     # ExteriorWallOp
     def RegionRef(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
     # ExteriorWallOp
     def Cuts(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
@@ -82,54 +71,48 @@ class ExteriorWallOp(object):
 
     # ExteriorWallOp
     def CutsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # ExteriorWallOp
     def CutsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         return o == 0
 
 def ExteriorWallOpStart(builder):
-    builder.StartObject(6)
+    builder.StartObject(5)
 
 def Start(builder):
     ExteriorWallOpStart(builder)
 
-def ExteriorWallOpAddOutline(builder, outline):
-    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(outline), 0)
-
-def AddOutline(builder, outline):
-    ExteriorWallOpAddOutline(builder, outline)
-
 def ExteriorWallOpAddStyle(builder, style):
-    builder.PrependUint8Slot(1, style, 0)
+    builder.PrependUint8Slot(0, style, 0)
 
 def AddStyle(builder, style):
     ExteriorWallOpAddStyle(builder, style)
 
 def ExteriorWallOpAddCornerStyle(builder, cornerStyle):
-    builder.PrependInt8Slot(2, cornerStyle, 0)
+    builder.PrependInt8Slot(1, cornerStyle, 0)
 
 def AddCornerStyle(builder, cornerStyle):
     ExteriorWallOpAddCornerStyle(builder, cornerStyle)
 
 def ExteriorWallOpAddRngSeed(builder, rngSeed):
-    builder.PrependUint64Slot(3, rngSeed, 0)
+    builder.PrependUint64Slot(2, rngSeed, 0)
 
 def AddRngSeed(builder, rngSeed):
     ExteriorWallOpAddRngSeed(builder, rngSeed)
 
 def ExteriorWallOpAddRegionRef(builder, regionRef):
-    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
 
 def AddRegionRef(builder, regionRef):
     ExteriorWallOpAddRegionRef(builder, regionRef)
 
 def ExteriorWallOpAddCuts(builder, cuts):
-    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(cuts), 0)
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(cuts), 0)
 
 def AddCuts(builder, cuts):
     ExteriorWallOpAddCuts(builder, cuts)
@@ -147,9 +130,8 @@ def End(builder):
     return ExteriorWallOpEnd(builder)
 
 import nhc.rendering.ir._fb.Cut
-import nhc.rendering.ir._fb.Outline
 try:
-    from typing import List, Optional
+    from typing import List
 except:
     pass
 
@@ -158,14 +140,12 @@ class ExteriorWallOpT(object):
     # ExteriorWallOpT
     def __init__(
         self,
-        outline = None,
         style = 0,
         cornerStyle = 0,
         rngSeed = 0,
         regionRef = None,
         cuts = None,
     ):
-        self.outline = outline  # type: Optional[nhc.rendering.ir._fb.Outline.OutlineT]
         self.style = style  # type: int
         self.cornerStyle = cornerStyle  # type: int
         self.rngSeed = rngSeed  # type: int
@@ -193,8 +173,6 @@ class ExteriorWallOpT(object):
     def _UnPack(self, exteriorWallOp):
         if exteriorWallOp is None:
             return
-        if exteriorWallOp.Outline() is not None:
-            self.outline = nhc.rendering.ir._fb.Outline.OutlineT.InitFromObj(exteriorWallOp.Outline())
         self.style = exteriorWallOp.Style()
         self.cornerStyle = exteriorWallOp.CornerStyle()
         self.rngSeed = exteriorWallOp.RngSeed()
@@ -210,8 +188,6 @@ class ExteriorWallOpT(object):
 
     # ExteriorWallOpT
     def Pack(self, builder):
-        if self.outline is not None:
-            outline = self.outline.Pack(builder)
         if self.regionRef is not None:
             regionRef = builder.CreateString(self.regionRef)
         if self.cuts is not None:
@@ -223,8 +199,6 @@ class ExteriorWallOpT(object):
                 builder.PrependUOffsetTRelative(cutslist[i])
             cuts = builder.EndVector()
         ExteriorWallOpStart(builder)
-        if self.outline is not None:
-            ExteriorWallOpAddOutline(builder, outline)
         ExteriorWallOpAddStyle(builder, self.style)
         ExteriorWallOpAddCornerStyle(builder, self.cornerStyle)
         ExteriorWallOpAddRngSeed(builder, self.rngSeed)

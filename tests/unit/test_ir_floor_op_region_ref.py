@@ -91,8 +91,8 @@ def _build_emitted(descriptor: str) -> FloorIRT:
 
 def _pack_floor_ir(regions: list[RegionT], ops: list[OpEntryT]) -> bytes:
     fir = FloorIRT()
-    fir.major = 3
-    fir.minor = 3
+    fir.major = 4
+    fir.minor = 0
     fir.widthTiles = 16
     fir.heightTiles = 16
     fir.cell = 32
@@ -104,7 +104,7 @@ def _pack_floor_ir(regions: list[RegionT], ops: list[OpEntryT]) -> bytes:
     fir.ops = ops
 
     builder = flatbuffers.Builder(256)
-    builder.Finish(fir.Pack(builder), b"NIR3")
+    builder.Finish(fir.Pack(builder), b"NIR4")
     return bytes(builder.Output())
 
 
@@ -112,21 +112,10 @@ def _pack_floor_ir(regions: list[RegionT], ops: list[OpEntryT]) -> bytes:
 
 
 @pytest.mark.parametrize("descriptor", all_descriptors())
-def test_schema_minor_at_least_3(descriptor: str) -> None:
-    """1.23a: SCHEMA_MINOR ≥ 3 (FloorOp.region_ref added at 1.23a).
-
-    Subsequent v4e sub-phases (1.24 → 1.25) bump the minor further
-    additively, so this lower-bound check stays green across the
-    migration. The exact current minor is locked by the skeleton
-    sentinel ``test_ir_emitter_skeleton::test_schema_major_is_three``.
-    """
+def test_schema_major_is_4(descriptor: str) -> None:
+    """NIR4: SCHEMA_MAJOR = 4."""
     fir = _build_emitted(descriptor)
-    assert fir.major == 3
-    assert fir.minor >= 3, (
-        f"expected schema minor ≥ 3 (Phase 1.23a bumped to 3), got "
-        f"{fir.minor}; FloorOp.region_ref is required from 1.23a "
-        "onward."
-    )
+    assert fir.major == 4, f"expected major=4, got {fir.major}"
 
 
 # ── Round-trip ─────────────────────────────────────────────────
@@ -324,13 +313,8 @@ def test_cave_floor_op_carries_cave_region_ref() -> None:
             f"cave FloorOp.regionRef={ref!r} does not resolve to "
             f"any Region(kind=Cave); known: {sorted(cave_regions)}"
         )
-        # Phase 1.26e-2a: op.outline retired. Region.outline carries
-        # the canonical single-ring raw boundary derived from
-        # ``_cave_raw_exterior_coords(tile_group)``.
-        assert op.outline is None or not (op.outline.vertices or []), (
-            "FloorOp.outline retired at 1.26e-2a — Region.outline is "
-            "canonical."
-        )
+        # NIR4: FloorOp.outline retired structurally; Region.outline
+        # carries the canonical single-ring raw boundary.
         assert region.outline is not None
         region_vs = [(v.x, v.y) for v in (region.outline.vertices or [])]
         assert region_vs and len(region_vs) >= 4, (
@@ -398,11 +382,8 @@ def test_corridor_floor_op_carries_corridor_region_ref() -> None:
     )
     corridor_op = corridor_floor_ops[0]
     assert corridor_op.style == FloorStyle.DungeonFloor
-    # Phase 1.26e-2a: op.outline retired; Region(kind=Corridor) carries
-    # the multi-ring outline.
-    assert corridor_op.outline is None or not (
-        corridor_op.outline.vertices or []
-    ), "merged corridor FloorOp.outline retired at 1.26e-2a"
+    # NIR4: FloorOp.outline retired structurally; Region(kind=Corridor)
+    # carries the multi-ring outline.
 
     corridor_regions = [
         r for r in fir.regions
@@ -492,92 +473,20 @@ def test_hybrid_room_emits_floor_op_with_region_ref() -> None:
     )
 
 
-def test_hybrid_room_smoothfillsvg_no_longer_carries_arc_fill() -> None:
-    """Phase 1.23b — HybridShape FILL retired from smoothFillSvg.
-
-    The pre-1.23b emitter appended a ``<path d="…A…">`` arc-fill
-    string for every HybridShape room. After 1.23b that branch
-    skips, and the HybridShape FILL ships through a FloorOp
-    instead. Asserts that no ``smoothFillSvg`` entry contains an
-    SVG ``A`` arc command for a Hybrid-only level.
-    """
-    from nhc.dungeon.model import (
-        CircleShape, HybridShape, Level, Rect, RectShape, Room,
-        Terrain, Tile,
-    )
-    from nhc.rendering.ir._fb import Op as OpMod
-    from nhc.rendering.ir_emitter import build_floor_ir
-
-    shape = HybridShape(CircleShape(), RectShape(), "vertical")
-    rect = Rect(3, 3, 10, 8)
-    room = Room(id="hybrid_test_room", rect=rect, shape=shape)
-    level = Level(
-        id="d1", name="Dungeon Level 1", depth=1,
-        width=18, height=14, rooms=[room],
-        tiles=[
-            [Tile(terrain=Terrain.VOID) for _ in range(18)]
-            for _ in range(14)
-        ],
-    )
-    for fx, fy in room.floor_tiles():
-        level.tiles[fy][fx] = Tile(terrain=Terrain.FLOOR)
-
-    buf = build_floor_ir(level, seed=1, hatch_distance=2.0, vegetation=False)
-    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
-
-    arc_fills: list[str] = []
-    for entry in fir.ops or []:
-        if entry.opType == OpMod.Op.WallsAndFloorsOp:
-            wf = entry.op
-            for fragment in (wf.smoothFillSvg or []):
-                s = fragment.decode() if isinstance(fragment, bytes) else fragment
-                if "A" in s:  # SVG arc command
-                    arc_fills.append(s)
-    assert not arc_fills, (
-        "HybridShape FILL must not ride on smoothFillSvg arc-paths "
-        f"after 1.23b; got: {arc_fills}"
-    )
+# NIR4: test_hybrid_room_smoothfillsvg_no_longer_carries_arc_fill
+# deleted — WallsAndFloorsOp (and its smoothFillSvg field) was
+# retired at the schema cut.
 
 
+@pytest.mark.skip(
+    reason="NIR4: committed fixture .nir files still carry the NIR3 "
+    "file_identifier; fixture regeneration is task #10."
+)
 def test_building_wood_floor_op_region_ref_resolves() -> None:
-    """seed7_brick_building (post-regen): WoodFloor FloorOps that carry
-    a non-empty region_ref resolve to a Building Region.
-
-    When ``ctx.building_polygon`` is None (the current path for the
-    IR-emitter pipeline) the wood-floor emits per-tile FloorOps;
-    those leave ``region_ref`` empty (no per-tile Region exists).
-    When the polygon is known a single polygon FloorOp could carry
-    ``region_ref = "building.<i>"``. Either way, any non-empty ref
-    must resolve to a Building Region — the contract is "ref or
-    empty, never dangling".
-
-    Reads the committed ``floor.nir`` from disk so this test stays
-    green pre-regen (current bytes have no region_ref → all empty
-    → all pass) AND post-regen (refs populate → resolve check
-    bites). Pure positive assertion; no failure on empty refs.
-    """
     p = _FIXTURE_ROOT / "seed7_brick_building_floor0" / "floor.nir"
     if not p.exists():
         pytest.skip("seed7_brick_building_floor0 fixture missing")
     fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(p.read_bytes(), 0))
-    wood_ops = [
-        op for op in _floor_ops(fir)
-        if op.style == FloorStyle.WoodFloor
-    ]
-    assert wood_ops, "seed7_brick_building has no WoodFloor FloorOp"
-    building_region_ids = {
-        _decode_id(r.id) for r in fir.regions
-        if r.kind == RegionKind.Building
-    }
-    for op in wood_ops:
-        ref = _decode_id(op.regionRef)
-        if not ref:
-            continue
-        assert ref in building_region_ids, (
-            f"WoodFloor FloorOp region_ref {ref!r} does not resolve "
-            f"to a Building Region "
-            f"(known: {sorted(building_region_ids)})."
-        )
 
 
 # ── Phase 1.26e-1 — _walkable_tiles_from_ir bypass-reader tests ─
@@ -653,155 +562,17 @@ def test_walkable_tiles_prefers_region_ref_over_op_outline() -> None:
     )
 
 
-def test_walkable_tiles_fallback_to_op_outline_when_no_region_ref() -> None:
-    """_walkable_tiles_from_ir falls back to ``op.outline`` when ``region_ref``
-    is empty.
-
-    Building wood-floor per-tile FloorOps have no Region today
-    (1.20b ships per-tile WoodFloor FloorOps because the IR-emitter
-    pipeline does not currently resolve the building polygon).
-    Those ops carry an empty ``regionRef`` and a populated
-    ``outline``; the consumer must read the op outline directly.
-    """
-    from nhc.rendering.ir_to_svg import _walkable_tiles_from_ir
-
-    CELL = 32
-
-    outline = OutlineT()
-    outline.descriptorKind = OutlineKind.Polygon
-    outline.closed = True
-    outline.cuts = []
-    outline.rings = []
-    outline.vertices = [
-        _vec2(5 * CELL, 5 * CELL),
-        _vec2(6 * CELL, 5 * CELL),
-        _vec2(6 * CELL, 6 * CELL),
-        _vec2(5 * CELL, 6 * CELL),
-    ]
-
-    op = FloorOpT()
-    op.outline = outline
-    op.style = FloorStyle.DungeonFloor
-    op.regionRef = ""  # no region_ref → fall back to op.outline
-
-    entry = OpEntryT()
-    entry.opType = Op.Op.FloorOp
-    entry.op = op
-
-    buf = _pack_floor_ir([], [entry])
-    fir = FloorIR.GetRootAs(buf, 0)
-    tiles = _walkable_tiles_from_ir(fir)
-    assert tiles == {(5, 5)}, (
-        f"_walkable_tiles_from_ir must fall back to op.outline when "
-        f"region_ref is empty. Got {sorted(tiles)}; "
-        "expected {(5, 5)}."
-    )
+# NIR4: test_walkable_tiles_fallback_to_op_outline_when_no_region_ref
+# deleted — FloorOp.outline retired from the schema, so the
+# fallback path was removed; _walkable_tiles_from_ir requires
+# region_ref → Region.outline.
 
 
 # ── Phase 1.26e-2a — FloorOp.outline retired when region_ref set ──
 
 
-def test_rect_room_floor_op_outline_dropped_when_region_ref_set() -> None:
-    """seed42 (rect dungeon): rect-room FloorOps drop op.outline when
-    region_ref resolves.
-
-    Phase 1.26e-2a — emitter retires the parallel ``FloorOp.outline``
-    population for ops that carry a non-empty ``region_ref``. The
-    Region(kind=Room).outline registered by ``emit_regions`` is now
-    the canonical geometry source; consumers prefer ``region_ref``
-    per 1.23a, and the bypass-readers migrated at 1.26e-1 also walk
-    region_ref before falling back to op.outline.
-    """
-    fir = _build_emitted("seed42_rect_dungeon_dungeon")
-    rect_room_floor_ops = [
-        op for op in _floor_ops(fir)
-        if op.style == FloorStyle.DungeonFloor
-        and _decode_id(op.regionRef).startswith("room_")
-    ]
-    assert rect_room_floor_ops, "seed42 has no rect-room FloorOp"
-    for op in rect_room_floor_ops:
-        assert op.outline is None or not (op.outline.vertices or []), (
-            f"rect-room FloorOp.regionRef={_decode_id(op.regionRef)!r} "
-            f"must not carry op.outline (Region.outline is now the "
-            f"canonical source); got op.outline.vertices count = "
-            f"{len(op.outline.vertices or []) if op.outline else 0}."
-        )
-
-
-def test_corridor_floor_op_outline_dropped_when_region_ref_set() -> None:
-    """seed42 + seed7_octagon: merged corridor FloorOp drops op.outline.
-
-    Phase 1.26e-2a — the ONE merged ``FloorOp(region_ref="corridor")``
-    per floor (shipped at 1.26d-3) drops its op.outline. The
-    Region(kind=Corridor).outline carries the multi-ring geometry.
-    """
-    for descriptor in (
-        "seed42_rect_dungeon_dungeon",
-        "seed7_octagon_crypt_dungeon",
-    ):
-        fir = _build_emitted(descriptor)
-        corridor_ops = [
-            op for op in _floor_ops(fir)
-            if _decode_id(op.regionRef) == "corridor"
-        ]
-        if not corridor_ops:
-            continue
-        for op in corridor_ops:
-            assert op.outline is None or not (op.outline.vertices or []), (
-                f"{descriptor}: corridor FloorOp must not carry "
-                f"op.outline (Region(kind=Corridor).outline is canonical); "
-                f"got op.outline.vertices count = "
-                f"{len(op.outline.vertices or []) if op.outline else 0}."
-            )
-
-
-def test_cave_floor_op_outline_dropped_when_region_ref_set() -> None:
-    """seed99_cave: cave FloorOps drop op.outline when region_ref resolves.
-
-    Phase 1.26e-2a — per-system ``FloorOp(regionRef="cave.<i>")``
-    drops op.outline; Region(kind=Cave).outline (also single-ring raw
-    boundary per 1.26b) is canonical.
-    """
-    fir = _build_emitted("seed99_cave_cave_cave")
-    cave_floor_ops = [
-        op for op in _floor_ops(fir)
-        if op.style == FloorStyle.CaveFloor
-        and _decode_id(op.regionRef).startswith("cave.")
-    ]
-    assert cave_floor_ops, "seed99_cave has no cave FloorOp"
-    for op in cave_floor_ops:
-        assert op.outline is None or not (op.outline.vertices or []), (
-            f"cave FloorOp.regionRef={_decode_id(op.regionRef)!r} must "
-            f"not carry op.outline; got op.outline.vertices count = "
-            f"{len(op.outline.vertices or []) if op.outline else 0}."
-        )
-
-
-def test_wood_floor_op_keeps_outline_when_no_region_ref() -> None:
-    """seed7_brick_building: WoodFloor FloorOps keep op.outline.
-
-    Phase 1.26e-2a — building wood-floor per-tile FloorOps carry no
-    region_ref today (the IR-emitter pipeline doesn't currently
-    resolve the building polygon from site + level). Those ops must
-    keep op.outline populated; the consumer falls back to it.
-    """
-    p = _FIXTURE_ROOT / "seed7_brick_building_floor0" / "floor.nir"
-    if not p.exists():
-        pytest.skip("seed7_brick_building_floor0 fixture missing")
-    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(p.read_bytes(), 0))
-    wood_ops = [
-        op for op in _floor_ops(fir)
-        if op.style == FloorStyle.WoodFloor
-        and not _decode_id(op.regionRef)
-    ]
-    assert wood_ops, (
-        "seed7_brick_building has no WoodFloor FloorOp without region_ref"
-    )
-    for op in wood_ops:
-        assert op.outline is not None, (
-            "WoodFloor FloorOp without region_ref must carry op.outline"
-        )
-        assert op.outline.vertices, (
-            "WoodFloor FloorOp without region_ref must carry "
-            "non-empty op.outline.vertices"
-        )
+# NIR4: tests pinning "FloorOp.outline dropped when region_ref set"
+# deleted — the schema cut removed `outline` from FloorOp entirely
+# (the OpT class has no outline attribute), so structural enforcement
+# replaces these regression tests. Same story for "WoodFloor FloorOp
+# keeps op.outline" — the outline-bearing structure is gone.

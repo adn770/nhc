@@ -65,10 +65,16 @@ _FIXTURE_ROOT = (
 PSNR_THRESHOLD_DB: float = 35.0
 
 
-# Per-fixture relaxations for the tiny-skia path only. Each entry
-# documents why a specific fixture renders below the default threshold
-# in Rust but matches Python's reference closely enough.
-TINY_SKIA_PSNR_OVERRIDES: dict[str, float] = {
+# Per-fixture relaxations.
+#
+# After the 1.27 schema cut the committed `reference.png` files were
+# regenerated from the Rust tiny-skia pipeline. The cross-rasteriser
+# resvg test compares the Python ir_to_svg → resvg-rasterised output
+# against the Rust reference, so any geometry divergence between the
+# Python and Rust paths surfaces here as a PSNR drop.
+TINY_SKIA_PSNR_OVERRIDES: dict[str, float] = {}
+
+RESVG_PSNR_OVERRIDES: dict[str, float] = {
     # Cave wall pipeline: `geometry::cave_path_from_outline` runs
     # `geo_buffer::buffer_polygon_rounded` (Rust straight-skeleton)
     # where Python uses Shapely's GEOS buffer. The two produce
@@ -76,8 +82,8 @@ TINY_SKIA_PSNR_OVERRIDES: dict[str, float] = {
     # but Rust emits ~2× the vertex count. After Douglas-Peucker
     # `simplify` both end at ~225 verts, but at slightly different
     # positions, shifting the smoothed wall stroke by 1-3 px along
-    # the boundary. Visual quality is correct; PSNR drops because
-    # the high-contrast 5px black stroke amplifies sub-pixel drift.
+    # the boundary. The reference.png is now from the Rust pipeline,
+    # so the Python-svg → resvg path diverges on the cave stroke.
     # A future `geos`-FFI port could close the gap byte-equally.
     "seed99_cave_cave_cave": 17.0,
 }
@@ -85,6 +91,10 @@ TINY_SKIA_PSNR_OVERRIDES: dict[str, float] = {
 
 def _tiny_skia_threshold(descriptor: str) -> float:
     return TINY_SKIA_PSNR_OVERRIDES.get(descriptor, PSNR_THRESHOLD_DB)
+
+
+def _resvg_threshold(descriptor: str) -> float:
+    return RESVG_PSNR_OVERRIDES.get(descriptor, PSNR_THRESHOLD_DB)
 
 
 def _decode(png_bytes: bytes) -> np.ndarray:
@@ -188,9 +198,10 @@ def test_resvg_of_ir_svg_psnr_against_reference(emitted) -> None:
         _FIXTURE_ROOT / inputs.descriptor / "reference.png"
     ).read_bytes()
     db = _psnr(_decode(actual), _decode(reference))
-    assert db >= PSNR_THRESHOLD_DB, (
+    threshold = _resvg_threshold(inputs.descriptor)
+    assert db >= threshold, (
         f"{inputs.descriptor}: resvg-of-ir-svg PSNR {db:.2f} dB "
-        f"(threshold {PSNR_THRESHOLD_DB:.1f} dB)"
+        f"(threshold {threshold:.1f} dB)"
     )
 
 

@@ -72,14 +72,11 @@ def _emit_into_builder(level, *, seed: int = 0, theme: str = "dungeon"):
 def _outline_for_op(op, regions=None) -> "OutlineT | None":
     """Resolve the canonical outline for a FloorOp / ExteriorWallOp.
 
-    Phase 1.26e-2a: ops with non-empty ``regionRef`` carry their
-    outline on the matching Region (via ``emit_regions``). Tests
-    that previously read ``op.outline`` walk the region by id from
+    NIR4: FloorOp and ExteriorWallOp lost their ``outline`` field;
+    geometry now lives on ``Region.outline`` referenced by
+    ``op.regionRef``. Tests resolve outlines by walking regions from
     the most recent ``_emit_into_builder`` call (or a caller-
     supplied region list).
-
-    Falls back to ``op.outline`` for ops without ``regionRef`` (e.g.
-    building wood-floor per-tile FloorOps).
     """
     rr = getattr(op, "regionRef", None)
     needle = (
@@ -95,7 +92,7 @@ def _outline_for_op(op, regions=None) -> "OutlineT | None":
             )
             if rid == needle and r.outline is not None:
                 return r.outline
-    return op.outline
+    return getattr(op, "outline", None)
 
 
 def _build_simple_rect_level(rects: list[Rect]) -> Level:
@@ -270,13 +267,7 @@ def test_floor_op_skipped_when_suppress_rect_rooms() -> None:
     builder = FloorIRBuilder(ctx)
     _emit_walls_and_floors_ir(builder)
 
-    # Phase 1.26f — WallsAndFloorsOp no longer emits.
-    walls_ops = [
-        e for e in builder.ops if e.opType == Op.Op.WallsAndFloorsOp
-    ]
-    assert not walls_ops, (
-        "Phase 1.26f: no legacy WallsAndFloorsOp under suppress_rect_rooms"
-    )
+    # NIR4: WallsAndFloorsOp dropped from schema.
     floor_ops = [
         e for e in builder.ops if e.opType == Op.Op.FloorOp
     ]
@@ -309,9 +300,7 @@ def test_floor_op_placement_in_ops_array() -> None:
     ops, _ = _emit_into_builder(level)
 
     op_types = [e.opType for e in ops]
-    assert Op.Op.WallsAndFloorsOp not in op_types, (
-        "Phase 1.26f: legacy WallsAndFloorsOp no longer emits"
-    )
+    # NIR4: WallsAndFloorsOp dropped from schema (no enum value).
     n_rect_rooms = sum(
         1 for r in level.rooms if isinstance(r.shape, RectShape)
     )
@@ -354,12 +343,7 @@ def test_floor_op_round_trips_through_build_floor_ir() -> None:
     floor_ops = [
         e for e in fir.ops if e.opType == Op.Op.FloorOp
     ]
-    walls_ops = [
-        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
-    ]
-    assert not walls_ops, (
-        "Phase 1.26f: WallsAndFloorsOp no longer emits"
-    )
+    # NIR4: WallsAndFloorsOp dropped from schema.
     # Phase 1.4 covers rect rooms; Phase 1.26d-3 collapses every
     # corridor system to ONE merged FloorOp (region_ref="corridor")
     # with a multi-ring outline matching Region(kind=Corridor). The
@@ -625,14 +609,8 @@ def test_floor_op_round_trips_through_build_floor_ir_with_octagons() -> None:
     floor_ops = [
         e for e in fir.ops if e.opType == Op.Op.FloorOp
     ]
-    walls_ops = [
-        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
-    ]
-    assert not walls_ops, (
-        "Phase 1.26f: WallsAndFloorsOp no longer emits"
-    )
-    # Phase 1.19 cleared the legacy WallsAndFloorsOp counters; pin
-    # against the source ``level.rooms`` + corridor-tile walk instead.
+    # NIR4: WallsAndFloorsOp dropped from schema.
+    # Pin counts against source ``level.rooms`` + corridor-tile walk.
     n_rooms = sum(
         1 for r in inputs.level.rooms
         if isinstance(
@@ -797,10 +775,7 @@ def test_floor_op_for_cave_round_trips_through_build_floor_ir() -> None:
     fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
 
     floor_ops = [e for e in fir.ops if e.opType == Op.Op.FloorOp]
-    walls_ops = [e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp]
-    assert not walls_ops, (
-        "Phase 1.26f: WallsAndFloorsOp no longer emits"
-    )
+    # NIR4: WallsAndFloorsOp dropped from schema.
     # ONE merged FloorOp — seed99 has a single connected cave system.
     assert len(floor_ops) == 1, (
         f"expected 1 merged cave FloorOp, got {len(floor_ops)}; "
@@ -970,12 +945,11 @@ def test_corridor_floor_op_outline_matches_corridor_region() -> None:
     region = corridor_regions[0]
     assert region.outline is not None
 
-    # Phase 1.26e-2a: op.outline retired; the merged corridor FloorOp
-    # resolves geometry exclusively through Region(kind=Corridor).
-    assert (
+    # NIR4: FloorOp.outline retired; corridor FloorOp resolves
+    # geometry exclusively through Region(kind=Corridor).outline.
+    assert not hasattr(corridor_floor_op.op, "outline") or (
         corridor_floor_op.op.outline is None
-        or not (corridor_floor_op.op.outline.vertices or [])
-    ), "corridor FloorOp.outline retired at 1.26e-2a"
+    ), "corridor FloorOp must not carry op.outline (NIR4 retired)"
     rg_verts = [(v.x, v.y) for v in (region.outline.vertices or [])]
     assert rg_verts and len(rg_verts) >= 4, (
         "Region(kind=Corridor).outline must carry the multi-ring "
@@ -1010,29 +984,20 @@ def test_no_per_tile_corridor_floor_ops_remain() -> None:
     )
     fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
 
+    # NIR4: FloorOp.outline retired; the heuristic for "1x1 bbox"
+    # is moot — FloorOps no longer carry geometry directly. Pin
+    # the post-NIR4 invariant: every DungeonFloor FloorOp must
+    # carry a non-empty region_ref.
     floor_ops = [e for e in fir.ops if e.opType == Op.Op.FloorOp]
     for entry in floor_ops:
         if entry.op.style != FloorStyle.DungeonFloor:
-            continue
-        outline = entry.op.outline
-        if outline is None or not outline.vertices:
-            continue
-        if outline.descriptorKind != OutlineKind.Polygon:
-            continue
-        verts = outline.vertices
-        if len(verts) != 4 or (outline.rings or []):
-            continue
-        xs = [v.x for v in verts]
-        ys = [v.y for v in verts]
-        if (max(xs) - min(xs), max(ys) - min(ys)) != (CELL, CELL):
             continue
         ref = entry.op.regionRef
         if isinstance(ref, bytes):
             ref = ref.decode()
         assert ref, (
-            f"1×1 DungeonFloor FloorOp at "
-            f"({xs[0]:.0f},{ys[0]:.0f}) with empty region_ref must "
-            f"not exist after 1.26d-3"
+            "DungeonFloor FloorOp with empty region_ref must not "
+            "exist after NIR4 (per-tile path retired)"
         )
 
 
@@ -2013,10 +1978,7 @@ def test_seed99_cave_carries_one_exterior_wall_op_per_cave_region() -> None:
 
     floor_ops = [e for e in fir.ops if e.opType == Op.Op.FloorOp]
     wall_ops = [e for e in fir.ops if e.opType == Op.Op.ExteriorWallOp]
-    walls_ops = [e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp]
-    assert not walls_ops, (
-        "Phase 1.26f: WallsAndFloorsOp no longer emits"
-    )
+    # NIR4: WallsAndFloorsOp dropped from schema.
     # ONE merged op per disjoint cave system; seed99 has 1 system.
     assert len(floor_ops) == 1, (
         f"expected 1 merged cave FloorOp, got {len(floor_ops)}"
@@ -2504,59 +2466,10 @@ _PHASE_1_26F_NO_WAF_DESCRIPTORS = (
 )
 
 
-def test_no_walls_and_floors_op_in_fresh_dungeon_irs() -> None:
-    """Phase 1.26f: every freshly-emitted dungeon IR ships zero
-    WallsAndFloorsOp entries.
-
-    Subsumes the Phase 1.19 ``test_legacy_walls_and_floors_fields_are_empty``
-    drift canary — when the op no longer emits, the fields it
-    carried are trivially absent. The legacy WallsAndFloorsOp still
-    decodes from 3.x cached buffers via the back-compat reader but
-    fresh IRs (from ``build_floor_ir``) don't ship one.
-    """
-    for descriptor in _PHASE_1_26F_NO_WAF_DESCRIPTORS:
-        inputs = descriptor_inputs(descriptor)
-        buf = build_floor_ir(
-            inputs.level,
-            seed=inputs.seed,
-            hatch_distance=inputs.hatch_distance,
-            vegetation=inputs.vegetation,
-        )
-        fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(bytes(buf), 0))
-        waf_entries = [
-            e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
-        ]
-        assert not waf_entries, (
-            f"{descriptor}: WallsAndFloorsOp must not emit at 1.26f"
-        )
-
-
-def test_no_walls_and_floors_op_in_fresh_building_ir() -> None:
-    """Phase 1.26f: brick_building IR ships zero WallsAndFloorsOp.
-
-    Replaces the 1.20b ``test_smooth_fill_svg_no_wood_floor_for_building``
-    drift canary. WoodFloor FloorOp owns the building wood-floor
-    fill; nothing else wants the legacy ``smoothFillSvg`` carrier.
-    """
-    from tests.samples.regenerate_fixtures import (
-        _BUILDING_FIXTURES, _build_building_inputs,
-    )
-    fx = next(
-        f for f in _BUILDING_FIXTURES
-        if f.descriptor == "seed7_brick_building_floor0"
-    )
-    site, level = _build_building_inputs(fx)
-    buf = build_floor_ir(
-        level, seed=fx.seed, hatch_distance=2.0, site=site,
-    )
-    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(bytes(buf), 0))
-    waf_entries = [
-        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
-    ]
-    assert not waf_entries, (
-        "seed7_brick_building_floor0: WallsAndFloorsOp must not "
-        "emit at 1.26f — WoodFloor FloorOp owns the wood-floor fill"
-    )
+# NIR4: tests pinning "legacy ops no longer emit" deleted —
+# the schema cut removed WallsAndFloorsOp / BuildingExteriorWallOp /
+# BuildingInteriorWallOp / EnclosureOp / GenericProceduralOp from the
+# union, so structural enforcement replaces the regression tests.
 
 
 def _building_fir() -> "FloorIRT":
@@ -2596,12 +2509,9 @@ def test_building_emits_wood_floor_floor_ops() -> None:
     assert wood_ops, (
         "brick_building: expected at least one WoodFloor FloorOp"
     )
-    for entry in wood_ops:
-        wf = entry.op
-        assert wf.outline is not None
-        assert wf.outline.descriptorKind == OutlineKind.Polygon
-        assert wf.outline.vertices is not None
-        assert len(wf.outline.vertices) == 4
+    # NIR4: FloorOp.outline retired; per-tile wood ops carry no
+    # region_ref so geometry is not introspectable post-round-trip
+    # (the consumer reads tile coords from a different path).
 
 
 def test_wood_floor_ops_paint_after_dungeon_floor_ops() -> None:
@@ -2678,186 +2588,5 @@ def test_wood_floor_per_tile_count_matches_floor_terrain() -> None:
     )
 
 
-def test_back_compat_render_for_pre_119_cache() -> None:
-    """A synthetic 3.x-style IR (only legacy fields, no new ops) still
-    renders pixels through the back-compat reader in
-    ``walls_and_floors.rs``.
-
-    This pins the contract that Phase 1.19's emitter change does not
-    break players' existing autosaves — the gates in
-    ``transform_walls_and_floors`` only suppress legacy passes when
-    the corresponding new op is present. With no FloorOp /
-    ExteriorWallOp / CorridorWallOp in the IR, every legacy pass
-    runs. The output must contain non-background pixels.
-    """
-    import nhc_render
-    from flatbuffers import Builder
-    from nhc.rendering.ir._fb.FloorIR import (
-        FloorIR as _FloorIR,
-        FloorIRStart, FloorIRAddMajor, FloorIRAddMinor,
-        FloorIRAddWidthTiles, FloorIRAddHeightTiles,
-        FloorIRAddCell, FloorIRAddPadding, FloorIRAddTheme,
-        FloorIRAddOps, FloorIRAddBaseSeed, FloorIREnd,
-        FloorIRStartOpsVector,
-    )
-    from nhc.rendering.ir._fb.WallsAndFloorsOp import (
-        WallsAndFloorsOpStart, WallsAndFloorsOpAddRectRooms,
-        WallsAndFloorsOpEnd, WallsAndFloorsOpStartRectRoomsVector,
-    )
-    from nhc.rendering.ir._fb.RectRoom import (
-        RectRoomStart, RectRoomAddX, RectRoomAddY,
-        RectRoomAddW, RectRoomAddH, RectRoomEnd,
-    )
-    from nhc.rendering.ir._fb.OpEntry import (
-        OpEntryStart, OpEntryAddOpType, OpEntryAddOp, OpEntryEnd,
-    )
-
-    # Build a 3.x-style IR with one RectRoom and nothing else — the
-    # legacy ``draw_rect_rooms`` pass should paint a white rect.
-    b = Builder(1024)
-    theme = b.CreateString("dungeon")
-
-    RectRoomStart(b)
-    RectRoomAddX(b, 1)
-    RectRoomAddY(b, 1)
-    RectRoomAddW(b, 4)
-    RectRoomAddH(b, 4)
-    rect = RectRoomEnd(b)
-
-    WallsAndFloorsOpStartRectRoomsVector(b, 1)
-    b.PrependUOffsetTRelative(rect)
-    rect_rooms_vec = b.EndVector()
-
-    WallsAndFloorsOpStart(b)
-    WallsAndFloorsOpAddRectRooms(b, rect_rooms_vec)
-    waf = WallsAndFloorsOpEnd(b)
-
-    OpEntryStart(b)
-    OpEntryAddOpType(b, Op.Op.WallsAndFloorsOp)
-    OpEntryAddOp(b, waf)
-    entry = OpEntryEnd(b)
-
-    FloorIRStartOpsVector(b, 1)
-    b.PrependUOffsetTRelative(entry)
-    ops_vec = b.EndVector()
-
-    FloorIRStart(b)
-    FloorIRAddMajor(b, 3)
-    FloorIRAddMinor(b, 1)
-    FloorIRAddWidthTiles(b, 6)
-    FloorIRAddHeightTiles(b, 6)
-    FloorIRAddCell(b, 32)
-    FloorIRAddPadding(b, 32)
-    FloorIRAddTheme(b, theme)
-    FloorIRAddOps(b, ops_vec)
-    FloorIRAddBaseSeed(b, 0)
-    fir = FloorIREnd(b)
-    b.Finish(fir, file_identifier=b"NIR3")
-    buf = bytes(b.Output())
-
-    png = bytes(nhc_render.ir_to_png(buf, 1.0, None))
-    assert len(png) > 100, "PNG output too small — handler crashed?"
-    # Decode and assert non-background pixels exist (the legacy
-    # draw_rect_rooms pass painted FLOOR_COLOR=white inside the rect).
-    import io
-    import numpy as np
-    from PIL import Image
-    arr = np.asarray(
-        Image.open(io.BytesIO(png)).convert("RGB"), dtype=np.uint8
-    )
-    bg = np.array([0xF5, 0xED, 0xE0], dtype=np.uint8)
-    non_bg = int(np.any(arr != bg, axis=-1).sum())
-    assert non_bg > 100, (
-        f"legacy back-compat path didn't paint anything visible "
-        f"({non_bg} non-bg pixels)"
-    )
-
-
-# ── Phase 1.26f — legacy v3 ops no longer emitted ────────────────
-
-
-_PHASE_1_26F_DESCRIPTORS = (
-    "seed42_rect_dungeon_dungeon",
-    "seed7_octagon_crypt_dungeon",
-    "seed99_cave_cave_cave",
-)
-
-
-def _all_op_types_in(fir) -> set[int]:
-    return {e.opType for e in (fir.ops or [])}
-
-
-def test_legacy_walls_and_floors_op_no_longer_emitted() -> None:
-    """Phase 1.26f: fresh IRs no longer carry WallsAndFloorsOp.
-
-    The new ops (FloorOp / ExteriorWallOp / InteriorWallOp /
-    CorridorWallOp) drive every wall + floor pixel; the legacy
-    ``WallsAndFloorsOp`` was a transitional carrier whose fields
-    Phase 1.19 cleared and 1.26e-2a/-2b retired entirely. The op
-    itself drops at 1.26f. Schema declaration stays for 3.x cache
-    back-compat; the 4.0 cut at 1.27 removes the table.
-    """
-    for descriptor in _PHASE_1_26F_DESCRIPTORS:
-        inputs = descriptor_inputs(descriptor)
-        buf = build_floor_ir(
-            inputs.level,
-            seed=inputs.seed,
-            hatch_distance=inputs.hatch_distance,
-            vegetation=inputs.vegetation,
-        )
-        fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(bytes(buf), 0))
-        waf_entries = [
-            e for e in (fir.ops or [])
-            if e.opType == Op.Op.WallsAndFloorsOp
-        ]
-        assert not waf_entries, (
-            f"{descriptor}: WallsAndFloorsOp must not emit at 1.26f; "
-            f"got {len(waf_entries)} entries"
-        )
-
-
-def test_legacy_building_and_enclosure_ops_no_longer_emitted() -> None:
-    """Phase 1.26f: BuildingExteriorWallOp / BuildingInteriorWallOp /
-    EnclosureOp / GenericProceduralOp no longer emit.
-
-    BuildingExteriorWallOp / BuildingInteriorWallOp / EnclosureOp
-    were retired at Phase 1.20 when ExteriorWallOp /
-    InteriorWallOp absorbed their coverage; this test pins the
-    contract across the dungeon + building + enclosure fixtures.
-    GenericProceduralOp was retired at 0.2.
-    """
-    from pathlib import Path
-
-    fixture_root = Path(__file__).resolve().parents[1] / "fixtures" / "floor_ir"
-    legacy_op_types = {
-        Op.Op.BuildingExteriorWallOp,
-        Op.Op.BuildingInteriorWallOp,
-        Op.Op.EnclosureOp,
-        Op.Op.GenericProceduralOp,
-    }
-    legacy_op_names = {
-        Op.Op.BuildingExteriorWallOp: "BuildingExteriorWallOp",
-        Op.Op.BuildingInteriorWallOp: "BuildingInteriorWallOp",
-        Op.Op.EnclosureOp: "EnclosureOp",
-        Op.Op.GenericProceduralOp: "GenericProceduralOp",
-    }
-    descriptors = [
-        "seed42_rect_dungeon_dungeon",
-        "seed7_octagon_crypt_dungeon",
-        "seed99_cave_cave_cave",
-        "seed7_brick_building_floor0",
-        "synthetic_enclosure_palisade_rect",
-        "synthetic_enclosure_palisade_gated",
-        "synthetic_enclosure_fortification_merlon",
-        "synthetic_enclosure_fortification_diamond_gated",
-    ]
-    for descriptor in descriptors:
-        p = fixture_root / descriptor / "floor.nir"
-        if not p.exists():
-            continue
-        fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(p.read_bytes(), 0))
-        present = _all_op_types_in(fir) & legacy_op_types
-        assert not present, (
-            f"{descriptor}: legacy ops must not emit at 1.26f; got "
-            f"{sorted(legacy_op_names[t] for t in present)}"
-        )
+# NIR4: legacy back-compat tests deleted — the v3 ops are gone
+# from the schema, so the back-compat reader path no longer exists.

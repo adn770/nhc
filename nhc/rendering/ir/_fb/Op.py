@@ -6,27 +6,22 @@ class Op(object):
     NONE = 0
     ShadowOp = 1
     HatchOp = 2
-    WallsAndFloorsOp = 3
-    TerrainTintOp = 4
-    FloorGridOp = 5
-    FloorDetailOp = 6
-    ThematicDetailOp = 7
-    TerrainDetailOp = 8
-    StairsOp = 9
-    TreeFeatureOp = 10
-    BushFeatureOp = 11
-    WellFeatureOp = 12
-    FountainFeatureOp = 13
-    GenericProceduralOp = 14
-    DecoratorOp = 15
-    RoofOp = 16
-    EnclosureOp = 17
-    BuildingExteriorWallOp = 18
-    BuildingInteriorWallOp = 19
-    FloorOp = 20
-    InteriorWallOp = 21
-    ExteriorWallOp = 22
-    CorridorWallOp = 23
+    TerrainTintOp = 3
+    FloorGridOp = 4
+    FloorDetailOp = 5
+    ThematicDetailOp = 6
+    TerrainDetailOp = 7
+    StairsOp = 8
+    TreeFeatureOp = 9
+    BushFeatureOp = 10
+    WellFeatureOp = 11
+    FountainFeatureOp = 12
+    DecoratorOp = 13
+    RoofOp = 14
+    FloorOp = 15
+    InteriorWallOp = 16
+    ExteriorWallOp = 17
+    CorridorWallOp = 18
 
 def OpCreator(unionType, table):
     from flatbuffers.table import Table
@@ -38,9 +33,6 @@ def OpCreator(unionType, table):
     if unionType == Op.HatchOp:
         import nhc.rendering.ir._fb.HatchOp
         return nhc.rendering.ir._fb.HatchOp.HatchOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.WallsAndFloorsOp:
-        import nhc.rendering.ir._fb.WallsAndFloorsOp
-        return nhc.rendering.ir._fb.WallsAndFloorsOp.WallsAndFloorsOpT.InitFromBuf(table.Bytes, table.Pos)
     if unionType == Op.TerrainTintOp:
         import nhc.rendering.ir._fb.TerrainTintOp
         return nhc.rendering.ir._fb.TerrainTintOp.TerrainTintOpT.InitFromBuf(table.Bytes, table.Pos)
@@ -71,24 +63,12 @@ def OpCreator(unionType, table):
     if unionType == Op.FountainFeatureOp:
         import nhc.rendering.ir._fb.FountainFeatureOp
         return nhc.rendering.ir._fb.FountainFeatureOp.FountainFeatureOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.GenericProceduralOp:
-        import nhc.rendering.ir._fb.GenericProceduralOp
-        return nhc.rendering.ir._fb.GenericProceduralOp.GenericProceduralOpT.InitFromBuf(table.Bytes, table.Pos)
     if unionType == Op.DecoratorOp:
         import nhc.rendering.ir._fb.DecoratorOp
         return nhc.rendering.ir._fb.DecoratorOp.DecoratorOpT.InitFromBuf(table.Bytes, table.Pos)
     if unionType == Op.RoofOp:
         import nhc.rendering.ir._fb.RoofOp
         return nhc.rendering.ir._fb.RoofOp.RoofOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.EnclosureOp:
-        import nhc.rendering.ir._fb.EnclosureOp
-        return nhc.rendering.ir._fb.EnclosureOp.EnclosureOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.BuildingExteriorWallOp:
-        import nhc.rendering.ir._fb.BuildingExteriorWallOp
-        return nhc.rendering.ir._fb.BuildingExteriorWallOp.BuildingExteriorWallOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.BuildingInteriorWallOp:
-        import nhc.rendering.ir._fb.BuildingInteriorWallOp
-        return nhc.rendering.ir._fb.BuildingInteriorWallOp.BuildingInteriorWallOpT.InitFromBuf(table.Bytes, table.Pos)
     if unionType == Op.FloorOp:
         import nhc.rendering.ir._fb.FloorOp
         return nhc.rendering.ir._fb.FloorOp.FloorOpT.InitFromBuf(table.Bytes, table.Pos)

@@ -22,7 +22,7 @@ class BrickVariant(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def BrickVariantBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # BrickVariant
     def Init(self, buf, pos):

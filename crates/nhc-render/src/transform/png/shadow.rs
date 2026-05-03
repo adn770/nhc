@@ -206,15 +206,15 @@ fn find_region<'a>(
 }
 
 fn polygon_coords(region: &crate::ir::Region<'_>) -> Vec<(f64, f64)> {
-    let polygon = match region.polygon() {
-        Some(p) => p,
+    let outline = match region.outline() {
+        Some(o) => o,
         None => return Vec::new(),
     };
-    let paths = match polygon.paths() {
-        Some(p) => p,
+    let verts = match outline.vertices() {
+        Some(v) => v,
         None => return Vec::new(),
     };
-    paths
+    verts
         .iter()
         .map(|v| (v.x() as f64, v.y() as f64))
         .collect()

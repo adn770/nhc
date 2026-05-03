@@ -6,7 +6,6 @@ import * as flatbuffers from 'flatbuffers';
 
 import { CornerStyle } from '../../../../nhc/rendering/ir/fb/corner-style.js';
 import { Cut } from '../../../../nhc/rendering/ir/fb/cut.js';
-import { Outline } from '../../../../nhc/rendering/ir/fb/outline.js';
 import { WallStyle } from '../../../../nhc/rendering/ir/fb/wall-style.js';
 
 
@@ -28,69 +27,60 @@ static getSizePrefixedRootAsExteriorWallOp(bb:flatbuffers.ByteBuffer, obj?:Exter
   return (obj || new ExteriorWallOp()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
 }
 
-outline(obj?:Outline):Outline|null {
-  const offset = this.bb!.__offset(this.bb_pos, 4);
-  return offset ? (obj || new Outline()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
-}
-
 style():WallStyle {
-  const offset = this.bb!.__offset(this.bb_pos, 6);
+  const offset = this.bb!.__offset(this.bb_pos, 4);
   return offset ? this.bb!.readUint8(this.bb_pos + offset) : WallStyle.DungeonInk;
 }
 
 cornerStyle():CornerStyle {
-  const offset = this.bb!.__offset(this.bb_pos, 8);
+  const offset = this.bb!.__offset(this.bb_pos, 6);
   return offset ? this.bb!.readInt8(this.bb_pos + offset) : CornerStyle.Merlon;
 }
 
 rngSeed():bigint {
-  const offset = this.bb!.__offset(this.bb_pos, 10);
+  const offset = this.bb!.__offset(this.bb_pos, 8);
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
 regionRef():string|null
 regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
 regionRef(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
+  const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
 cuts(index: number, obj?:Cut):Cut|null {
-  const offset = this.bb!.__offset(this.bb_pos, 14);
+  const offset = this.bb!.__offset(this.bb_pos, 12);
   return offset ? (obj || new Cut()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
 }
 
 cutsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 14);
+  const offset = this.bb!.__offset(this.bb_pos, 12);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 static startExteriorWallOp(builder:flatbuffers.Builder) {
-  builder.startObject(6);
-}
-
-static addOutline(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(0, outlineOffset, 0);
+  builder.startObject(5);
 }
 
 static addStyle(builder:flatbuffers.Builder, style:WallStyle) {
-  builder.addFieldInt8(1, style, WallStyle.DungeonInk);
+  builder.addFieldInt8(0, style, WallStyle.DungeonInk);
 }
 
 static addCornerStyle(builder:flatbuffers.Builder, cornerStyle:CornerStyle) {
-  builder.addFieldInt8(2, cornerStyle, CornerStyle.Merlon);
+  builder.addFieldInt8(1, cornerStyle, CornerStyle.Merlon);
 }
 
 static addRngSeed(builder:flatbuffers.Builder, rngSeed:bigint) {
-  builder.addFieldInt64(3, rngSeed, BigInt('0'));
+  builder.addFieldInt64(2, rngSeed, BigInt('0'));
 }
 
 static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(4, regionRefOffset, 0);
+  builder.addFieldOffset(3, regionRefOffset, 0);
 }
 
 static addCuts(builder:flatbuffers.Builder, cutsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(5, cutsOffset, 0);
+  builder.addFieldOffset(4, cutsOffset, 0);
 }
 
 static createCutsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
@@ -110,9 +100,8 @@ static endExteriorWallOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createExteriorWallOp(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset, style:WallStyle, cornerStyle:CornerStyle, rngSeed:bigint, regionRefOffset:flatbuffers.Offset, cutsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createExteriorWallOp(builder:flatbuffers.Builder, style:WallStyle, cornerStyle:CornerStyle, rngSeed:bigint, regionRefOffset:flatbuffers.Offset, cutsOffset:flatbuffers.Offset):flatbuffers.Offset {
   ExteriorWallOp.startExteriorWallOp(builder);
-  ExteriorWallOp.addOutline(builder, outlineOffset);
   ExteriorWallOp.addStyle(builder, style);
   ExteriorWallOp.addCornerStyle(builder, cornerStyle);
   ExteriorWallOp.addRngSeed(builder, rngSeed);

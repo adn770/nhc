@@ -351,7 +351,7 @@ class TestIRArtefactsDiskCache:
             SCHEMA_MAJOR, SCHEMA_MINOR,
         )
         return IRArtefacts(
-            nir=b"NIR3" + b"\x00" * 12 + b"sample-flatbuffer",
+            nir=b"NIR4" + b"\x00" * 12 + b"sample-flatbuffer",
             ir_json='{"major": 1, "minor": 6, "regions": []}',
             png=b"\x89PNG\r\n\x1a\nfake-pixels" if png else None,
             major=SCHEMA_MAJOR if major is None else major,

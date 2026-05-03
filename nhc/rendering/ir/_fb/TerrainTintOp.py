@@ -22,7 +22,7 @@ class TerrainTintOp(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def TerrainTintOpBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # TerrainTintOp
     def Init(self, buf, pos):
@@ -78,21 +78,14 @@ class TerrainTintOp(object):
         return o == 0
 
     # TerrainTintOp
-    def ClipRegion(self):
+    def RegionRef(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
-    # TerrainTintOp
-    def RegionRef(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
-
 def TerrainTintOpStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(3)
 
 def Start(builder):
     TerrainTintOpStart(builder)
@@ -121,14 +114,8 @@ def TerrainTintOpStartRoomWashesVector(builder, numElems):
 def StartRoomWashesVector(builder, numElems):
     return TerrainTintOpStartRoomWashesVector(builder, numElems)
 
-def TerrainTintOpAddClipRegion(builder, clipRegion):
-    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(clipRegion), 0)
-
-def AddClipRegion(builder, clipRegion):
-    TerrainTintOpAddClipRegion(builder, clipRegion)
-
 def TerrainTintOpAddRegionRef(builder, regionRef):
-    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
 
 def AddRegionRef(builder, regionRef):
     TerrainTintOpAddRegionRef(builder, regionRef)
@@ -153,12 +140,10 @@ class TerrainTintOpT(object):
         self,
         tiles = None,
         roomWashes = None,
-        clipRegion = None,
         regionRef = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TerrainTintTile.TerrainTintTileT]]
         self.roomWashes = roomWashes  # type: Optional[List[nhc.rendering.ir._fb.RoomWash.RoomWashT]]
-        self.clipRegion = clipRegion  # type: Optional[str]
         self.regionRef = regionRef  # type: Optional[str]
 
     @classmethod
@@ -198,7 +183,6 @@ class TerrainTintOpT(object):
                 else:
                     roomWash_ = nhc.rendering.ir._fb.RoomWash.RoomWashT.InitFromObj(terrainTintOp.RoomWashes(i))
                     self.roomWashes.append(roomWash_)
-        self.clipRegion = terrainTintOp.ClipRegion()
         self.regionRef = terrainTintOp.RegionRef()
 
     # TerrainTintOpT
@@ -216,8 +200,6 @@ class TerrainTintOpT(object):
             for i in reversed(range(len(self.roomWashes))):
                 builder.PrependUOffsetTRelative(roomWasheslist[i])
             roomWashes = builder.EndVector()
-        if self.clipRegion is not None:
-            clipRegion = builder.CreateString(self.clipRegion)
         if self.regionRef is not None:
             regionRef = builder.CreateString(self.regionRef)
         TerrainTintOpStart(builder)
@@ -225,8 +207,6 @@ class TerrainTintOpT(object):
             TerrainTintOpAddTiles(builder, tiles)
         if self.roomWashes is not None:
             TerrainTintOpAddRoomWashes(builder, roomWashes)
-        if self.clipRegion is not None:
-            TerrainTintOpAddClipRegion(builder, clipRegion)
         if self.regionRef is not None:
             TerrainTintOpAddRegionRef(builder, regionRef)
         terrainTintOp = TerrainTintOpEnd(builder)

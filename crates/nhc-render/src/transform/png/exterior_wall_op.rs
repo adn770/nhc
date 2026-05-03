@@ -27,13 +27,12 @@ use tiny_skia::{Color, LineCap, LineJoin, Paint, PathBuilder, Rect, Stroke};
 
 use crate::geometry::cave_path_from_outline;
 use crate::ir::{
-    Cut, CutStyle, EnclosureStyle, FloorIR, OpEntry, Outline, OutlineKind,
-    WallMaterial, WallStyle,
+    Cut, CutStyle, FloorIR, OpEntry, Outline, OutlineKind, WallStyle,
 };
 use crate::transform::png::path_parser::parse_path_d;
 
-use super::building_exterior_wall::render_masonry_polygon;
-use super::enclosure::render_enclosure_polygon;
+use super::building_exterior_wall::{render_masonry_polygon, MasonryMaterial};
+use super::enclosure::{render_enclosure_polygon, EnclosureKind};
 use super::RasterCtx;
 
 const INK_R: u8 = 0x00;
@@ -81,7 +80,7 @@ pub(super) fn draw(
         Some(o) => o,
         None => return,
     };
-    let cuts: Vec<Cut<'_>> = resolve_cuts(&op, &outline);
+    let cuts: Vec<Cut<'_>> = resolve_cuts(&op);
     let style = op.style();
 
     match style {
@@ -92,79 +91,54 @@ pub(super) fn draw(
             draw_cave_ink(&outline, fir, ctx);
         }
         WallStyle::MasonryBrick | WallStyle::MasonryStone => {
-            // Phase 1.20 — Masonry coverage moved here from the legacy
-            // `BuildingExteriorWallOp` handler. Reuses the polygon
-            // chain helper so the byte-equal contract holds.
-            let material = if style == WallStyle::MasonryBrick {
-                WallMaterial::Brick
-            } else {
-                WallMaterial::Stone
-            };
-            let polygon = polygon_from_outline(&outline);
-            render_masonry_polygon(&polygon, material, op.rng_seed(), ctx);
+            if let Some(material) = MasonryMaterial::from_wall_style(style) {
+                let polygon = polygon_from_outline(&outline);
+                render_masonry_polygon(&polygon, material, op.rng_seed(), ctx);
+            }
         }
         WallStyle::Palisade | WallStyle::FortificationMerlon => {
-            // Phase 1.20 — Palisade / Fortification coverage moved here
-            // from the legacy `EnclosureOp` handler. The new outline
-            // carries gates as `Cut` entries with absolute-pixel
-            // start/end; reconstruct the per-edge (lo, hi) span buckets
-            // the chain renderer expects.
-            let polygon = polygon_from_outline(&outline);
-            let (by_edge, midpoints) =
-                gate_spans_per_edge_from_cuts(&polygon, &cuts);
-            let enc_style = if style == WallStyle::Palisade {
-                EnclosureStyle::Palisade
-            } else {
-                EnclosureStyle::Fortification
-            };
-            render_enclosure_polygon(
-                &polygon,
-                &by_edge,
-                &midpoints,
-                enc_style,
-                op.corner_style().0,
-                op.rng_seed(),
-                ctx,
-            );
+            // The outline carries gates as `Cut` entries with absolute-
+            // pixel start/end; reconstruct the per-edge (lo, hi) span
+            // buckets the chain renderer expects.
+            if let Some(enc_style) = EnclosureKind::from_wall_style(style) {
+                let polygon = polygon_from_outline(&outline);
+                let (by_edge, midpoints) =
+                    gate_spans_per_edge_from_cuts(&polygon, &cuts);
+                render_enclosure_polygon(
+                    &polygon,
+                    &by_edge,
+                    &midpoints,
+                    enc_style,
+                    op.corner_style().0,
+                    op.rng_seed(),
+                    ctx,
+                );
+            }
         }
         _ => {}
     }
 }
 
-/// Resolve the wall geometry — prefer the Region's outline when
-/// ``op.region_ref`` resolves; otherwise fall back to ``op.outline``.
-/// Mirrors the FloorOp.region_ref dispatch in `floor_op.rs`.
+/// Resolve the wall geometry through ``op.region_ref`` →
+/// ``Region.outline``.
 fn resolve_outline<'a>(
     op: &crate::ir::ExteriorWallOp<'a>,
     fir: &FloorIR<'a>,
 ) -> Option<Outline<'a>> {
-    if let Some(rr) = op.region_ref() {
-        if !rr.is_empty() {
-            if let Some(region) = find_region(fir, rr) {
-                if let Some(o) = region.outline() {
-                    return Some(o);
-                }
-            }
-        }
+    let rr = op.region_ref()?;
+    if rr.is_empty() {
+        return None;
     }
-    op.outline()
+    let region = find_region(fir, rr)?;
+    region.outline()
 }
 
-/// Resolve the wall cuts — prefer ``op.cuts`` when populated; fall
-/// back to ``outline.cuts`` for 3.x cached buffers. Returns a Vec
-/// rather than a Vector borrow so subroutines have a stable
-/// `&[Cut]` slice regardless of which source resolved.
+/// Resolve the wall cuts from ``op.cuts``. Returns a Vec rather than
+/// a Vector borrow so subroutines have a stable `&[Cut]` slice.
 fn resolve_cuts<'a>(
     op: &crate::ir::ExteriorWallOp<'a>,
-    outline: &Outline<'a>,
 ) -> Vec<Cut<'a>> {
-    if let Some(cv) = op.cuts() {
-        if cv.len() > 0 {
-            return cv.iter().collect();
-        }
-    }
-    outline
-        .cuts()
+    op.cuts()
         .map(|cv| cv.iter().collect())
         .unwrap_or_default()
 }
@@ -778,7 +752,8 @@ mod tests {
     use crate::ir::{
         finish_floor_ir_buffer, Cut, CutArgs, CutStyle, ExteriorWallOp,
         ExteriorWallOpArgs, FloorIR, FloorIRArgs, Op, OpEntry, OpEntryArgs,
-        Outline, OutlineArgs, OutlineKind, Vec2, WallStyle,
+        Outline, OutlineArgs, OutlineKind, Region, RegionArgs, RegionKind, Vec2,
+        WallStyle,
     };
     use crate::test_util::{decode, pixel_at};
     use crate::transform::png::{floor_ir_to_png, BG_B, BG_G, BG_R};
@@ -810,11 +785,24 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("rect");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(shape_tag),
+                outline: Some(outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let wall_op = ExteriorWallOp::create(
             &mut fbb,
             &ExteriorWallOpArgs {
-                outline: Some(outline),
                 style: WallStyle::DungeonInk,
+                region_ref: Some(region_ref),
                 ..Default::default()
             },
         );
@@ -837,6 +825,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -861,11 +850,24 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("circle");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(shape_tag),
+                outline: Some(outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let wall_op = ExteriorWallOp::create(
             &mut fbb,
             &ExteriorWallOpArgs {
-                outline: Some(outline),
                 style: WallStyle::DungeonInk,
+                region_ref: Some(region_ref),
                 ..Default::default()
             },
         );
@@ -888,6 +890,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -913,11 +916,24 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("pill");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(shape_tag),
+                outline: Some(outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let wall_op = ExteriorWallOp::create(
             &mut fbb,
             &ExteriorWallOpArgs {
-                outline: Some(outline),
                 style: WallStyle::DungeonInk,
+                region_ref: Some(region_ref),
                 ..Default::default()
             },
         );
@@ -940,6 +956,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -1000,17 +1017,30 @@ mod tests {
             &mut fbb,
             &OutlineArgs {
                 vertices: Some(verts),
-                cuts: Some(cuts),
                 closed: true,
                 descriptor_kind: OutlineKind::Polygon,
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("rect");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(shape_tag),
+                outline: Some(outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let wall_op = ExteriorWallOp::create(
             &mut fbb,
             &ExteriorWallOpArgs {
-                outline: Some(outline),
                 style: WallStyle::DungeonInk,
+                region_ref: Some(region_ref),
+                cuts: Some(cuts),
                 ..Default::default()
             },
         );
@@ -1033,6 +1063,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -1136,11 +1167,24 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("cave");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Cave,
+                shape_tag: Some(shape_tag),
+                outline: Some(outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let wall_op = ExteriorWallOp::create(
             &mut fbb,
             &ExteriorWallOpArgs {
-                outline: Some(outline),
                 style: WallStyle::CaveInk,
+                region_ref: Some(region_ref),
                 ..Default::default()
             },
         );
@@ -1164,6 +1208,7 @@ mod tests {
                 padding: 32,
                 theme: Some(theme),
                 base_seed: 42,
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },

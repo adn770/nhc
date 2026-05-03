@@ -17,7 +17,7 @@ use tiny_skia::{
 use crate::ir::{FloorIR, OpEntry, Region, RoofOp};
 use crate::rng::SplitMix64;
 
-use super::polygon_path::build_polygon_path;
+use super::polygon_path::build_outline_path;
 use super::RasterCtx;
 
 
@@ -361,23 +361,23 @@ fn find_region<'a>(
 }
 
 fn polygon_coords(region: &Region<'_>) -> Vec<(f32, f32)> {
-    let polygon = match region.polygon() {
-        Some(p) => p,
+    let outline = match region.outline() {
+        Some(o) => o,
         None => return Vec::new(),
     };
-    let paths = match polygon.paths() {
-        Some(p) => p,
+    let verts = match outline.vertices() {
+        Some(v) => v,
         None => return Vec::new(),
     };
-    paths.iter().map(|v| (v.x(), v.y())).collect()
+    verts.iter().map(|v| (v.x(), v.y())).collect()
 }
 
 fn build_clip_mask(
     region: &Region<'_>,
     ctx: &RasterCtx<'_>,
 ) -> Option<Mask> {
-    let polygon = region.polygon()?;
-    let path = build_polygon_path(&polygon)?;
+    let outline = region.outline()?;
+    let path = build_outline_path(&outline)?;
     let mut mask = Mask::new(ctx.pixmap.width(), ctx.pixmap.height())?;
     mask.fill_path(&path, FillRule::EvenOdd, true, ctx.transform);
     Some(mask)

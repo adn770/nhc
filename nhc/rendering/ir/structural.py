@@ -63,11 +63,11 @@ def compute_structural(buf: bytes) -> dict[str, Any]:
     polygon_rings = 0
     for i in range(region_count):
         region = fir.Regions(i)
-        poly = region.Polygon()
-        if poly is None:
+        outline = region.Outline()
+        if outline is None:
             continue
-        polygon_vertices += poly.PathsLength()
-        polygon_rings += poly.RingsLength()
+        polygon_vertices += outline.VerticesLength()
+        polygon_rings += outline.RingsLength()
 
     svg = ir_to_svg(buf)
     layer_counts: dict[str, int] = {}

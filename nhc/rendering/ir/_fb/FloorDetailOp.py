@@ -22,7 +22,7 @@ class FloorDetailOp(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def FloorDetailOpBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # FloorDetailOp
     def Init(self, buf, pos):
@@ -67,55 +67,8 @@ class FloorDetailOp(object):
         return None
 
     # FloorDetailOp
-    def RoomGroups(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        if o != 0:
-            a = self._tab.Vector(o)
-            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
-        return ""
-
-    # FloorDetailOp
-    def RoomGroupsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
-
-    # FloorDetailOp
-    def RoomGroupsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        return o == 0
-
-    # FloorDetailOp
-    def CorridorGroups(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        if o != 0:
-            a = self._tab.Vector(o)
-            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
-        return ""
-
-    # FloorDetailOp
-    def CorridorGroupsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
-
-    # FloorDetailOp
-    def CorridorGroupsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        return o == 0
-
-    # FloorDetailOp
-    def ClipRegion(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
-        if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
-
-    # FloorDetailOp
     def IsCorridor(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             a = self._tab.Vector(o)
             return self._tab.Get(flatbuffers.number_types.BoolFlags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
@@ -123,26 +76,26 @@ class FloorDetailOp(object):
 
     # FloorDetailOp
     def IsCorridorAsNumpy(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.GetVectorAsNumpy(flatbuffers.number_types.BoolFlags, o)
         return 0
 
     # FloorDetailOp
     def IsCorridorLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # FloorDetailOp
     def IsCorridorIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         return o == 0
 
     # FloorDetailOp
     def WoodTiles(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 8
@@ -154,19 +107,19 @@ class FloorDetailOp(object):
 
     # FloorDetailOp
     def WoodTilesLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # FloorDetailOp
     def WoodTilesIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         return o == 0
 
     # FloorDetailOp
     def WoodBuildingPolygon(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 8
@@ -178,19 +131,19 @@ class FloorDetailOp(object):
 
     # FloorDetailOp
     def WoodBuildingPolygonLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # FloorDetailOp
     def WoodBuildingPolygonIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         return o == 0
 
     # FloorDetailOp
     def WoodRooms(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
         if o != 0:
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
@@ -203,25 +156,25 @@ class FloorDetailOp(object):
 
     # FloorDetailOp
     def WoodRoomsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # FloorDetailOp
     def WoodRoomsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
         return o == 0
 
     # FloorDetailOp
     def RegionRef(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
 def FloorDetailOpStart(builder):
-    builder.StartObject(11)
+    builder.StartObject(8)
 
 def Start(builder):
     FloorDetailOpStart(builder)
@@ -250,38 +203,8 @@ def FloorDetailOpAddTheme(builder, theme):
 def AddTheme(builder, theme):
     FloorDetailOpAddTheme(builder, theme)
 
-def FloorDetailOpAddRoomGroups(builder, roomGroups):
-    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(roomGroups), 0)
-
-def AddRoomGroups(builder, roomGroups):
-    FloorDetailOpAddRoomGroups(builder, roomGroups)
-
-def FloorDetailOpStartRoomGroupsVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
-def StartRoomGroupsVector(builder, numElems):
-    return FloorDetailOpStartRoomGroupsVector(builder, numElems)
-
-def FloorDetailOpAddCorridorGroups(builder, corridorGroups):
-    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(corridorGroups), 0)
-
-def AddCorridorGroups(builder, corridorGroups):
-    FloorDetailOpAddCorridorGroups(builder, corridorGroups)
-
-def FloorDetailOpStartCorridorGroupsVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
-def StartCorridorGroupsVector(builder, numElems):
-    return FloorDetailOpStartCorridorGroupsVector(builder, numElems)
-
-def FloorDetailOpAddClipRegion(builder, clipRegion):
-    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(clipRegion), 0)
-
-def AddClipRegion(builder, clipRegion):
-    FloorDetailOpAddClipRegion(builder, clipRegion)
-
 def FloorDetailOpAddIsCorridor(builder, isCorridor):
-    builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(isCorridor), 0)
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(isCorridor), 0)
 
 def AddIsCorridor(builder, isCorridor):
     FloorDetailOpAddIsCorridor(builder, isCorridor)
@@ -293,7 +216,7 @@ def StartIsCorridorVector(builder, numElems):
     return FloorDetailOpStartIsCorridorVector(builder, numElems)
 
 def FloorDetailOpAddWoodTiles(builder, woodTiles):
-    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(woodTiles), 0)
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(woodTiles), 0)
 
 def AddWoodTiles(builder, woodTiles):
     FloorDetailOpAddWoodTiles(builder, woodTiles)
@@ -305,7 +228,7 @@ def StartWoodTilesVector(builder, numElems):
     return FloorDetailOpStartWoodTilesVector(builder, numElems)
 
 def FloorDetailOpAddWoodBuildingPolygon(builder, woodBuildingPolygon):
-    builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(woodBuildingPolygon), 0)
+    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(woodBuildingPolygon), 0)
 
 def AddWoodBuildingPolygon(builder, woodBuildingPolygon):
     FloorDetailOpAddWoodBuildingPolygon(builder, woodBuildingPolygon)
@@ -317,7 +240,7 @@ def StartWoodBuildingPolygonVector(builder, numElems):
     return FloorDetailOpStartWoodBuildingPolygonVector(builder, numElems)
 
 def FloorDetailOpAddWoodRooms(builder, woodRooms):
-    builder.PrependUOffsetTRelativeSlot(9, flatbuffers.number_types.UOffsetTFlags.py_type(woodRooms), 0)
+    builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(woodRooms), 0)
 
 def AddWoodRooms(builder, woodRooms):
     FloorDetailOpAddWoodRooms(builder, woodRooms)
@@ -329,7 +252,7 @@ def StartWoodRoomsVector(builder, numElems):
     return FloorDetailOpStartWoodRoomsVector(builder, numElems)
 
 def FloorDetailOpAddRegionRef(builder, regionRef):
-    builder.PrependUOffsetTRelativeSlot(10, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
 
 def AddRegionRef(builder, regionRef):
     FloorDetailOpAddRegionRef(builder, regionRef)
@@ -356,9 +279,6 @@ class FloorDetailOpT(object):
         tiles = None,
         seed = 0,
         theme = None,
-        roomGroups = None,
-        corridorGroups = None,
-        clipRegion = None,
         isCorridor = None,
         woodTiles = None,
         woodBuildingPolygon = None,
@@ -368,9 +288,6 @@ class FloorDetailOpT(object):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
-        self.roomGroups = roomGroups  # type: Optional[List[Optional[str]]]
-        self.corridorGroups = corridorGroups  # type: Optional[List[Optional[str]]]
-        self.clipRegion = clipRegion  # type: Optional[str]
         self.isCorridor = isCorridor  # type: Optional[List[bool]]
         self.woodTiles = woodTiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.woodBuildingPolygon = woodBuildingPolygon  # type: Optional[List[nhc.rendering.ir._fb.Vec2.Vec2T]]
@@ -408,15 +325,6 @@ class FloorDetailOpT(object):
                     self.tiles.append(tileCoord_)
         self.seed = floorDetailOp.Seed()
         self.theme = floorDetailOp.Theme()
-        if not floorDetailOp.RoomGroupsIsNone():
-            self.roomGroups = []
-            for i in range(floorDetailOp.RoomGroupsLength()):
-                self.roomGroups.append(floorDetailOp.RoomGroups(i))
-        if not floorDetailOp.CorridorGroupsIsNone():
-            self.corridorGroups = []
-            for i in range(floorDetailOp.CorridorGroupsLength()):
-                self.corridorGroups.append(floorDetailOp.CorridorGroups(i))
-        self.clipRegion = floorDetailOp.ClipRegion()
         if not floorDetailOp.IsCorridorIsNone():
             if np is None:
                 self.isCorridor = []
@@ -459,24 +367,6 @@ class FloorDetailOpT(object):
             tiles = builder.EndVector()
         if self.theme is not None:
             theme = builder.CreateString(self.theme)
-        if self.roomGroups is not None:
-            roomGroupslist = []
-            for i in range(len(self.roomGroups)):
-                roomGroupslist.append(builder.CreateString(self.roomGroups[i]))
-            FloorDetailOpStartRoomGroupsVector(builder, len(self.roomGroups))
-            for i in reversed(range(len(self.roomGroups))):
-                builder.PrependUOffsetTRelative(roomGroupslist[i])
-            roomGroups = builder.EndVector()
-        if self.corridorGroups is not None:
-            corridorGroupslist = []
-            for i in range(len(self.corridorGroups)):
-                corridorGroupslist.append(builder.CreateString(self.corridorGroups[i]))
-            FloorDetailOpStartCorridorGroupsVector(builder, len(self.corridorGroups))
-            for i in reversed(range(len(self.corridorGroups))):
-                builder.PrependUOffsetTRelative(corridorGroupslist[i])
-            corridorGroups = builder.EndVector()
-        if self.clipRegion is not None:
-            clipRegion = builder.CreateString(self.clipRegion)
         if self.isCorridor is not None:
             if np is not None and type(self.isCorridor) is np.ndarray:
                 isCorridor = builder.CreateNumpyVector(self.isCorridor)
@@ -511,12 +401,6 @@ class FloorDetailOpT(object):
         FloorDetailOpAddSeed(builder, self.seed)
         if self.theme is not None:
             FloorDetailOpAddTheme(builder, theme)
-        if self.roomGroups is not None:
-            FloorDetailOpAddRoomGroups(builder, roomGroups)
-        if self.corridorGroups is not None:
-            FloorDetailOpAddCorridorGroups(builder, corridorGroups)
-        if self.clipRegion is not None:
-            FloorDetailOpAddClipRegion(builder, clipRegion)
         if self.isCorridor is not None:
             FloorDetailOpAddIsCorridor(builder, isCorridor)
         if self.woodTiles is not None:

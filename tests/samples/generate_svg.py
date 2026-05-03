@@ -1056,7 +1056,7 @@ def generate_enclosure_demos(outdir: Path) -> None:
         FloorIRBuilder, emit_site_enclosure, emit_site_region,
     )
     from nhc.rendering.ir._fb.CornerStyle import CornerStyle
-    from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
+    from nhc.rendering.ir._fb.WallStyle import WallStyle
 
     edir = outdir / "enclosures"
     edir.mkdir(parents=True, exist_ok=True)
@@ -1075,20 +1075,20 @@ def generate_enclosure_demos(outdir: Path) -> None:
     specs: list[tuple[str, int, int, list | None]] = [
         (
             "palisade_no_gates",
-            EnclosureStyle.Palisade, CornerStyle.Merlon, None,
+            WallStyle.Palisade, CornerStyle.Merlon, None,
         ),
         (
             "palisade_gated",
-            EnclosureStyle.Palisade, CornerStyle.Merlon,
+            WallStyle.Palisade, CornerStyle.Merlon,
             sample_gates,
         ),
         (
             "fortification_merlon",
-            EnclosureStyle.Fortification, CornerStyle.Merlon, None,
+            WallStyle.FortificationMerlon, CornerStyle.Merlon, None,
         ),
         (
             "fortification_diamond_gated",
-            EnclosureStyle.Fortification, CornerStyle.Diamond,
+            WallStyle.FortificationMerlon, CornerStyle.Diamond,
             sample_gates,
         ),
     ]
@@ -1101,7 +1101,7 @@ def generate_enclosure_demos(outdir: Path) -> None:
         emit_site_enclosure(
             builder,
             polygon_tiles=polygon_tiles,
-            style=style,
+            wall_style=style,
             gates=gates,
             base_seed=7,
             corner_style=corner,
@@ -1109,7 +1109,7 @@ def generate_enclosure_demos(outdir: Path) -> None:
         buf = builder.finish()
         svg, png = _ir_to_pair(buf)
         style_name = (
-            "palisade" if style == EnclosureStyle.Palisade
+            "palisade" if style == WallStyle.Palisade
             else "fortification"
         )
         corner_name = (

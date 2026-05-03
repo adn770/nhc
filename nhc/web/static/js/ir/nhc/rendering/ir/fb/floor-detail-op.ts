@@ -49,91 +49,60 @@ theme(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-roomGroups(index: number):string
-roomGroups(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
-roomGroups(index: number,optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
-}
-
-roomGroupsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
-}
-
-corridorGroups(index: number):string
-corridorGroups(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
-corridorGroups(index: number,optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
-  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
-}
-
-corridorGroupsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
-  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
-}
-
-clipRegion():string|null
-clipRegion(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-clipRegion(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 14);
-  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
-}
-
 isCorridor(index: number):boolean|null {
-  const offset = this.bb!.__offset(this.bb_pos, 16);
+  const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? !!this.bb!.readInt8(this.bb!.__vector(this.bb_pos + offset) + index) : false;
 }
 
 isCorridorLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 16);
+  const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 isCorridorArray():Int8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 16);
+  const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? new Int8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
 }
 
 woodTiles(index: number, obj?:TileCoord):TileCoord|null {
-  const offset = this.bb!.__offset(this.bb_pos, 18);
+  const offset = this.bb!.__offset(this.bb_pos, 12);
   return offset ? (obj || new TileCoord()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 8, this.bb!) : null;
 }
 
 woodTilesLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 18);
+  const offset = this.bb!.__offset(this.bb_pos, 12);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 woodBuildingPolygon(index: number, obj?:Vec2):Vec2|null {
-  const offset = this.bb!.__offset(this.bb_pos, 20);
+  const offset = this.bb!.__offset(this.bb_pos, 14);
   return offset ? (obj || new Vec2()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 8, this.bb!) : null;
 }
 
 woodBuildingPolygonLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 20);
+  const offset = this.bb!.__offset(this.bb_pos, 14);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 woodRooms(index: number, obj?:RectRoom):RectRoom|null {
-  const offset = this.bb!.__offset(this.bb_pos, 22);
+  const offset = this.bb!.__offset(this.bb_pos, 16);
   return offset ? (obj || new RectRoom()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
 }
 
 woodRoomsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 22);
+  const offset = this.bb!.__offset(this.bb_pos, 16);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 regionRef():string|null
 regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
 regionRef(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 24);
+  const offset = this.bb!.__offset(this.bb_pos, 18);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
 static startFloorDetailOp(builder:flatbuffers.Builder) {
-  builder.startObject(11);
+  builder.startObject(8);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -152,44 +121,8 @@ static addTheme(builder:flatbuffers.Builder, themeOffset:flatbuffers.Offset) {
   builder.addFieldOffset(2, themeOffset, 0);
 }
 
-static addRoomGroups(builder:flatbuffers.Builder, roomGroupsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(3, roomGroupsOffset, 0);
-}
-
-static createRoomGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
-  builder.startVector(4, data.length, 4);
-  for (let i = data.length - 1; i >= 0; i--) {
-    builder.addOffset(data[i]!);
-  }
-  return builder.endVector();
-}
-
-static startRoomGroupsVector(builder:flatbuffers.Builder, numElems:number) {
-  builder.startVector(4, numElems, 4);
-}
-
-static addCorridorGroups(builder:flatbuffers.Builder, corridorGroupsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(4, corridorGroupsOffset, 0);
-}
-
-static createCorridorGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
-  builder.startVector(4, data.length, 4);
-  for (let i = data.length - 1; i >= 0; i--) {
-    builder.addOffset(data[i]!);
-  }
-  return builder.endVector();
-}
-
-static startCorridorGroupsVector(builder:flatbuffers.Builder, numElems:number) {
-  builder.startVector(4, numElems, 4);
-}
-
-static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(5, clipRegionOffset, 0);
-}
-
 static addIsCorridor(builder:flatbuffers.Builder, isCorridorOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(6, isCorridorOffset, 0);
+  builder.addFieldOffset(3, isCorridorOffset, 0);
 }
 
 static createIsCorridorVector(builder:flatbuffers.Builder, data:boolean[]):flatbuffers.Offset {
@@ -205,7 +138,7 @@ static startIsCorridorVector(builder:flatbuffers.Builder, numElems:number) {
 }
 
 static addWoodTiles(builder:flatbuffers.Builder, woodTilesOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(7, woodTilesOffset, 0);
+  builder.addFieldOffset(4, woodTilesOffset, 0);
 }
 
 static startWoodTilesVector(builder:flatbuffers.Builder, numElems:number) {
@@ -213,7 +146,7 @@ static startWoodTilesVector(builder:flatbuffers.Builder, numElems:number) {
 }
 
 static addWoodBuildingPolygon(builder:flatbuffers.Builder, woodBuildingPolygonOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(8, woodBuildingPolygonOffset, 0);
+  builder.addFieldOffset(5, woodBuildingPolygonOffset, 0);
 }
 
 static startWoodBuildingPolygonVector(builder:flatbuffers.Builder, numElems:number) {
@@ -221,7 +154,7 @@ static startWoodBuildingPolygonVector(builder:flatbuffers.Builder, numElems:numb
 }
 
 static addWoodRooms(builder:flatbuffers.Builder, woodRoomsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(9, woodRoomsOffset, 0);
+  builder.addFieldOffset(6, woodRoomsOffset, 0);
 }
 
 static createWoodRoomsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
@@ -237,7 +170,7 @@ static startWoodRoomsVector(builder:flatbuffers.Builder, numElems:number) {
 }
 
 static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(10, regionRefOffset, 0);
+  builder.addFieldOffset(7, regionRefOffset, 0);
 }
 
 static endFloorDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -245,14 +178,11 @@ static endFloorDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createFloorDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, roomGroupsOffset:flatbuffers.Offset, corridorGroupsOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset, isCorridorOffset:flatbuffers.Offset, woodTilesOffset:flatbuffers.Offset, woodBuildingPolygonOffset:flatbuffers.Offset, woodRoomsOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createFloorDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, isCorridorOffset:flatbuffers.Offset, woodTilesOffset:flatbuffers.Offset, woodBuildingPolygonOffset:flatbuffers.Offset, woodRoomsOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
   FloorDetailOp.startFloorDetailOp(builder);
   FloorDetailOp.addTiles(builder, tilesOffset);
   FloorDetailOp.addSeed(builder, seed);
   FloorDetailOp.addTheme(builder, themeOffset);
-  FloorDetailOp.addRoomGroups(builder, roomGroupsOffset);
-  FloorDetailOp.addCorridorGroups(builder, corridorGroupsOffset);
-  FloorDetailOp.addClipRegion(builder, clipRegionOffset);
   FloorDetailOp.addIsCorridor(builder, isCorridorOffset);
   FloorDetailOp.addWoodTiles(builder, woodTilesOffset);
   FloorDetailOp.addWoodBuildingPolygon(builder, woodBuildingPolygonOffset);

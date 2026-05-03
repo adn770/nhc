@@ -22,7 +22,7 @@ class DecoratorOp(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def DecoratorOpBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # DecoratorOp
     def Init(self, buf, pos):
@@ -218,21 +218,14 @@ class DecoratorOp(object):
         return None
 
     # DecoratorOp
-    def ClipRegion(self):
+    def RegionRef(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
-    # DecoratorOp
-    def RegionRef(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
-        if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
-
 def DecoratorOpStart(builder):
-    builder.StartObject(11)
+    builder.StartObject(10)
 
 def Start(builder):
     DecoratorOpStart(builder)
@@ -333,14 +326,8 @@ def DecoratorOpAddTheme(builder, theme):
 def AddTheme(builder, theme):
     DecoratorOpAddTheme(builder, theme)
 
-def DecoratorOpAddClipRegion(builder, clipRegion):
-    builder.PrependUOffsetTRelativeSlot(9, flatbuffers.number_types.UOffsetTFlags.py_type(clipRegion), 0)
-
-def AddClipRegion(builder, clipRegion):
-    DecoratorOpAddClipRegion(builder, clipRegion)
-
 def DecoratorOpAddRegionRef(builder, regionRef):
-    builder.PrependUOffsetTRelativeSlot(10, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+    builder.PrependUOffsetTRelativeSlot(9, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
 
 def AddRegionRef(builder, regionRef):
     DecoratorOpAddRegionRef(builder, regionRef)
@@ -377,7 +364,6 @@ class DecoratorOpT(object):
         oreDeposit = None,
         seed = 0,
         theme = None,
-        clipRegion = None,
         regionRef = None,
     ):
         self.cobblestone = cobblestone  # type: Optional[List[nhc.rendering.ir._fb.CobblestoneVariant.CobblestoneVariantT]]
@@ -389,7 +375,6 @@ class DecoratorOpT(object):
         self.oreDeposit = oreDeposit  # type: Optional[List[nhc.rendering.ir._fb.OreDepositVariant.OreDepositVariantT]]
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
-        self.clipRegion = clipRegion  # type: Optional[str]
         self.regionRef = regionRef  # type: Optional[str]
 
     @classmethod
@@ -471,7 +456,6 @@ class DecoratorOpT(object):
                     self.oreDeposit.append(oreDepositVariant_)
         self.seed = decoratorOp.Seed()
         self.theme = decoratorOp.Theme()
-        self.clipRegion = decoratorOp.ClipRegion()
         self.regionRef = decoratorOp.RegionRef()
 
     # DecoratorOpT
@@ -534,8 +518,6 @@ class DecoratorOpT(object):
             oreDeposit = builder.EndVector()
         if self.theme is not None:
             theme = builder.CreateString(self.theme)
-        if self.clipRegion is not None:
-            clipRegion = builder.CreateString(self.clipRegion)
         if self.regionRef is not None:
             regionRef = builder.CreateString(self.regionRef)
         DecoratorOpStart(builder)
@@ -556,8 +538,6 @@ class DecoratorOpT(object):
         DecoratorOpAddSeed(builder, self.seed)
         if self.theme is not None:
             DecoratorOpAddTheme(builder, theme)
-        if self.clipRegion is not None:
-            DecoratorOpAddClipRegion(builder, clipRegion)
         if self.regionRef is not None:
             DecoratorOpAddRegionRef(builder, regionRef)
         decoratorOp = DecoratorOpEnd(builder)

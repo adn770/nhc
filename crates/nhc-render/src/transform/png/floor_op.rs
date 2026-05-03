@@ -109,14 +109,8 @@ pub(super) fn has_cave_floor_op(fir: &FloorIR<'_>) -> bool {
 }
 
 /// `OpHandler` dispatch entry — registered against `Op::FloorOp`
-/// in `super::op_handlers`.
-///
-/// Phase 1.23a — region-keyed dispatch: when ``op.region_ref`` is
-/// non-empty AND resolves to a Region with a populated outline,
-/// the geometry comes from ``region.outline()`` instead of
-/// ``op.outline()``. The op's own outline survives as the fallback
-/// for per-tile corridor FloorOps (no per-tile Region) and for 3.x
-/// cached buffers that pre-date the field. Mirrors the Python
+/// in `super::op_handlers`. Resolves geometry through
+/// ``op.region_ref`` → ``Region.outline``; mirrors the Python
 /// consumer in ``ir_to_svg.py::_draw_floor_op_from_ir``.
 pub(super) fn draw(
     entry: &OpEntry<'_>,
@@ -127,16 +121,11 @@ pub(super) fn draw(
         Some(o) => o,
         None => return,
     };
-    // Resolve geometry: prefer the Region's outline when region_ref
-    // is non-empty AND points to a known Region; otherwise fall back
-    // to the op's own outline.
-    let region_outline = match op.region_ref() {
-        Some(rr) if !rr.is_empty() => {
-            find_region(fir, rr).and_then(|r| r.outline())
-        }
-        _ => None,
+    let rr = match op.region_ref() {
+        Some(r) if !r.is_empty() => r,
+        _ => return,
     };
-    let outline = match region_outline.or_else(|| op.outline()) {
+    let outline = match find_region(fir, rr).and_then(|r| r.outline()) {
         Some(o) => o,
         None => return,
     };
@@ -412,8 +401,7 @@ mod tests {
     use crate::ir::{
         finish_floor_ir_buffer, FloorIRArgs, FloorOp, FloorOpArgs,
         FloorStyle, FloorIR, Op, OpEntry, OpEntryArgs, Outline,
-        OutlineArgs, OutlineKind, RectRoom, RectRoomArgs, Vec2,
-        WallsAndFloorsOp, WallsAndFloorsOpArgs,
+        OutlineArgs, OutlineKind, Region, RegionArgs, RegionKind, Vec2,
     };
     use crate::test_util::{decode, pixel_at};
     use crate::transform::png::{floor_ir_to_png, BG_B, BG_G, BG_R};
@@ -469,12 +457,24 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("rect");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(shape_tag),
+                outline: Some(outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let floor_op = FloorOp::create(
             &mut fbb,
             &FloorOpArgs {
-                outline: Some(outline),
                 style,
-                region_ref: None,
+                region_ref: Some(region_ref),
             },
         );
         let op_entry = OpEntry::create(
@@ -496,6 +496,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -526,12 +527,24 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("circle");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(shape_tag),
+                outline: Some(outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let floor_op = FloorOp::create(
             &mut fbb,
             &FloorOpArgs {
-                outline: Some(outline),
                 style,
-                region_ref: None,
+                region_ref: Some(region_ref),
             },
         );
         let op_entry = OpEntry::create(
@@ -553,6 +566,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -584,12 +598,24 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("pill");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(shape_tag),
+                outline: Some(outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let floor_op = FloorOp::create(
             &mut fbb,
             &FloorOpArgs {
-                outline: Some(outline),
                 style,
-                region_ref: None,
+                region_ref: Some(region_ref),
             },
         );
         let op_entry = OpEntry::create(
@@ -611,6 +637,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -651,12 +678,24 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("octagon");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(shape_tag),
+                outline: Some(outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let floor_op = FloorOp::create(
             &mut fbb,
             &FloorOpArgs {
-                outline: Some(outline),
                 style: FloorStyle::DungeonFloor,
-                region_ref: None,
+                region_ref: Some(region_ref),
             },
         );
         let op_entry = OpEntry::create(
@@ -678,6 +717,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -721,12 +761,24 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("cave");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Cave,
+                shape_tag: Some(shape_tag),
+                outline: Some(cave_outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let cave_floor_op = FloorOp::create(
             &mut fbb,
             &FloorOpArgs {
-                outline: Some(cave_outline),
                 style: FloorStyle::CaveFloor,
-                region_ref: None,
+                region_ref: Some(region_ref),
             },
         );
         let cave_floor_entry = OpEntry::create(
@@ -750,60 +802,7 @@ mod tests {
                 padding: 32,
                 theme: Some(theme),
                 base_seed: 42,
-                ops: Some(ops),
-                ..Default::default()
-            },
-        );
-        finish_floor_ir_buffer(&mut fbb, fir);
-        fbb.finished_data().to_vec()
-    }
-
-    /// Build an IR with a WallsAndFloorsOp carrying `rect_rooms` and
-    /// NO FloorOps — simulates a legacy 3.x cache buffer.
-    fn build_legacy_rect_rooms_buf(
-        tile_x: i32,
-        tile_y: i32,
-        tile_w: i32,
-        tile_h: i32,
-    ) -> Vec<u8> {
-        let mut fbb = FlatBufferBuilder::new();
-        let room = RectRoom::create(
-            &mut fbb,
-            &RectRoomArgs {
-                x: tile_x,
-                y: tile_y,
-                w: tile_w,
-                h: tile_h,
-                ..Default::default()
-            },
-        );
-        let rooms = fbb.create_vector(&[room]);
-        let waf = WallsAndFloorsOp::create(
-            &mut fbb,
-            &WallsAndFloorsOpArgs {
-                rect_rooms: Some(rooms),
-                ..Default::default()
-            },
-        );
-        let op_entry = OpEntry::create(
-            &mut fbb,
-            &OpEntryArgs {
-                op_type: Op::WallsAndFloorsOp,
-                op: Some(waf.as_union_value()),
-            },
-        );
-        let ops = fbb.create_vector(&[op_entry]);
-        let theme = fbb.create_string("dungeon");
-        let fir = FloorIR::create(
-            &mut fbb,
-            &FloorIRArgs {
-                major: 3,
-                minor: 1,
-                width_tiles: 8,
-                height_tiles: 8,
-                cell: 32,
-                padding: 32,
-                theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -942,26 +941,6 @@ mod tests {
         );
     }
 
-    // ── Legacy fallback: WallsAndFloorsOp without FloorOps ─────
-
-    #[test]
-    fn legacy_rect_rooms_still_render_without_floor_ops() {
-        // An IR with ONLY WallsAndFloorsOp.rect_rooms (no FloorOps)
-        // must still paint white floor via the legacy path in
-        // `walls_and_floors.rs`. Regression guard for the gate logic.
-        let buf = build_legacy_rect_rooms_buf(1, 1, 4, 4);
-        let png = floor_ir_to_png(&buf, 1.0, None).expect("render");
-        let pixmap = decode(&png);
-        let (px, py) = tile_centre_px(3, 3);
-        let (r, g, b) = pixel_at(&pixmap, px, py);
-        assert_eq!(
-            (r, g, b),
-            (FLOOR_R, FLOOR_G, FLOOR_B),
-            "pixel ({px},{py}) should be white via legacy rect_rooms \
-             (no FloorOps in IR)"
-        );
-    }
-
     // ── Phase 1.26d-3: multi-ring polygon outline renders all rings ──
 
     /// Build an IR with one polygon FloorOp whose outline carries
@@ -1008,12 +987,24 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("corridor");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Corridor,
+                shape_tag: Some(shape_tag),
+                outline: Some(outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let floor_op = FloorOp::create(
             &mut fbb,
             &FloorOpArgs {
-                outline: Some(outline),
                 style: FloorStyle::DungeonFloor,
-                region_ref: None,
+                region_ref: Some(region_ref),
             },
         );
         let op_entry = OpEntry::create(
@@ -1035,6 +1026,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -1088,12 +1080,24 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_id = fbb.create_string("test");
+        let shape_tag = fbb.create_string("corridor");
+        let region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_id),
+                kind: RegionKind::Corridor,
+                shape_tag: Some(shape_tag),
+                outline: Some(outline),
+            },
+        );
+        let regions = fbb.create_vector(&[region]);
+        let region_ref = fbb.create_string("test");
         let floor_op = FloorOp::create(
             &mut fbb,
             &FloorOpArgs {
-                outline: Some(outline),
                 style: FloorStyle::DungeonFloor,
-                region_ref: None,
+                region_ref: Some(region_ref),
             },
         );
         let op_entry = OpEntry::create(
@@ -1115,6 +1119,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },

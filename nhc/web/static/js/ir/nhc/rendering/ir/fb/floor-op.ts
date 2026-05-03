@@ -5,7 +5,6 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { FloorStyle } from '../../../../nhc/rendering/ir/fb/floor-style.js';
-import { Outline } from '../../../../nhc/rendering/ir/fb/outline.js';
 
 
 export class FloorOp {
@@ -26,37 +25,28 @@ static getSizePrefixedRootAsFloorOp(bb:flatbuffers.ByteBuffer, obj?:FloorOp):Flo
   return (obj || new FloorOp()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
 }
 
-outline(obj?:Outline):Outline|null {
-  const offset = this.bb!.__offset(this.bb_pos, 4);
-  return offset ? (obj || new Outline()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
-}
-
 style():FloorStyle {
-  const offset = this.bb!.__offset(this.bb_pos, 6);
+  const offset = this.bb!.__offset(this.bb_pos, 4);
   return offset ? this.bb!.readUint8(this.bb_pos + offset) : FloorStyle.DungeonFloor;
 }
 
 regionRef():string|null
 regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
 regionRef(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 8);
+  const offset = this.bb!.__offset(this.bb_pos, 6);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
 static startFloorOp(builder:flatbuffers.Builder) {
-  builder.startObject(3);
-}
-
-static addOutline(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(0, outlineOffset, 0);
+  builder.startObject(2);
 }
 
 static addStyle(builder:flatbuffers.Builder, style:FloorStyle) {
-  builder.addFieldInt8(1, style, FloorStyle.DungeonFloor);
+  builder.addFieldInt8(0, style, FloorStyle.DungeonFloor);
 }
 
 static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(2, regionRefOffset, 0);
+  builder.addFieldOffset(1, regionRefOffset, 0);
 }
 
 static endFloorOp(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -64,9 +54,8 @@ static endFloorOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createFloorOp(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset, style:FloorStyle, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createFloorOp(builder:flatbuffers.Builder, style:FloorStyle, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
   FloorOp.startFloorOp(builder);
-  FloorOp.addOutline(builder, outlineOffset);
   FloorOp.addStyle(builder, style);
   FloorOp.addRegionRef(builder, regionRefOffset);
   return FloorOp.endFloorOp(builder);

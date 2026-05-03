@@ -22,7 +22,7 @@ class CartTracksVariant(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def CartTracksVariantBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # CartTracksVariant
     def Init(self, buf, pos):

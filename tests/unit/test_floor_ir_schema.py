@@ -57,7 +57,7 @@ def test_round_trip_minimal_buffer() -> None:
     FloorIRMod.AddTheme(builder, theme_offset)
     FloorIRMod.AddBaseSeed(builder, 12345)
     root = FloorIRMod.End(builder)
-    builder.Finish(root, file_identifier=b"NIR3")
+    builder.Finish(root, file_identifier=b"NIR4")
     buf = bytes(builder.Output())
 
     assert FloorIRMod.FloorIR.FloorIRBufferHasIdentifier(buf, 0), (

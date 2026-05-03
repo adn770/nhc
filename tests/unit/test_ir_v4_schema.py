@@ -58,7 +58,6 @@ def test_outline_polygon_round_trip() -> None:
     src.vertices[2].y = 64.0
     src.vertices[3].x = 0.0
     src.vertices[3].y = 64.0
-    src.cuts = []
     src.cx = 0.0
     src.cy = 0.0
     src.rx = 0.0
@@ -72,7 +71,6 @@ def test_outline_polygon_round_trip() -> None:
     assert len(out.vertices) == 4
     assert out.vertices[2].x == 32.0
     assert out.vertices[2].y == 64.0
-    assert out.cuts is None or len(out.cuts) == 0
 
 
 def test_outline_circle_round_trip() -> None:
@@ -89,7 +87,6 @@ def test_outline_circle_round_trip() -> None:
     src.rx = 48.0
     src.ry = 48.0
     src.vertices = []
-    src.cuts = []
 
     out = _roundtrip_outline(src)
 
@@ -113,7 +110,6 @@ def test_outline_pill_round_trip() -> None:
     src.rx = 60.0
     src.ry = 24.0
     src.vertices = []
-    src.cuts = []
 
     out = _roundtrip_outline(src)
 
@@ -125,22 +121,15 @@ def test_outline_pill_round_trip() -> None:
 
 
 def test_outline_with_cuts_round_trip() -> None:
-    """An Outline with two Cuts round-trips: cut count, start /
-    end coords, and styles all preserved."""
+    """NIR4: cuts moved off Outline onto op-level cuts vectors. This
+    test now round-trips an ExteriorWallOp carrying two op-level
+    Cuts (the post-cut canonical home for cut breaks)."""
     from nhc.rendering.ir._fb.Cut import CutT
     from nhc.rendering.ir._fb.CutStyle import CutStyle
-    from nhc.rendering.ir._fb.Outline import OutlineT
-    from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+    from nhc.rendering.ir._fb.ExteriorWallOp import ExteriorWallOpT
+    from nhc.rendering.ir._fb.Op import Op
     from nhc.rendering.ir._fb.Vec2 import Vec2T
-
-    src = OutlineT()
-    src.descriptorKind = OutlineKind.Polygon
-    src.closed = True
-    src.vertices = [Vec2T() for _ in range(4)]
-    src.vertices[0].x, src.vertices[0].y = 0.0, 0.0
-    src.vertices[1].x, src.vertices[1].y = 64.0, 0.0
-    src.vertices[2].x, src.vertices[2].y = 64.0, 64.0
-    src.vertices[3].x, src.vertices[3].y = 0.0, 64.0
+    from nhc.rendering.ir._fb.WallStyle import WallStyle
 
     cut0 = CutT()
     cut0.start = Vec2T()
@@ -156,26 +145,33 @@ def test_outline_with_cuts_round_trip() -> None:
     cut1.end.x, cut1.end.y = 64.0, 48.0
     cut1.style = CutStyle.DoorSecret
 
+    src = ExteriorWallOpT()
+    src.style = WallStyle.DungeonInk
+    src.regionRef = "test-region"
     src.cuts = [cut0, cut1]
 
-    out = _roundtrip_outline(src)
+    tag, op = _roundtrip_op_via_floor_ir(Op.ExteriorWallOp, src)
 
-    assert out.cuts is not None
-    assert len(out.cuts) == 2
-    assert out.cuts[0].start.x == 16.0
-    assert out.cuts[0].end.x == 32.0
-    assert out.cuts[0].style == CutStyle.DoorWood
-    assert out.cuts[1].start.y == 16.0
-    assert out.cuts[1].end.y == 48.0
-    assert out.cuts[1].style == CutStyle.DoorSecret
+    assert tag == Op.ExteriorWallOp
+    assert op.cuts is not None
+    assert len(op.cuts) == 2
+    assert op.cuts[0].start.x == 16.0
+    assert op.cuts[0].end.x == 32.0
+    assert op.cuts[0].style == CutStyle.DoorWood
+    assert op.cuts[1].start.y == 16.0
+    assert op.cuts[1].end.y == 48.0
+    assert op.cuts[1].style == CutStyle.DoorSecret
 
 
 def test_cut_style_values_round_trip() -> None:
-    """Every declared CutStyle value encodes and decodes."""
+    """Every declared CutStyle value encodes and decodes through op-level
+    cuts (NIR4: cuts retired from Outline)."""
     from nhc.rendering.ir._fb.Cut import CutT
     from nhc.rendering.ir._fb.CutStyle import CutStyle
-    from nhc.rendering.ir._fb.Outline import OutlineT
+    from nhc.rendering.ir._fb.ExteriorWallOp import ExteriorWallOpT
+    from nhc.rendering.ir._fb.Op import Op
     from nhc.rendering.ir._fb.Vec2 import Vec2T
+    from nhc.rendering.ir._fb.WallStyle import WallStyle
 
     expected = [
         CutStyle.None_,
@@ -196,19 +192,15 @@ def test_cut_style_values_round_trip() -> None:
         c.style = style
         cuts.append(c)
 
-    src = OutlineT()
-    src.vertices = [Vec2T() for _ in range(3)]
-    src.vertices[0].x, src.vertices[0].y = 0.0, 0.0
-    src.vertices[1].x, src.vertices[1].y = 1.0, 0.0
-    src.vertices[2].x, src.vertices[2].y = 0.0, 1.0
+    src = ExteriorWallOpT()
+    src.style = WallStyle.DungeonInk
+    src.regionRef = "r"
     src.cuts = cuts
-    src.closed = True
 
-    out = _roundtrip_outline(src)
-
-    assert out.cuts is not None
-    assert len(out.cuts) == len(expected)
-    for got, want in zip(out.cuts, expected):
+    _, op = _roundtrip_op_via_floor_ir(Op.ExteriorWallOp, src)
+    assert op.cuts is not None
+    assert len(op.cuts) == len(expected)
+    for got, want in zip(op.cuts, expected):
         assert got.style == want
 
 
@@ -247,23 +239,21 @@ def test_floor_style_values_declared() -> None:
 
 def test_floor_style_wood_floor_round_trips() -> None:
     """A FloorOp carrying ``FloorStyle.WoodFloor`` round-trips
-    through the op union. Phase 1.20b: building wood-floor brown
-    fill replaces the legacy ``WallsAndFloorsOp.smoothFillSvg``
-    SVG-string path."""
+    through the op union. NIR4: FloorOp lost its outline field;
+    style + regionRef are the only payload."""
     from nhc.rendering.ir._fb.FloorOp import FloorOpT
     from nhc.rendering.ir._fb.FloorStyle import FloorStyle
     from nhc.rendering.ir._fb.Op import Op
 
     src = FloorOpT()
-    src.outline = _build_polygon_outline_t()
+    src.regionRef = "wood-region"
     src.style = FloorStyle.WoodFloor
 
     tag, op = _roundtrip_op_via_floor_ir(Op.FloorOp, src)
     assert tag == Op.FloorOp
     assert op.style == FloorStyle.WoodFloor
-    assert op.outline is not None
-    assert op.outline.vertices is not None
-    assert len(op.outline.vertices) == 4
+    rr = op.regionRef.decode() if isinstance(op.regionRef, bytes) else op.regionRef
+    assert rr == "wood-region"
 
 
 def test_outline_kind_values_declared() -> None:
@@ -303,8 +293,8 @@ def _roundtrip_op_via_floor_ir(op_value: int, op_t):
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
 
     fir = FloorIRT()
-    fir.major = 3
-    fir.minor = 1
+    fir.major = 4
+    fir.minor = 0
     fir.widthTiles = 4
     fir.heightTiles = 4
     fir.theme = "dungeon"
@@ -316,7 +306,7 @@ def _roundtrip_op_via_floor_ir(op_value: int, op_t):
     fir.ops = [entry]
 
     builder = flatbuffers.Builder(0)
-    builder.Finish(fir.Pack(builder), b"NIR3")
+    builder.Finish(fir.Pack(builder), b"NIR4")
     parsed = FloorIR.GetRootAs(builder.Output(), 0)
     parsed_t = FloorIRT.InitFromObj(parsed)
     assert parsed_t.ops is not None
@@ -326,28 +316,27 @@ def _roundtrip_op_via_floor_ir(op_value: int, op_t):
 
 def test_floor_op_round_trip() -> None:
     """A FloorIR carrying a FloorOp inside the op union round-trips
-    with outline + style preserved."""
+    with style + regionRef preserved (NIR4: outline lives on
+    Region, not FloorOp)."""
     from nhc.rendering.ir._fb.FloorOp import FloorOpT
     from nhc.rendering.ir._fb.FloorStyle import FloorStyle
     from nhc.rendering.ir._fb.Op import Op
 
     src = FloorOpT()
-    src.outline = _build_polygon_outline_t()
     src.style = FloorStyle.CaveFloor
+    src.regionRef = "cave.0"
 
     tag, op = _roundtrip_op_via_floor_ir(Op.FloorOp, src)
     assert tag == Op.FloorOp
     assert op.style == FloorStyle.CaveFloor
-    assert op.outline is not None
-    assert op.outline.vertices is not None
-    assert len(op.outline.vertices) == 4
-    assert op.outline.vertices[2].x == 64.0
-    assert op.outline.vertices[2].y == 96.0
+    rr = op.regionRef.decode() if isinstance(op.regionRef, bytes) else op.regionRef
+    assert rr == "cave.0"
 
 
 def test_interior_wall_op_round_trip() -> None:
     """An InteriorWallOp with an open polyline (closed=False) and a
-    cut round-trips through the op union."""
+    cut round-trips through the op union. NIR4: cuts moved to
+    op-level (op.cuts), but InteriorWallOp keeps its outline."""
     from nhc.rendering.ir._fb.Cut import CutT
     from nhc.rendering.ir._fb.CutStyle import CutStyle
     from nhc.rendering.ir._fb.InteriorWallOp import InteriorWallOpT
@@ -369,24 +358,25 @@ def test_interior_wall_op_round_trip() -> None:
     cut.end = Vec2T()
     cut.end.x, cut.end.y = 64.0, 32.0
     cut.style = CutStyle.DoorWood
-    outline.cuts = [cut]
 
     src = InteriorWallOpT()
     src.outline = outline
     src.style = WallStyle.PartitionWood
+    src.cuts = [cut]
 
     tag, op = _roundtrip_op_via_floor_ir(Op.InteriorWallOp, src)
     assert tag == Op.InteriorWallOp
     assert op.style == WallStyle.PartitionWood
     assert op.outline.closed is False
     assert len(op.outline.vertices) == 2
-    assert len(op.outline.cuts) == 1
-    assert op.outline.cuts[0].style == CutStyle.DoorWood
+    assert len(op.cuts) == 1
+    assert op.cuts[0].style == CutStyle.DoorWood
 
 
 def test_exterior_wall_op_round_trip() -> None:
-    """An ExteriorWallOp with corner_style, two cuts, and a closed
-    polygon outline round-trips."""
+    """An ExteriorWallOp with corner_style and two op-level cuts
+    round-trips. NIR4: ExteriorWallOp lost its outline; geometry
+    flows through region_ref → Region.outline. Cuts are op-level."""
     from nhc.rendering.ir._fb.CornerStyle import CornerStyle
     from nhc.rendering.ir._fb.Cut import CutT
     from nhc.rendering.ir._fb.CutStyle import CutStyle
@@ -395,59 +385,51 @@ def test_exterior_wall_op_round_trip() -> None:
     from nhc.rendering.ir._fb.Vec2 import Vec2T
     from nhc.rendering.ir._fb.WallStyle import WallStyle
 
-    outline = _build_polygon_outline_t()
     cut = CutT()
     cut.start = Vec2T()
     cut.start.x, cut.start.y = 16.0, 0.0
     cut.end = Vec2T()
     cut.end.x, cut.end.y = 48.0, 0.0
     cut.style = CutStyle.WoodGate
-    outline.cuts = [cut]
 
     src = ExteriorWallOpT()
-    src.outline = outline
     src.style = WallStyle.FortificationMerlon
     src.cornerStyle = CornerStyle.Diamond
+    src.regionRef = "fort"
+    src.cuts = [cut]
 
     tag, op = _roundtrip_op_via_floor_ir(Op.ExteriorWallOp, src)
     assert tag == Op.ExteriorWallOp
     assert op.style == WallStyle.FortificationMerlon
     assert op.cornerStyle == CornerStyle.Diamond
-    assert len(op.outline.cuts) == 1
-    assert op.outline.cuts[0].style == CutStyle.WoodGate
+    assert len(op.cuts) == 1
+    assert op.cuts[0].style == CutStyle.WoodGate
 
 
 def test_op_union_preserves_existing_variant_tags() -> None:
-    """Adding FloorOp / InteriorWallOp / ExteriorWallOp at the end
-    of the union must keep the pre-existing variant tags stable so
-    older buffers continue to dispatch correctly. Pin every legacy
-    tag value here as a regression guard."""
+    """NIR4 op-union tag values. The schema cut at 1.27 retired the
+    legacy variants (WallsAndFloorsOp, BuildingExteriorWallOp,
+    BuildingInteriorWallOp, EnclosureOp, GenericProceduralOp); the
+    remaining variants are renumbered into a contiguous range.
+    """
     from nhc.rendering.ir._fb.Op import Op
 
-    # Pre-1.2 variants — these tags are part of the schema 3.x
-    # contract and must NOT shift.
     assert Op.NONE == 0
     assert Op.ShadowOp == 1
     assert Op.HatchOp == 2
-    assert Op.WallsAndFloorsOp == 3
-    assert Op.TerrainTintOp == 4
-    assert Op.FloorGridOp == 5
-    assert Op.FloorDetailOp == 6
-    assert Op.ThematicDetailOp == 7
-    assert Op.TerrainDetailOp == 8
-    assert Op.StairsOp == 9
-    assert Op.TreeFeatureOp == 10
-    assert Op.BushFeatureOp == 11
-    assert Op.WellFeatureOp == 12
-    assert Op.FountainFeatureOp == 13
-    assert Op.GenericProceduralOp == 14
-    assert Op.DecoratorOp == 15
-    assert Op.RoofOp == 16
-    assert Op.EnclosureOp == 17
-    assert Op.BuildingExteriorWallOp == 18
-    assert Op.BuildingInteriorWallOp == 19
-
-    # New 1.2 variants — appended at the end so legacy tags stay put.
-    assert Op.FloorOp == 20
-    assert Op.InteriorWallOp == 21
-    assert Op.ExteriorWallOp == 22
+    assert Op.TerrainTintOp == 3
+    assert Op.FloorGridOp == 4
+    assert Op.FloorDetailOp == 5
+    assert Op.ThematicDetailOp == 6
+    assert Op.TerrainDetailOp == 7
+    assert Op.StairsOp == 8
+    assert Op.TreeFeatureOp == 9
+    assert Op.BushFeatureOp == 10
+    assert Op.WellFeatureOp == 11
+    assert Op.FountainFeatureOp == 12
+    assert Op.DecoratorOp == 13
+    assert Op.RoofOp == 14
+    assert Op.FloorOp == 15
+    assert Op.InteriorWallOp == 16
+    assert Op.ExteriorWallOp == 17
+    assert Op.CorridorWallOp == 18

@@ -5,7 +5,6 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { Outline } from '../../../../nhc/rendering/ir/fb/outline.js';
-import { Polygon } from '../../../../nhc/rendering/ir/fb/polygon.js';
 import { RegionKind } from '../../../../nhc/rendering/ir/fb/region-kind.js';
 
 
@@ -39,25 +38,20 @@ kind():RegionKind {
   return offset ? this.bb!.readInt8(this.bb_pos + offset) : RegionKind.Dungeon;
 }
 
-polygon(obj?:Polygon):Polygon|null {
-  const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? (obj || new Polygon()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
-}
-
 shapeTag():string|null
 shapeTag(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
 shapeTag(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 10);
+  const offset = this.bb!.__offset(this.bb_pos, 8);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
 outline(obj?:Outline):Outline|null {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
+  const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? (obj || new Outline()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
 static startRegion(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(4);
 }
 
 static addId(builder:flatbuffers.Builder, idOffset:flatbuffers.Offset) {
@@ -68,16 +62,12 @@ static addKind(builder:flatbuffers.Builder, kind:RegionKind) {
   builder.addFieldInt8(1, kind, RegionKind.Dungeon);
 }
 
-static addPolygon(builder:flatbuffers.Builder, polygonOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(2, polygonOffset, 0);
-}
-
 static addShapeTag(builder:flatbuffers.Builder, shapeTagOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(3, shapeTagOffset, 0);
+  builder.addFieldOffset(2, shapeTagOffset, 0);
 }
 
 static addOutline(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(4, outlineOffset, 0);
+  builder.addFieldOffset(3, outlineOffset, 0);
 }
 
 static endRegion(builder:flatbuffers.Builder):flatbuffers.Offset {

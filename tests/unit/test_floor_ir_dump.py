@@ -30,7 +30,7 @@ from nhc.rendering.ir._fb import OpEntry as OpEntryMod
 from nhc.rendering.ir.dump import dump
 
 
-def _build_minimal(file_identifier: bytes = b"NIR3") -> bytes:
+def _build_minimal(file_identifier: bytes = b"NIR4") -> bytes:
     b = flatbuffers.Builder(64)
     theme = b.CreateString("dungeon")
     FloorIRMod.Start(b)
@@ -71,7 +71,7 @@ def _build_with_hatch_hole_op() -> bytes:
     FloorIRMod.AddTheme(b, theme)
     FloorIRMod.AddOps(b, ops_vec)
     root = FloorIRMod.End(b)
-    b.Finish(root, file_identifier=b"NIR3")
+    b.Finish(root, file_identifier=b"NIR4")
     return bytes(b.Output())
 
 

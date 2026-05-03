@@ -22,7 +22,7 @@ class ThematicDetailOp(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def ThematicDetailOpBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
 
     # ThematicDetailOp
     def Init(self, buf, pos):
@@ -121,21 +121,14 @@ class ThematicDetailOp(object):
         return None
 
     # ThematicDetailOp
-    def ClipRegion(self):
+    def RegionRef(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
-    # ThematicDetailOp
-    def RegionRef(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
-        if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
-
 def ThematicDetailOpStart(builder):
-    builder.StartObject(7)
+    builder.StartObject(6)
 
 def Start(builder):
     ThematicDetailOpStart(builder)
@@ -188,14 +181,8 @@ def ThematicDetailOpAddTheme(builder, theme):
 def AddTheme(builder, theme):
     ThematicDetailOpAddTheme(builder, theme)
 
-def ThematicDetailOpAddClipRegion(builder, clipRegion):
-    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(clipRegion), 0)
-
-def AddClipRegion(builder, clipRegion):
-    ThematicDetailOpAddClipRegion(builder, clipRegion)
-
 def ThematicDetailOpAddRegionRef(builder, regionRef):
-    builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
 
 def AddRegionRef(builder, regionRef):
     ThematicDetailOpAddRegionRef(builder, regionRef)
@@ -222,7 +209,6 @@ class ThematicDetailOpT(object):
         wallCorners = None,
         seed = 0,
         theme = None,
-        clipRegion = None,
         regionRef = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
@@ -230,7 +216,6 @@ class ThematicDetailOpT(object):
         self.wallCorners = wallCorners  # type: Optional[List[int]]
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
-        self.clipRegion = clipRegion  # type: Optional[str]
         self.regionRef = regionRef  # type: Optional[str]
 
     @classmethod
@@ -278,7 +263,6 @@ class ThematicDetailOpT(object):
                 self.wallCorners = thematicDetailOp.WallCornersAsNumpy()
         self.seed = thematicDetailOp.Seed()
         self.theme = thematicDetailOp.Theme()
-        self.clipRegion = thematicDetailOp.ClipRegion()
         self.regionRef = thematicDetailOp.RegionRef()
 
     # ThematicDetailOpT
@@ -306,8 +290,6 @@ class ThematicDetailOpT(object):
                 wallCorners = builder.EndVector()
         if self.theme is not None:
             theme = builder.CreateString(self.theme)
-        if self.clipRegion is not None:
-            clipRegion = builder.CreateString(self.clipRegion)
         if self.regionRef is not None:
             regionRef = builder.CreateString(self.regionRef)
         ThematicDetailOpStart(builder)
@@ -320,8 +302,6 @@ class ThematicDetailOpT(object):
         ThematicDetailOpAddSeed(builder, self.seed)
         if self.theme is not None:
             ThematicDetailOpAddTheme(builder, theme)
-        if self.clipRegion is not None:
-            ThematicDetailOpAddClipRegion(builder, clipRegion)
         if self.regionRef is not None:
             ThematicDetailOpAddRegionRef(builder, regionRef)
         thematicDetailOp = ThematicDetailOpEnd(builder)

@@ -47,7 +47,7 @@ def test_outline_from_rect_room() -> None:
     assert (out.vertices[1].x, out.vertices[1].y) == (224.0, 224.0)
     assert (out.vertices[2].x, out.vertices[2].y) == (224.0, 320.0)
     assert (out.vertices[3].x, out.vertices[3].y) == (160.0, 320.0)
-    assert not out.cuts
+    # NIR4: Outline.cuts retired; cuts now live op-level.
 
 
 # ── outline_from_octagon ──────────────────────────────────────────
@@ -313,7 +313,7 @@ def test_outline_from_polygon_carries_input_vertices() -> None:
     assert out.vertices is not None and len(out.vertices) == 4
     for got, (ex, ey) in zip(out.vertices, coords):
         assert (got.x, got.y) == (ex, ey)
-    assert out.cuts == []
+    # NIR4: Outline.cuts retired; cuts now live op-level.
 
 
 def test_outline_from_polygon_handles_arbitrary_vertex_count() -> None:

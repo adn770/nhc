@@ -188,13 +188,11 @@ fn walkable_tiles_from_ir(
         {
             continue;
         }
-        let region_outline = match op.region_ref() {
-            Some(rr) if !rr.is_empty() => {
-                find_region(fir, rr).and_then(|r| r.outline())
-            }
-            _ => None,
+        let rr = match op.region_ref() {
+            Some(r) if !r.is_empty() => r,
+            _ => continue,
         };
-        let outline = match region_outline.or_else(|| op.outline()) {
+        let outline = match find_region(fir, rr).and_then(|r| r.outline()) {
             Some(o) => o,
             None => continue,
         };
@@ -396,19 +394,18 @@ fn building_footprint_tiles(
             continue;
         }
         found_any = true;
-        let poly_fb = match region.polygon() {
-            Some(p) => p,
+        let outline_fb = match region.outline() {
+            Some(o) => o,
             None => continue,
         };
-        // Reconstruct coords from Polygon.paths / rings.
-        let paths = match poly_fb.paths() {
-            Some(p) => p,
+        let verts = match outline_fb.vertices() {
+            Some(v) => v,
             None => continue,
         };
-        if paths.is_empty() {
+        if verts.is_empty() {
             continue;
         }
-        let ring: Vec<Coord<f64>> = paths
+        let ring: Vec<Coord<f64>> = verts
             .iter()
             .map(|v| Coord { x: v.x() as f64, y: v.y() as f64 })
             .collect();
@@ -445,7 +442,7 @@ mod tests {
         finish_floor_ir_buffer, CorridorWallOp, CorridorWallOpArgs,
         ExteriorWallOp, ExteriorWallOpArgs, FloorIR, FloorIRArgs, FloorOp,
         FloorOpArgs, FloorStyle, Op, OpEntry, OpEntryArgs, Outline, OutlineArgs,
-        OutlineKind, TileCoord, Vec2, WallStyle,
+        OutlineKind, Region, RegionArgs, RegionKind, TileCoord, Vec2, WallStyle,
     };
     use crate::test_util::{decode, pixel_at};
     use crate::transform::png::{floor_ir_to_png, BG_B, BG_G, BG_R};
@@ -477,12 +474,23 @@ mod tests {
                 ..Default::default()
             },
         );
+        let floor_region_id = fbb.create_string("floor");
+        let floor_shape_tag = fbb.create_string("rect");
+        let floor_region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(floor_region_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(floor_shape_tag),
+                outline: Some(floor_outline),
+            },
+        );
+        let floor_region_ref = fbb.create_string("floor");
         let floor_op = FloorOp::create(
             &mut fbb,
             &FloorOpArgs {
-                outline: Some(floor_outline),
                 style: FloorStyle::DungeonFloor,
-                region_ref: None,
+                region_ref: Some(floor_region_ref),
             },
         );
         let floor_entry = OpEntry::create(
@@ -509,11 +517,23 @@ mod tests {
                 ..Default::default()
             },
         );
+        let ext_region_id = fbb.create_string("ext");
+        let ext_shape_tag = fbb.create_string("rect");
+        let ext_region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(ext_region_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(ext_shape_tag),
+                outline: Some(ext_outline),
+            },
+        );
+        let ext_region_ref = fbb.create_string("ext");
         let ext_op = ExteriorWallOp::create(
             &mut fbb,
             &ExteriorWallOpArgs {
-                outline: Some(ext_outline),
                 style: WallStyle::DungeonInk,
+                region_ref: Some(ext_region_ref),
                 ..Default::default()
             },
         );
@@ -546,6 +566,7 @@ mod tests {
             },
         );
 
+        let regions = fbb.create_vector(&[floor_region, ext_region]);
         let ops = fbb.create_vector(&[floor_entry, ext_entry, corridor_entry]);
         let theme = fbb.create_string("dungeon");
         let fir = FloorIR::create(
@@ -558,6 +579,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -687,12 +709,23 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_a_id = fbb.create_string("room.a");
+        let shape_tag_a = fbb.create_string("rect");
+        let region_a = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_a_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(shape_tag_a),
+                outline: Some(floor_outline_a),
+            },
+        );
+        let region_a_ref = fbb.create_string("room.a");
         let floor_op_a = FloorOp::create(
             &mut fbb,
             &FloorOpArgs {
-                outline: Some(floor_outline_a),
                 style: FloorStyle::DungeonFloor,
-                region_ref: None,
+                region_ref: Some(region_a_ref),
             },
         );
         let floor_entry_a = OpEntry::create(
@@ -720,12 +753,23 @@ mod tests {
                 ..Default::default()
             },
         );
+        let region_b_id = fbb.create_string("room.b");
+        let shape_tag_b = fbb.create_string("rect");
+        let region_b = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(region_b_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(shape_tag_b),
+                outline: Some(floor_outline_b),
+            },
+        );
+        let region_b_ref = fbb.create_string("room.b");
         let floor_op_b = FloorOp::create(
             &mut fbb,
             &FloorOpArgs {
-                outline: Some(floor_outline_b),
                 style: FloorStyle::DungeonFloor,
-                region_ref: None,
+                region_ref: Some(region_b_ref),
             },
         );
         let floor_entry_b = OpEntry::create(
@@ -753,11 +797,23 @@ mod tests {
                 ..Default::default()
             },
         );
+        let ext_region_id = fbb.create_string("room.a.ext");
+        let ext_shape_tag = fbb.create_string("rect");
+        let ext_region = Region::create(
+            &mut fbb,
+            &RegionArgs {
+                id: Some(ext_region_id),
+                kind: RegionKind::Room,
+                shape_tag: Some(ext_shape_tag),
+                outline: Some(ext_outline),
+            },
+        );
+        let ext_region_ref = fbb.create_string("room.a.ext");
         let ext_op = ExteriorWallOp::create(
             &mut fbb,
             &ExteriorWallOpArgs {
-                outline: Some(ext_outline),
                 style: WallStyle::DungeonInk,
+                region_ref: Some(ext_region_ref),
                 ..Default::default()
             },
         );
@@ -788,6 +844,7 @@ mod tests {
             },
         );
 
+        let regions = fbb.create_vector(&[region_a, region_b, ext_region]);
         let ops = fbb.create_vector(&[
             floor_entry_a,
             floor_entry_b,
@@ -805,6 +862,7 @@ mod tests {
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                regions: Some(regions),
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -838,45 +896,22 @@ mod tests {
         );
     }
 
-    /// Phase 1.26e-1 — walkable_tiles_from_ir must dispatch through
-    /// FloorOp.region_ref → Region.outline before falling back to
-    /// op.outline. Pre-1.26e-1 the helper bypassed region_ref and
-    /// read op.outline directly; that bypass had to disappear before
-    /// 1.26e-2 could drop op.outline populating for ops with
-    /// region_ref.
+    /// Phase 1.26e-1 — walkable_tiles_from_ir dispatches through
+    /// FloorOp.region_ref → Region.outline. Schema 4.0 retired
+    /// FloorOp.outline entirely, so the only path is region_ref → Region.
     ///
-    /// Test: FloorOp carries a 1×1 decoy outline at tile (0, 0) but
-    /// region_ref="room.real". The matching Region's outline
-    /// covers tile (5, 5). A bypass reader reports walkable={(0,0)};
-    /// a region_ref-aware reader reports walkable={(5,5)}.
+    /// Test: FloorOp with region_ref="room.real" resolves to a Region
+    /// whose outline covers tile (5, 5). The reader must report
+    /// walkable={(5,5)}.
     #[test]
     fn walkable_tiles_prefers_region_ref_over_op_outline() {
-        use crate::ir::{Region, RegionArgs, RegionKind};
-
         let cell = 32.0_f32;
         let mut fbb = FlatBufferBuilder::new();
 
-        // Decoy outline on the op: 1×1 tile at (0, 0).
-        let bad_verts = fbb.create_vector(&[
-            Vec2::new(0.0, 0.0),
-            Vec2::new(1.0 * cell, 0.0),
-            Vec2::new(1.0 * cell, 1.0 * cell),
-            Vec2::new(0.0, 1.0 * cell),
-        ]);
-        let bad_outline = Outline::create(
-            &mut fbb,
-            &OutlineArgs {
-                vertices: Some(bad_verts),
-                closed: true,
-                descriptor_kind: OutlineKind::Polygon,
-                ..Default::default()
-            },
-        );
         let region_ref = fbb.create_string("room.real");
         let floor_op = FloorOp::create(
             &mut fbb,
             &FloorOpArgs {
-                outline: Some(bad_outline),
                 style: FloorStyle::DungeonFloor,
                 region_ref: Some(region_ref),
             },
@@ -950,75 +985,4 @@ mod tests {
         );
     }
 
-    /// Phase 1.26e-1 — when region_ref is empty, walkable_tiles_from_ir
-    /// falls back to op.outline. Building wood-floor per-tile FloorOps
-    /// today carry an empty region_ref, so the fallback path stays
-    /// valid past 1.26e-2.
-    #[test]
-    fn walkable_tiles_falls_back_to_op_outline_when_region_ref_empty() {
-        let cell = 32.0_f32;
-        let mut fbb = FlatBufferBuilder::new();
-
-        let verts = fbb.create_vector(&[
-            Vec2::new(5.0 * cell, 5.0 * cell),
-            Vec2::new(6.0 * cell, 5.0 * cell),
-            Vec2::new(6.0 * cell, 6.0 * cell),
-            Vec2::new(5.0 * cell, 6.0 * cell),
-        ]);
-        let outline = Outline::create(
-            &mut fbb,
-            &OutlineArgs {
-                vertices: Some(verts),
-                closed: true,
-                descriptor_kind: OutlineKind::Polygon,
-                ..Default::default()
-            },
-        );
-        let floor_op = FloorOp::create(
-            &mut fbb,
-            &FloorOpArgs {
-                outline: Some(outline),
-                style: FloorStyle::DungeonFloor,
-                region_ref: None,
-            },
-        );
-        let floor_entry = OpEntry::create(
-            &mut fbb,
-            &OpEntryArgs {
-                op_type: Op::FloorOp,
-                op: Some(floor_op.as_union_value()),
-            },
-        );
-
-        let ops = fbb.create_vector(&[floor_entry]);
-        let theme = fbb.create_string("dungeon");
-        let fir = FloorIR::create(
-            &mut fbb,
-            &FloorIRArgs {
-                major: 3,
-                minor: 7,
-                width_tiles: 8,
-                height_tiles: 8,
-                cell: 32,
-                padding: 32,
-                theme: Some(theme),
-                ops: Some(ops),
-                ..Default::default()
-            },
-        );
-        finish_floor_ir_buffer(&mut fbb, fir);
-        let buf = fbb.finished_data().to_vec();
-
-        let fir_ref = crate::ir::root_as_floor_ir(&buf).expect("parse");
-        let tiles = super::walkable_tiles_from_ir(&fir_ref, 8, 8);
-
-        let mut sorted: Vec<(i32, i32)> = tiles.into_iter().collect();
-        sorted.sort();
-        assert_eq!(
-            sorted,
-            vec![(5, 5)],
-            "walkable_tiles_from_ir must fall back to op.outline when \
-             region_ref is empty; got {sorted:?}"
-        );
-    }
 }
