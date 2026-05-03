@@ -1,5 +1,6 @@
 //! CorridorWallOp rasterisation — Phase 1.18 of
-//! `plans/nhc_pure_ir_plan.md`.
+//! `plans/nhc_pure_ir_plan.md`, ported to the Painter trait in
+//! Phase 2.15d.
 //!
 //! Reads `CorridorWallOp.tiles` from the IR and emits one wall stroke
 //! per tile edge that borders void (non-walkable) space.
@@ -16,10 +17,19 @@
 //! CorridorWallOp and a DungeonInk ExteriorWallOp are present). On
 //! floors without DungeonInk ExteriorWallOps (e.g. masonry-only sites),
 //! the legacy `wall_segments` field still covers corridor walls.
-
-use tiny_skia::{Color, LineCap, LineJoin, Paint, PathBuilder, Stroke};
+//!
+//! Corridor walls are open polylines (per-tile edge strokes), not
+//! region perimeters, so the handler has NO clip envelope. The
+//! dispatch fn constructs `SkiaPainter::with_transform` over the
+//! active pixmap and emits a single `stroke_path` call. Second of
+//! the four v4-op handler ports (interior_wall_op, corridor_wall_op,
+//! exterior_wall_op, floor_op) required for Phase 2.16
+//! (transform/svg/) to share dispatch via the Painter trait.
 
 use crate::ir::{FloorIR, FloorStyle, Op, OpEntry, OutlineKind, RegionKind};
+use crate::painter::{
+    Color, LineCap, LineJoin, Paint, Painter, PathOps, SkiaPainter, Stroke, Vec2,
+};
 
 use super::exterior_wall_op::has_dungeon_ink_wall_ops;
 use super::RasterCtx;
@@ -30,11 +40,8 @@ const INK_G: u8 = 0x00;
 const INK_B: u8 = 0x00;
 const WALL_WIDTH: f32 = 5.0;
 
-fn ink_paint() -> Paint<'static> {
-    let mut p = Paint::default();
-    p.set_color(Color::from_rgba8(INK_R, INK_G, INK_B, 0xFF));
-    p.anti_alias = true;
-    p
+fn ink_paint() -> Paint {
+    Paint::solid(Color::rgba(INK_R, INK_G, INK_B, 1.0))
 }
 
 fn wall_stroke() -> Stroke {
@@ -42,7 +49,6 @@ fn wall_stroke() -> Stroke {
         width: WALL_WIDTH,
         line_cap: LineCap::Round,
         line_join: LineJoin::Round,
-        ..Stroke::default()
     }
 }
 
@@ -76,8 +82,7 @@ pub(super) fn draw(
     let walkable = walkable_tiles_from_ir(fir, width, height);
     let building_tiles = building_footprint_tiles(fir, width, height);
 
-    let mut pb = PathBuilder::new();
-    let mut any = false;
+    let mut path = PathOps::new();
 
     for tile in tiles_vec.iter() {
         let tx = tile.x();
@@ -109,21 +114,16 @@ pub(super) fn draw(
                     }
                 }
             }
-            pb.move_to(*x0, *y0);
-            pb.line_to(*x1, *y1);
-            any = true;
+            path.move_to(Vec2::new(*x0, *y0));
+            path.line_to(Vec2::new(*x1, *y1));
         }
     }
 
-    if !any {
+    if path.is_empty() {
         return;
     }
-    let path = match pb.finish() {
-        Some(p) => p,
-        None => return,
-    };
-    ctx.pixmap
-        .stroke_path(&path, &ink_paint(), &wall_stroke(), ctx.transform, None);
+    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+    painter.stroke_path(&path, &ink_paint(), &wall_stroke());
 }
 
 // ── Geometry helpers (mirrors Python DungeonInk consumer helpers) ────────
@@ -985,4 +985,14 @@ mod tests {
         );
     }
 
+    /// Stroke width, linecap, and linejoin are the documented
+    /// constants — pinned so a future refactor can't silently
+    /// widen the wall or change its joinery.
+    #[test]
+    fn corridor_wall_stroke_uses_documented_width_cap_and_join() {
+        let s = super::wall_stroke();
+        assert_eq!(s.width, super::WALL_WIDTH);
+        assert_eq!(s.line_cap, crate::painter::LineCap::Round);
+        assert_eq!(s.line_join, crate::painter::LineJoin::Round);
+    }
 }
