@@ -492,7 +492,11 @@ def test_floor_op_for_circle_room_uses_circle_descriptor() -> None:
     outline = _outline_for_op(floor_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Circle
-    assert not outline.vertices
+    # Phase 1.26g — Circle outlines now also carry the polygonised
+    # approximation in ``vertices`` so polygon-vertex consumers can
+    # read everything from Region.outline. Rasterisers dispatching
+    # on ``descriptor_kind`` still use ``cx`` / ``cy`` / ``rx`` /
+    # ``ry`` natively; vertices is a convenience copy.
     assert outline.cx == 7 * CELL / 2
     assert outline.cy == 7 * CELL / 2
     assert outline.rx == outline.ry
@@ -517,7 +521,8 @@ def test_floor_op_for_pill_room_uses_pill_descriptor() -> None:
     outline = _outline_for_op(floor_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Pill
-    assert not outline.vertices
+    # Phase 1.26g — Pill outlines also carry the polygonised bbox in
+    # ``vertices`` (see Circle test for rationale).
     assert outline.rx > 0
     assert outline.ry > 0
     assert floor_ops[0].op.style == FloorStyle.DungeonFloor
@@ -1422,7 +1427,8 @@ def test_exterior_wall_op_per_circle_room() -> None:
     outline = _outline_for_op(wall_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Circle
-    assert not outline.vertices
+    # Phase 1.26g: vertices may carry the polygonised approximation
+    # (descriptor stays canonical for rasterisers).
     assert outline.cx == 7 * CELL / 2
     assert outline.cy == 7 * CELL / 2
     assert outline.rx == outline.ry
@@ -1446,7 +1452,8 @@ def test_exterior_wall_op_per_pill_room() -> None:
     outline = _outline_for_op(wall_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Pill
-    assert not outline.vertices
+    # Phase 1.26g: vertices may carry the polygonised approximation
+    # (descriptor stays canonical for rasterisers).
     assert outline.rx > 0
     assert outline.ry > 0
     assert wall_ops[0].op.style == WallStyle.DungeonInk

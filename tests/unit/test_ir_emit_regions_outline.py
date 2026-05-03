@@ -654,3 +654,81 @@ def test_corridor_region_absent_when_no_corridor_tiles() -> None:
         "pure-room level (no corridor tiles) must not register a "
         f"Region(kind=Corridor); got {len(corridor_regions)}."
     )
+
+
+# ── Phase 1.26g — Region.outline carries vertices for all kinds ─
+
+
+def test_circle_room_region_outline_carries_polygonised_vertices() -> None:
+    """Phase 1.26g: Circle / Pill region outlines carry both the
+    descriptor (cx/cy/rx/ry) AND the polygonised approximation
+    vertices.
+
+    Pre-1.26g, ``outline_from_circle`` / ``outline_from_pill``
+    returned a Circle / Pill descriptor with ``vertices = []`` —
+    the polygonised approximation lived only on
+    ``Region.polygon.paths``. Consumers needing vertex coords for
+    those rooms (e.g. the room-shadow handler) had to fall back to
+    ``region.Polygon()``, blocking the 4.0 cut that retires
+    ``Region.polygon``.
+
+    1.26g extends ``add_region`` to mirror ``polygon.paths`` into
+    ``outline.vertices`` whenever the caller-supplied outline
+    leaves vertices empty. The descriptor stays canonical for
+    rasterisers that use it (Circle / Pill); ``vertices`` becomes
+    a convenience copy for polygon-vertex consumers.
+    """
+    from nhc.dungeon.model import (
+        CircleShape, Level, PillShape, Rect, Room, Terrain, Tile,
+    )
+    from nhc.rendering.ir_emitter import build_floor_ir
+
+    level = Level.create_empty(
+        id="floor1", name="t", depth=1, width=16, height=16,
+    )
+    circle_rect = Rect(2, 2, 5, 5)
+    pill_rect = Rect(2, 9, 7, 4)
+    level.rooms = [
+        Room(id="circle1", rect=circle_rect, shape=CircleShape()),
+        Room(id="pill1", rect=pill_rect, shape=PillShape()),
+    ]
+    for r in level.rooms:
+        for ty in range(r.rect.y, r.rect.y2):
+            for tx in range(r.rect.x, r.rect.x2):
+                level.tiles[ty][tx] = Tile(terrain=Terrain.FLOOR)
+
+    buf = build_floor_ir(
+        level, seed=1, hatch_distance=2.0, vegetation=False,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    by_id = {
+        (r.id.decode() if isinstance(r.id, bytes) else r.id): r
+        for r in (fir.regions or [])
+    }
+    circle_region = by_id.get("circle1")
+    pill_region = by_id.get("pill1")
+    assert circle_region is not None
+    assert pill_region is not None
+
+    # Descriptor preserved.
+    assert circle_region.outline.descriptorKind == OutlineKind.Circle
+    assert pill_region.outline.descriptorKind == OutlineKind.Pill
+
+    # 1.26g: outline.vertices carries the polygonised approximation
+    # — same point count and coords as polygon.paths.
+    for region, label in (
+        (circle_region, "circle"),
+        (pill_region, "pill"),
+    ):
+        outline_verts = [(v.x, v.y) for v in (region.outline.vertices or [])]
+        polygon_paths = [(p.x, p.y) for p in (region.polygon.paths or [])]
+        assert outline_verts and polygon_paths, (
+            f"{label}: both outline.vertices and polygon.paths must be "
+            f"populated (1.26g mirrors polygon → outline)."
+        )
+        assert outline_verts == polygon_paths, (
+            f"{label}: outline.vertices must mirror polygon.paths "
+            f"point-for-point. Got "
+            f"{len(outline_verts)} vs {len(polygon_paths)} points."
+        )

@@ -327,7 +327,7 @@ def _draw_room_shadow(op: Any, fir: FloorIR) -> str:  # type: ignore[name-define
             f"{op.regionRef!r}; emit_regions must register one"
         )
     shape_tag = region.ShapeTag()
-    coords = _polygon_paths_to_coords(region.Polygon())
+    coords = _outline_vertices_to_coords(region.Outline())
 
     if shape_tag == b"rect":
         return nhc_render.draw_room_shadow_rect(coords)
@@ -378,19 +378,21 @@ def _find_region(fir: FloorIR, region_ref: bytes) -> Region | None:
     return None
 
 
-def _polygon_paths_to_coords(polygon: Any) -> list[tuple[float, float]]:
-    """Flatten a single-ring FB Polygon into an (x, y) coord list.
+def _outline_vertices_to_coords(outline: Any) -> list[tuple[float, float]]:
+    """Flatten an FB Outline's vertices into an (x, y) coord list.
 
-    The single-ring assumption matches every region the room shadow
-    handler resolves: ``_room_region_data`` builds rect / octagon /
-    cave polygons via ``_coords_to_polygon`` which always emits one
-    exterior ring with no holes. If a future commit registers
-    multi-ring room regions, this helper will need a rings-aware
-    counterpart.
+    Phase 1.26g — replaces the legacy ``_polygon_paths_to_coords``
+    that read ``Region.polygon.paths``. Outline.vertices carries
+    the same vertex list as the source polygon (point-for-point
+    mirror, including the polygonised approximation embedded in
+    Circle / Pill descriptors per the 1.26g emitter change).
+    Multi-ring outlines are flattened in vertex order; callers
+    that care about ring boundaries should walk ``outline.rings``
+    explicitly (see ``_dungeon_clip_defs``).
     """
     return [
-        (polygon.Paths(i).X(), polygon.Paths(i).Y())
-        for i in range(polygon.PathsLength())
+        (outline.Vertices(i).X(), outline.Vertices(i).Y())
+        for i in range(outline.VerticesLength())
     ]
 
 
@@ -953,7 +955,7 @@ def _draw_terrain_tint_from_ir(
         if clip_id:
             region = _find_region(fir, clip_id.encode())
             if region is not None:
-                out.append(_dungeon_clip_defs(region.Polygon(), "terrain-clip"))
+                out.append(_dungeon_clip_defs(region.Outline(), "terrain-clip"))
                 out.append('<g clip-path="url(#terrain-clip)">')
                 out.extend(tint_rects)
                 out.append("</g>")
@@ -966,28 +968,51 @@ def _draw_terrain_tint_from_ir(
     return out
 
 
-def _dungeon_clip_defs(poly: Any, clip_id: str) -> str:
+def _dungeon_clip_defs(outline: Any, clip_id: str) -> str:
     """Build the legacy ``_dungeon_interior_clip`` defs element.
 
-    Walks every ring (exterior + holes) once, M / L / Z encoded
-    with ``:.0f`` formatting, ``fill-rule="evenodd"`` so the holes
-    cut the clipped region. Reused by terrain tints (1.e) and any
-    later layer that needs a dungeon-interior clip.
+    Phase 1.26g — reads from ``Region.outline`` (rings + vertices)
+    instead of ``Region.polygon`` (rings + paths). The two carry
+    identical geometry post-1.22; this commit migrates the
+    consumer to drop the ``Region.polygon`` bypass-read in
+    preparation for the 4.0 cut at 1.27.
+
+    Multi-ring outlines (e.g. dungeon polygons with cave-wall
+    holes) walk every ring once. Single-ring outlines take the v4e
+    shorthand (``rings = []``, vertices IS the single ring) and
+    walk the full vertex list as one M / L / Z subpath.
+    ``fill-rule="evenodd"`` so the holes cut the clipped region.
     """
-    clip_d = ""
-    for i in range(poly.RingsLength()):
-        ring = poly.Rings(i)
-        start = ring.Start()
-        count = ring.Count()
-        coords = [
-            (poly.Paths(start + j).X(), poly.Paths(start + j).Y())
-            for j in range(count)
-        ]
-        clip_d += f"M{coords[0][0]:.0f},{coords[0][1]:.0f} "
-        clip_d += " ".join(
-            f"L{x:.0f},{y:.0f}" for x, y in coords[1:]
-        )
-        clip_d += " Z "
+    verts = outline.Vertices
+    rings_count = outline.RingsLength()
+    if rings_count == 0:
+        # v4e shorthand: vertices IS the single ring.
+        n = outline.VerticesLength()
+        if n < 2:
+            clip_d = ""
+        else:
+            v0 = verts(0)
+            clip_d = f"M{v0.X():.0f},{v0.Y():.0f} "
+            clip_d += " ".join(
+                f"L{verts(j).X():.0f},{verts(j).Y():.0f}"
+                for j in range(1, n)
+            )
+            clip_d += " Z "
+    else:
+        clip_d = ""
+        for i in range(rings_count):
+            ring = outline.Rings(i)
+            start = ring.Start()
+            count = ring.Count()
+            if count < 2:
+                continue
+            v0 = verts(start)
+            clip_d += f"M{v0.X():.0f},{v0.Y():.0f} "
+            clip_d += " ".join(
+                f"L{verts(start + j).X():.0f},{verts(start + j).Y():.0f}"
+                for j in range(1, count)
+            )
+            clip_d += " Z "
     return (
         f'<defs><clipPath id="{clip_id}">'
         f'<path d="{clip_d}" fill-rule="evenodd"/>'
@@ -1038,7 +1063,7 @@ def _draw_floor_grid_from_ir(
         if clip_id:
             region = _find_region(fir, clip_id.encode())
             if region is not None:
-                out.append(_dungeon_clip_defs(region.Polygon(), "grid-clip"))
+                out.append(_dungeon_clip_defs(region.Outline(), "grid-clip"))
                 out.append(
                     f'<path d="{room_d}" '
                     f'{style} clip-path="url(#grid-clip)"/>'
@@ -1095,7 +1120,7 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
 
     if has_dungeon_clip:
         out.append(_dungeon_clip_defs(
-            region.Polygon(), "wood-interior-clip",
+            region.Outline(), "wood-interior-clip",
         ))
 
     # Wood base fill is emitted by WallsAndFloorsOp (structural
@@ -1308,7 +1333,7 @@ def _draw_floor_detail_from_ir(
         if clip_id:
             region = _find_region(fir, clip_id.encode())
             if region is not None:
-                out.append(_dungeon_clip_defs(region.Polygon(), "detail-clip"))
+                out.append(_dungeon_clip_defs(region.Outline(), "detail-clip"))
                 out.append('<g clip-path="url(#detail-clip)">')
                 out.extend(room_groups)
                 out.append("</g>")
@@ -1380,7 +1405,7 @@ def _draw_thematic_detail_from_ir(
             region = _find_region(fir, clip_id.encode())
             if region is not None:
                 out.append(
-                    _dungeon_clip_defs(region.Polygon(), "thematic-clip")
+                    _dungeon_clip_defs(region.Outline(), "thematic-clip")
                 )
                 out.append('<g clip-path="url(#thematic-clip)">')
                 out.extend(room_groups)
@@ -1521,7 +1546,7 @@ def _draw_terrain_detail_from_ir(
 
     if use_clip:
         out.append(_dungeon_clip_defs(
-            region.Polygon(), "terrain-detail-clip",
+            region.Outline(), "terrain-detail-clip",
         ))
         out.append('<g clip-path="url(#terrain-detail-clip)">')
     for kind, _, _, css_class in active_in_z:
@@ -2002,15 +2027,17 @@ def _draw_roof_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
             "emit_regions / emit_building_regions must register it"
         )
     shape_tag = _to_str(region.ShapeTag())
-    polygon_paths = region.Polygon()
-    if polygon_paths is None or polygon_paths.PathsLength() < 3:
+    # Phase 1.26g — read footprint from Region.outline (the canonical
+    # post-1.27 source) instead of Region.polygon.
+    outline_fb = region.Outline()
+    if outline_fb is None or outline_fb.VerticesLength() < 3:
         raise ValueError(
-            f"RoofOp region {region_ref!r} polygon is empty or "
+            f"RoofOp region {region_ref!r} outline is empty or "
             "degenerate; cannot emit roof"
         )
     polygon: list[tuple[float, float]] = []
-    for i in range(polygon_paths.PathsLength()):
-        v = polygon_paths.Paths(i)
+    for i in range(outline_fb.VerticesLength()):
+        v = outline_fb.Vertices(i)
         polygon.append((v.X(), v.Y()))
 
     tint = _to_str(op.tint) or "#8A7A5A"
@@ -2550,12 +2577,13 @@ def _draw_building_exterior_wall_from_ir(
             f"BuildingExteriorWallOp references unknown region "
             f"{region_ref!r}"
         )
-    polygon_paths = region.Polygon()
-    if polygon_paths is None or polygon_paths.PathsLength() < 3:
+    # Phase 1.26g — read footprint from Region.outline.
+    outline_fb = region.Outline()
+    if outline_fb is None or outline_fb.VerticesLength() < 3:
         return []
     polygon: list[tuple[float, float]] = [
-        (polygon_paths.Paths(i).X(), polygon_paths.Paths(i).Y())
-        for i in range(polygon_paths.PathsLength())
+        (outline_fb.Vertices(i).X(), outline_fb.Vertices(i).Y())
+        for i in range(outline_fb.VerticesLength())
     ]
     fill, stroke = _masonry_palette(int(op.material))
     rng_seed = int(op.rngSeed)
@@ -3620,10 +3648,11 @@ def _building_footprint_tiles(
         if region.Kind() != RK.Building:
             continue
         found_any = True
-        poly_fb = region.Polygon()
-        if poly_fb is None:
+        # Phase 1.26g — read footprint vertices from Region.outline.
+        outline_fb = region.Outline()
+        if outline_fb is None:
             continue
-        coords = _polygon_paths_to_coords(poly_fb)
+        coords = _outline_vertices_to_coords(outline_fb)
         if len(coords) < 3:
             continue
         from shapely.geometry import Point, Polygon as ShPoly

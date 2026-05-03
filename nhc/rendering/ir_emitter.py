@@ -131,7 +131,27 @@ class FloorIRBuilder:
         # polygon has more than one ring (single-ring outlines leave
         # ``rings`` empty per design/map_ir_v4e.md §4 — the v4e
         # shorthand: vertices IS the single ring).
-        region.outline = outline or _polygon_to_outline(polygon)
+        if outline is None:
+            outline = _polygon_to_outline(polygon)
+        else:
+            # Phase 1.26g — Circle / Pill descriptors arrive with
+            # ``vertices = []`` because they ship via the rasterisers'
+            # native primitives. Mirror the polygonised approximation
+            # from ``polygon.paths`` into ``outline.vertices`` so
+            # polygon-vertex consumers (room shadow handler, future
+            # consumers) can read everything from ``Region.outline``
+            # without falling back to ``Region.polygon``. Multi-ring
+            # polygons mirror their rings too. The descriptor stays
+            # canonical for rasterisers that dispatch on
+            # ``descriptor_kind``; vertices is a convenience copy
+            # the descriptor consumers ignore.
+            if not (outline.vertices or []) and polygon is not None:
+                outline.vertices = list(polygon.paths or [])
+                if not (outline.rings or []) and polygon.rings:
+                    legacy_rings = list(polygon.rings)
+                    if len(legacy_rings) > 1:
+                        outline.rings = legacy_rings
+        region.outline = outline
         self.regions.append(region)
 
     def add_op(self, op_entry: Any) -> None:
