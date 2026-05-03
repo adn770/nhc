@@ -131,6 +131,20 @@ def build_render_context(
     else:
         dungeon_poly = None
 
+    # For a building floor, the "dungeon" region IS the building's
+    # interior. Override ``dungeon_poly`` with the building polygon
+    # so every clip-path that resolves through Region(kind=Dungeon)
+    # — grid / floor_detail / thematic_detail / terrain_detail —
+    # follows the building's chamfered footprint instead of the
+    # rect-rooms' bbox. Without this override, the rect-rooms'
+    # bbox extends past the octagon's clipped corners and the
+    # grid + detail layers bleed into VOID tiles.
+    if building_polygon is not None:
+        from shapely.geometry import Polygon as _ShPoly
+        building_poly_sh = _ShPoly(list(building_polygon))
+        if not building_poly_sh.is_empty and building_poly_sh.is_valid:
+            dungeon_poly = building_poly_sh
+
     is_building = floor_kind == "building"
     is_surface = floor_kind == "surface"
 

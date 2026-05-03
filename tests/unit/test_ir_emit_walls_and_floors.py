@@ -1204,6 +1204,69 @@ def test_exterior_wall_op_skipped_when_suppress_rect_rooms() -> None:
     )
 
 
+def test_building_dungeon_region_outline_matches_building_polygon() -> None:
+    """For a building floor (``ctx.building_polygon`` set), the
+    Region(kind=Dungeon).outline matches the building polygon —
+    not the rect-rooms' bbox.
+
+    Pre-fix, ``ctx.dungeon_poly`` came from
+    ``_build_dungeon_polygon(level)`` which unions the rooms' floor-
+    tile polygons, producing the rect bbox of the rooms inside the
+    building. That bbox extended into the building's chamfered
+    corner triangles (octagon / circle / hybrid footprints), so
+    every layer that clipped to the dungeon polygon (grid /
+    floor_detail / thematic_detail / terrain_detail) bled past
+    the masonry into VOID tiles.
+
+    Fix: when ``building_polygon`` is set, override
+    ``ctx.dungeon_poly`` with the building polygon so the Dungeon
+    Region's outline tracks the building's footprint and the
+    clip-defs follow.
+    """
+    from nhc.rendering._render_context import build_render_context
+    from nhc.rendering.ir_emitter import (
+        _build_cave_wall_geometry, _build_dungeon_polygon, emit_regions,
+    )
+
+    level = _build_simple_rect_level([
+        Rect(1, 1, 4, 4),
+        Rect(6, 1, 4, 4),
+    ])
+    octagon_polygon = [
+        (96.0, 32.0), (288.0, 32.0),
+        (352.0, 96.0), (352.0, 160.0),
+        (288.0, 224.0), (96.0, 224.0),
+        (32.0, 160.0), (32.0, 96.0),
+    ]
+    ctx = build_render_context(
+        level,
+        seed=0,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+        hatch_distance=2.0,
+        vegetation=True,
+        building_polygon=octagon_polygon,
+    )
+    builder = FloorIRBuilder(ctx)
+    emit_regions(builder)
+
+    dungeon_regions = [
+        r for r in builder.regions
+        if (r.id.decode() if isinstance(r.id, bytes) else r.id) == "dungeon"
+    ]
+    assert len(dungeon_regions) == 1
+    region = dungeon_regions[0]
+    region_verts = [(v.x, v.y) for v in (region.outline.vertices or [])]
+    expected = [(float(x), float(y)) for x, y in octagon_polygon]
+    # The dungeon Region's outline must mirror the building polygon
+    # vertex-for-vertex (Shapely's exterior may close with a
+    # repeated first vertex — accept either form).
+    assert region_verts[:8] == expected[:8], (
+        f"dungeon Region.outline must mirror the building polygon; "
+        f"got {region_verts[:8]}, expected {expected[:8]}"
+    )
+
+
 def test_non_wood_building_emits_polygon_shaped_dungeon_floor() -> None:
     """Stone / brick buildings emit a single DungeonFloor FloorOp
     shaped to the building polygon (no per-room rect FloorOps).
