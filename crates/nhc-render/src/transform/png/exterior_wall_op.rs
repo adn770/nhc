@@ -1,8 +1,9 @@
 //! ExteriorWallOp rasterisation — Phase 1.18 of
-//! `plans/nhc_pure_ir_plan.md`.
+//! `plans/nhc_pure_ir_plan.md`, ported to the Painter trait in
+//! Phase 2.15e.
 //!
 //! Reads `ExteriorWallOp.outline` + `ExteriorWallOp.style` and paints
-//! the wall stroke via tiny-skia native primitives.
+//! the wall stroke via the [`Painter`] trait.
 //!
 //! Handled styles (Rust-native, mirroring Python 1.16b consumers):
 //! - `DungeonInk` (0): 5px black stroke, outline with cuts. Polygon
@@ -11,9 +12,17 @@
 //! - `CaveInk` (1): cave pipeline — `buffer+simplify+densify+jitter
 //!   +smooth` from `outline.vertices`; seed = `base_seed + 0x5A17E5`.
 //!
-//! Other styles (Masonry, Palisade, Fortification) are left to the
-//! legacy `BuildingExteriorWallOp` / `EnclosureOp` Rust handlers.
-//! This handler silently skips any style it does not own.
+//! Other styles (Masonry, Palisade, Fortification) are routed through
+//! the shared helpers in `building_exterior_wall.rs` and
+//! `enclosure.rs`. Those helpers compose per-edge rotated transforms
+//! (diagonal masonry runs, diamond corner shapes) and therefore still
+//! need direct `tiny_skia::Pixmap` + `Transform` access; they will be
+//! ported in a follow-up commit when the Painter trait grows a
+//! transform stack (or the dispatch carries a base transform that
+//! helpers can pre-compose into a fresh `SkiaPainter`). For now this
+//! handler constructs a `SkiaPainter` only for the DungeonInk and
+//! CaveInk arms; the Masonry / Palisade / Fortification arms keep
+//! threading `&mut RasterCtx` into the legacy helpers unchanged.
 //!
 //! Cut handling: doors (DoorWood/Iron/Stone/Secret) do NOT create gaps
 //! in the stroke — they are separate overlay layers. Only `CutStyle::None`
@@ -23,13 +32,14 @@
 
 use std::f32::consts::PI as PI32;
 
-use tiny_skia::{Color, LineCap, LineJoin, Paint, PathBuilder, Rect, Stroke};
-
 use crate::geometry::cave_path_from_outline;
 use crate::ir::{
     Cut, CutStyle, FloorIR, OpEntry, Outline, OutlineKind, WallStyle,
 };
-use crate::transform::png::path_parser::parse_path_d;
+use crate::painter::{
+    Color, LineCap, LineJoin, Paint, Painter, PathOps, SkiaPainter, Stroke, Vec2,
+};
+use crate::transform::png::path_parser::parse_path_d_pathops;
 
 use super::building_exterior_wall::{render_masonry_polygon, MasonryMaterial};
 use super::enclosure::{render_enclosure_polygon, EnclosureKind};
@@ -40,11 +50,8 @@ const INK_G: u8 = 0x00;
 const INK_B: u8 = 0x00;
 const WALL_WIDTH: f32 = 5.0;
 
-fn ink_paint() -> Paint<'static> {
-    let mut p = Paint::default();
-    p.set_color(Color::from_rgba8(INK_R, INK_G, INK_B, 0xFF));
-    p.anti_alias = true;
-    p
+fn ink_paint() -> Paint {
+    Paint::solid(Color::rgba(INK_R, INK_G, INK_B, 1.0))
 }
 
 fn wall_stroke() -> Stroke {
@@ -52,7 +59,6 @@ fn wall_stroke() -> Stroke {
         width: WALL_WIDTH,
         line_cap: LineCap::Round,
         line_join: LineJoin::Round,
-        ..Stroke::default()
     }
 }
 
@@ -85,10 +91,14 @@ pub(super) fn draw(
 
     match style {
         WallStyle::DungeonInk => {
-            draw_dungeon_ink(&outline, &cuts, ctx);
+            let mut painter =
+                SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+            draw_dungeon_ink(&outline, &cuts, &mut painter);
         }
         WallStyle::CaveInk => {
-            draw_cave_ink(&outline, fir, ctx);
+            let mut painter =
+                SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+            draw_cave_ink(&outline, fir, &mut painter);
         }
         WallStyle::MasonryBrick | WallStyle::MasonryStone => {
             if let Some(material) = MasonryMaterial::from_wall_style(style) {
@@ -254,12 +264,12 @@ fn gate_spans_per_edge_from_cuts(
 fn draw_dungeon_ink(
     outline: &Outline<'_>,
     cuts: &[Cut<'_>],
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     match outline.descriptor_kind() {
-        OutlineKind::Circle => draw_dungeon_ink_circle(outline, cuts, ctx),
-        OutlineKind::Pill => draw_dungeon_ink_pill(outline, ctx),
-        OutlineKind::Polygon | _ => draw_dungeon_ink_polygon(outline, cuts, ctx),
+        OutlineKind::Circle => draw_dungeon_ink_circle(outline, cuts, painter),
+        OutlineKind::Pill => draw_dungeon_ink_pill(outline, painter),
+        OutlineKind::Polygon | _ => draw_dungeon_ink_polygon(outline, cuts, painter),
     }
 }
 
@@ -271,7 +281,7 @@ fn draw_dungeon_ink(
 fn draw_dungeon_ink_polygon(
     outline: &Outline<'_>,
     cuts: &[Cut<'_>],
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let verts = match outline.vertices() {
         Some(v) if v.len() >= 2 => v,
@@ -298,10 +308,9 @@ fn draw_dungeon_ink_polygon(
     if d.is_empty() {
         return;
     }
-    // Build path from "M{x},{y} L{x},{y}" style d-string.
-    if let Some(path) = build_path_from_ml_segments(&d) {
-        ctx.pixmap
-            .stroke_path(&path, &ink_paint(), &wall_stroke(), ctx.transform, None);
+    // Build PathOps from "M{x},{y} L{x},{y}" style d-string.
+    if let Some(path) = build_pathops_from_ml_segments(&d) {
+        painter.stroke_path(&path, &ink_paint(), &wall_stroke());
     }
 }
 
@@ -309,7 +318,7 @@ fn draw_dungeon_ink_polygon(
 fn draw_dungeon_ink_circle(
     outline: &Outline<'_>,
     cuts: &[Cut<'_>],
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let cx = outline.cx();
     let cy = outline.cy();
@@ -325,19 +334,15 @@ fn draw_dungeon_ink_circle(
         .collect();
 
     if none_cuts.is_empty() {
-        // Closed circle — draw via oval.
-        let rect = match Rect::from_xywh(cx - r, cy - r, r * 2.0, r * 2.0) {
-            Some(rect) => rect,
-            None => return,
-        };
-        let mut pb = PathBuilder::new();
-        pb.push_oval(rect);
-        let path = match pb.finish() {
-            Some(p) => p,
-            None => return,
-        };
-        ctx.pixmap
-            .stroke_path(&path, &ink_paint(), &wall_stroke(), ctx.transform, None);
+        // Closed circle — draw via oval-equivalent cubic-bezier
+        // approximation (matches the legacy `pb.push_oval` path
+        // tiny-skia builds internally).
+        let mut path = PathOps::new();
+        push_oval_pathops(&mut path, cx, cy, r, r);
+        if path.is_empty() {
+            return;
+        }
+        painter.stroke_path(&path, &ink_paint(), &wall_stroke());
         return;
     }
 
@@ -363,7 +368,7 @@ fn draw_dungeon_ink_circle(
     gap_intervals.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
     let n_gi = gap_intervals.len();
-    let mut pb = PathBuilder::new();
+    let mut path = PathOps::new();
 
     for gi_idx in 0..n_gi {
         let gap_end = gap_intervals[gi_idx].1;
@@ -380,24 +385,22 @@ fn draw_dungeon_ink_circle(
         let ex = cx + r * next_start.cos();
         let ey = cy + r * next_start.sin();
         let sweep = (next_start - gap_end).rem_euclid(two_pi);
-        pb.move_to(sx, sy);
+        path.move_to(Vec2::new(sx, sy));
         // Approximate arc with cubic Bézier segments.
-        push_arc(&mut pb, cx, cy, r, gap_end, gap_end + sweep);
+        push_arc_pathops(&mut path, cx, cy, r, gap_end, gap_end + sweep);
         let _ = (ex, ey); // ex/ey come from the arc endpoint
     }
 
-    let path = match pb.finish() {
-        Some(p) => p,
-        None => return,
-    };
-    ctx.pixmap
-        .stroke_path(&path, &ink_paint(), &wall_stroke(), ctx.transform, None);
+    if path.is_empty() {
+        return;
+    }
+    painter.stroke_path(&path, &ink_paint(), &wall_stroke());
 }
 
 /// Pill DungeonInk — stroked rounded-rect matching `<rect rx ry>` SVG.
 fn draw_dungeon_ink_pill(
     outline: &Outline<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let cx = outline.cx();
     let cy = outline.cy();
@@ -413,30 +416,41 @@ fn draw_dungeon_ink_pill(
     let y1 = cy + ry;
     const KAPPA: f32 = 0.5523;
     let k = r * KAPPA;
-    let mut pb = PathBuilder::new();
-    pb.move_to(x0 + r, y0);
-    pb.line_to(x1 - r, y0);
-    pb.cubic_to(x1 - r + k, y0, x1, y0 + r - k, x1, y0 + r);
-    pb.line_to(x1, y1 - r);
-    pb.cubic_to(x1, y1 - r + k, x1 - r + k, y1, x1 - r, y1);
-    pb.line_to(x0 + r, y1);
-    pb.cubic_to(x0 + r - k, y1, x0, y1 - r + k, x0, y1 - r);
-    pb.line_to(x0, y0 + r);
-    pb.cubic_to(x0, y0 + r - k, x0 + r - k, y0, x0 + r, y0);
-    pb.close();
-    let path = match pb.finish() {
-        Some(p) => p,
-        None => return,
-    };
-    ctx.pixmap
-        .stroke_path(&path, &ink_paint(), &wall_stroke(), ctx.transform, None);
+    let mut path = PathOps::new();
+    path.move_to(Vec2::new(x0 + r, y0));
+    path.line_to(Vec2::new(x1 - r, y0));
+    path.cubic_to(
+        Vec2::new(x1 - r + k, y0),
+        Vec2::new(x1, y0 + r - k),
+        Vec2::new(x1, y0 + r),
+    );
+    path.line_to(Vec2::new(x1, y1 - r));
+    path.cubic_to(
+        Vec2::new(x1, y1 - r + k),
+        Vec2::new(x1 - r + k, y1),
+        Vec2::new(x1 - r, y1),
+    );
+    path.line_to(Vec2::new(x0 + r, y1));
+    path.cubic_to(
+        Vec2::new(x0 + r - k, y1),
+        Vec2::new(x0, y1 - r + k),
+        Vec2::new(x0, y1 - r),
+    );
+    path.line_to(Vec2::new(x0, y0 + r));
+    path.cubic_to(
+        Vec2::new(x0, y0 + r - k),
+        Vec2::new(x0 + r - k, y0),
+        Vec2::new(x0 + r, y0),
+    );
+    path.close();
+    painter.stroke_path(&path, &ink_paint(), &wall_stroke());
 }
 
 /// CaveInk exterior wall — run the cave pipeline and stroke the result.
 fn draw_cave_ink(
     outline: &Outline<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let verts = match outline.vertices() {
         Some(v) if v.len() >= 4 => v,
@@ -453,12 +467,11 @@ fn draw_cave_ink(
         Some(d) if !d.is_empty() => d,
         _ => return,
     };
-    let path = match parse_path_d(d) {
+    let path = match parse_path_d_pathops(d) {
         Some(p) => p,
         None => return,
     };
-    ctx.pixmap
-        .stroke_path(&path, &ink_paint(), &wall_stroke(), ctx.transform, None);
+    painter.stroke_path(&path, &ink_paint(), &wall_stroke());
 }
 
 // ── Cut handling ────────────────────────────────────────────────────────
@@ -607,10 +620,10 @@ fn cuts_for_edge(
     result
 }
 
-/// Build a tiny-skia `Path` from a space-separated `M{x},{y} L{x},{y}...`
+/// Build a [`PathOps`] from a space-separated `M{x},{y} L{x},{y}...`
 /// string (the format produced by `walk_polygon_with_cuts`).
-fn build_path_from_ml_segments(d: &str) -> Option<tiny_skia::Path> {
-    let mut pb = PathBuilder::new();
+fn build_pathops_from_ml_segments(d: &str) -> Option<PathOps> {
+    let mut path = PathOps::new();
     let mut any = false;
     // Parse tokens: alternating M and L commands.
     let mut iter = d.split_whitespace();
@@ -618,12 +631,12 @@ fn build_path_from_ml_segments(d: &str) -> Option<tiny_skia::Path> {
         if tok.starts_with('M') {
             let rest = &tok[1..];
             if let Some((x, y)) = parse_xy_f32(rest) {
-                pb.move_to(x, y);
+                path.move_to(Vec2::new(x, y));
             }
         } else if tok.starts_with('L') {
             let rest = &tok[1..];
             if let Some((x, y)) = parse_xy_f32(rest) {
-                pb.line_to(x, y);
+                path.line_to(Vec2::new(x, y));
                 any = true;
             }
         }
@@ -631,7 +644,7 @@ fn build_path_from_ml_segments(d: &str) -> Option<tiny_skia::Path> {
     if !any {
         return None;
     }
-    pb.finish()
+    Some(path)
 }
 
 fn parse_xy_f32(s: &str) -> Option<(f32, f32)> {
@@ -641,10 +654,53 @@ fn parse_xy_f32(s: &str) -> Option<(f32, f32)> {
     Some((x, y))
 }
 
+/// Approximate an oval (rx, ry around (cx, cy)) with four cubic
+/// bezier quarter-arcs. Mirrors `tiny_skia::PathBuilder::push_oval`
+/// in PathOps form so the SkiaPainter and SvgPainter (Phase 2.16)
+/// share a single path representation.
+fn push_oval_pathops(path: &mut PathOps, cx: f32, cy: f32, rx: f32, ry: f32) {
+    if rx <= 0.0 || ry <= 0.0 {
+        return;
+    }
+    const KAPPA: f32 = 0.5522847498307933; // 4 * (sqrt(2) - 1) / 3
+    let kx = rx * KAPPA;
+    let ky = ry * KAPPA;
+    let x0 = cx - rx;
+    let x1 = cx + rx;
+    let y0 = cy - ry;
+    let y1 = cy + ry;
+    path.move_to(Vec2::new(x1, cy));
+    path.cubic_to(
+        Vec2::new(x1, cy + ky),
+        Vec2::new(cx + kx, y1),
+        Vec2::new(cx, y1),
+    );
+    path.cubic_to(
+        Vec2::new(cx - kx, y1),
+        Vec2::new(x0, cy + ky),
+        Vec2::new(x0, cy),
+    );
+    path.cubic_to(
+        Vec2::new(x0, cy - ky),
+        Vec2::new(cx - kx, y0),
+        Vec2::new(cx, y0),
+    );
+    path.cubic_to(
+        Vec2::new(cx + kx, y0),
+        Vec2::new(x1, cy - ky),
+        Vec2::new(x1, cy),
+    );
+    path.close();
+}
+
 /// Push an arc approximated with cubic Béziers from `angle_start` to
 /// `angle_end` (in radians, CCW). The arc is split into segments of at
 /// most π/2 each.
-fn push_arc(pb: &mut PathBuilder, cx: f32, cy: f32, r: f32, start: f32, end: f32) {
+fn push_arc_pathops(
+    path: &mut PathOps,
+    cx: f32, cy: f32, r: f32,
+    start: f32, end: f32,
+) {
     let two_pi = 2.0 * PI32;
     let mut remaining = end - start;
     // Normalise to (0, 2π].
@@ -664,13 +720,16 @@ fn push_arc(pb: &mut PathBuilder, cx: f32, cy: f32, r: f32, start: f32, end: f32
         let sin_b = (angle + seg_angle).sin();
         let ex = cx + r * cos_b;
         let ey = cy + r * sin_b;
-        pb.cubic_to(
-            cx + r * (cos_a - kappa * sin_a),
-            cy + r * (sin_a + kappa * cos_a),
-            cx + r * (cos_b + kappa * sin_b),
-            cy + r * (sin_b - kappa * cos_b),
-            ex,
-            ey,
+        path.cubic_to(
+            Vec2::new(
+                cx + r * (cos_a - kappa * sin_a),
+                cy + r * (sin_a + kappa * cos_a),
+            ),
+            Vec2::new(
+                cx + r * (cos_b + kappa * sin_b),
+                cy + r * (sin_b - kappa * cos_b),
+            ),
+            Vec2::new(ex, ey),
         );
         angle += seg_angle;
     }
@@ -1243,5 +1302,16 @@ mod tests {
         use crate::geometry::CAVE_SEED_OFFSET;
         assert_eq!(CAVE_SEED_OFFSET, 0x5A17E5,
             "cave seed offset must be 0x5A17E5 to match _render_context.py:117");
+    }
+
+    /// Stroke width, linecap, and linejoin are the documented
+    /// constants — pinned so a future refactor can't silently
+    /// widen the wall or change its joinery.
+    #[test]
+    fn exterior_wall_stroke_uses_documented_width_cap_and_join() {
+        let s = super::wall_stroke();
+        assert_eq!(s.width, super::WALL_WIDTH);
+        assert_eq!(s.line_cap, crate::painter::LineCap::Round);
+        assert_eq!(s.line_join, crate::painter::LineJoin::Round);
     }
 }

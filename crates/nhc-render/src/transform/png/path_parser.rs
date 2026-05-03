@@ -19,6 +19,8 @@ use std::f32::consts::{FRAC_PI_2, PI};
 
 use tiny_skia::PathBuilder;
 
+use crate::painter::{PathOps, Vec2};
+
 /// Parse `s` into a `tiny-skia::Path`. Walks tokens left-to-
 /// right; each token either kicks off a new command (M / L /
 /// C / Z) or supplies coordinate pairs that the running command
@@ -113,6 +115,90 @@ pub fn parse_path_d(s: &str) -> Option<tiny_skia::Path> {
     pb.finish()
 }
 
+/// Painter-trait twin of [`parse_path_d`]: parse `s` into a
+/// [`PathOps`] for callers that drive the trait-level
+/// `Painter::stroke_path` / `Painter::fill_path` instead of
+/// `tiny_skia::Pixmap` directly.
+///
+/// Walks the same M/L/C/A/Z subset as `parse_path_d` and emits
+/// the matching `PathOp` ladder. The arc approximation is
+/// shared via [`append_arc_pathops`] (parallel of `append_arc`).
+pub fn parse_path_d_pathops(s: &str) -> Option<PathOps> {
+    let mut path = PathOps::new();
+    let mut tokens = s.split_whitespace().peekable();
+    let mut last = (0.0_f32, 0.0_f32);
+    while let Some(tok) = tokens.next() {
+        match command_letter(tok) {
+            Some('M') => {
+                if let Some((x, y)) = parse_xy(strip_command(tok, 'M')) {
+                    path.move_to(Vec2::new(x, y));
+                    last = (x, y);
+                }
+            }
+            Some('L') => {
+                if let Some((x, y)) = parse_xy(strip_command(tok, 'L')) {
+                    path.line_to(Vec2::new(x, y));
+                    last = (x, y);
+                }
+            }
+            Some('C') => {
+                let p1 = parse_xy(strip_command(tok, 'C'));
+                let p2 = tokens.next().and_then(parse_xy);
+                let p3 = tokens.next().and_then(parse_xy);
+                if let (Some((c1x, c1y)), Some((c2x, c2y)), Some((x, y))) =
+                    (p1, p2, p3)
+                {
+                    path.cubic_to(
+                        Vec2::new(c1x, c1y),
+                        Vec2::new(c2x, c2y),
+                        Vec2::new(x, y),
+                    );
+                    last = (x, y);
+                }
+            }
+            Some('A') => {
+                let radii = parse_xy(strip_command(tok, 'A'));
+                let rot = tokens.next().and_then(|t| t.parse::<f32>().ok());
+                let next_tok = tokens.next();
+                let (flags, endpoint) = match next_tok.and_then(parse_xy) {
+                    Some(pair) => (Some(pair), tokens.next().and_then(parse_xy)),
+                    None => {
+                        let large_f = next_tok.and_then(|t| t.parse::<f32>().ok());
+                        let sweep_f = tokens
+                            .next()
+                            .and_then(|t| t.parse::<f32>().ok());
+                        let endpoint = tokens.next().and_then(parse_xy);
+                        match (large_f, sweep_f) {
+                            (Some(l), Some(s)) => (Some((l, s)), endpoint),
+                            _ => (None, endpoint),
+                        }
+                    }
+                };
+                if let (
+                    Some((rx, ry)),
+                    Some(_rot),
+                    Some((large_f, sweep_f)),
+                    Some((x, y)),
+                ) = (radii, rot, flags, endpoint)
+                {
+                    let large = large_f >= 0.5;
+                    let sweep = sweep_f >= 0.5;
+                    append_arc_pathops(&mut path, last, rx, ry, large, sweep, x, y);
+                    last = (x, y);
+                }
+            }
+            Some('Z') | Some('z') => {
+                path.close();
+            }
+            _ => {}
+        }
+    }
+    if path.is_empty() {
+        return None;
+    }
+    Some(path)
+}
+
 /// Approximate a circular SVG arc with ≤90° cubic-bezier
 /// segments. NHC's circle-room outlines emit `rx == ry` arcs
 /// with no x-axis rotation, so the elliptical-rotation case
@@ -187,6 +273,69 @@ fn append_arc(
         let p3x = cx + r * cos_b;
         let p3y = cy + r * sin_b;
         pb.cubic_to(p1x, p1y, p2x, p2y, p3x, p3y);
+    }
+}
+
+/// PathOps twin of [`append_arc`]. Identical maths; only the
+/// emit step differs (PathOps::cubic_to vs PathBuilder::cubic_to).
+fn append_arc_pathops(
+    path: &mut PathOps,
+    start: (f32, f32),
+    rx: f32, ry: f32,
+    large: bool, sweep: bool,
+    end_x: f32, end_y: f32,
+) {
+    let (x1, y1) = start;
+    if rx <= 0.0 || ry <= 0.0 {
+        path.line_to(Vec2::new(end_x, end_y));
+        return;
+    }
+    let r = rx.max(ry);
+    let dx = end_x - x1;
+    let dy = end_y - y1;
+    let chord = (dx * dx + dy * dy).sqrt();
+    if chord < 1e-6 {
+        return;
+    }
+    let r = r.max(chord * 0.5);
+    let h_sq = r * r - (chord * 0.5).powi(2);
+    let h = if h_sq > 0.0 { h_sq.sqrt() } else { 0.0 };
+    let perp_x = -dy / chord;
+    let perp_y = dx / chord;
+    let sign = if large == sweep { -1.0 } else { 1.0 };
+    let mid_x = (x1 + end_x) * 0.5;
+    let mid_y = (y1 + end_y) * 0.5;
+    let cx = mid_x + sign * h * perp_x;
+    let cy = mid_y + sign * h * perp_y;
+    let a1 = (y1 - cy).atan2(x1 - cx);
+    let a2 = (end_y - cy).atan2(end_x - cx);
+    let mut delta = a2 - a1;
+    if sweep && delta < 0.0 {
+        delta += 2.0 * PI;
+    } else if !sweep && delta > 0.0 {
+        delta -= 2.0 * PI;
+    }
+    let n = ((delta.abs() / FRAC_PI_2).ceil() as usize).max(1);
+    let seg = delta / n as f32;
+    let alpha = (4.0 / 3.0) * (seg * 0.25).tan();
+    for i in 0..n {
+        let a = a1 + seg * i as f32;
+        let b = a1 + seg * (i + 1) as f32;
+        let cos_a = a.cos();
+        let sin_a = a.sin();
+        let cos_b = b.cos();
+        let sin_b = b.sin();
+        let p1x = cx + r * cos_a - r * alpha * sin_a;
+        let p1y = cy + r * sin_a + r * alpha * cos_a;
+        let p2x = cx + r * cos_b + r * alpha * sin_b;
+        let p2y = cy + r * sin_b - r * alpha * cos_b;
+        let p3x = cx + r * cos_b;
+        let p3y = cy + r * sin_b;
+        path.cubic_to(
+            Vec2::new(p1x, p1y),
+            Vec2::new(p2x, p2y),
+            Vec2::new(p3x, p3y),
+        );
     }
 }
 
