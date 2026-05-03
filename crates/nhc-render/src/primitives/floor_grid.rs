@@ -145,17 +145,36 @@ fn format_seg_d(runs: &[Vec<(f64, f64)>]) -> String {
 /// `MoveTo, LineTo, LineTo, …` ops. Each new run starts with a
 /// fresh `MoveTo`; no `Close` is emitted (the wobbly grid is
 /// open polylines).
+///
+/// Coords round-trip through `format!("{:.1}", v).parse()` to
+/// mirror the legacy SVG-string path's precision contract: the
+/// SVG `d=` strings emit `{:.1}` truncated coords, then
+/// `transform/png/path_parser.rs::parse_path_d` reparses them.
+/// Without the round-trip, the new PathOps path lands at full
+/// f32 precision, drifting tiny-skia anti-aliased pixels by
+/// ~0-1 units along grid edges (visible at the byte-equal fixture
+/// reference compare even though PSNR ≥ 35 holds).
 fn append_seg_pathops(path: &mut PathOps, runs: &[Vec<(f64, f64)>]) {
     for run in runs {
         if run.is_empty() {
             continue;
         }
         let (x0, y0) = run[0];
-        path.move_to(Vec2::new(x0 as f32, y0 as f32));
+        path.move_to(Vec2::new(round_legacy(x0), round_legacy(y0)));
         for &(x, y) in &run[1..] {
-            path.line_to(Vec2::new(x as f32, y as f32));
+            path.line_to(Vec2::new(round_legacy(x), round_legacy(y)));
         }
     }
+}
+
+/// Mirror the legacy SVG-string path's `{:.1}` truncation +
+/// reparse. Rust's `{:.1}` uses banker's rounding, matching
+/// Python's `f"{v:.1f}"` — so the round-trip lands at the same
+/// f32 value the SVG-string path would have arrived at via
+/// `format` → `parse_path_d`.
+fn round_legacy(v: f64) -> f32 {
+    let s = format!("{:.1}", v);
+    s.parse::<f64>().unwrap_or(v) as f32
 }
 
 /// Layer-level driver. Walks pre-classified tiles in the IR's
