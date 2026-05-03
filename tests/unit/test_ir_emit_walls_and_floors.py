@@ -1204,6 +1204,71 @@ def test_exterior_wall_op_skipped_when_suppress_rect_rooms() -> None:
     )
 
 
+def test_rect_room_walls_suppressed_inside_non_wood_building() -> None:
+    """A stone / brick building with a polygon set must suppress
+    per-room DungeonInk ExteriorWallOps — the masonry exterior walls
+    own the perimeter and InteriorWallOp owns the partitions. Per-
+    room rect outlines would otherwise protrude past the building's
+    clipped corners (octagon / circle / hybrid footprints) producing
+    a black square frame in the rendered output.
+
+    Floors stay populated for stone / brick buildings (the per-room
+    DungeonFloor FloorOp paints the white interior); only the
+    DungeonInk wall strokes drop.
+    """
+    from nhc.rendering._render_context import build_render_context
+    from nhc.rendering.ir_emitter import (
+        _build_cave_wall_geometry, _build_dungeon_polygon,
+    )
+
+    level = _build_simple_rect_level([
+        Rect(1, 1, 4, 4),
+        Rect(6, 1, 4, 4),
+    ])
+    # Stone building — no wood interior_finish, but a building
+    # polygon is set so the ExteriorWallOp(MasonryStone) owns the
+    # perimeter.
+    ctx = build_render_context(
+        level,
+        seed=0,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+        hatch_distance=2.0,
+        vegetation=True,
+        building_polygon=[
+            (32.0, 32.0), (320.0, 32.0),
+            (320.0, 160.0), (32.0, 160.0),
+        ],
+    )
+    assert ctx.interior_finish != "wood"
+    assert ctx.building_polygon is not None
+    builder = FloorIRBuilder(ctx)
+    _emit_walls_and_floors_ir(builder)
+
+    rect_room_wall_ops = [
+        e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+        and e.op.style == WallStyle.DungeonInk
+    ]
+    assert rect_room_wall_ops == [], (
+        "rect-room DungeonInk ExteriorWallOps must drop inside a "
+        "building polygon — the building's masonry / palisade owns "
+        "the perimeter; rect outlines would protrude past clipped "
+        "corners (octagon / circle / hybrid footprints)."
+    )
+
+    # Per-room DungeonFloor FloorOps stay populated — the building
+    # interior still needs the white floor fill for non-wood
+    # buildings (only the wood-floor short-circuit drops floors).
+    rect_floor_ops = [
+        e for e in builder.ops if e.opType == Op.Op.FloorOp
+        and e.op.style == FloorStyle.DungeonFloor
+    ]
+    assert rect_floor_ops, (
+        "stone / brick building rooms keep per-room DungeonFloor "
+        "FloorOps so the white floor fills the interior."
+    )
+
+
 def test_exterior_wall_op_cuts_empty_pending_phase_1_11() -> None:
     """Phase 1.8 ships rect ExteriorWallOps with door cuts populated
     via :func:`cuts_for_room_doors` (the helper landed in 1.3); levels

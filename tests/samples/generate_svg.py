@@ -817,12 +817,18 @@ SETTLEMENT_SPECS: list[tuple[str, int, int]] = [
 def _render_and_save(
     level, seed: int, base: Path, label: str,
     inject_labels: bool = True,
+    **floor_pair_kwargs,
 ) -> None:
     """Render a level through the IR pipeline with optional
     debug labels. Writes ``<base>.svg`` and ``<base>.png``.
+
+    ``floor_pair_kwargs`` forward to :func:`_floor_pair` →
+    :func:`build_floor_ir` so callers can pass ``site=`` for
+    site-aware overlays (RoofOp / EnclosureOp emission), or
+    ``vegetation=`` / ``hatch_distance=`` overrides.
     """
     from nhc.rendering._doors_svg import door_overlay_fragments
-    _, svg, png = _floor_pair(level, seed=seed)
+    _, svg, png = _floor_pair(level, seed=seed, **floor_pair_kwargs)
     door_frags = door_overlay_fragments(level, seed=seed)
     if door_frags:
         svg = svg.replace("</svg>", "".join(door_frags) + "</svg>")
@@ -900,7 +906,12 @@ def generate_settlements(outdir: Path, seeds: list[int]) -> None:
                 size_class=label,
             )
             base = sdir / f"{label}_seed{seed}"
-            _render_and_save(site.surface, seed, base, label)
+            # Thread ``site=`` so ``emit_site_overlays`` registers
+            # building regions + emits RoofOps and the enclosure
+            # ExteriorWallOp (palisade for non-hamlet settlements).
+            _render_and_save(
+                site.surface, seed, base, label, site=site,
+            )
 
 
 # ── Building generator samples ─────────────────────────────────────

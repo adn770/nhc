@@ -490,6 +490,17 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     suppress_rect_rooms = (
         ctx.interior_finish == "wood" and bool(ctx.building_polygon)
     )
+    # Rooms inside any building (wood / stone / brick / palisade)
+    # never emit their own DungeonInk perimeter strokes. The
+    # building's masonry / palisade ExteriorWallOp owns the
+    # building's outline; per-room rect outlines would protrude
+    # past clipped corners (octagon / circle / hybrid footprints)
+    # producing a black square frame, and per-room partition strokes
+    # would double-paint the InteriorWallOp partitions. The legacy
+    # ``WallsAndFloorsOp.wallSegments`` builder handled this
+    # implicitly via the ``_draw_wall_to(building_footprint)``
+    # filter retired at 1.26f; this flag restores the same intent.
+    suppress_room_walls = bool(ctx.building_polygon)
 
     # Phase 1.4 / 1.5 / 1.6 corrigendum — parallel emission of FloorOp.
     # The legacy ``rectRooms`` / ``smoothRoomRegions`` / ``caveRegion``
@@ -692,13 +703,10 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     # mapping from tile.feature → CutStyle is pinned in
     # _outline_helpers._DOOR_FEATURE_TO_CUT_STYLE per plan §1.11).
     #
-    # Mirror the wood-floor ``suppress_rect_rooms`` short-circuit:
-    # when the wood polygon paints the base fill (and rect FloorOps
-    # are suppressed for the same reason), the rect ExteriorWallOps
-    # drop too. The building's own walls land in the legacy
-    # BuildingExteriorWallOp / BuildingInteriorWallOp ops; per-rect-
-    # room outline strokes would over-paint those.
-    if not suppress_rect_rooms:
+    # Building rooms — wood / stone / brick / palisade — drop their
+    # per-room DungeonInk wall strokes (see ``suppress_room_walls``
+    # rationale above).
+    if not suppress_room_walls:
         for room in level.rooms:
             if not isinstance(room.shape, RectShape):
                 continue
@@ -740,12 +748,11 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     # ``hit_b`` and ``style = CutStyle.None_`` (the renderer skips the
     # stroke for that interval).
     #
-    # Mirror the wood-floor ``suppress_rect_rooms`` short-circuit and
-    # the ``cave_region_rooms`` skip from Phase 1.5: cave rooms ship
-    # their wall via Phase 1.10's CaveInk path; CrossShape /
-    # HybridShape lack parity-fixture coverage and defer to later
-    # phases.
-    if not suppress_rect_rooms:
+    # Smooth-shape rooms inside buildings drop their per-room
+    # DungeonInk strokes too (same reasoning as
+    # ``suppress_room_walls`` above). Cave rooms still skip — their
+    # wall ships via Phase 1.10's merged CaveInk path.
+    if not suppress_room_walls:
         for idx, room in enumerate(level.rooms):
             if idx in cave_region_rooms:
                 continue
