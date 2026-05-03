@@ -1,4 +1,6 @@
-//! Hatch primitive — Phase 4, sub-step 1.d (plan §8 Q1 strategy A).
+//! Hatch primitive — Phase 4, sub-step 1.d (plan §8 Q1 strategy A),
+//! ported to the Painter trait in Phase 2.9 of
+//! `plans/nhc_pure_ir_plan.md` — the **first group-opacity port**.
 //!
 //! Reproduces `_render_corridor_hatching` and the per-tile body of
 //! `_render_hatching` from `nhc/rendering/_hatching.py`. The room
@@ -15,6 +17,37 @@
 //! The RNG (`Pcg64Mcg`) and the polygon-line clip backend (`geo`
 //! crate) are Rust-native; nothing here tracks the legacy
 //! CPython `random.Random` / Shapely numerics.
+//!
+//! Two emit paths coexist during Phase 2:
+//!
+//! - The legacy `draw_hatch_corridor` / `draw_hatch_room`
+//!   SVG-string emitters (used by the FFI / `nhc/rendering/
+//!   ir_to_svg.py` Python path until 2.17 ships the
+//!   `SvgPainter`-based PyO3 export and 2.19 retires the Python
+//!   `ir_to_svg` path).
+//! - The new `paint_hatch_corridor` / `paint_hatch_room` Painter-
+//!   based emitters (used by the Rust `transform/png` path via
+//!   `SkiaPainter` and, after 2.17, by the Rust `ir_to_svg` path
+//!   via `SvgPainter`).
+//!
+//! Both paths share the private `tile_shapes_into_buckets` shape-
+//! stream generator — the per-tile geometry is RNG- and Perlin-
+//! driven and the snapshot/structural-invariants gates require a
+//! single source of truth for the per-tile shape sequence.
+//!
+//! ## Group-opacity contract (Phase 5.10 of parent migration)
+//!
+//! The legacy SVG output wraps each non-empty bucket in
+//! `<g opacity="…">` — `0.3` for `tile_fills`, `0.5` for
+//! `hatch_lines`, **no opacity attr** for `hatch_stones` (full
+//! opacity, the SVG path uses bare `<g>`). The pre-2.9 PNG
+//! handler bypassed Phase 5.10's `paint_offscreen_group` and
+//! used per-element alpha, which over-darkens overlapping hatch
+//! stamps relative to the SVG-spec offscreen-buffer composite.
+//! The Painter port restores SVG-spec semantics by wrapping each
+//! coloured bucket in `begin_group(opacity)` / `end_group()`;
+//! `hatch_stones` runs at full opacity with no group wrapper to
+//! match the bare `<g>` in the SVG envelope.
 
 use geo::{
     BooleanOps, Coord, LineString, MultiLineString, Polygon,
@@ -22,6 +55,9 @@ use geo::{
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
 
+use crate::painter::{
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Stroke, Vec2,
+};
 use crate::perlin::pnoise2;
 
 const CELL: f64 = 32.0;
@@ -29,10 +65,58 @@ const HATCH_UNDERLAY: &str = "#D0D0D0";
 const INK: &str = "#000000";
 const STONE_STROKE: &str = "#666666";
 
+/// Group-opacity envelope for the `tile_fills` bucket. Lifts the
+/// `<g opacity="0.3">` wrapper from `nhc/rendering/ir_to_svg.py`.
+pub const TILE_FILLS_OPACITY: f32 = 0.3;
+/// Group-opacity envelope for the `hatch_lines` bucket. Lifts the
+/// `<g opacity="0.5">` wrapper from `nhc/rendering/ir_to_svg.py`.
+pub const HATCH_LINES_OPACITY: f32 = 0.5;
+
 /// Three SVG fragment buckets emitted per hatch call:
 /// `(tile_fills, hatch_lines, hatch_stones)`. The Python handler
 /// stitches them into the legacy `<g opacity="...">` envelopes.
 type Buckets = (Vec<String>, Vec<String>, Vec<String>);
+
+/// Per-tile shape — backend-agnostic record. The shape stream is
+/// the single source of truth: `draw_hatch_*` formats each shape
+/// as an SVG fragment string, `paint_hatch_*` dispatches each
+/// shape through the Painter trait. Both paths consume the same
+/// RNG sequence in lock-step, so the Painter and SVG output stay
+/// stamp-for-stamp aligned.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum HatchShape {
+    /// Grey underlay rect at integer pixel coords (`px`, `py`).
+    /// Width and height are `CELL` (32). Drawn at
+    /// `TILE_FILLS_OPACITY` group opacity.
+    TileFill { x: i64, y: i64 },
+    /// Rotated stone ellipse. `cx`, `cy` are the centre; `rx`, `ry`
+    /// the radii; `angle_deg` the rotation. Stroke width `sw`
+    /// uses `STONE_STROKE` ink. Drawn at full opacity.
+    HatchStone {
+        cx: f64,
+        cy: f64,
+        rx: f64,
+        ry: f64,
+        angle_deg: f64,
+        sw: f64,
+    },
+    /// Perlin-wobbled hatch line from `(x1, y1)` to `(x2, y2)`,
+    /// stroke width `sw` in `INK`. Drawn at `HATCH_LINES_OPACITY`
+    /// group opacity. `LineCap::Round` for both ends.
+    HatchLine {
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        sw: f64,
+    },
+}
+
+/// Per-bucket `HatchShape` streams in legacy emission order.
+/// `(tile_fills, hatch_lines, hatch_stones)` — same bucketing as
+/// `Buckets` (the SVG-string version) so the SVG emitter and the
+/// Painter emitter stay symmetrical at the bucket boundary.
+type ShapeBuckets = (Vec<HatchShape>, Vec<HatchShape>, Vec<HatchShape>);
 
 /// Corridor halo — adjacent-VOID tiles around corridors / doors.
 /// `tiles` is the pre-sorted list emitted by `_floor_layers.py`
@@ -40,16 +124,8 @@ type Buckets = (Vec<String>, Vec<String>, Vec<String>);
 /// 10 % skip applies (caves and corridor halos take the dense
 /// path in the legacy renderer).
 pub fn draw_hatch_corridor(tiles: &[(i32, i32)], seed: u64) -> Buckets {
-    let mut rng = Pcg64Mcg::seed_from_u64(seed);
-    let mut buckets: Buckets = (
-        Vec::with_capacity(tiles.len()),
-        Vec::new(),
-        Vec::new(),
-    );
-    for &(gx, gy) in tiles {
-        paint_tile(gx, gy, &CORRIDOR_STONE_DIST, &mut rng, &mut buckets);
-    }
-    buckets
+    let shapes = corridor_shapes(tiles, seed);
+    shapes_to_svg_buckets(&shapes)
 }
 
 /// Room (perimeter) halo — candidate tiles emitted by
@@ -62,8 +138,67 @@ pub fn draw_hatch_room(
     is_outer: &[bool],
     seed: u64,
 ) -> Buckets {
+    let shapes = room_shapes(tiles, is_outer, seed);
+    shapes_to_svg_buckets(&shapes)
+}
+
+/// Painter-path twin of `draw_hatch_corridor`. Wraps each non-empty
+/// coloured bucket in `begin_group(opacity)` / `end_group()` to
+/// match the legacy SVG `<g opacity="…">` envelopes; the
+/// `hatch_stones` bucket runs at full opacity with no group
+/// wrapper (the SVG path emits a bare `<g>` for it). Per-tile
+/// emission order is preserved verbatim within each bucket.
+pub fn paint_hatch_corridor(
+    painter: &mut dyn Painter,
+    tiles: &[(i32, i32)],
+    seed: u64,
+) {
+    let shapes = corridor_shapes(tiles, seed);
+    paint_shape_buckets(painter, &shapes);
+}
+
+/// Painter-path twin of `draw_hatch_room`. Same group-opacity
+/// envelope contract as `paint_hatch_corridor`; the room-only
+/// `is_outer` 10 % RNG-skip fires in lock-step with the SVG-string
+/// path.
+pub fn paint_hatch_room(
+    painter: &mut dyn Painter,
+    tiles: &[(i32, i32)],
+    is_outer: &[bool],
+    seed: u64,
+) {
+    let shapes = room_shapes(tiles, is_outer, seed);
+    paint_shape_buckets(painter, &shapes);
+}
+
+// ── Shape-stream generators ──────────────────────────────────
+
+fn corridor_shapes(tiles: &[(i32, i32)], seed: u64) -> ShapeBuckets {
     let mut rng = Pcg64Mcg::seed_from_u64(seed);
-    let mut buckets: Buckets = (
+    let mut buckets: ShapeBuckets = (
+        Vec::with_capacity(tiles.len()),
+        Vec::new(),
+        Vec::new(),
+    );
+    for &(gx, gy) in tiles {
+        tile_shapes_into_buckets(
+            gx,
+            gy,
+            &CORRIDOR_STONE_DIST,
+            &mut rng,
+            &mut buckets,
+        );
+    }
+    buckets
+}
+
+fn room_shapes(
+    tiles: &[(i32, i32)],
+    is_outer: &[bool],
+    seed: u64,
+) -> ShapeBuckets {
+    let mut rng = Pcg64Mcg::seed_from_u64(seed);
+    let mut buckets: ShapeBuckets = (
         Vec::with_capacity(tiles.len()),
         Vec::new(),
         Vec::new(),
@@ -73,9 +208,190 @@ pub fn draw_hatch_room(
         if outer && rng.gen::<f64>() < 0.10 {
             continue;
         }
-        paint_tile(gx, gy, &ROOM_STONE_DIST, &mut rng, &mut buckets);
+        tile_shapes_into_buckets(
+            gx,
+            gy,
+            &ROOM_STONE_DIST,
+            &mut rng,
+            &mut buckets,
+        );
     }
     buckets
+}
+
+// ── Bucket → SVG / Painter dispatchers ───────────────────────
+
+fn shapes_to_svg_buckets(shapes: &ShapeBuckets) -> Buckets {
+    let (tile_fills, hatch_lines, hatch_stones) = shapes;
+    (
+        tile_fills.iter().map(format_shape_svg).collect(),
+        hatch_lines.iter().map(format_shape_svg).collect(),
+        hatch_stones.iter().map(format_shape_svg).collect(),
+    )
+}
+
+fn paint_shape_buckets(
+    painter: &mut dyn Painter,
+    shapes: &ShapeBuckets,
+) {
+    let (tile_fills, hatch_lines, hatch_stones) = shapes;
+
+    if !tile_fills.is_empty() {
+        painter.begin_group(TILE_FILLS_OPACITY);
+        for shape in tile_fills {
+            paint_shape(painter, shape);
+        }
+        painter.end_group();
+    }
+    if !hatch_lines.is_empty() {
+        painter.begin_group(HATCH_LINES_OPACITY);
+        for shape in hatch_lines {
+            paint_shape(painter, shape);
+        }
+        painter.end_group();
+    }
+    // hatch_stones: full opacity, bare `<g>` in the SVG envelope —
+    // no `begin_group(1.0)` wrapper needed. Emit elements directly.
+    for shape in hatch_stones {
+        paint_shape(painter, shape);
+    }
+}
+
+fn format_shape_svg(shape: &HatchShape) -> String {
+    match *shape {
+        HatchShape::TileFill { x, y } => format!(
+            "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" \
+             fill=\"{}\"/>",
+            x, y, CELL as i64, CELL as i64, HATCH_UNDERLAY,
+        ),
+        HatchShape::HatchStone {
+            cx,
+            cy,
+            rx,
+            ry,
+            angle_deg,
+            sw,
+        } => format!(
+            "<ellipse cx=\"{cx:.1}\" cy=\"{cy:.1}\" \
+             rx=\"{rx:.1}\" ry=\"{ry:.1}\" \
+             transform=\"rotate({a:.0},{cx:.1},{cy:.1})\" \
+             fill=\"{HATCH_UNDERLAY}\" stroke=\"{STONE_STROKE}\" \
+             stroke-width=\"{sw:.1}\"/>",
+            a = angle_deg,
+        ),
+        HatchShape::HatchLine { x1, y1, x2, y2, sw } => format!(
+            "<line x1=\"{:.1}\" y1=\"{:.1}\" x2=\"{:.1}\" y2=\"{:.1}\" \
+             stroke=\"{INK}\" stroke-width=\"{sw:.2}\" \
+             stroke-linecap=\"round\"/>",
+            x1, y1, x2, y2,
+        ),
+    }
+}
+
+fn paint_shape(painter: &mut dyn Painter, shape: &HatchShape) {
+    match *shape {
+        HatchShape::TileFill { x, y } => {
+            let rect = crate::painter::Rect::new(
+                x as f32,
+                y as f32,
+                CELL as f32,
+                CELL as f32,
+            );
+            painter.fill_rect(rect, &paint_for_hex(HATCH_UNDERLAY));
+        }
+        HatchShape::HatchStone {
+            cx,
+            cy,
+            rx,
+            ry,
+            angle_deg,
+            sw,
+        } => {
+            let path = rotated_ellipse_path(cx, cy, rx, ry, angle_deg);
+            painter.fill_path(
+                &path,
+                &paint_for_hex(HATCH_UNDERLAY),
+                FillRule::Winding,
+            );
+            painter.stroke_path(
+                &path,
+                &paint_for_hex(STONE_STROKE),
+                &Stroke {
+                    width: sw as f32,
+                    line_cap: LineCap::Butt,
+                    line_join: LineJoin::Miter,
+                },
+            );
+        }
+        HatchShape::HatchLine { x1, y1, x2, y2, sw } => {
+            let mut path = PathOps::new();
+            path.move_to(Vec2::new(x1 as f32, y1 as f32));
+            path.line_to(Vec2::new(x2 as f32, y2 as f32));
+            painter.stroke_path(
+                &path,
+                &paint_for_hex(INK),
+                &Stroke {
+                    width: sw as f32,
+                    line_cap: LineCap::Round,
+                    line_join: LineJoin::Round,
+                },
+            );
+        }
+    }
+}
+
+/// Build a closed cubic-Bezier ellipse path centred at `(cx, cy)`
+/// with radii `(rx, ry)`, rotated by `angle_deg` around `(cx, cy)`.
+/// Mirrors the legacy `ellipse_path` helper in
+/// `transform/png/hatch.rs` (same KAPPA approximation) but bakes
+/// the rotation into the control-point coords so the path is
+/// backend-agnostic. The Painter trait's `fill_ellipse` is
+/// axis-aligned, so the rotated stones go through `fill_path` /
+/// `stroke_path` instead.
+fn rotated_ellipse_path(
+    cx: f64,
+    cy: f64,
+    rx: f64,
+    ry: f64,
+    angle_deg: f64,
+) -> PathOps {
+    const KAPPA: f64 = 0.552_284_8;
+    let ox = rx * KAPPA;
+    let oy = ry * KAPPA;
+    let theta = angle_deg.to_radians();
+    let cos_t = theta.cos();
+    let sin_t = theta.sin();
+    // Rotate `(dx, dy)` (relative to centre) and translate back.
+    let xform = |dx: f64, dy: f64| -> Vec2 {
+        let rx = dx * cos_t - dy * sin_t;
+        let ry = dx * sin_t + dy * cos_t;
+        Vec2::new((cx + rx) as f32, (cy + ry) as f32)
+    };
+    let mut path = PathOps::new();
+    path.move_to(xform(rx, 0.0));
+    path.cubic_to(xform(rx, oy), xform(ox, ry), xform(0.0, ry));
+    path.cubic_to(xform(-ox, ry), xform(-rx, oy), xform(-rx, 0.0));
+    path.cubic_to(xform(-rx, -oy), xform(-ox, -ry), xform(0.0, -ry));
+    path.cubic_to(xform(ox, -ry), xform(rx, -oy), xform(rx, 0.0));
+    path.close();
+    path
+}
+
+fn parse_hex_rgb(s: &str) -> (u8, u8, u8) {
+    s.strip_prefix('#')
+        .filter(|t| t.len() == 6)
+        .and_then(|t| {
+            let r = u8::from_str_radix(&t[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&t[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&t[4..6], 16).ok()?;
+            Some((r, g, b))
+        })
+        .unwrap_or((0, 0, 0))
+}
+
+fn paint_for_hex(hex: &str) -> Paint {
+    let (r, g, b) = parse_hex_rgb(hex);
+    Paint::solid(Color::rgb(r, g, b))
 }
 
 // ── Stone-count weighted distributions ───────────────────────
@@ -105,14 +421,14 @@ fn pick_stones(dist: &StoneDist, rng: &mut Pcg64Mcg) -> u8 {
     dist.cumulative.last().map(|&(v, _)| v).unwrap_or(0)
 }
 
-// ── Per-tile painting ────────────────────────────────────────
+// ── Per-tile shape generation ─────────────────────────────────
 
-fn paint_tile(
+fn tile_shapes_into_buckets(
     gx: i32,
     gy: i32,
     stone_dist: &StoneDist,
     rng: &mut Pcg64Mcg,
-    buckets: &mut Buckets,
+    buckets: &mut ShapeBuckets,
 ) {
     let (ref mut tile_fills, ref mut hatch_lines, ref mut hatch_stones) =
         *buckets;
@@ -120,11 +436,10 @@ fn paint_tile(
     // Grey underlay tile.
     let px = f64::from(gx) * CELL;
     let py = f64::from(gy) * CELL;
-    tile_fills.push(format!(
-        "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" \
-         fill=\"{}\"/>",
-        px as i64, py as i64, CELL as i64, CELL as i64, HATCH_UNDERLAY,
-    ));
+    tile_fills.push(HatchShape::TileFill {
+        x: px as i64,
+        y: py as i64,
+    });
 
     // Stone scatter.
     let n_stones = pick_stones(stone_dist, rng);
@@ -135,14 +450,14 @@ fn paint_tile(
         let ry: f64 = rng.gen_range(2.0..(CELL * 0.2));
         let angle: f64 = rng.gen_range(0.0..180.0);
         let sw: f64 = rng.gen_range(1.2..2.0);
-        hatch_stones.push(format!(
-            "<ellipse cx=\"{sx:.1}\" cy=\"{sy:.1}\" \
-             rx=\"{rx:.1}\" ry=\"{ry:.1}\" \
-             transform=\"rotate({a:.0},{sx:.1},{sy:.1})\" \
-             fill=\"{HATCH_UNDERLAY}\" stroke=\"{STONE_STROKE}\" \
-             stroke-width=\"{sw:.1}\"/>",
-            a = angle,
-        ));
+        hatch_stones.push(HatchShape::HatchStone {
+            cx: sx,
+            cy: sy,
+            rx,
+            ry,
+            angle_deg: angle,
+            sw,
+        });
     }
 
     // Perlin-displaced cluster anchor.
@@ -223,12 +538,13 @@ fn paint_tile(
                 c2.1 + pnoise2(c2.0 * 0.1, c2.1 * 0.1, 13) * wb,
             );
 
-            hatch_lines.push(format!(
-                "<line x1=\"{:.1}\" y1=\"{:.1}\" x2=\"{:.1}\" y2=\"{:.1}\" \
-                 stroke=\"{INK}\" stroke-width=\"{sw:.2}\" \
-                 stroke-linecap=\"round\"/>",
-                q1.0, q1.1, q2.0, q2.1,
-            ));
+            hatch_lines.push(HatchShape::HatchLine {
+                x1: q1.0,
+                y1: q1.1,
+                x2: q2.0,
+                y2: q2.1,
+                sw,
+            });
         }
     }
 }
@@ -414,8 +730,100 @@ fn clip_line_to_polygon(
 mod tests {
     use super::{
         clip_line_to_polygon, draw_hatch_corridor, draw_hatch_room,
-        section_to_geo,
+        paint_hatch_corridor, paint_hatch_room, section_to_geo,
+        HATCH_LINES_OPACITY, TILE_FILLS_OPACITY,
     };
+    use crate::painter::{
+        FillRule, Paint, Painter, PathOps, Rect, Stroke, Vec2,
+    };
+
+    /// Records every Painter call. Mirrors the trait-level
+    /// `MockPainter` in `painter::tests` but lives in this module
+    /// so the assertions stay close to the primitive.
+    #[derive(Debug, Default)]
+    struct CaptureCalls {
+        calls: Vec<Call>,
+        group_depth: i32,
+        max_group_depth: i32,
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum Call {
+        FillRect,
+        FillPath,
+        StrokePath,
+        BeginGroup(u32),
+        EndGroup,
+    }
+
+    impl Painter for CaptureCalls {
+        fn fill_rect(&mut self, _: Rect, _: &Paint) {
+            self.calls.push(Call::FillRect);
+        }
+        fn stroke_rect(&mut self, _: Rect, _: &Paint, _: &Stroke) {}
+        fn fill_circle(&mut self, _: f32, _: f32, _: f32, _: &Paint) {}
+        fn fill_ellipse(
+            &mut self,
+            _: f32,
+            _: f32,
+            _: f32,
+            _: f32,
+            _: &Paint,
+        ) {
+        }
+        fn fill_polygon(
+            &mut self,
+            _: &[Vec2],
+            _: &Paint,
+            _: FillRule,
+        ) {
+        }
+        fn stroke_polyline(
+            &mut self,
+            _: &[Vec2],
+            _: &Paint,
+            _: &Stroke,
+        ) {
+        }
+        fn fill_path(&mut self, _: &PathOps, _: &Paint, _: FillRule) {
+            self.calls.push(Call::FillPath);
+        }
+        fn stroke_path(&mut self, _: &PathOps, _: &Paint, _: &Stroke) {
+            self.calls.push(Call::StrokePath);
+        }
+        fn begin_group(&mut self, opacity: f32) {
+            self.group_depth += 1;
+            if self.group_depth > self.max_group_depth {
+                self.max_group_depth = self.group_depth;
+            }
+            // Quantise opacity for stable equality comparisons —
+            // the bucket constants are 0.3 and 0.5, both round
+            // cleanly to integer hundredths.
+            self.calls
+                .push(Call::BeginGroup((opacity * 100.0).round() as u32));
+        }
+        fn end_group(&mut self) {
+            self.group_depth -= 1;
+            self.calls.push(Call::EndGroup);
+        }
+        fn push_clip(&mut self, _: &PathOps, _: FillRule) {}
+        fn pop_clip(&mut self) {}
+    }
+
+    impl CaptureCalls {
+        fn count(&self, target: &Call) -> usize {
+            self.calls.iter().filter(|c| *c == target).count()
+        }
+        fn begin_group_count(&self) -> usize {
+            self.calls
+                .iter()
+                .filter(|c| matches!(c, Call::BeginGroup(_)))
+                .count()
+        }
+        fn end_group_count(&self) -> usize {
+            self.count(&Call::EndGroup)
+        }
+    }
 
     #[test]
     fn corridor_empty_tiles_returns_empty_buckets() {
@@ -515,5 +923,159 @@ mod tests {
         let xs = [a.0.min(b.0), a.0.max(b.0)];
         assert!((xs[0]).abs() < 1e-6);
         assert!((xs[1] - 10.0).abs() < 1e-6);
+    }
+
+    // ── Painter-path tests ─────────────────────────────────────
+
+    /// Empty corridor → zero painter calls. Sanity check that no
+    /// spurious begin_group / end_group fires on an empty bucket.
+    #[test]
+    fn paint_hatch_corridor_empty_tiles_emits_no_calls() {
+        let mut painter = CaptureCalls::default();
+        paint_hatch_corridor(&mut painter, &[], 0);
+        assert!(painter.calls.is_empty());
+        assert_eq!(painter.group_depth, 0);
+    }
+
+    /// Empty room → zero painter calls. Symmetric to corridor.
+    #[test]
+    fn paint_hatch_room_empty_tiles_emits_no_calls() {
+        let mut painter = CaptureCalls::default();
+        paint_hatch_room(&mut painter, &[], &[], 0);
+        assert!(painter.calls.is_empty());
+        assert_eq!(painter.group_depth, 0);
+    }
+
+    /// One corridor tile → at minimum, the tile_fills group fires
+    /// (every tile produces exactly one TileFill). The hatch_lines
+    /// group fires too because every tile yields ≥ 9 hatch lines
+    /// (3 sections × ≥ 3 lines each, gated by the area > 1.0 cull
+    /// — for a non-degenerate tile, all three sections survive).
+    /// The hatch_stones bucket has NO group wrapper (full opacity
+    /// in the SVG envelope) so its fill/stroke calls land outside
+    /// any group.
+    #[test]
+    fn paint_hatch_corridor_one_tile_wraps_buckets_in_groups() {
+        let mut painter = CaptureCalls::default();
+        paint_hatch_corridor(&mut painter, &[(0_i32, 0_i32)], 42);
+
+        // Bucket structure: begin_group(0.3) → fill_rect+ →
+        // end_group → begin_group(0.5) → stroke_path+ → end_group
+        // → fill_path/stroke_path pairs (stones, no wrapper).
+        assert!(
+            painter.begin_group_count() == painter.end_group_count(),
+            "begin/end groups must balance: {} begins vs {} ends",
+            painter.begin_group_count(),
+            painter.end_group_count(),
+        );
+        assert_eq!(
+            painter.group_depth, 0,
+            "group depth must end at 0"
+        );
+        assert!(
+            painter.max_group_depth <= 1,
+            "buckets are not nested — max depth must be ≤ 1, got {}",
+            painter.max_group_depth,
+        );
+
+        // tile_fills at 0.3 group opacity is always emitted on a
+        // non-empty tile list.
+        assert!(
+            painter
+                .calls
+                .iter()
+                .any(|c| matches!(c, Call::BeginGroup(30))),
+            "expected begin_group at 0.3 (TILE_FILLS_OPACITY = {}); got {:?}",
+            TILE_FILLS_OPACITY,
+            painter.calls,
+        );
+        // Exactly one fill_rect for the single tile_fill.
+        assert_eq!(painter.count(&Call::FillRect), 1);
+    }
+
+    /// Group wrapper opacities match the documented bucket
+    /// constants (0.3 tile_fills, 0.5 hatch_lines).
+    #[test]
+    fn paint_hatch_corridor_uses_documented_bucket_opacities() {
+        let mut painter = CaptureCalls::default();
+        paint_hatch_corridor(&mut painter, &[(0_i32, 0_i32)], 42);
+        let opacities: Vec<u32> = painter
+            .calls
+            .iter()
+            .filter_map(|c| match c {
+                Call::BeginGroup(op) => Some(*op),
+                _ => None,
+            })
+            .collect();
+        // Two non-empty groups: tile_fills (0.3 → 30) then
+        // hatch_lines (0.5 → 50). hatch_stones is unwrapped.
+        assert_eq!(
+            opacities,
+            vec![
+                (TILE_FILLS_OPACITY * 100.0).round() as u32,
+                (HATCH_LINES_OPACITY * 100.0).round() as u32,
+            ],
+            "group opacities must be (TILE_FILLS_OPACITY, HATCH_LINES_OPACITY)",
+        );
+    }
+
+    /// Room-path: same bucket / group contract as corridor, plus
+    /// the `is_outer` 10 %-skip pathway must keep groups balanced
+    /// even when some tiles are skipped.
+    #[test]
+    fn paint_hatch_room_outer_skip_keeps_groups_balanced() {
+        let mut painter = CaptureCalls::default();
+        let tiles: Vec<(i32, i32)> =
+            (0..40).map(|i| (i, 0)).collect();
+        let all_outer = vec![true; tiles.len()];
+        paint_hatch_room(&mut painter, &tiles, &all_outer, 7);
+        assert_eq!(
+            painter.group_depth, 0,
+            "group depth must end at 0 even when tiles skip"
+        );
+        assert_eq!(
+            painter.begin_group_count(),
+            painter.end_group_count(),
+        );
+    }
+
+    /// Cross-check that the SVG-string emitter and the Painter
+    /// emitter agree on bucket sizes for the same seed/tiles.
+    /// Both consume the same shape stream, so the count of
+    /// fill_rect calls (Painter) equals the count of tile_fills
+    /// (SVG); the count of stroke_path calls (Painter, hatch lines
+    /// only — stones contribute fill_path + stroke_path pairs)
+    /// equals the count of hatch_lines (SVG); and hatch_stones
+    /// pairs (fill_path + stroke_path) match the SVG count.
+    #[test]
+    fn paint_and_draw_agree_on_bucket_counts() {
+        let tiles = [(0_i32, 0_i32), (1, 2), (5, 5), (-1, 7)];
+        let seed = 42;
+
+        let (svg_fills, svg_lines, svg_stones) =
+            draw_hatch_corridor(&tiles, seed);
+
+        let mut painter = CaptureCalls::default();
+        paint_hatch_corridor(&mut painter, &tiles, seed);
+
+        // Each TileFill → one fill_rect.
+        assert_eq!(
+            svg_fills.len(),
+            painter.count(&Call::FillRect),
+            "tile_fills count mismatch",
+        );
+        // Each HatchStone → one fill_path + one stroke_path.
+        // Each HatchLine → one stroke_path. So
+        // total stroke_path = stones + lines, fill_path = stones.
+        assert_eq!(
+            svg_stones.len(),
+            painter.count(&Call::FillPath),
+            "hatch_stones (fill_path) count mismatch",
+        );
+        assert_eq!(
+            svg_lines.len() + svg_stones.len(),
+            painter.count(&Call::StrokePath),
+            "stroke_path total (lines + stones) mismatch",
+        );
     }
 }
