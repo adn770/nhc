@@ -1113,35 +1113,39 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
         _find_region(fir, clip_id.encode()) if clip_id else None
     )
     has_dungeon_clip = region is not None
-    clip_attr = (
-        ' clip-path="url(#wood-interior-clip)"'
-        if has_dungeon_clip else ""
-    )
 
+    # Wood base fill is emitted by WallsAndFloorsOp (structural
+    # layer) per design/map_ir.md §6.1; this handler only paints
+    # the per-room grain + plank seams (floor_detail layer).
+    #
+    # SVG only allows one ``clip-path`` per element — pick exactly
+    # one. The dungeon Region's outline tracks the building
+    # polygon for building floors (per the
+    # ``build_render_context`` override that made ``dungeon_poly =
+    # building_polygon`` when the building is set), so the
+    # wood-interior-clip is sufficient. Fall back to
+    # ``op.woodBuildingPolygon`` only when there's no dungeon
+    # Region (3.x cached building IRs from before the override
+    # landed).
     if has_dungeon_clip:
         out.append(_dungeon_clip_defs(
             region.Outline(), "wood-interior-clip",
         ))
-
-    # Wood base fill is emitted by WallsAndFloorsOp (structural
-    # layer) per design/map_ir.md §6.1; this handler only paints
-    # the per-room grain + plank seams (floor_detail layer). The
-    # ``wood_building_polygon`` is still carried so we can clip
-    # the grain/seam strokes to the building footprint — without
-    # the clip, octagon / circle / L buildings bleed grain lines
-    # past their chamfered corners.
-    polygon = list(op.woodBuildingPolygon or [])
-    bldg_clip_attr = ""
-    if polygon:
-        poly_points = " ".join(
-            f"{p.x:.1f},{p.y:.1f}" for p in polygon
-        )
-        out.append(
-            '<defs><clipPath id="wood-bldg-clip">'
-            f'<polygon points="{poly_points}"/>'
-            '</clipPath></defs>'
-        )
-        bldg_clip_attr = ' clip-path="url(#wood-bldg-clip)"'
+        clip_attr = ' clip-path="url(#wood-interior-clip)"'
+    else:
+        polygon = list(op.woodBuildingPolygon or [])
+        if polygon:
+            poly_points = " ".join(
+                f"{p.x:.1f},{p.y:.1f}" for p in polygon
+            )
+            out.append(
+                '<defs><clipPath id="wood-bldg-clip">'
+                f'<polygon points="{poly_points}"/>'
+                '</clipPath></defs>'
+            )
+            clip_attr = ' clip-path="url(#wood-bldg-clip)"'
+        else:
+            clip_attr = ""
 
     rooms = list(op.woodRooms or [])
     if not rooms:
@@ -1203,7 +1207,7 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
         out.append(
             f'<g fill="none" stroke="{colour}" '
             f'stroke-width="{WOOD_GRAIN_STROKE_WIDTH}" '
-            f'opacity="{WOOD_GRAIN_OPACITY}"{clip_attr}{bldg_clip_attr}>'
+            f'opacity="{WOOD_GRAIN_OPACITY}"{clip_attr}>'
         )
         out.append("".join(group))
         out.append("</g>")
@@ -1220,7 +1224,7 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
         return out
     out.append(
         f'<g fill="none" stroke="{WOOD_SEAM_STROKE}" '
-        f'stroke-width="{WOOD_SEAM_WIDTH}"{clip_attr}{bldg_clip_attr}>'
+        f'stroke-width="{WOOD_SEAM_WIDTH}"{clip_attr}>'
     )
     out.append("".join(seams))
     out.append("</g>")
