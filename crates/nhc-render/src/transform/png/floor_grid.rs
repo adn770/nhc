@@ -1,53 +1,93 @@
 //! Floor-grid op rasterisation — Phase 5.2.4 of
-//! `plans/nhc_ir_migration_plan.md`.
+//! `plans/nhc_ir_migration_plan.md`, ported to the Painter trait
+//! in Phase 2.7 of `plans/nhc_pure_ir_plan.md`.
 //!
 //! Mirrors `_draw_floor_grid_from_ir`: the per-edge wobbly grid
-//! segment generator stays in `primitives::floor_grid` (it owns
+//! polyline generator stays in `primitives::floor_grid` (it owns
 //! the `PyRandom` + Perlin parity contract); the PNG handler
-//! parses the resulting `(room_d, corridor_d)` pair into
-//! `tiny-skia::Path` move/line ops and strokes them with the
-//! GRID_WIDTH=0.3 / opacity=0.7 black ink the SVG envelope
-//! carries.
+//! wraps the active `tiny_skia::Pixmap` in a `SkiaPainter` and
+//! forwards the room/corridor `PathOps` returned by
+//! `paint_floor_grid_paths` through `stroke_path`. The room
+//! stroke is wrapped in `push_clip(region_outline, EvenOdd)` /
+//! `pop_clip()` to mirror the legacy `Mask::new` +
+//! `mask.fill_path(EvenOdd)` envelope; the corridor stroke runs
+//! unclipped.
 
-use tiny_skia::{
-    Color, FillRule, LineCap, LineJoin, Mask, Paint, Stroke,
+use crate::ir::{FloorGridOp, FloorIR, OpEntry, Outline};
+use crate::painter::{
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, SkiaPainter,
+    Stroke, Vec2,
 };
+use crate::primitives::floor_grid::paint_floor_grid_paths;
 
-use crate::ir::{FloorIR, FloorGridOp, OpEntry};
-use crate::primitives::floor_grid::draw_floor_grid;
-
-use super::path_parser::parse_path_d;
-use super::polygon_path::build_outline_path;
 use super::RasterCtx;
 
 const GRID_WIDTH: f32 = 0.3;
 const GRID_OPACITY: f32 = 0.7;
-const INK_R: u8 = 0x00;
-const INK_G: u8 = 0x00;
-const INK_B: u8 = 0x00;
-
-fn grid_paint() -> Paint<'static> {
-    let mut p = Paint::default();
-    p.set_color(
-        Color::from_rgba(
-            INK_R as f32 / 255.0,
-            INK_G as f32 / 255.0,
-            INK_B as f32 / 255.0,
-            GRID_OPACITY,
-        )
-        .unwrap_or(Color::TRANSPARENT),
-    );
-    p.anti_alias = true;
-    p
-}
+const INK_PAINT: Paint = Paint {
+    color: Color { r: 0, g: 0, b: 0, a: GRID_OPACITY },
+};
 
 fn grid_stroke() -> Stroke {
     Stroke {
         width: GRID_WIDTH,
         line_cap: LineCap::Round,
         line_join: LineJoin::Round,
-        ..Stroke::default()
     }
+}
+
+/// Walk an IR `Outline` (single-ring or multi-ring) into a
+/// `PathOps` clip path. Each ring contributes `MoveTo` + `LineTo*`
+/// + `Close`. The legacy `polygon_path::build_outline_path`
+/// applied the same shape against a `tiny_skia::PathBuilder`;
+/// here we route through `PathOps` so the same clip can target
+/// any `Painter` backend.
+fn outline_to_pathops(outline: &Outline<'_>) -> Option<PathOps> {
+    let verts = outline.vertices()?;
+    if verts.is_empty() {
+        return None;
+    }
+    let rings = outline.rings();
+    let ring_iter: Vec<(usize, usize)> = match rings {
+        Some(r) if r.len() > 0 => r
+            .iter()
+            .map(|pr| (pr.start() as usize, pr.count() as usize))
+            .collect(),
+        _ => vec![(0, verts.len())],
+    };
+    let mut path = PathOps::new();
+    let mut any = false;
+    for (start, count) in ring_iter {
+        if count < 2 {
+            continue;
+        }
+        for j in 0..count {
+            let v = verts.get(start + j);
+            let p = Vec2::new(v.x(), v.y());
+            if j == 0 {
+                path.move_to(p);
+            } else {
+                path.line_to(p);
+            }
+        }
+        path.close();
+        any = true;
+    }
+    if !any {
+        return None;
+    }
+    Some(path)
+}
+
+fn build_clip(
+    op: &FloorGridOp<'_>,
+    fir: &FloorIR<'_>,
+) -> Option<PathOps> {
+    let region_id = op.region_ref().filter(|r| !r.is_empty())?;
+    let regions = fir.regions()?;
+    let region = regions.iter().find(|r| r.id() == region_id)?;
+    let outline = region.outline()?;
+    outline_to_pathops(&outline)
 }
 
 pub(super) fn draw(
@@ -67,52 +107,30 @@ pub(super) fn draw(
                 .collect()
         })
         .unwrap_or_default();
-    let (room_d, corridor_d) = draw_floor_grid(
+    let (room_paths, corridor_paths) = paint_floor_grid_paths(
         fir.width_tiles() as i32,
         fir.height_tiles() as i32,
         &tiles,
         op.seed(),
     );
-    let paint = grid_paint();
     let stroke = grid_stroke();
-    let clip_mask = build_clip_mask(&op, fir, ctx);
+    let clip = build_clip(&op, fir);
 
-    if !room_d.is_empty() {
-        if let Some(path) = parse_path_d(&room_d) {
-            ctx.pixmap.stroke_path(
-                &path,
-                &paint,
-                &stroke,
-                ctx.transform,
-                clip_mask.as_ref(),
-            );
+    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+
+    if !room_paths.is_empty() {
+        match &clip {
+            Some(clip_path) => {
+                painter.push_clip(clip_path, FillRule::EvenOdd);
+                painter.stroke_path(&room_paths, &INK_PAINT, &stroke);
+                painter.pop_clip();
+            }
+            None => {
+                painter.stroke_path(&room_paths, &INK_PAINT, &stroke);
+            }
         }
     }
-    if !corridor_d.is_empty() {
-        if let Some(path) = parse_path_d(&corridor_d) {
-            ctx.pixmap.stroke_path(
-                &path,
-                &paint,
-                &stroke,
-                ctx.transform,
-                None,
-            );
-        }
+    if !corridor_paths.is_empty() {
+        painter.stroke_path(&corridor_paths, &INK_PAINT, &stroke);
     }
-}
-
-fn build_clip_mask(
-    op: &FloorGridOp<'_>,
-    fir: &FloorIR<'_>,
-    ctx: &RasterCtx<'_>,
-) -> Option<Mask> {
-    let region_id = op.region_ref().filter(|r| !r.is_empty())?;
-    let regions = fir.regions()?;
-    let region = regions.iter().find(|r| r.id() == region_id)?;
-    let outline = region.outline()?;
-    let path = build_outline_path(&outline)?;
-    let mut mask =
-        Mask::new(ctx.pixmap.width(), ctx.pixmap.height())?;
-    mask.fill_path(&path, FillRule::EvenOdd, true, ctx.transform);
-    Some(mask)
 }

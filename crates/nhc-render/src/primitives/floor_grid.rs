@@ -25,7 +25,25 @@
 //! - Coordinate strings use `{:.1}` — Rust and Python both
 //!   round-half-to-even on f64, so the formatted strings match
 //!   bit-for-bit on the inputs the rendering pipeline produces.
+//!
+//! Two emit paths coexist during Phase 2:
+//!
+//! - The legacy `draw_floor_grid` SVG-string emitter (used by the
+//!   FFI / `nhc/rendering/ir_to_svg.py` Python path until 2.17
+//!   ships the `SvgPainter`-based PyO3 export and 2.19 retires
+//!   the Python `ir_to_svg` path).
+//! - The new `paint_floor_grid_paths` Painter-friendly emitter
+//!   that returns `(room_paths, corridor_paths)` as `PathOps`.
+//!   Used by the Rust `transform/png` path via `SkiaPainter`
+//!   and, after 2.17, by the Rust `ir_to_svg` path via
+//!   `SvgPainter`.
+//!
+//! Both paths share the private `wobbly_grid_seg_vertices`
+//! generator — the wobbly polyline is RNG- and Perlin-driven and
+//! the byte-equality contract requires a single source of truth
+//! for the per-segment vertex sequence.
 
+use crate::painter::{PathOps, Vec2};
 use crate::perlin::pnoise2;
 use crate::python_random::PyRandom;
 
@@ -33,10 +51,19 @@ const CELL: f64 = 32.0;
 const WOBBLE: f64 = CELL * 0.05;
 const N_SUB: i32 = 5;
 
-/// One wobbly grid segment with optional pen-lift gap. Mirrors
+/// One wobbly grid segment's polyline vertices, with optional
+/// pen-lift gap encoded as a `None` separator. Mirrors
 /// `_wobbly_grid_seg` in the Python helpers — the per-tile right
 /// and bottom edges feed through here.
-fn wobbly_grid_seg(
+///
+/// Returns a flat list of sub-segment runs: each run is a
+/// contiguous sequence of points. A pen-lift gap (RNG-triggered
+/// at `i == gap_pos` with `random() < 0.25`) starts a new run
+/// after the gap. Both the SVG-string emitter and the PathOps
+/// emitter consume this vertex shape — the SVG emitter formats
+/// each run as `M x,y L x,y …` and the PathOps emitter walks
+/// each run as `MoveTo, LineTo, …`.
+fn wobbly_grid_seg_vertices(
     rng: &mut PyRandom,
     x0: f64,
     y0: f64,
@@ -45,7 +72,7 @@ fn wobbly_grid_seg(
     noise_x: f64,
     noise_y: f64,
     base: i32,
-) -> String {
+) -> Vec<Vec<(f64, f64)>> {
     let dx = x1 - x0;
     let dy = y1 - y0;
     let mut pts: Vec<(f64, f64)> = Vec::with_capacity((N_SUB + 1) as usize);
@@ -69,19 +96,66 @@ fn wobbly_grid_seg(
         pts.push((lx, ly));
     }
     let gap_pos = rng.randint(1, (N_SUB - 1) as i64) as usize;
-    let mut seg = format!("M{:.1},{:.1}", pts[0].0, pts[0].1);
+    let mut runs: Vec<Vec<(f64, f64)>> = Vec::new();
+    let mut current: Vec<(f64, f64)> = vec![pts[0]];
     for i in 1..pts.len() {
         // Python's `i == gap_pos and rng.random() < 0.25` short-
         // circuits — `rng.random()` only fires on the matching
         // sub-segment. Reproduce the same RNG consumption pattern
         // here or the parity gate fails on the very first floor.
         if i == gap_pos && rng.random() < 0.25 {
-            seg.push_str(&format!(" M{:.1},{:.1}", pts[i].0, pts[i].1));
+            // Pen-lift gap: close current run and start a new one
+            // at the gap point.
+            runs.push(std::mem::take(&mut current));
+            current.push(pts[i]);
         } else {
-            seg.push_str(&format!(" L{:.1},{:.1}", pts[i].0, pts[i].1));
+            current.push(pts[i]);
+        }
+    }
+    if !current.is_empty() {
+        runs.push(current);
+    }
+    runs
+}
+
+/// Format a single wobbly segment's vertex runs as an SVG `d=`
+/// string fragment. Each run starts with `M x,y` and continues
+/// with `L x,y` for the remaining vertices; multiple runs are
+/// separated by another `M`.
+fn format_seg_d(runs: &[Vec<(f64, f64)>]) -> String {
+    let mut seg = String::new();
+    for (run_idx, run) in runs.iter().enumerate() {
+        if run.is_empty() {
+            continue;
+        }
+        let (x0, y0) = run[0];
+        if run_idx == 0 {
+            seg.push_str(&format!("M{:.1},{:.1}", x0, y0));
+        } else {
+            seg.push_str(&format!(" M{:.1},{:.1}", x0, y0));
+        }
+        for &(x, y) in &run[1..] {
+            seg.push_str(&format!(" L{:.1},{:.1}", x, y));
         }
     }
     seg
+}
+
+/// Append a single wobbly segment's vertex runs to `path` as
+/// `MoveTo, LineTo, LineTo, …` ops. Each new run starts with a
+/// fresh `MoveTo`; no `Close` is emitted (the wobbly grid is
+/// open polylines).
+fn append_seg_pathops(path: &mut PathOps, runs: &[Vec<(f64, f64)>]) {
+    for run in runs {
+        if run.is_empty() {
+            continue;
+        }
+        let (x0, y0) = run[0];
+        path.move_to(Vec2::new(x0 as f32, y0 as f32));
+        for &(x, y) in &run[1..] {
+            path.line_to(Vec2::new(x as f32, y as f32));
+        }
+    }
 }
 
 /// Layer-level driver. Walks pre-classified tiles in the IR's
@@ -108,7 +182,7 @@ pub fn draw_floor_grid(
 
         // Right edge.
         if x + 1 < width_tiles {
-            let seg = wobbly_grid_seg(
+            let runs = wobbly_grid_seg_vertices(
                 &mut rng,
                 px + CELL,
                 py,
@@ -118,6 +192,7 @@ pub fn draw_floor_grid(
                 y as f64 * 0.7,
                 20,
             );
+            let seg = format_seg_d(&runs);
             if is_corridor {
                 corridor_segments.push(seg);
             } else {
@@ -127,7 +202,7 @@ pub fn draw_floor_grid(
 
         // Bottom edge.
         if y + 1 < height_tiles {
-            let seg = wobbly_grid_seg(
+            let runs = wobbly_grid_seg_vertices(
                 &mut rng,
                 px,
                 py + CELL,
@@ -137,6 +212,7 @@ pub fn draw_floor_grid(
                 y as f64 * 0.7,
                 24,
             );
+            let seg = format_seg_d(&runs);
             if is_corridor {
                 corridor_segments.push(seg);
             } else {
@@ -147,9 +223,73 @@ pub fn draw_floor_grid(
     (room_segments.join(" "), corridor_segments.join(" "))
 }
 
+/// Painter-path twin of `draw_floor_grid`. Returns
+/// `(room_paths, corridor_paths)` as `PathOps`, sharing the
+/// `wobbly_grid_seg_vertices` generator with the SVG-string
+/// emitter so the per-edge polylines are bit-identical.
+///
+/// Each `PathOps` walks the per-segment vertex list as
+/// `MoveTo, LineTo, LineTo, …` and starts the next segment with
+/// another `MoveTo`. No `Close` is emitted — the wobbly grid is
+/// a collection of open polylines.
+pub fn paint_floor_grid_paths(
+    width_tiles: i32,
+    height_tiles: i32,
+    tiles: &[(i32, i32, bool)],
+    seed: u64,
+) -> (PathOps, PathOps) {
+    let mut rng = PyRandom::from_seed(seed);
+    let mut room_paths = PathOps::new();
+    let mut corridor_paths = PathOps::new();
+    for &(x, y, is_corridor) in tiles {
+        let px = x as f64 * CELL;
+        let py = y as f64 * CELL;
+
+        // Right edge.
+        if x + 1 < width_tiles {
+            let runs = wobbly_grid_seg_vertices(
+                &mut rng,
+                px + CELL,
+                py,
+                px + CELL,
+                py + CELL,
+                x as f64 * 0.7,
+                y as f64 * 0.7,
+                20,
+            );
+            if is_corridor {
+                append_seg_pathops(&mut corridor_paths, &runs);
+            } else {
+                append_seg_pathops(&mut room_paths, &runs);
+            }
+        }
+
+        // Bottom edge.
+        if y + 1 < height_tiles {
+            let runs = wobbly_grid_seg_vertices(
+                &mut rng,
+                px,
+                py + CELL,
+                px + CELL,
+                py + CELL,
+                x as f64 * 0.3,
+                y as f64 * 0.7,
+                24,
+            );
+            if is_corridor {
+                append_seg_pathops(&mut corridor_paths, &runs);
+            } else {
+                append_seg_pathops(&mut room_paths, &runs);
+            }
+        }
+    }
+    (room_paths, corridor_paths)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::draw_floor_grid;
+    use super::{draw_floor_grid, paint_floor_grid_paths};
+    use crate::painter::PathOp;
 
     /// Empty tile list returns empty buckets — sanity check that
     /// the layer-level driver doesn't panic on a no-op call.
@@ -187,6 +327,124 @@ mod tests {
         assert!(
             !corridor.is_empty(),
             "corridor bucket should be populated"
+        );
+    }
+
+    // ── Painter-path tests ─────────────────────────────────────
+
+    /// Empty tile list → both PathOps empty.
+    #[test]
+    fn paint_floor_grid_empty_tiles_returns_empty_paths() {
+        let (room, corridor) = paint_floor_grid_paths(0, 0, &[], 41);
+        assert!(room.is_empty(), "room PathOps should be empty");
+        assert!(corridor.is_empty(), "corridor PathOps should be empty");
+    }
+
+    /// One non-corridor tile @ (1,1) in a 5×5 floor → the right
+    /// + bottom edges fall inside the floor (x+1=2 < 5 and
+    /// y+1=2 < 5), so room PathOps gets at least one MoveTo plus
+    /// multiple LineTos; corridor PathOps stays empty.
+    #[test]
+    fn paint_floor_grid_room_tile_populates_room_path() {
+        let tiles = [(1, 1, false)];
+        let (room, corridor) = paint_floor_grid_paths(5, 5, &tiles, 41);
+        assert!(corridor.is_empty(), "corridor PathOps should be empty");
+
+        let move_count = room
+            .ops
+            .iter()
+            .filter(|op| matches!(op, PathOp::MoveTo(_)))
+            .count();
+        let line_count = room
+            .ops
+            .iter()
+            .filter(|op| matches!(op, PathOp::LineTo(_)))
+            .count();
+        assert!(
+            move_count >= 1,
+            "room path needs at least one MoveTo, got {move_count}"
+        );
+        assert!(
+            line_count > 1,
+            "room path needs multiple LineTos, got {line_count}"
+        );
+        // No Close ops — wobbly grid is open polylines.
+        assert!(
+            room.ops.iter().all(|op| !matches!(op, PathOp::Close)),
+            "wobbly grid must not emit Close ops"
+        );
+    }
+
+    /// One corridor tile @ (1,1) in a 5×5 floor → corridor
+    /// PathOps populated, room PathOps empty.
+    #[test]
+    fn paint_floor_grid_corridor_tile_populates_corridor_path() {
+        let tiles = [(1, 1, true)];
+        let (room, corridor) = paint_floor_grid_paths(5, 5, &tiles, 41);
+        assert!(room.is_empty(), "room PathOps should be empty");
+        assert!(
+            !corridor.is_empty(),
+            "corridor PathOps should be populated"
+        );
+    }
+
+    /// Cross-check: the SVG-string emitter and the PathOps
+    /// emitter must agree on segment count for a non-trivial
+    /// fixture. We don't compare exact vertex coords (too fragile
+    /// across f32/f64 boundaries) — instead we count `L`s in the
+    /// SVG `d=` and `LineTo`s in the PathOps, which both share
+    /// the wobbly_grid_seg_vertices generator.
+    #[test]
+    fn paint_and_draw_agree_on_line_segment_count() {
+        let tiles = [
+            (0, 0, false),
+            (1, 0, false),
+            (0, 1, false),
+            (1, 1, true),
+            (2, 1, true),
+        ];
+        let seed = 41;
+        let (room_d, corridor_d) =
+            draw_floor_grid(5, 5, &tiles, seed);
+        let (room_paths, corridor_paths) =
+            paint_floor_grid_paths(5, 5, &tiles, seed);
+
+        let room_l = room_d.matches(" L").count();
+        let room_line_to = room_paths
+            .ops
+            .iter()
+            .filter(|op| matches!(op, PathOp::LineTo(_)))
+            .count();
+        assert_eq!(
+            room_l, room_line_to,
+            "room: SVG L count {room_l} must match PathOps LineTo count {room_line_to}"
+        );
+
+        let corridor_l = corridor_d.matches(" L").count();
+        let corridor_line_to = corridor_paths
+            .ops
+            .iter()
+            .filter(|op| matches!(op, PathOp::LineTo(_)))
+            .count();
+        assert_eq!(
+            corridor_l, corridor_line_to,
+            "corridor: SVG L count {corridor_l} must match PathOps LineTo count {corridor_line_to}"
+        );
+
+        // MoveTo count parity: SVG `M`s (counting both the leading
+        // M without space and any " M" gap-lift) must equal PathOps
+        // MoveTo count. The leading-M-per-segment is joined with a
+        // space at the bucket level — every segment contributes
+        // exactly one leading `M` + zero or more ` M` gap lifts.
+        let room_m = room_d.matches('M').count();
+        let room_move_to = room_paths
+            .ops
+            .iter()
+            .filter(|op| matches!(op, PathOp::MoveTo(_)))
+            .count();
+        assert_eq!(
+            room_m, room_move_to,
+            "room: SVG M count {room_m} must match PathOps MoveTo count {room_move_to}"
         );
     }
 }
