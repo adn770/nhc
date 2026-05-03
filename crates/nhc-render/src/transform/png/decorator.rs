@@ -2,9 +2,9 @@
 //! pipeline the SVG handler at
 //! `_draw_decorator_from_ir` walks. Phase 5.4.x lands per-
 //! variant branches one at a time; the dispatcher routes each
-//! entry through to its `primitives::*::draw_*` Rust port and
-//! the new `fragment::paint_fragments` helper rasterises the
-//! returned `<g>` envelopes.
+//! entry through to its `primitives::*::paint_*` Painter-trait
+//! port via a single `SkiaPainter` constructed for the dispatch
+//! scope.
 //!
 //! Live variants:
 //!
@@ -16,22 +16,20 @@
 //! - 5.4.6 Cart Tracks — paired rails + cross-tie per tile.
 //! - 5.4.7 Ore Deposit — diamond glint per ore-deposit wall tile.
 //!
-//! Phases 2.13a–2.13f of `plans/nhc_pure_ir_plan.md` port the
-//! cobblestone, brick, flagstone, opus_romano, field_stone, and
-//! cart_tracks branches to the Painter trait. The remaining
-//! sub-handler (ore_deposit) stays on the legacy
-//! `paint_fragments` SVG-string path until 2.13g lands. To
-//! coexist without conflicting `&mut Pixmap` borrows, the
-//! `SkiaPainter` is constructed inside a scoped block around the
-//! ported variants only — the legacy sub-handler runs AFTER the
-//! painter drops, so its `RasterCtx`-based `&mut Pixmap` borrow
-//! is unaffected.
+//! Phases 2.13a–2.13g of `plans/nhc_pure_ir_plan.md` port every
+//! decorator branch to the Painter trait. As of 2.13g the
+//! `paint_fragments` SVG-string round-trip is gone from this
+//! dispatcher — every sub-handler runs inside the same
+//! `SkiaPainter::with_transform` scope. Other call sites
+//! (`bush.rs`, plus a few `transform/png/*` handlers like roof
+//! and floor_detail's wood-floor branch) still use
+//! `paint_fragments`, so the helper itself stays alive until
+//! 2.20 retires the SVG-string emit path crate-wide.
 
 use crate::ir::{DecoratorOp, FloorIR, OpEntry};
 use crate::painter::SkiaPainter;
 use crate::primitives;
 
-use super::fragment::paint_fragments;
 use super::RasterCtx;
 
 pub(super) fn draw(
@@ -45,23 +43,18 @@ pub(super) fn draw(
     };
     let seed = op.seed();
 
-    // Painter-trait ports (Phase 2.13a–g land one branch at a
-    // time). Scope the SkiaPainter to a block so its `&mut Pixmap`
-    // borrow drops before the legacy sub-handler runs.
-    {
-        let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
-        paint_cobblestone(&op, seed, &mut painter);
-        paint_brick(&op, seed, &mut painter);
-        paint_flagstone(&op, seed, &mut painter);
-        paint_opus_romano(&op, seed, &mut painter);
-        paint_field_stone(&op, seed, &mut painter);
-        paint_cart_tracks(&op, seed, &mut painter);
-    }
-
-    // Legacy `paint_fragments` sub-handler. Will port to the
-    // Painter trait in 2.13g; until then, owns the `&mut Pixmap`
-    // via `RasterCtx` directly.
-    draw_ore_deposit(&op, seed, ctx);
+    // Painter-trait dispatch — every decorator branch (Phase 2.13a–g)
+    // runs through the same `SkiaPainter`, so the legacy
+    // `paint_fragments` SVG-string round-trip is gone from this
+    // dispatcher.
+    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+    paint_cobblestone(&op, seed, &mut painter);
+    paint_brick(&op, seed, &mut painter);
+    paint_flagstone(&op, seed, &mut painter);
+    paint_opus_romano(&op, seed, &mut painter);
+    paint_field_stone(&op, seed, &mut painter);
+    paint_cart_tracks(&op, seed, &mut painter);
+    paint_ore_deposit(&op, seed, &mut painter);
 }
 
 fn paint_cobblestone(
@@ -199,7 +192,11 @@ fn paint_cart_tracks(
     }
 }
 
-fn draw_ore_deposit(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
+fn paint_ore_deposit(
+    op: &DecoratorOp<'_>,
+    seed: u64,
+    painter: &mut SkiaPainter<'_>,
+) {
     let variants = match op.ore_deposit() {
         Some(v) => v,
         None => return,
@@ -212,7 +209,6 @@ fn draw_ore_deposit(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
         if tiles.is_empty() {
             continue;
         }
-        let frags = primitives::ore_deposit::draw_ore_deposit(&tiles, seed);
-        paint_fragments(&frags, 1.0, None, ctx);
+        primitives::ore_deposit::paint_ore_deposit(painter, &tiles, seed);
     }
 }
