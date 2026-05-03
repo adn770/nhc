@@ -1097,9 +1097,10 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
     """
     from nhc.rendering._floor_detail import (
         WOOD_GRAIN_LINES_PER_STRIP, WOOD_GRAIN_OPACITY,
-        WOOD_GRAIN_STROKE_WIDTH, WOOD_PLANK_LENGTH_MAX,
-        WOOD_PLANK_LENGTH_MIN, WOOD_PLANK_WIDTH_PX,
-        WOOD_SEAM_WIDTH, _wood_palette_for_room,
+        WOOD_GRAIN_STROKE_WIDTH, WOOD_PATTERN_BASKET,
+        WOOD_PLANK_LENGTH_MAX, WOOD_PLANK_LENGTH_MIN,
+        WOOD_PLANK_WIDTH_PX, WOOD_SEAM_WIDTH,
+        _wood_palette_for_room, _wood_pattern_for_room,
     )
 
     out: list[str] = []
@@ -1150,14 +1151,21 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
     if not rooms:
         return out
 
-    # Resolve each room's palette ONCE — the same palette feeds
-    # the per-room overlay rect, the grain stroke colours, and
-    # the seam stroke colour. Palette derives from the building's
-    # ``op.seed`` (species pick) plus the room's ``regionRef``
-    # (tone variant within the species).
+    # Resolve each room's palette + layout pattern ONCE — the same
+    # palette feeds the per-room overlay rect, the grain stroke
+    # colours, and the seam stroke colour. Palette derives from
+    # the building's ``op.seed`` (species pick) plus the room's
+    # ``regionRef`` (tone variant within the species). Pattern is
+    # one of ``WOOD_PATTERN_PLANK`` / ``WOOD_PATTERN_BASKET``,
+    # picked from a separate hash bucket of ``regionRef`` so a
+    # ~third of rooms get basket-weave as a "fancy floor" accent.
     seed_int = int(op.seed)
     room_palettes: list[tuple[str, str, str, str]] = [
         _wood_palette_for_room(seed_int, _to_str(room.regionRef))
+        for room in rooms
+    ]
+    room_patterns: list[str] = [
+        _wood_pattern_for_room(_to_str(room.regionRef))
         for room in rooms
     ]
 
@@ -1178,11 +1186,13 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
     out.append('</g>')
 
     # Grain lines — bucket per (light-colour, dark-colour) pair so
-    # rooms sharing a tone share groups (compact SVG output). RNG
-    # draw order matches the legacy walk: rooms outer, plank
-    # strips inner, two grain lines per strip.
+    # rooms sharing a tone share groups (compact SVG output).
+    # Plank rooms walk strips along the room's long axis; basket-
+    # weave rooms walk 1-tile cells with planks alternating
+    # horizontal / vertical in a checkerboard. RNG draws happen
+    # in room order, then strip / cell order within the room.
     grain_buckets: dict[tuple[str, str], tuple[list[str], list[str]]] = {}
-    for room, palette in zip(rooms, room_palettes):
+    for room, palette, pattern in zip(rooms, room_palettes, room_patterns):
         _, grain_light, grain_dark, _ = palette
         light_lines, dark_lines = grain_buckets.setdefault(
             (grain_light, grain_dark), ([], []),
@@ -1191,9 +1201,71 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
         y0 = room.y * CELL
         x1 = (room.x + room.w) * CELL
         y1 = (room.y + room.h) * CELL
-        horizontal = room.w >= room.h
         width = WOOD_PLANK_WIDTH_PX
 
+        if pattern == WOOD_PATTERN_BASKET:
+            # 1-tile cells, planks alternate horizontal / vertical
+            # in a checkerboard. Each cell carries 4 planks of
+            # WOOD_PLANK_WIDTH_PX (CELL / 4) running in the
+            # cell's orientation, with two jittered grain lines
+            # per plank.
+            for cy in range(room.h):
+                for cx in range(room.w):
+                    cell_x = x0 + cx * CELL
+                    cell_y = y0 + cy * CELL
+                    cell_horizontal = ((cx + cy) % 2) == 0
+                    if cell_horizontal:
+                        y = cell_y
+                        while y < cell_y + CELL:
+                            strip_bot = min(y + width, cell_y + CELL)
+                            span = strip_bot - y
+                            if span <= 0.5:
+                                y += width
+                                continue
+                            for i in range(WOOD_GRAIN_LINES_PER_STRIP):
+                                gy = rng.uniform(
+                                    y + span * 0.15,
+                                    strip_bot - span * 0.15,
+                                )
+                                dest = (
+                                    light_lines if i % 2 == 0
+                                    else dark_lines
+                                )
+                                dest.append(
+                                    f'<line x1="{cell_x:.1f}" '
+                                    f'y1="{gy:.1f}" '
+                                    f'x2="{cell_x + CELL:.1f}" '
+                                    f'y2="{gy:.1f}"/>'
+                                )
+                            y += width
+                    else:
+                        x = cell_x
+                        while x < cell_x + CELL:
+                            strip_right = min(x + width, cell_x + CELL)
+                            span = strip_right - x
+                            if span <= 0.5:
+                                x += width
+                                continue
+                            for i in range(WOOD_GRAIN_LINES_PER_STRIP):
+                                gx = rng.uniform(
+                                    x + span * 0.15,
+                                    strip_right - span * 0.15,
+                                )
+                                dest = (
+                                    light_lines if i % 2 == 0
+                                    else dark_lines
+                                )
+                                dest.append(
+                                    f'<line x1="{gx:.1f}" '
+                                    f'y1="{cell_y:.1f}" '
+                                    f'x2="{gx:.1f}" '
+                                    f'y2="{cell_y + CELL:.1f}"/>'
+                                )
+                            x += width
+            continue
+
+        # Plank pattern — long planks along the room's major axis.
+        horizontal = room.w >= room.h
         if horizontal:
             y = y0
             while y < y1:
@@ -1254,18 +1326,23 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
             out.append("".join(dark_lines))
             out.append("</g>")
 
-    # Plank seams — bucket per seam colour, mirroring the grain
-    # bucket pattern.
+    # Plank / basket-weave seams — bucket per seam colour,
+    # mirroring the grain bucket pattern.
     seam_buckets: dict[str, list[str]] = {}
-    for room, palette in zip(rooms, room_palettes):
+    for room, palette, pattern in zip(rooms, room_palettes, room_patterns):
         seam_colour = palette[3]
         seam_bucket = seam_buckets.setdefault(seam_colour, [])
-        seam_bucket.extend(_parquet_seams_from_room_ir(
-            room, rng,
-            WOOD_PLANK_WIDTH_PX,
-            WOOD_PLANK_LENGTH_MIN,
-            WOOD_PLANK_LENGTH_MAX,
-        ))
+        if pattern == WOOD_PATTERN_BASKET:
+            seam_bucket.extend(_basket_weave_seams_from_room_ir(
+                room, WOOD_PLANK_WIDTH_PX,
+            ))
+        else:
+            seam_bucket.extend(_parquet_seams_from_room_ir(
+                room, rng,
+                WOOD_PLANK_WIDTH_PX,
+                WOOD_PLANK_LENGTH_MIN,
+                WOOD_PLANK_LENGTH_MAX,
+            ))
     for seam_colour, seam_lines in seam_buckets.items():
         if not seam_lines:
             continue
@@ -1320,6 +1397,74 @@ def _parquet_seams_from_room_ir(
                 seams.append(
                     f'<line x1="{x:.1f}" y1="{y0:.1f}" '
                     f'x2="{x:.1f}" y2="{y1:.1f}"/>'
+                )
+    return seams
+
+
+def _basket_weave_seams_from_room_ir(
+    room, width: float,
+) -> list[str]:
+    """Plank seams for a basket-weave room.
+
+    Each 1-tile cell carries 4 planks of ``width`` pixels running
+    in the cell's orientation (horizontal if ``(cx + cy) % 2 == 0``,
+    vertical otherwise). Seams emit at the plank boundaries within
+    the cell — 3 internal seams per cell, plus the cell boundaries
+    at the cross-axis (top / bottom of horizontal cells, left /
+    right of vertical cells) so the checkerboard reads cleanly
+    even when adjacent cells share a tone.
+    """
+    seams: list[str] = []
+    rx = room.x * CELL
+    ry = room.y * CELL
+    for cy in range(room.h):
+        for cx in range(room.w):
+            cell_x = rx + cx * CELL
+            cell_y = ry + cy * CELL
+            cell_horizontal = ((cx + cy) % 2) == 0
+            if cell_horizontal:
+                # 3 internal horizontal seams between planks.
+                k = 1
+                while k * width < CELL:
+                    sy = cell_y + k * width
+                    seams.append(
+                        f'<line x1="{cell_x:.1f}" y1="{sy:.1f}" '
+                        f'x2="{cell_x + CELL:.1f}" y2="{sy:.1f}"/>'
+                    )
+                    k += 1
+                # Cell boundary on the cross-axis (left + right
+                # short edges) so the checkerboard reads cleanly.
+                seams.append(
+                    f'<line x1="{cell_x:.1f}" y1="{cell_y:.1f}" '
+                    f'x2="{cell_x:.1f}" y2="{cell_y + CELL:.1f}"/>'
+                )
+                seams.append(
+                    f'<line x1="{cell_x + CELL:.1f}" '
+                    f'y1="{cell_y:.1f}" '
+                    f'x2="{cell_x + CELL:.1f}" '
+                    f'y2="{cell_y + CELL:.1f}"/>'
+                )
+            else:
+                # 3 internal vertical seams between planks.
+                k = 1
+                while k * width < CELL:
+                    sx = cell_x + k * width
+                    seams.append(
+                        f'<line x1="{sx:.1f}" y1="{cell_y:.1f}" '
+                        f'x2="{sx:.1f}" y2="{cell_y + CELL:.1f}"/>'
+                    )
+                    k += 1
+                # Cell boundary on the cross-axis (top + bottom
+                # short edges).
+                seams.append(
+                    f'<line x1="{cell_x:.1f}" y1="{cell_y:.1f}" '
+                    f'x2="{cell_x + CELL:.1f}" y2="{cell_y:.1f}"/>'
+                )
+                seams.append(
+                    f'<line x1="{cell_x:.1f}" '
+                    f'y1="{cell_y + CELL:.1f}" '
+                    f'x2="{cell_x + CELL:.1f}" '
+                    f'y2="{cell_y + CELL:.1f}"/>'
                 )
     return seams
 

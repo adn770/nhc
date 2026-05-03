@@ -98,6 +98,28 @@ fn wood_palette_for_room(
     species[(h as usize) % 3]
 }
 
+/// Wood-floor pattern variant. Mirrors
+/// ``WOOD_PATTERN_PLANK`` / ``WOOD_PATTERN_BASKET`` in
+/// ``_floor_detail.py``.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WoodPattern {
+    Plank,
+    Basket,
+}
+
+/// Pick the wood layout pattern for a room. Salt the hash with
+/// ``"pattern:"`` so the bucket is statistically independent
+/// from the palette tone bucket. Mirror of the Python
+/// ``_wood_pattern_for_room``.
+fn wood_pattern_for_room(region_ref: &str) -> WoodPattern {
+    if region_ref.is_empty() {
+        return WoodPattern::Plank;
+    }
+    let salted = format!("pattern:{region_ref}");
+    let h = fnv1a_32(salted.as_bytes());
+    if h % 3 == 0 { WoodPattern::Basket } else { WoodPattern::Plank }
+}
+
 /// One room's parquet rect in tile coordinates (matches the
 /// `RectRoom` FB struct shape). ``region_ref`` is the room id;
 /// it picks the tone variant within the building's species.
@@ -155,6 +177,10 @@ pub fn draw_wood_floor(
         .iter()
         .map(|r| wood_palette_for_room(seed, &r.region_ref))
         .collect();
+    let patterns: Vec<WoodPattern> = rooms
+        .iter()
+        .map(|r| wood_pattern_for_room(&r.region_ref))
+        .collect();
 
     // Per-room overlay rects in a single ``<g>``. The species'
     // tone fill paints over the building-wide WoodFloor base.
@@ -178,7 +204,9 @@ pub fn draw_wood_floor(
     // Grain — bucket per (light, dark) palette pair.
     type GrainBucket = (String, String);
     let mut grain_buckets: Vec<((&str, &str), GrainBucket)> = Vec::new();
-    for (room, palette) in rooms.iter().zip(palettes.iter()) {
+    for ((room, palette), pattern) in
+        rooms.iter().zip(palettes.iter()).zip(patterns.iter())
+    {
         let key = (palette.1, palette.2);
         let bucket = match grain_buckets.iter_mut().find(|(k, _)| *k == key) {
             Some((_, b)) => b,
@@ -187,7 +215,9 @@ pub fn draw_wood_floor(
                 &mut grain_buckets.last_mut().unwrap().1
             }
         };
-        emit_room_grain(room, &mut rng, &mut bucket.0, &mut bucket.1);
+        emit_room_grain(
+            room, &mut rng, *pattern, &mut bucket.0, &mut bucket.1,
+        );
     }
     for ((light, dark), (light_lines, dark_lines)) in &grain_buckets {
         if !light_lines.is_empty() {
@@ -208,7 +238,9 @@ pub fn draw_wood_floor(
 
     // Seams — bucket per palette seam colour.
     let mut seam_buckets: Vec<(&str, String)> = Vec::new();
-    for (room, palette) in rooms.iter().zip(palettes.iter()) {
+    for ((room, palette), pattern) in
+        rooms.iter().zip(palettes.iter()).zip(patterns.iter())
+    {
         let seam = palette.3;
         let bucket = match seam_buckets.iter_mut().find(|(k, _)| *k == seam) {
             Some((_, b)) => b,
@@ -217,7 +249,7 @@ pub fn draw_wood_floor(
                 &mut seam_buckets.last_mut().unwrap().1
             }
         };
-        emit_room_seams(room, &mut rng, bucket);
+        emit_room_seams(room, &mut rng, *pattern, bucket);
     }
     for (seam, seam_lines) in &seam_buckets {
         if !seam_lines.is_empty() {
@@ -232,8 +264,13 @@ pub fn draw_wood_floor(
 
 fn emit_room_grain(
     room: &WoodRoom, rng: &mut Pcg64Mcg,
+    pattern: WoodPattern,
     light: &mut String, dark: &mut String,
 ) {
+    if pattern == WoodPattern::Basket {
+        emit_room_grain_basket(room, rng, light, dark);
+        return;
+    }
     let x0 = f64::from(room.x) * CELL;
     let y0 = f64::from(room.y) * CELL;
     let x1 = f64::from(room.x + room.w) * CELL;
@@ -283,8 +320,14 @@ fn emit_room_grain(
 }
 
 fn emit_room_seams(
-    room: &WoodRoom, rng: &mut Pcg64Mcg, seams: &mut String,
+    room: &WoodRoom, rng: &mut Pcg64Mcg,
+    pattern: WoodPattern,
+    seams: &mut String,
 ) {
+    if pattern == WoodPattern::Basket {
+        emit_room_seams_basket(room, seams);
+        return;
+    }
     let x0 = f64::from(room.x) * CELL;
     let y0 = f64::from(room.y) * CELL;
     let x1 = f64::from(room.x + room.w) * CELL;
@@ -333,6 +376,129 @@ fn emit_room_seams(
                 seams.push_str(&format!(
                     "<line x1=\"{x:.1}\" y1=\"{y0:.1}\" \
                      x2=\"{x:.1}\" y2=\"{y1:.1}\"/>",
+                ));
+            }
+        }
+    }
+}
+
+/// Basket-weave grain — 1-tile cells with planks alternating
+/// horizontal / vertical orientation. Mirror of the Python
+/// basket-weave branch in ``_draw_wood_floor_from_ir``.
+fn emit_room_grain_basket(
+    room: &WoodRoom, rng: &mut Pcg64Mcg,
+    light: &mut String, dark: &mut String,
+) {
+    let rx = f64::from(room.x) * CELL;
+    let ry = f64::from(room.y) * CELL;
+    let width = WOOD_PLANK_WIDTH_PX;
+    for cy in 0..room.h {
+        for cx in 0..room.w {
+            let cell_x = rx + f64::from(cx) * CELL;
+            let cell_y = ry + f64::from(cy) * CELL;
+            let cell_horizontal = (cx + cy) % 2 == 0;
+            if cell_horizontal {
+                let mut y = cell_y;
+                while y < cell_y + CELL {
+                    let strip_bot = (y + width).min(cell_y + CELL);
+                    let span = strip_bot - y;
+                    if span <= 0.5 {
+                        y += width;
+                        continue;
+                    }
+                    for i in 0..WOOD_GRAIN_LINES_PER_STRIP {
+                        let gy = rng.gen_range(
+                            (y + span * 0.15)..(strip_bot - span * 0.15),
+                        );
+                        let dest = if i % 2 == 0 { &mut *light } else { &mut *dark };
+                        dest.push_str(&format!(
+                            "<line x1=\"{cell_x:.1}\" y1=\"{gy:.1}\" \
+                             x2=\"{:.1}\" y2=\"{gy:.1}\"/>",
+                            cell_x + CELL,
+                        ));
+                    }
+                    y += width;
+                }
+            } else {
+                let mut x = cell_x;
+                while x < cell_x + CELL {
+                    let strip_right = (x + width).min(cell_x + CELL);
+                    let span = strip_right - x;
+                    if span <= 0.5 {
+                        x += width;
+                        continue;
+                    }
+                    for i in 0..WOOD_GRAIN_LINES_PER_STRIP {
+                        let gx = rng.gen_range(
+                            (x + span * 0.15)..(strip_right - span * 0.15),
+                        );
+                        let dest = if i % 2 == 0 { &mut *light } else { &mut *dark };
+                        dest.push_str(&format!(
+                            "<line x1=\"{gx:.1}\" y1=\"{cell_y:.1}\" \
+                             x2=\"{gx:.1}\" y2=\"{:.1}\"/>",
+                            cell_y + CELL,
+                        ));
+                    }
+                    x += width;
+                }
+            }
+        }
+    }
+}
+
+/// Basket-weave seams — 3 internal seams + cell boundary seams
+/// per cell. Mirror of ``_basket_weave_seams_from_room_ir`` in
+/// the Python consumer.
+fn emit_room_seams_basket(room: &WoodRoom, seams: &mut String) {
+    let rx = f64::from(room.x) * CELL;
+    let ry = f64::from(room.y) * CELL;
+    let width = WOOD_PLANK_WIDTH_PX;
+    for cy in 0..room.h {
+        for cx in 0..room.w {
+            let cell_x = rx + f64::from(cx) * CELL;
+            let cell_y = ry + f64::from(cy) * CELL;
+            let cell_horizontal = (cx + cy) % 2 == 0;
+            if cell_horizontal {
+                let mut k = 1.0_f64;
+                while k * width < CELL {
+                    let sy = cell_y + k * width;
+                    seams.push_str(&format!(
+                        "<line x1=\"{cell_x:.1}\" y1=\"{sy:.1}\" \
+                         x2=\"{:.1}\" y2=\"{sy:.1}\"/>",
+                        cell_x + CELL,
+                    ));
+                    k += 1.0;
+                }
+                seams.push_str(&format!(
+                    "<line x1=\"{cell_x:.1}\" y1=\"{cell_y:.1}\" \
+                     x2=\"{cell_x:.1}\" y2=\"{:.1}\"/>",
+                    cell_y + CELL,
+                ));
+                seams.push_str(&format!(
+                    "<line x1=\"{:.1}\" y1=\"{cell_y:.1}\" \
+                     x2=\"{:.1}\" y2=\"{:.1}\"/>",
+                    cell_x + CELL, cell_x + CELL, cell_y + CELL,
+                ));
+            } else {
+                let mut k = 1.0_f64;
+                while k * width < CELL {
+                    let sx = cell_x + k * width;
+                    seams.push_str(&format!(
+                        "<line x1=\"{sx:.1}\" y1=\"{cell_y:.1}\" \
+                         x2=\"{sx:.1}\" y2=\"{:.1}\"/>",
+                        cell_y + CELL,
+                    ));
+                    k += 1.0;
+                }
+                seams.push_str(&format!(
+                    "<line x1=\"{cell_x:.1}\" y1=\"{cell_y:.1}\" \
+                     x2=\"{:.1}\" y2=\"{cell_y:.1}\"/>",
+                    cell_x + CELL,
+                ));
+                seams.push_str(&format!(
+                    "<line x1=\"{cell_x:.1}\" y1=\"{:.1}\" \
+                     x2=\"{:.1}\" y2=\"{:.1}\"/>",
+                    cell_y + CELL, cell_x + CELL, cell_y + CELL,
                 ));
             }
         }

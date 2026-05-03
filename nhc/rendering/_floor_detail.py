@@ -291,6 +291,21 @@ _WOOD_SPECIES: tuple[tuple[tuple[str, str, str, str], ...], ...] = (
 )
 
 
+def _fnv1a_32(text: str) -> int:
+    """Implementation-stable FNV-1a 32-bit hash of ``text`` UTF-8.
+
+    The standard library's ``hash()`` is randomised per process so
+    every consumer that needs a deterministic per-room pick has to
+    use a stable hash. Mirrored byte-for-byte by Rust's
+    ``primitives::wood_floor::fnv1a_32``.
+    """
+    h = 2166136261
+    for ch in text.encode("utf-8"):
+        h ^= ch
+        h = (h * 16777619) & 0xFFFFFFFF
+    return h
+
+
 def _wood_palette_for_room(
     building_seed: int,
     region_ref: str | bytes | None,
@@ -314,15 +329,44 @@ def _wood_palette_for_room(
         ref = region_ref or ""
     if not ref:
         return species[1]
-    # Stable, fast string hash — the standard library's hash() is
-    # randomised per process so we can't use it; fall back to a
-    # simple FNV-1a 32-bit hash. Distribution across 3 buckets is
-    # plenty for 1-6 rooms per building.
-    h = 2166136261
-    for ch in ref.encode("utf-8"):
-        h ^= ch
-        h = (h * 16777619) & 0xFFFFFFFF
-    return species[h % 3]
+    # Distribution across 3 buckets is plenty for 1-6 rooms per
+    # building. Use the stable FNV-1a hash so Python and Rust
+    # agree on the tone pick.
+    return species[_fnv1a_32(ref) % 3]
+
+
+# Wood-floor patterns. Each room picks one from ``regionRef`` —
+# most rooms ship with the standard plank layout; ~1 in 3 picks
+# basket-weave, the "fancy floor" variant where 1-tile cells
+# alternate horizontal and vertical plank orientation in a
+# checkerboard. Pattern choice is independent of palette (different
+# hash salts) so basket-weave rooms read as a deliberate visual
+# accent rather than coincidentally matching tone variation.
+WOOD_PATTERN_PLANK = "plank"
+WOOD_PATTERN_BASKET = "basket"
+
+
+def _wood_pattern_for_room(region_ref: str | bytes | None) -> str:
+    """Pick the wood layout pattern for a room.
+
+    Hash mod 3 → ~1/3 of rooms get ``basket``, rest get
+    ``plank``. Empty / unknown ``regionRef`` falls back to plank
+    so external callers without a region see the legacy look.
+    """
+    if region_ref is None:
+        return WOOD_PATTERN_PLANK
+    if isinstance(region_ref, bytes):
+        ref = region_ref.decode() if region_ref else ""
+    else:
+        ref = region_ref or ""
+    if not ref:
+        return WOOD_PATTERN_PLANK
+    # Salt the hash with a constant so the pattern bucket is
+    # statistically independent from the tone bucket (a room can
+    # pick "dark walnut + basket-weave" or "dark walnut + plank"
+    # with equal probability).
+    h = _fnv1a_32("pattern:" + ref)
+    return WOOD_PATTERN_BASKET if (h % 3) == 0 else WOOD_PATTERN_PLANK
 
 
 # ── Mine cart tracks ─────────────────────────────────────────

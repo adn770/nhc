@@ -18,12 +18,14 @@ from nhc.dungeon.model import (
 from nhc.rendering.svg import render_floor_svg
 
 
-def _blank_level(w: int = 10, h: int = 10) -> Level:
+def _blank_level(
+    w: int = 10, h: int = 10, *, room_id: str = "r1",
+) -> Level:
     level = Level.create_empty("t", "t", 1, w, h)
     for y in range(h):
         for x in range(w):
             level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-    level.rooms = [Room(id="r1", rect=Rect(0, 0, w, h))]
+    level.rooms = [Room(id=room_id, rect=Rect(0, 0, w, h))]
     return level
 
 
@@ -322,6 +324,12 @@ class TestWoodGrainEffect:
 
 
 class TestWoodParquetRandomLengths:
+    # Use a room id that hashes to the ``plank`` pattern so these
+    # tests probe the plank-length distribution. The basket-weave
+    # path has fixed-length cell-internal seams that don't carry
+    # the random-length signal these tests look for.
+    _PLANK_ROOM = "r3"
+
     def test_plank_end_gaps_cover_a_range(self):
         """Plank-end x-coords within a strip should NOT be uniformly
         spaced; instead consecutive gaps span a range between MIN
@@ -329,8 +337,10 @@ class TestWoodParquetRandomLengths:
         from nhc.rendering._floor_detail import (
             WOOD_PLANK_LENGTH_MAX, WOOD_PLANK_LENGTH_MIN,
         )
-        seam_stroke = _wood_palette_for_test(seed=42)[3]
-        level = _blank_level(40, 6)  # wide so many planks fit
+        seam_stroke = _wood_palette_for_test(
+            seed=42, room_id=self._PLANK_ROOM,
+        )[3]
+        level = _blank_level(40, 6, room_id=self._PLANK_ROOM)
         level.interior_floor = "wood"
         svg = render_floor_svg(level, seed=42)
         start = svg.find(f'stroke="{seam_stroke}"')
@@ -372,8 +382,10 @@ class TestWoodParquetRandomLengths:
         """Adjacent strips shouldn't have plank-end x-coords at the
         same positions (stagger via random lengths)."""
         from nhc.rendering._floor_detail import WOOD_PLANK_WIDTH_PX
-        seam_stroke = _wood_palette_for_test(seed=42)[3]
-        level = _blank_level(40, 6)
+        seam_stroke = _wood_palette_for_test(
+            seed=42, room_id=self._PLANK_ROOM,
+        )[3]
+        level = _blank_level(40, 6, room_id=self._PLANK_ROOM)
         level.interior_floor = "wood"
         svg = render_floor_svg(level, seed=42)
         start = svg.find(f'stroke="{seam_stroke}"')
