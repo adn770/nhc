@@ -1059,7 +1059,7 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         _is_brick_tile, _is_cobble_tile,
         _is_field_overlay_tile, _is_flagstone_tile,
         _is_opus_romano_tile, _is_ore_tile, _is_track_tile,
-        _track_horizontal_at,
+        _track_open_sides,
     )
     from nhc.rendering.ir._fb import CobblePattern, Op
     from nhc.rendering.ir._fb.BrickVariant import BrickVariantT
@@ -1162,7 +1162,7 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     flagstone_tiles: list[tuple[int, int]] = []
     opus_romano_tiles: list[tuple[int, int]] = []
     field_stone_tiles: list[tuple[int, int]] = []
-    track_tiles: list[tuple[int, int, bool]] = []
+    track_tiles: list[tuple[int, int, int]] = []
     ore_tiles: list[tuple[int, int]] = []
     for y in range(level.height):
         for x in range(level.width):
@@ -1178,7 +1178,7 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
                 field_stone_tiles.append((x, y))
             if _is_track_tile(level, x, y):
                 track_tiles.append(
-                    (x, y, _track_horizontal_at(level, x, y)),
+                    (x, y, _track_open_sides(level, x, y)),
                 )
             if _is_ore_tile(level, x, y):
                 ore_tiles.append((x, y))
@@ -1254,7 +1254,7 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
                 tiles=[
                     TileCoordT(x=x, y=y) for x, y, _ in track_tiles
                 ],
-                isHorizontal=[h for _, _, h in track_tiles],
+                openSides=[m for _, _, m in track_tiles],
             )]
         if ore_tiles:
             deco_op.oreDeposit = [OreDepositVariantT(

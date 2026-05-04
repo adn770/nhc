@@ -53,29 +53,29 @@ class CartTracksVariant(object):
         return o == 0
 
     # CartTracksVariant
-    def IsHorizontal(self, j):
+    def OpenSides(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.BoolFlags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
         return 0
 
     # CartTracksVariant
-    def IsHorizontalAsNumpy(self):
+    def OpenSidesAsNumpy(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.BoolFlags, o)
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Uint8Flags, o)
         return 0
 
     # CartTracksVariant
-    def IsHorizontalLength(self):
+    def OpenSidesLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # CartTracksVariant
-    def IsHorizontalIsNone(self):
+    def OpenSidesIsNone(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         return o == 0
 
@@ -97,17 +97,17 @@ def CartTracksVariantStartTilesVector(builder, numElems):
 def StartTilesVector(builder, numElems):
     return CartTracksVariantStartTilesVector(builder, numElems)
 
-def CartTracksVariantAddIsHorizontal(builder, isHorizontal):
-    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(isHorizontal), 0)
+def CartTracksVariantAddOpenSides(builder, openSides):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(openSides), 0)
 
-def AddIsHorizontal(builder, isHorizontal):
-    CartTracksVariantAddIsHorizontal(builder, isHorizontal)
+def AddOpenSides(builder, openSides):
+    CartTracksVariantAddOpenSides(builder, openSides)
 
-def CartTracksVariantStartIsHorizontalVector(builder, numElems):
+def CartTracksVariantStartOpenSidesVector(builder, numElems):
     return builder.StartVector(1, numElems, 1)
 
-def StartIsHorizontalVector(builder, numElems):
-    return CartTracksVariantStartIsHorizontalVector(builder, numElems)
+def StartOpenSidesVector(builder, numElems):
+    return CartTracksVariantStartOpenSidesVector(builder, numElems)
 
 def CartTracksVariantEnd(builder):
     return builder.EndObject()
@@ -127,10 +127,10 @@ class CartTracksVariantT(object):
     def __init__(
         self,
         tiles = None,
-        isHorizontal = None,
+        openSides = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
-        self.isHorizontal = isHorizontal  # type: Optional[List[bool]]
+        self.openSides = openSides  # type: Optional[List[int]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -161,13 +161,13 @@ class CartTracksVariantT(object):
                 else:
                     tileCoord_ = nhc.rendering.ir._fb.TileCoord.TileCoordT.InitFromObj(cartTracksVariant.Tiles(i))
                     self.tiles.append(tileCoord_)
-        if not cartTracksVariant.IsHorizontalIsNone():
+        if not cartTracksVariant.OpenSidesIsNone():
             if np is None:
-                self.isHorizontal = []
-                for i in range(cartTracksVariant.IsHorizontalLength()):
-                    self.isHorizontal.append(cartTracksVariant.IsHorizontal(i))
+                self.openSides = []
+                for i in range(cartTracksVariant.OpenSidesLength()):
+                    self.openSides.append(cartTracksVariant.OpenSides(i))
             else:
-                self.isHorizontal = cartTracksVariant.IsHorizontalAsNumpy()
+                self.openSides = cartTracksVariant.OpenSidesAsNumpy()
 
     # CartTracksVariantT
     def Pack(self, builder):
@@ -176,18 +176,18 @@ class CartTracksVariantT(object):
             for i in reversed(range(len(self.tiles))):
                 self.tiles[i].Pack(builder)
             tiles = builder.EndVector()
-        if self.isHorizontal is not None:
-            if np is not None and type(self.isHorizontal) is np.ndarray:
-                isHorizontal = builder.CreateNumpyVector(self.isHorizontal)
+        if self.openSides is not None:
+            if np is not None and type(self.openSides) is np.ndarray:
+                openSides = builder.CreateNumpyVector(self.openSides)
             else:
-                CartTracksVariantStartIsHorizontalVector(builder, len(self.isHorizontal))
-                for i in reversed(range(len(self.isHorizontal))):
-                    builder.PrependBool(self.isHorizontal[i])
-                isHorizontal = builder.EndVector()
+                CartTracksVariantStartOpenSidesVector(builder, len(self.openSides))
+                for i in reversed(range(len(self.openSides))):
+                    builder.PrependUint8(self.openSides[i])
+                openSides = builder.EndVector()
         CartTracksVariantStart(builder)
         if self.tiles is not None:
             CartTracksVariantAddTiles(builder, tiles)
-        if self.isHorizontal is not None:
-            CartTracksVariantAddIsHorizontal(builder, isHorizontal)
+        if self.openSides is not None:
+            CartTracksVariantAddOpenSides(builder, openSides)
         cartTracksVariant = CartTracksVariantEnd(builder)
         return cartTracksVariant

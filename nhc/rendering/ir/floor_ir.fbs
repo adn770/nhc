@@ -474,13 +474,13 @@ table FieldStoneVariant {
 
 table CartTracksVariant {
   tiles: [TileCoord];
-  // Sub-step 11 parallel-array addition. The legacy
-  // ``_track_horizontal_at`` neighbour walk picks rail
-  // orientation per TRACK tile by looking at the east / west
-  // neighbours (TRACK on either side ⇒ horizontal, otherwise
-  // vertical). The emitter resolves this so the consumer
-  // doesn't need level access.
-  is_horizontal: [bool];
+  // Per-tile open-sides bitmask (parallel to ``tiles``). Bit 0 =
+  // N, bit 1 = S, bit 2 = E, bit 3 = W. A bit is set when the
+  // 4-neighbour on that side is also a TRACK tile. The painter
+  // uses the bitmask to dispatch to the right glyph (straight,
+  // L-corner, T-junction, cross, dead-end). The emitter resolves
+  // the neighbour walk so the consumer doesn't need level access.
+  open_sides: [uint8];
 }
 
 table OreDepositVariant {

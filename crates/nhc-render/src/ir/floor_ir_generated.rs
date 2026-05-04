@@ -5454,7 +5454,7 @@ impl<'a> ::flatbuffers::Follow<'a> for CartTracksVariant<'a> {
 
 impl<'a> CartTracksVariant<'a> {
   pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_IS_HORIZONTAL: ::flatbuffers::VOffsetT = 6;
+  pub const VT_OPEN_SIDES: ::flatbuffers::VOffsetT = 6;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5466,7 +5466,7 @@ impl<'a> CartTracksVariant<'a> {
     args: &'args CartTracksVariantArgs<'args>
   ) -> ::flatbuffers::WIPOffset<CartTracksVariant<'bldr>> {
     let mut builder = CartTracksVariantBuilder::new(_fbb);
-    if let Some(x) = args.is_horizontal { builder.add_is_horizontal(x); }
+    if let Some(x) = args.open_sides { builder.add_open_sides(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.finish()
   }
@@ -5480,11 +5480,11 @@ impl<'a> CartTracksVariant<'a> {
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(CartTracksVariant::VT_TILES, None)}
   }
   #[inline]
-  pub fn is_horizontal(&self) -> Option<::flatbuffers::Vector<'a, bool>> {
+  pub fn open_sides(&self) -> Option<::flatbuffers::Vector<'a, u8>> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, bool>>>(CartTracksVariant::VT_IS_HORIZONTAL, None)}
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u8>>>(CartTracksVariant::VT_OPEN_SIDES, None)}
   }
 }
 
@@ -5495,21 +5495,21 @@ impl ::flatbuffers::Verifiable for CartTracksVariant<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, bool>>>("is_horizontal", Self::VT_IS_HORIZONTAL, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u8>>>("open_sides", Self::VT_OPEN_SIDES, false)?
      .finish();
     Ok(())
   }
 }
 pub struct CartTracksVariantArgs<'a> {
     pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub is_horizontal: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, bool>>>,
+    pub open_sides: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u8>>>,
 }
 impl<'a> Default for CartTracksVariantArgs<'a> {
   #[inline]
   fn default() -> Self {
     CartTracksVariantArgs {
       tiles: None,
-      is_horizontal: None,
+      open_sides: None,
     }
   }
 }
@@ -5524,8 +5524,8 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CartTracksVariantBuilder<'a, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CartTracksVariant::VT_TILES, tiles);
   }
   #[inline]
-  pub fn add_is_horizontal(&mut self, is_horizontal: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , bool>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CartTracksVariant::VT_IS_HORIZONTAL, is_horizontal);
+  pub fn add_open_sides(&mut self, open_sides: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CartTracksVariant::VT_OPEN_SIDES, open_sides);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CartTracksVariantBuilder<'a, 'b, A> {
@@ -5546,7 +5546,7 @@ impl ::core::fmt::Debug for CartTracksVariant<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("CartTracksVariant");
       ds.field("tiles", &self.tiles());
-      ds.field("is_horizontal", &self.is_horizontal());
+      ds.field("open_sides", &self.open_sides());
       ds.finish()
   }
 }

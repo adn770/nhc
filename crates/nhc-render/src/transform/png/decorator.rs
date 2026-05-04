@@ -174,13 +174,16 @@ fn paint_cart_tracks(
             Some(t) => t,
             None => continue,
         };
-        let horiz = variant.is_horizontal();
-        let tiles: Vec<(i32, i32, bool)> = tiles_v
+        let open_sides = variant.open_sides();
+        let tiles: Vec<(i32, i32, u8)> = tiles_v
             .iter()
             .enumerate()
             .map(|(i, c)| {
-                let h = horiz.as_ref().map(|v| v.get(i)).unwrap_or(false);
-                (c.x(), c.y(), h)
+                let mask = open_sides
+                    .as_ref()
+                    .map(|v| v.get(i))
+                    .unwrap_or(0);
+                (c.x(), c.y(), mask)
             })
             .collect();
         if tiles.is_empty() {

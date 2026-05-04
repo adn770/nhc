@@ -8,10 +8,18 @@
 //! TRACK tile) from ``nhc/rendering/_floor_detail.py``. Both
 //! decorators share the same predicate; orientation per tile
 //! comes from the IR's pre-resolved
-//! ``CartTracksVariant.is_horizontal[]`` parallel array
-//! (legacy ``_track_horizontal_at`` looks at the east / west
-//! neighbours for TRACK adjacency — the emitter lifts that
-//! check so the consumer doesn't need level access).
+//! ``CartTracksVariant.open_sides[]`` parallel array — a 4-bit
+//! mask of TRACK-tile neighbours (bit 0 = N, 1 = S, 2 = E,
+//! 3 = W). The emitter resolves the neighbour walk so the
+//! consumer doesn't need level access.
+//!
+//! Commit 2 of the cart-track topology refactor renames the
+//! IR field from ``is_horizontal`` (bool) to ``open_sides``
+//! (u8 bitmask) but keeps the painter's tile-local rendering
+//! unchanged: ``horizontal`` is derived from
+//! ``mask & (OPEN_E | OPEN_W) != 0``. Commit 3 lifts the
+//! tile-local stamp into a topology dispatch (straight, corner,
+//! T-junction, cross, dead-end).
 //!
 //! **Parity contract (relaxed gate, plan §8 carve-out):** byte-
 //! equal-with-legacy is *not* required. RNG-free painters
@@ -70,6 +78,15 @@ pub const TIE_OPACITY: f32 = 0.5;
 const RAIL_WIDTH: f32 = 0.9;
 const TIE_WIDTH: f32 = 1.4;
 
+/// Bit positions inside ``CartTracksVariant.open_sides[]``: bit
+/// ``OPEN_N`` is set when the tile's N neighbour is also a
+/// TRACK tile, etc. Mirrors the constants in
+/// ``nhc/rendering/_floor_detail.py``.
+pub const OPEN_N: u8 = 1 << 0;
+pub const OPEN_S: u8 = 1 << 1;
+pub const OPEN_E: u8 = 1 << 2;
+pub const OPEN_W: u8 = 1 << 3;
+
 /// Per-tile geometry record — backend-agnostic. Two rail lines
 /// + one tie line per tile, with start / end coords resolved
 /// from `(x, y, horizontal)`. The legacy `draw_cart_tracks`
@@ -93,9 +110,10 @@ struct CartTrackShape {
 /// of the perpendicular axis (full-cell length along the rail
 /// axis), and the tie spans both rails plus a 1 px overshoot on
 /// each end.
-fn cart_tracks_shapes(tiles: &[(i32, i32, bool)]) -> Vec<CartTrackShape> {
+fn cart_tracks_shapes(tiles: &[(i32, i32, u8)]) -> Vec<CartTrackShape> {
     let mut out: Vec<CartTrackShape> = Vec::with_capacity(tiles.len());
-    for &(x, y, horizontal) in tiles {
+    for &(x, y, mask) in tiles {
+        let horizontal = (mask & (OPEN_E | OPEN_W)) != 0;
         let px = f64::from(x) * CELL;
         let py = f64::from(y) * CELL;
         let cx = px + CELL / 2.0;
@@ -137,7 +155,7 @@ fn cart_tracks_shapes(tiles: &[(i32, i32, bool)]) -> Vec<CartTrackShape> {
 /// string round-trip disappears.
 pub fn paint_cart_tracks(
     painter: &mut dyn Painter,
-    tiles: &[(i32, i32, bool)],
+    tiles: &[(i32, i32, u8)],
     _seed: u64,
 ) {
     if tiles.is_empty() {
@@ -336,11 +354,20 @@ mod tests {
         }
     }
 
-    fn mixed_tiles(n: i32) -> Vec<(i32, i32, bool)> {
+    fn mixed_tiles(n: i32) -> Vec<(i32, i32, u8)> {
         // Alternate horizontal / vertical to exercise both branches.
+        // Horizontal = open on E|W, vertical = open on N|S — the
+        // tile-local renderer only checks the H/V-axis bits.
         (0..n)
             .flat_map(|y| {
-                (0..n).map(move |x| (x, y, (x + y) % 2 == 0))
+                (0..n).map(move |x| {
+                    let mask = if (x + y) % 2 == 0 {
+                        OPEN_E | OPEN_W
+                    } else {
+                        OPEN_N | OPEN_S
+                    };
+                    (x, y, mask)
+                })
             })
             .collect()
     }
@@ -455,10 +482,12 @@ mod tests {
     /// recorded calls differs even though stamp counts match).
     #[test]
     fn paint_orientation_changes_geometry() {
-        let h_tiles: Vec<_> =
-            (0..3).map(|x| (x, 0_i32, true)).collect();
-        let v_tiles: Vec<_> =
-            (0..3).map(|x| (x, 0_i32, false)).collect();
+        let h_tiles: Vec<_> = (0..3)
+            .map(|x| (x, 0_i32, OPEN_E | OPEN_W))
+            .collect();
+        let v_tiles: Vec<_> = (0..3)
+            .map(|x| (x, 0_i32, OPEN_N | OPEN_S))
+            .collect();
         // Geometry differs between horizontal and vertical, so the
         // shape stream itself must differ.
         let h_shapes = cart_tracks_shapes(&h_tiles);

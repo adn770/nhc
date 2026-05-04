@@ -376,14 +376,35 @@ def _is_track_tile(level: "Level", x: int, y: int) -> bool:
     return level.tiles[y][x].surface_type is SurfaceType.TRACK
 
 
-def _track_horizontal_at(level: "Level", x: int, y: int) -> bool:
-    """Pick rail orientation for a TRACK tile from its neighbours."""
+_OPEN_N = 1 << 0
+_OPEN_S = 1 << 1
+_OPEN_E = 1 << 2
+_OPEN_W = 1 << 3
+
+
+def _track_open_sides(level: "Level", x: int, y: int) -> int:
+    """Return a 4-bit mask of TRACK-tile neighbours.
+
+    Bit layout matches the IR's ``CartTracksVariant.open_sides``
+    parallel array: bit 0 = N, 1 = S, 2 = E, 3 = W. Strictly
+    TRACK-on-TRACK adjacency — adjacent room interiors and
+    sub-threshold corridors don't extend the rail; the painter
+    terminates rails cleanly at the room threshold.
+    """
+    mask = 0
+    n = level.tile_at(x, y - 1)
+    s = level.tile_at(x, y + 1)
     e = level.tile_at(x + 1, y)
     w = level.tile_at(x - 1, y)
-    return (
-        (e is not None and e.surface_type is SurfaceType.TRACK)
-        or (w is not None and w.surface_type is SurfaceType.TRACK)
-    )
+    if n is not None and n.surface_type is SurfaceType.TRACK:
+        mask |= _OPEN_N
+    if s is not None and s.surface_type is SurfaceType.TRACK:
+        mask |= _OPEN_S
+    if e is not None and e.surface_type is SurfaceType.TRACK:
+        mask |= _OPEN_E
+    if w is not None and w.surface_type is SurfaceType.TRACK:
+        mask |= _OPEN_W
+    return mask
 
 
 # ── Ore deposits ─────────────────────────────────────────────
