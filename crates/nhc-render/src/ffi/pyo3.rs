@@ -388,6 +388,28 @@ fn svg_to_png(svg: &str) -> PyResult<Vec<u8>> {
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// IR → SVG document — Phase 2.17 envelope.
+///
+/// Reads a `FloorIR` FlatBuffer and returns a complete SVG
+/// document string. Mirrors `ir_to_png`'s argument shape:
+/// `scale` multiplies the canvas dimensions (1.0 matches the
+/// legacy emitter's natural canvas), `layer` (when not None)
+/// dispatches a single named layer through the same
+/// `transform::png::layer_ops` map the PNG entry point uses.
+/// Wraps `crate::transform::svg::floor_ir_to_svg` for the
+/// Python-side `ir_to_svg.py` consumers as the Painter-trait
+/// migration moves SVG generation across the FFI boundary.
+#[pyfunction]
+#[pyo3(signature = (ir_bytes, scale = 1.0, layer = None))]
+fn ir_to_svg(
+    ir_bytes: &[u8],
+    scale: f32,
+    layer: Option<&str>,
+) -> PyResult<String> {
+    transform_svg::floor_ir_to_svg(ir_bytes, scale, layer)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 /// PyO3 module entry point. The function name MUST match the
 /// `[lib] name` in Cargo.toml (`nhc_render`) so Python's
 /// import machinery finds it.
@@ -419,5 +441,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_tree, m)?)?;
     m.add_function(wrap_pyfunction!(ir_to_png, m)?)?;
     m.add_function(wrap_pyfunction!(svg_to_png, m)?)?;
+    m.add_function(wrap_pyfunction!(ir_to_svg, m)?)?;
     Ok(())
 }
