@@ -486,19 +486,18 @@ def _try_place_plan(
 
 def _place_clusters(
     plans: list[_ClusterPlan],
-    config: _TownSizeConfig,
+    bounds: tuple[int, int, int, int],
     forbidden_rects: list[Rect],
     rng: random.Random,
 ) -> list[_ClusterPlan]:
     """Place each cluster bbox via rejection sampling. On
     exhaustion, demote the archetype one step and retry. ``solo``
     splits a row/column cluster into per-member solos placed
-    independently."""
+    independently. ``bounds`` is ``(min_x, min_y, max_x, max_y)``
+    in surface coords (``max_*`` exclusive); clusters are placed
+    inside this region with a 1-tile internal buffer."""
     placed_bboxes: list[Rect] = list(forbidden_rects)
     out: list[_ClusterPlan] = []
-    bounds = (
-        0, 0, config.surface_width, config.surface_height,
-    )
 
     for plan in plans:
         success = _try_place_plan(
@@ -571,6 +570,7 @@ def _cluster_pack(
     size_class: str,
     rng: random.Random,
     forbidden_rects: list[Rect] | None = None,
+    bounds: tuple[int, int, int, int] | None = None,
 ) -> list[_ClusterPlan]:
     """Top-level cluster packer (drop-in replacement for the legacy
     greedy row packer).
@@ -578,6 +578,16 @@ def _cluster_pack(
     ``roles`` and ``sizes`` are parallel input lists, one per
     building. Returns a list of placed :class:`_ClusterPlan`s
     whose member rects span every input index.
+
+    ``bounds`` is the ``(min_x, min_y, max_x, max_y)`` region in
+    surface coords inside which clusters land (``max_*``
+    exclusive). When ``None``, falls back to a region the size of
+    ``config.palisade_outer_width × palisade_outer_height``
+    rooted at ``(0, 0)`` — the legacy default that test suites
+    targeting the packer in isolation expect. Production callers
+    (``assemble_town``) always supply explicit bounds derived
+    from :func:`nhc.sites.town._buildable_bounds` so building
+    placement honours the 1-tile VOID margin contract.
     """
     n = len(roles)
     forbidden_rects = list(forbidden_rects or [])
@@ -606,7 +616,13 @@ def _cluster_pack(
             [m.rect for m in p.members],
         )[1]),
     )
-    return _place_clusters(plans, config, forbidden_rects, rng)
+    if bounds is None:
+        bounds = (
+            0, 0,
+            config.palisade_outer_width,
+            config.palisade_outer_height,
+        )
+    return _place_clusters(plans, bounds, forbidden_rects, rng)
 
 
 def _placements_from_clusters(

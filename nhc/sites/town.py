@@ -208,12 +208,29 @@ SERVICE_ROLES: tuple[str, ...] = (
 
 @dataclass(frozen=True)
 class _TownSizeConfig:
-    """Per-size layout tunables."""
+    """Per-size layout tunables.
+
+    ``palisade_outer_width / palisade_outer_height`` declare the
+    outer dimensions of the palisade rectangle (or, for non-
+    palisade sizes, the buildable area that occupies the same
+    role). The actual ``Level`` surface allocated by the assembler
+    is ``palisade_outer + 2`` so a 1-tile VOID margin surrounds
+    every renderable element on the canvas — see
+    ``design/level_surface_layout.md``.
+    """
 
     building_count_range: tuple[int, int]
-    surface_width: int
-    surface_height: int
+    palisade_outer_width: int
+    palisade_outer_height: int
     has_palisade: bool
+
+    @property
+    def surface_width(self) -> int:
+        return self.palisade_outer_width + 2
+
+    @property
+    def surface_height(self) -> int:
+        return self.palisade_outer_height + 2
 
 
 @dataclass(frozen=True)
@@ -258,38 +275,72 @@ def _biome_overrides(biome: Biome | None) -> _BiomeOverrides:
 
 
 _SIZE_CLASSES: dict[str, _TownSizeConfig] = {
-    # Surface sizes grew in C3 to fit variable per-role buildings
-    # (tavern/inn 13-16, temple 14-16, shop 10-12). The Phase 1
-    # cluster packer adds 1-tile internal buffer + 2-tile inter-
-    # bbox gap (worst case: 4 tiles between buildings of different
-    # clusters); hamlets in particular needed a bump from 48x44 to
-    # 56x52 to fit a [inn, temple] column alongside a solo shop
-    # without dropping a building.
+    # ``palisade_outer_*`` carries the outer dim of the palisade
+    # rect (or the buildable area for non-palisade hamlets);
+    # numeric values are the C3-tuned sizes that previously lived
+    # in ``surface_width / surface_height``. The actual surface
+    # ``Level`` is ``palisade_outer + 2`` so the 1-tile VOID
+    # margin contract holds — see
+    # ``design/level_surface_layout.md``.
     "hamlet": _TownSizeConfig(
         building_count_range=(3, 4),
-        surface_width=56,
-        surface_height=52,
+        palisade_outer_width=56,
+        palisade_outer_height=52,
         has_palisade=False,
     ),
     "village": _TownSizeConfig(
         building_count_range=(5, 7),
-        surface_width=72,
-        surface_height=58,
+        palisade_outer_width=72,
+        palisade_outer_height=58,
         has_palisade=True,
     ),
     "town": _TownSizeConfig(
         building_count_range=(8, 10),
-        surface_width=88,
-        surface_height=72,
+        palisade_outer_width=88,
+        palisade_outer_height=72,
         has_palisade=True,
     ),
     "city": _TownSizeConfig(
         building_count_range=(10, 13),
-        surface_width=104,
-        surface_height=86,
+        palisade_outer_width=104,
+        palisade_outer_height=86,
         has_palisade=True,
     ),
 }
+
+
+def _palisade_outer_rect(config: _TownSizeConfig) -> Rect:
+    """Return the palisade outer rect in surface coords.
+
+    The rect lives at ``(1, 1)`` so the row/column at index 0 and
+    the row/column at the surface's max index stay VOID — that's
+    the 1-tile margin contract.
+    """
+    return Rect(
+        1, 1,
+        config.palisade_outer_width, config.palisade_outer_height,
+    )
+
+
+def _buildable_bounds(
+    config: _TownSizeConfig, has_palisade: bool,
+) -> tuple[int, int, int, int]:
+    """Return ``(min_x, min_y, max_x, max_y)`` for cluster
+    placement in surface coords. ``max_*`` is exclusive — same
+    shape ``_place_clusters`` already consumes internally.
+
+    For palisade-bearing sites the buildable interior is inset
+    from the palisade outer rect by :data:`TOWN_PALISADE_PADDING`
+    on every side. For non-palisade sites the buildable area is
+    the full palisade-outer-sized rect: clusters spread within
+    the 1-tile VOID margin without a wall to step around.
+    """
+    pw = config.palisade_outer_width
+    ph = config.palisade_outer_height
+    if has_palisade:
+        pad = TOWN_PALISADE_PADDING
+        return (1 + pad, 1 + pad, 1 + pw - pad, 1 + ph - pad)
+    return (1, 1, 1 + pw, 1 + ph)
 
 
 def assemble_town(
@@ -350,13 +401,6 @@ def assemble_town(
     # role covered first and the rest filled with "residential".
     roles = _roll_role_slots(rng, n_buildings)
     sizes = [_draw_size_for_role(role, rng) for role in roles]
-    # Phase 5 two-pass placement: probe-pass packer determines a
-    # rough cluster bbox set; we compute the centerpiece patch
-    # origin and reserve it as a forbidden_rect for the final
-    # cluster pack so clusters arrange around the landmark.
-    probe_plans = _cluster_pack(
-        roles, sizes, config, size_class, rng,
-    )
     has_palisade = (
         config.has_palisade and not overrides.suppress_palisade
     )
@@ -365,12 +409,20 @@ def assemble_town(
         rng.shuffle(gate_sides)
     else:
         gate_sides = []
+    bounds = _buildable_bounds(config, has_palisade)
+    # Phase 5 two-pass placement: probe-pass packer determines a
+    # rough cluster bbox set; we compute the centerpiece patch
+    # origin and reserve it as a forbidden_rect for the final
+    # cluster pack so clusters arrange around the landmark.
+    probe_plans = _cluster_pack(
+        roles, sizes, config, size_class, rng, bounds=bounds,
+    )
     cp_spec = _CENTERPIECE_PER_SIZE.get(size_class)
     cp_origin: tuple[int, int] | None = None
     forbidden_rects: list[Rect] = []
     if cp_spec is not None and probe_plans:
         cp_origin = _compute_centerpiece_origin(
-            probe_plans, gate_sides, cp_spec, config, rng,
+            probe_plans, gate_sides, cp_spec, bounds, rng,
         )
         if cp_origin is not None:
             ox, oy = cp_origin
@@ -380,7 +432,7 @@ def assemble_town(
 
     cluster_plans = _cluster_pack(
         roles, sizes, config, size_class, rng,
-        forbidden_rects=forbidden_rects,
+        forbidden_rects=forbidden_rects, bounds=bounds,
     )
     buildings = _place_buildings(
         site_id, rng, roles, sizes, cluster_plans,
@@ -397,8 +449,8 @@ def assemble_town(
     # inherits the size-class default.
     if has_palisade:
         enclosure = _build_palisade(
-            buildings, cluster_plans, config, rng,
-            sides=gate_sides, extra_rects=forbidden_rects,
+            _palisade_outer_rect(config), cluster_plans, rng,
+            sides=gate_sides,
         )
     else:
         enclosure = None
@@ -407,6 +459,7 @@ def assemble_town(
         f"{site_id}_surface", buildings, enclosure,
         cluster_plans, size_class, config,
         centerpiece_rect=cp_rect,
+        open_bounds=bounds,
     )
     if cp_origin is not None and cp_spec is not None:
         _stamp_centerpiece(surface, cp_origin, cp_spec, biome)
@@ -915,39 +968,30 @@ def _scatter_town_bushes(
 
 
 def _build_palisade(
-    buildings: list[Building],
+    palisade_outer: Rect,
     cluster_plans: list[_ClusterPlan],
-    config: _TownSizeConfig,
     rng: random.Random,
     sides: list[str] | None = None,
-    extra_rects: list[Rect] | None = None,
 ) -> Enclosure:
-    """Wrap the buildings in a palisade and place gates at the
-    cluster-bbox-set y-midpoint (Q14).
+    """Wrap the buildable interior in a palisade of fixed size
+    and place gates at the cluster-bbox-set y-midpoint (Q14).
+
+    ``palisade_outer`` is the predetermined outer rect (surface
+    coords) — derived from :class:`_TownSizeConfig` rather than
+    shrink-wrapped from building bboxes. This means a city
+    palisade has the same outer dimensions across seeds,
+    matching the 1-tile VOID margin contract documented in
+    ``design/level_surface_layout.md``.
 
     ``sides`` lets the caller pre-shuffle the gate side order so
     the centerpiece's nudge direction (Phase 5) and the actual
     gate placement agree on the dominant gate. Pass ``None`` to
     have the helper shuffle internally; callers that don't run
-    the Phase 5 probe should leave it ``None``. ``extra_rects``
-    extends the palisade's bbox so the Phase 5 centerpiece patch
-    (which sits outside the cluster envelope when the probe pass
-    nudges it past the final cluster ring) stays inside the
-    walled area.
+    the Phase 5 probe should leave it ``None``.
     """
-    xs: list[int] = []
-    ys: list[int] = []
-    for b in buildings:
-        xs.extend([b.base_rect.x, b.base_rect.x2])
-        ys.extend([b.base_rect.y, b.base_rect.y2])
-    for r in extra_rects or []:
-        xs.extend([r.x, r.x2])
-        ys.extend([r.y, r.y2])
-    pad = TOWN_PALISADE_PADDING
-    min_x = min(xs) - pad
-    max_x = max(xs) + pad
-    min_y = min(ys) - pad
-    max_y = max(ys) + pad
+    min_x, min_y = palisade_outer.x, palisade_outer.y
+    max_x = palisade_outer.x2
+    max_y = palisade_outer.y2
     polygon = [
         (min_x, min_y),
         (max_x, min_y),
@@ -973,15 +1017,18 @@ def _compute_centerpiece_origin(
     probe_plans: list[_ClusterPlan],
     gate_sides: list[str],
     spec: _CenterpieceSpec,
-    config: _TownSizeConfig,
+    bounds: tuple[int, int, int, int],
     rng: random.Random,
 ) -> tuple[int, int] | None:
     """Pick the centerpiece patch's top-left tile (Q10).
 
     Centroid of the probe-pass cluster bbox set, nudged 1-2 tiles
     along the centroid -> dominant-gate vector. Snaps to a tile
-    that fits the patch dim and stays inside the surface bounds
-    (with a 1-tile margin from the edges)."""
+    that fits the patch dim and stays inside ``bounds``
+    (``(min_x, min_y, max_x, max_y)`` in surface coords, ``max_*``
+    exclusive) so the patch lands within the buildable interior
+    on palisade-bearing sites and within the 1-tile VOID margin
+    on hamlets."""
     if not probe_plans:
         return None
     xs_lo = min(p.bbox.x for p in probe_plans)
@@ -999,8 +1046,9 @@ def _compute_centerpiece_origin(
     half = spec.patch_dim // 2
     ox = cx - half
     oy = cy - half
-    ox = max(1, min(config.surface_width - spec.patch_dim - 1, ox))
-    oy = max(1, min(config.surface_height - spec.patch_dim - 1, oy))
+    min_x, min_y, max_x, max_y = bounds
+    ox = max(min_x, min(max_x - spec.patch_dim, ox))
+    oy = max(min_y, min(max_y - spec.patch_dim, oy))
     return (ox, oy)
 
 
@@ -1044,6 +1092,7 @@ def _build_town_surface(
     size_class: str,
     config: _TownSizeConfig,
     centerpiece_rect: Rect | None = None,
+    open_bounds: tuple[int, int, int, int] | None = None,
 ) -> Level:
     """Route the street network and stamp STREET / GARDEN / FIELD
     tiles across the walkable area.
@@ -1053,6 +1102,11 @@ def _build_town_surface(
     cluster bboxes, GARDEN tiles cover cluster-internal walkable
     patches and FIELD tiles cover the periphery. See
     :mod:`nhc.sites._town_streets` for the routing details.
+
+    ``open_bounds`` constrains the open-surface (non-palisade)
+    walkable scan so hamlets keep their 1-tile VOID margin.
+    Palisade-bearing sizes derive the walkable region from the
+    enclosure polygon and ignore this parameter.
     """
     surface = Level.create_empty(
         surface_id, surface_id, 0,
@@ -1070,6 +1124,7 @@ def _build_town_surface(
         config.surface_width, config.surface_height,
         blocked, size_class,
         centerpiece_rect=centerpiece_rect,
+        open_bounds=open_bounds,
     )
     paint_surface(surface, classification)
     return surface

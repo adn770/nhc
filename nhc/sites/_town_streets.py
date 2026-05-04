@@ -243,12 +243,21 @@ def _palisade_interior_walkable(
 
 
 def _open_surface_walkable(
-    surface_w: int, surface_h: int,
+    bounds: tuple[int, int, int, int],
     blocked: set[tuple[int, int]],
 ) -> set[tuple[int, int]]:
+    """Return every non-blocked tile inside ``bounds`` =
+    ``(min_x, min_y, max_x, max_y)`` (``max_*`` exclusive).
+
+    For non-palisade hamlets this excludes the 1-tile VOID
+    margin around the buildable area so the street router stays
+    inside the canvas region the contract reserves for renderable
+    content.
+    """
+    min_x, min_y, max_x, max_y = bounds
     walkable: set[tuple[int, int]] = set()
-    for y in range(surface_h):
-        for x in range(surface_w):
+    for y in range(min_y, max_y):
+        for x in range(min_x, max_x):
             if (x, y) in blocked:
                 continue
             walkable.add((x, y))
@@ -543,6 +552,7 @@ def compute_town_street_network(
     blocked: set[tuple[int, int]],
     size_class: str,
     centerpiece_rect: Rect | None = None,
+    open_bounds: tuple[int, int, int, int] | None = None,
 ) -> tuple[set[tuple[int, int]], dict[tuple[int, int], SurfaceType]]:
     """Compute STREET tiles + per-tile surface classification for
     a town surface.
@@ -571,9 +581,9 @@ def compute_town_street_network(
             if anchor is not None:
                 gate_anchors.append(anchor)
     else:
-        walkable = _open_surface_walkable(
-            surface_w, surface_h, blocked,
-        )
+        if open_bounds is None:
+            open_bounds = (0, 0, surface_w, surface_h)
+        walkable = _open_surface_walkable(open_bounds, blocked)
         gate_anchors = []
 
     # Spine pass: route through every cluster anchor connecting
