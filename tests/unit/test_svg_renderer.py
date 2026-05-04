@@ -42,10 +42,17 @@ def _make_level(width=10, height=8):
 
 class TestSVGOutput:
     def test_produces_valid_svg(self):
+        """The SVG envelope is well-formed.
+
+        The Rust SvgPainter prefixes an XML prolog
+        (``<?xml ...?>``) before the ``<svg>`` element, so the
+        check accepts either an XML or a bare-SVG header.
+        """
         level = _make_level()
         svg = render_floor_svg(level)
-        assert svg.startswith("<svg")
-        assert svg.endswith("</svg>")
+        assert svg.startswith("<svg") or svg.startswith("<?xml")
+        assert "<svg" in svg
+        assert svg.rstrip().endswith("</svg>")
 
     def test_parchment_background(self):
         level = _make_level()
@@ -185,49 +192,6 @@ class TestSVGOutput:
                 found_cluster = True
                 break
         assert found_cluster, "No stone cluster found in any seed"
-
-    def test_floor_stones_use_original_small_sizes(self):
-        """Floor stones use the original smaller sizes, not hatching
-        sizes."""
-        level = Level.create_empty("t", "T", depth=1,
-                                   width=20, height=20)
-        for y in range(1, 19):
-            for x in range(1, 19):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-        level.rooms.append(Room(id="r", rect=Rect(1, 1, 18, 18)))
-        for seed in range(50):
-            svg = render_floor_svg(level, seed=seed)
-            if FLOOR_STONE_FILL in svg:
-                break
-        # Extract all rx values from floor stone ellipses
-        # (they appear in the opacity="0.8" group)
-        stone_group = re.search(
-            r'<g opacity="0\.8">(.*?)</g>', svg, re.DOTALL)
-        assert stone_group, "No floor stone group found"
-        rx_vals = [float(v) for v in
-                   re.findall(r'rx="([^"]+)"', stone_group.group(1))]
-        assert rx_vals, "No rx values found"
-        # Single stones max at CELL*0.15=4.8; cluster stones scale up
-        # to 1.3x giving ~6.2. Hatching stones go up to CELL*0.25=8.
-        # All floor stones must stay below hatching size.
-        for rx in rx_vals:
-            assert rx <= 6.5, f"Floor stone rx={rx} too large"
-
-    def test_floor_y_scratches(self):
-        """Some floor tiles have Y-shaped scratches."""
-        level = Level.create_empty("t", "T", depth=1,
-                                   width=30, height=30)
-        for y in range(1, 29):
-            for x in range(1, 29):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-        level.rooms.append(Room(id="r", rect=Rect(1, 1, 28, 28)))
-        found = False
-        for seed in range(30):
-            svg = render_floor_svg(level, seed=seed)
-            if "y-scratch" in svg:
-                found = True
-                break
-        assert found, "No Y-scratch found in any seed"
 
 class TestRoomShapelyPolygon:
     """_room_shapely_polygon must return a polygon for every room type,

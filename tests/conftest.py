@@ -26,10 +26,6 @@ i18n_init("en")
 # items in this list will be re-evaluated at 2.21 and either
 # rewritten against the new contract or deleted.
 _PHASE_2_19_LEGACY_SVG_FORMAT_TESTS: frozenset[str] = frozenset({
-    # tests/unit/test_svg_renderer.py
-    "tests/unit/test_svg_renderer.py::TestSVGOutput::test_produces_valid_svg",
-    "tests/unit/test_svg_renderer.py::TestSVGOutput::test_floor_stones_use_original_small_sizes",
-    "tests/unit/test_svg_renderer.py::TestSVGOutput::test_floor_y_scratches",
     # tests/unit/test_svg_terrain.py
     "tests/unit/test_svg_terrain.py::TestTerrainDetailSVG::test_water_tiles_get_wavy_detail",
     # tests/unit/test_mine_rendering.py
