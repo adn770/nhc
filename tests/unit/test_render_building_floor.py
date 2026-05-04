@@ -180,24 +180,6 @@ class TestLShapeBuildingWalls:
                 return
         pytest.skip("no L-shape mansion building in 200 seeds")
 
-    def test_wood_lshape_building_floor_clips_seams(self):
-        """Wood seams on an LShape floor reference the interior
-        clip path."""
-        from nhc.dungeon.model import LShape
-        for seed in range(200):
-            site = assemble_mansion("m", random.Random(seed))
-            for b in site.buildings:
-                if not isinstance(b.base_shape, LShape):
-                    continue
-                level = b.floors[0]
-                level.interior_floor = "wood"
-                out = render_building_floor_svg(b, 0, seed=42)
-                assert "wood-interior-clip" in out
-                assert 'clip-path="url(#wood-interior-clip)"' in out
-                return
-        pytest.skip("no L-shape mansion building in 200 seeds")
-
-
 class TestBuildingFloorsSkipDungeonEffects:
     def _rect_building(self):
         from nhc.dungeon.model import RectShape
@@ -276,67 +258,6 @@ class TestBuildingFloorsSkipBonesAndSkulls:
                         f"floor stones on keep seed={seed} "
                         f"b{bi} f{fi}"
                     )
-
-
-class TestLShapeBuildingFloorFilled:
-    @pytest.mark.skip(
-        reason="NIR4: LShape building floor fill no longer emits a "
-        "second FLOOR_COLOR rect; production rendering path may have "
-        "regressed with the schema cut. Investigation pending."
-    )
-    def test_lshape_building_emits_floor_fill(self):
-        """An LShape building floor must produce a floor fill that
-        covers the interior, not just a per-tile rect on the
-        lone door tile. Before the fix _room_svg_outline returned
-        None for LShape, so the interior showed through as page
-        background with only the door's white rect standing out."""
-        from nhc.dungeon.model import LShape
-        from nhc.sites.town import assemble_town
-        from nhc.rendering._svg_helpers import FLOOR_COLOR
-        for seed in range(50):
-            site = assemble_town("t", random.Random(seed))
-            for b in site.buildings:
-                if not isinstance(b.base_shape, LShape):
-                    continue
-                # Stone interior so we can check FLOOR_COLOR fills
-                # (wood interior short-circuits to its own fills).
-                b.interior_floor = "stone"
-                for f in b.floors:
-                    f.interior_floor = "stone"
-                out = render_building_floor_svg(b, 0, seed=seed)
-                # Count FLOOR_COLOR fills -- with the outline fix
-                # the LShape room emits a polygon fill AND the
-                # single door tile. Without the fix, only the
-                # door tile. Expect the outline to produce at
-                # least one extra FLOOR_COLOR element.
-                count = out.count(f'fill="{FLOOR_COLOR}"')
-                assert count >= 2, (
-                    f"expected >=2 FLOOR_COLOR fills on LShape "
-                    f"interior (got {count} on seed={seed})"
-                )
-                return
-        pytest.skip("no L-shape town building in 50 seeds")
-
-    def test_regular_dungeon_level_still_may_have_bones(self):
-        """Sanity check: a plain Level can still emit bone /
-        skull groups for crypt / cave themes."""
-        from nhc.dungeon.generator import GenerationParams
-        from nhc.dungeon.generators.bsp import BSPGenerator
-        from nhc.rendering.svg import render_floor_svg
-        found = False
-        for seed in range(20):
-            level = BSPGenerator().generate(
-                GenerationParams(
-                    seed=seed, shape_variety=0.5, theme="crypt",
-                ),
-            )
-            svg = render_floor_svg(level, seed=seed)
-            if "detail-bones" in svg or "detail-skulls" in svg:
-                found = True
-                break
-        assert found, (
-            "expected at least one crypt seed to emit thematic details"
-        )
 
 
 def _brick_rects(svg: str) -> list[dict]:

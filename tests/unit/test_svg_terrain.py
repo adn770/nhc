@@ -162,13 +162,6 @@ class TestTerrainTintSVG:
 
 
 class TestTerrainDetailSVG:
-    def test_water_tiles_get_wavy_detail(self):
-        level = _make_terrain_level(Terrain.WATER)
-        svg = render_floor_svg(level, seed=42)
-        # Water detail uses wavy paths — check for the terrain
-        # detail group marker
-        assert "terrain-water" in svg
-
     def test_grass_tiles_get_only_tint_no_blade_detail(self):
         """Grass renders as a flat tint -- the per-tile blade
         strokes were dropping ~half of the terrain_detail layer

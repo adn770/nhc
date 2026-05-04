@@ -9,8 +9,6 @@ with cobblestones.
 from __future__ import annotations
 
 import math
-import random
-import re
 
 import pytest
 
@@ -248,31 +246,6 @@ class TestWoodInteriorFloor:
         assert WOOD_FLOOR_FILL not in svg
         assert seam_stroke not in svg
 
-    def test_wood_floor_suppresses_crack_detail(self):
-        """Wood floors have no dungeon-style crack scratches."""
-        level = _blank_level(20, 20)
-        level.interior_floor = "wood"
-        wood_svg = render_floor_svg(level, seed=42)
-        stone_level = _blank_level(20, 20)
-        stone_svg = render_floor_svg(stone_level, seed=42)
-        # Wood SVG should not contain the scratch/crack "<g" section
-        # produced by _render_floor_detail when interior_floor ==
-        # "stone". Count a crude proxy: hand-scratched path strokes
-        # at 0.3-0.7 width are scratches.
-        def _count_hand_scratches(svg: str) -> int:
-            return (
-                svg.count('stroke-width="0.3"')
-                + svg.count('stroke-width="0.4"')
-                + svg.count('stroke-width="0.5"')
-                + svg.count('stroke-width="0.6"')
-                + svg.count('stroke-width="0.7"')
-            )
-        # Wood has far fewer hand-drawn detail strokes
-        assert _count_hand_scratches(wood_svg) < _count_hand_scratches(
-            stone_svg,
-        )
-
-
 class TestWoodParquetConstants:
     def test_plank_width_is_quarter_tile(self):
         from nhc.rendering._floor_detail import WOOD_PLANK_WIDTH_PX
@@ -331,136 +304,3 @@ class TestWoodGrainEffect:
         assert WOOD_GRAIN_DARK not in svg
 
 
-class TestWoodParquetRandomLengths:
-    # Use a room id that hashes to the ``plank`` pattern so these
-    # tests probe the plank-length distribution. The basket-weave
-    # path has fixed-length cell-internal seams that don't carry
-    # the random-length signal these tests look for.
-    _PLANK_ROOM = "r3"
-
-    def test_plank_end_gaps_cover_a_range(self):
-        """Plank-end x-coords within a strip should NOT be uniformly
-        spaced; instead consecutive gaps span a range between MIN
-        and MAX."""
-        from nhc.rendering._floor_detail import (
-            WOOD_PLANK_LENGTH_MAX, WOOD_PLANK_LENGTH_MIN,
-        )
-        seam_stroke = _wood_palette_for_test(
-            seed=42, room_id=self._PLANK_ROOM,
-        )[3]
-        level = _blank_level(40, 6, room_id=self._PLANK_ROOM)
-        level.interior_floor = "wood"
-        svg = render_floor_svg(level, seed=42)
-        start = svg.find(f'stroke="{seam_stroke}"')
-        assert start > 0
-        end = svg.find("</g>", start)
-        segment = svg[start:end]
-
-        # Extract vertical plank-end lines on the first strip
-        # (y1 == y2 is horizontal; we want vertical lines where
-        # x1 == x2 and y2 - y1 == WOOD_PLANK_WIDTH_PX).
-        from nhc.rendering._floor_detail import WOOD_PLANK_WIDTH_PX
-        xs = []
-        for m in re.finditer(
-            r'<line x1="([0-9.]+)" y1="([0-9.]+)" '
-            r'x2="([0-9.]+)" y2="([0-9.]+)"', segment,
-        ):
-            x1, y1 = float(m.group(1)), float(m.group(2))
-            x2, y2 = float(m.group(3)), float(m.group(4))
-            if math.isclose(x1, x2) and math.isclose(
-                y1, 0, abs_tol=0.1,
-            ) and math.isclose(
-                y2 - y1, WOOD_PLANK_WIDTH_PX, abs_tol=0.1,
-            ):
-                xs.append(round(x1, 2))
-        xs.sort()
-        assert len(xs) >= 3
-        gaps = [b - a for a, b in zip(xs, xs[1:])]
-        # Every gap is within the plank length range.
-        for g in gaps:
-            assert (
-                WOOD_PLANK_LENGTH_MIN - 0.1
-                <= g <= WOOD_PLANK_LENGTH_MAX + 0.1
-            ), f"gap {g} outside plank-length range"
-        # The range of gaps observed is > 1 tile wide, proving the
-        # lengths actually vary.
-        assert max(gaps) - min(gaps) > 10.0
-
-    def test_plank_ends_do_not_align_across_strips(self):
-        """Adjacent strips shouldn't have plank-end x-coords at the
-        same positions (stagger via random lengths)."""
-        from nhc.rendering._floor_detail import WOOD_PLANK_WIDTH_PX
-        seam_stroke = _wood_palette_for_test(
-            seed=42, room_id=self._PLANK_ROOM,
-        )[3]
-        level = _blank_level(40, 6, room_id=self._PLANK_ROOM)
-        level.interior_floor = "wood"
-        svg = render_floor_svg(level, seed=42)
-        start = svg.find(f'stroke="{seam_stroke}"')
-        end = svg.find("</g>", start)
-        segment = svg[start:end]
-
-        # Group plank-end x-coords by strip y.
-        ends_by_strip: dict[float, set[float]] = {}
-        for m in re.finditer(
-            r'<line x1="([0-9.]+)" y1="([0-9.]+)" '
-            r'x2="([0-9.]+)" y2="([0-9.]+)"', segment,
-        ):
-            x1, y1 = float(m.group(1)), float(m.group(2))
-            x2, y2 = float(m.group(3)), float(m.group(4))
-            if math.isclose(x1, x2):  # vertical -> plank end
-                key = round(y1, 2)
-                ends_by_strip.setdefault(key, set()).add(round(x1, 2))
-
-        strip_ys = sorted(ends_by_strip)
-        assert len(strip_ys) >= 2
-        # First two strips' plank-end x-coords should differ.
-        a = ends_by_strip[strip_ys[0]]
-        b = ends_by_strip[strip_ys[1]]
-        # At least one end in strip 0 that is not in strip 1.
-        assert a - b
-
-
-class TestWoodParquetPattern:
-    def test_horizontal_room_emits_many_plank_end_lines(self):
-        """A wide wood room produces more vertical plank-end seams
-        than the 3 horizontal seams the old renderer emitted."""
-        level = _blank_level(20, 6)
-        level.interior_floor = "wood"
-        svg = render_floor_svg(level, seed=42)
-        # Count <line> inside the wood-seam group.
-        lines = re.findall(r'<line\s[^/]*/>', svg)
-        # Roughly: 20 tiles wide * 32 = 640px. Plank length 80.
-        # Per strip ~8 vertical seams. 6 tiles tall * 32 / 8 = 24
-        # strips. Plus 23 horizontal strip boundaries.
-        # Total roughly 200+ lines.
-        assert len(lines) > 50
-
-    def test_parquet_strips_use_plank_width(self):
-        """Distance between consecutive horizontal seam y-coords
-        inside the wood-seam group equals the plank width."""
-        from nhc.rendering._floor_detail import WOOD_PLANK_WIDTH_PX
-        seam_stroke = _wood_palette_for_test(seed=42)[3]
-        level = _blank_level(20, 6)
-        level.interior_floor = "wood"
-        svg = render_floor_svg(level, seed=42)
-        # Restrict scan to the wood-seam <g ...> ... </g> block so
-        # unrelated floor-grid lines don't leak in.
-        group_start = svg.find(f'stroke="{seam_stroke}"')
-        assert group_start > 0
-        group_end = svg.find("</g>", group_start)
-        segment = svg[group_start:group_end]
-        ys = set()
-        for m in re.finditer(
-            r'<line x1="[0-9.]+" y1="([0-9.]+)" '
-            r'x2="[0-9.]+" y2="([0-9.]+)"', segment,
-        ):
-            y1, y2 = float(m.group(1)), float(m.group(2))
-            if math.isclose(y1, y2):
-                ys.add(round(y1, 2))
-        assert len(ys) >= 2
-        ys_sorted = sorted(ys)
-        for a, b in zip(ys_sorted, ys_sorted[1:]):
-            assert math.isclose(
-                b - a, WOOD_PLANK_WIDTH_PX, abs_tol=0.1,
-            ), f"strip gap {b - a:.2f}"

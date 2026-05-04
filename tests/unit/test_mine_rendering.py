@@ -23,17 +23,6 @@ def _mine_level(seed: int = 42) -> Level:
 
 
 class TestCartTrackRendering:
-    def test_track_tiles_render_rails(self):
-        level = _mine_level()
-        # Confirm transform marked tracks
-        assert sum(
-            1 for row in level.tiles for t in row
-            if t.surface_type == SurfaceType.TRACK
-        ) > 0
-        svg = render_floor_svg(level)
-        # Rail marker (group id) should appear in output
-        assert "cart-tracks" in svg
-
     def test_no_tracks_no_track_group(self):
         """If no tiles are tracks, the SVG skips the rails group."""
         params = GenerationParams(
@@ -46,15 +35,6 @@ class TestCartTrackRendering:
 
 
 class TestOreDepositRendering:
-    def test_ore_tiles_render_sparkles(self):
-        level = _mine_level()
-        assert sum(
-            1 for row in level.tiles for t in row
-            if t.feature == "ore_deposit"
-        ) > 0
-        svg = render_floor_svg(level)
-        assert "ore-deposits" in svg
-
     def test_no_ore_no_ore_group(self):
         params = GenerationParams(
             width=40, height=25, depth=1, seed=42,

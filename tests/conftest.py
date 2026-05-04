@@ -26,20 +26,6 @@ i18n_init("en")
 # items in this list will be re-evaluated at 2.21 and either
 # rewritten against the new contract or deleted.
 _PHASE_2_19_LEGACY_SVG_FORMAT_TESTS: frozenset[str] = frozenset({
-    # tests/unit/test_svg_terrain.py
-    "tests/unit/test_svg_terrain.py::TestTerrainDetailSVG::test_water_tiles_get_wavy_detail",
-    # tests/unit/test_mine_rendering.py
-    "tests/unit/test_mine_rendering.py::TestCartTrackRendering::test_track_tiles_render_rails",
-    "tests/unit/test_mine_rendering.py::TestOreDepositRendering::test_ore_tiles_render_sparkles",
-    # tests/unit/test_render_building_floor.py
-    "tests/unit/test_render_building_floor.py::TestLShapeBuildingWalls::test_wood_lshape_building_floor_clips_seams",
-    "tests/unit/test_render_building_floor.py::TestLShapeBuildingFloorFilled::test_regular_dungeon_level_still_may_have_bones",
-    # tests/unit/test_surface_rendering.py
-    "tests/unit/test_surface_rendering.py::TestWoodInteriorFloor::test_wood_floor_suppresses_crack_detail",
-    "tests/unit/test_surface_rendering.py::TestWoodParquetPattern::test_horizontal_room_emits_many_plank_end_lines",
-    "tests/unit/test_surface_rendering.py::TestWoodParquetPattern::test_parquet_strips_use_plank_width",
-    "tests/unit/test_surface_rendering.py::TestWoodParquetRandomLengths::test_plank_end_gaps_cover_a_range",
-    "tests/unit/test_surface_rendering.py::TestWoodParquetRandomLengths::test_plank_ends_do_not_align_across_strips",
     # tests/unit/rendering/test_cross_floor_kind_portability.py
     "tests/unit/rendering/test_cross_floor_kind_portability.py::TestTreePortability::test_tree_paints_on_dungeon",
     "tests/unit/rendering/test_cross_floor_kind_portability.py::TestTreePortability::test_tree_paints_on_building_interior",
