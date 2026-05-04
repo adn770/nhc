@@ -37,10 +37,23 @@ from nhc.hexcrawl.model import DungeonRef
 
 # ── Keep tunable constants ───────────────────────────────────
 
+# Fortification outer dims (the rectangle whose four corners are
+# the enclosure polygon vertices). Surface = outer + 2 so the
+# 1-tile VOID margin contract holds — see
+# ``design/level_surface_layout.md``. The outer dims are sized
+# to fit the worst-case RNG draw (3 mains × max width 9 + 4
+# sparse × (max width 5 + spacing 2) - trailing) plus
+# ``KEEP_FORTIFICATION_PADDING`` of courtyard space on each side.
+KEEP_FORTIFICATION_OUTER_WIDTH = 36
+KEEP_FORTIFICATION_OUTER_HEIGHT = 26
+
 # Per-kind tier table. M6b only supports the default tier
 # (MEDIUM); future tiers grow when gameplay calls for it.
 KEEP_DIMS_BY_TIER: dict[SiteTier, tuple[int, int]] = {
-    SiteTier.MEDIUM: (46, 36),
+    SiteTier.MEDIUM: (
+        KEEP_FORTIFICATION_OUTER_WIDTH + 2,
+        KEEP_FORTIFICATION_OUTER_HEIGHT + 2,
+    ),
 }
 
 KEEP_SURFACE_WIDTH = KEEP_DIMS_BY_TIER[SiteTier.MEDIUM][0]
@@ -58,8 +71,6 @@ KEEP_COMMANDER_MAIN_PROXIMITY = 5
 KEEP_MAIN_BUILDING_COUNT_RANGE = (2, 3)
 KEEP_MAIN_BUILDING_WIDTH_RANGE = (7, 9)
 KEEP_MAIN_BUILDING_HEIGHT = 9
-KEEP_MAIN_BUILDING_Y = 6
-KEEP_MAIN_BUILDING_X_START = 6
 KEEP_MAIN_FLOOR_COUNT_RANGE = (1, 2)
 
 KEEP_SPARSE_BUILDING_COUNT_RANGE = (2, 4)
@@ -68,7 +79,14 @@ KEEP_SPARSE_SIZE_RANGE = (3, 5)
 KEEP_DESCENT_PROBABILITY = 0.4
 KEEP_DESCENT_TEMPLATE = "procedural:crypt"
 
-KEEP_FORTIFICATION_PADDING = 4       # tiles beyond bbox for wall
+KEEP_FORTIFICATION_PADDING = 4       # tiles between the wall and
+                                     # the courtyard buildings
+
+# Building placement origin. Buildings live inside the
+# fortification interior with ``KEEP_FORTIFICATION_PADDING``
+# tiles between the wall and the nearest building.
+KEEP_MAIN_BUILDING_X_START = 1 + KEEP_FORTIFICATION_PADDING
+KEEP_MAIN_BUILDING_Y = 1 + KEEP_FORTIFICATION_PADDING
 KEEP_GATE_COUNT_RANGE = (1, 2)
 KEEP_GATE_LENGTH_TILES = 3
 
@@ -147,7 +165,7 @@ def assemble_keep(
                 )
         b.validate()
 
-    enclosure = _build_fortification(buildings, rng)
+    enclosure = _build_fortification(rng)
     surface = _build_keep_surface(
         f"{site_id}_surface", buildings, enclosure,
     )
@@ -397,20 +415,21 @@ def _place_entry_door(
     return (dx, dy)
 
 
-def _build_fortification(
-    buildings: list[Building], rng: random.Random,
-) -> Enclosure:
-    """Axis-aligned fortification polygon around every building."""
-    xs: list[int] = []
-    ys: list[int] = []
-    for b in buildings:
-        xs.extend([b.base_rect.x, b.base_rect.x2])
-        ys.extend([b.base_rect.y, b.base_rect.y2])
-    pad = KEEP_FORTIFICATION_PADDING
-    min_x = min(xs) - pad
-    max_x = max(xs) + pad
-    min_y = min(ys) - pad
-    max_y = max(ys) + pad
+def _build_fortification(rng: random.Random) -> Enclosure:
+    """Axis-aligned fortification of fixed outer dimensions.
+
+    The polygon vertices are anchored at ``(1, 1)`` so the
+    ``Level`` reserves a 1-tile VOID margin around every
+    renderable element — see ``design/level_surface_layout.md``.
+    Buildings are placed inside the courtyard at offsets that
+    keep them ``KEEP_FORTIFICATION_PADDING`` tiles away from the
+    wall regardless of the RNG draw, mirroring the town
+    palisade pattern.
+    """
+    min_x = 1
+    min_y = 1
+    max_x = 1 + KEEP_FORTIFICATION_OUTER_WIDTH
+    max_y = 1 + KEEP_FORTIFICATION_OUTER_HEIGHT
     polygon = [
         (min_x, min_y),
         (max_x, min_y),
