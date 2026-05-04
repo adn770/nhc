@@ -27,7 +27,7 @@ from nhc.dungeon.model import (
 )
 from nhc.rendering.ir_emitter import build_floor_ir
 
-from ._core import CATALOG, SampleSpec
+from ._core import BuildResult, CATALOG, SampleSpec
 
 
 # ── Synthetic level builders ───────────────────────────────────────
@@ -99,13 +99,16 @@ _SHAPES = {
 }
 
 
-def _single_shape_buf(shape_key: str, *, theme: str, seed: int) -> bytes:
+def _single_shape_result(
+    shape_key: str, *, theme: str, seed: int,
+) -> BuildResult:
     """Build IR for a single-room level of the given shape."""
     shape, rect, canvas = _SHAPES[shape_key]()
     level = _single_room_level(
         shape, rect=rect, canvas=canvas, theme=theme,
     )
-    return build_floor_ir(level, seed=seed)
+    buf = build_floor_ir(level, seed=seed)
+    return BuildResult(buf=buf, level=level)
 
 
 # ── Floor matrix: shape × style × theme ─────────────────────────────
@@ -129,7 +132,7 @@ for _shape_key in _SHAPES:
         ),
         params={"shape": _shape_key, "theme": "dungeon", "style": "DungeonFloor"},
         build=(lambda s, k=_shape_key:
-               _single_shape_buf(k, theme="dungeon", seed=s)),
+               _single_shape_result(k, theme="dungeon", seed=s)),
     ))
 
 for _shape_key in _SHAPES:
@@ -142,7 +145,7 @@ for _shape_key in _SHAPES:
         ),
         params={"shape": _shape_key, "theme": "cave", "style": "CaveFloor"},
         build=(lambda s, k=_shape_key:
-               _single_shape_buf(k, theme="cave", seed=s)),
+               _single_shape_result(k, theme="cave", seed=s)),
     ))
 
 for _shape_key in _SHAPES:
@@ -155,7 +158,7 @@ for _shape_key in _SHAPES:
         ),
         params={"shape": _shape_key, "theme": "crypt", "style": "DungeonFloor"},
         build=(lambda s, k=_shape_key:
-               _single_shape_buf(k, theme="crypt", seed=s)),
+               _single_shape_result(k, theme="crypt", seed=s)),
     ))
 
 
@@ -169,12 +172,12 @@ for _shape_key in _SHAPES:
 # diff in the same folder.
 
 
-def _stone_floor_dungeon_buf(seed: int) -> bytes:
+def _stone_floor_dungeon_result(seed: int) -> BuildResult:
     """Stone floor inside a dungeon room (canonical case)."""
-    return _single_shape_buf("rect", theme="dungeon", seed=seed)
+    return _single_shape_result("rect", theme="dungeon", seed=seed)
 
 
-def _stone_floor_building_buf(seed: int) -> bytes:
+def _stone_floor_building_result(seed: int) -> BuildResult:
     """Stone floor inside a building (interior_floor='stone')."""
     shape, rect, canvas = _rect_room()
     level = _single_room_level(
@@ -186,10 +189,11 @@ def _stone_floor_building_buf(seed: int) -> bytes:
     level.building_id = "synthetic.bldg"
     level.floor_index = 0
     level.interior_floor = "stone"
-    return build_floor_ir(level, seed=seed)
+    buf = build_floor_ir(level, seed=seed)
+    return BuildResult(buf=buf, level=level)
 
 
-def _stone_floor_site_buf(seed: int) -> bytes:
+def _stone_floor_site_result(seed: int) -> BuildResult:
     """Stone floor on a site surface (prerevealed=True trims the
     hatch envelope but keeps FloorOp dispatch identical)."""
     shape, rect, canvas = _rect_room()
@@ -197,7 +201,8 @@ def _stone_floor_site_buf(seed: int) -> bytes:
         shape, rect=rect, canvas=canvas, theme="dungeon",
     )
     level.metadata = LevelMetadata(theme="dungeon", prerevealed=True)
-    return build_floor_ir(level, seed=seed)
+    buf = build_floor_ir(level, seed=seed)
+    return BuildResult(buf=buf, level=level)
 
 
 CATALOG.extend([
@@ -209,7 +214,7 @@ CATALOG.extend([
             "FloorOp(DungeonFloor) consumer path."
         ),
         params={"context": "dungeon_room", "shape": "rect"},
-        build=_stone_floor_dungeon_buf,
+        build=_stone_floor_dungeon_result,
     ),
     SampleSpec(
         name="building_floor",
@@ -220,7 +225,7 @@ CATALOG.extend([
             "emit path renders identically to the dungeon-room path."
         ),
         params={"context": "building_floor", "shape": "rect", "interior_floor": "stone"},
-        build=_stone_floor_building_buf,
+        build=_stone_floor_building_result,
     ),
     SampleSpec(
         name="site_surface",
@@ -232,7 +237,7 @@ CATALOG.extend([
             "the FloorOp dispatch is the same)."
         ),
         params={"context": "site_surface", "shape": "rect", "prerevealed": True},
-        build=_stone_floor_site_buf,
+        build=_stone_floor_site_result,
     ),
 ])
 
@@ -251,7 +256,7 @@ CATALOG.extend([
 # species.
 
 
-def _wood_floor_buf(species_idx: int, seed: int) -> bytes:
+def _wood_floor_result(species_idx: int, seed: int) -> BuildResult:
     """Build a building floor whose room id hashes to species_idx.
 
     Iterates room ids until ``fnv1a_32(rid) % 5 == species_idx``.
@@ -266,7 +271,8 @@ def _wood_floor_buf(species_idx: int, seed: int) -> bytes:
     level.building_id = "synthetic.bldg"
     level.floor_index = 0
     level.interior_floor = "wood"
-    return build_floor_ir(level, seed=seed)
+    buf = build_floor_ir(level, seed=seed)
+    return BuildResult(buf=buf, level=level)
 
 
 def _fnv1a_32(data: str) -> int:
@@ -303,7 +309,7 @@ for _idx, _species in enumerate(_WOOD_SPECIES):
             f"reproducible."
         ),
         params={"species_idx": _idx, "species": _species, "shape": "rect"},
-        build=(lambda s, i=_idx: _wood_floor_buf(i, seed=s)),
+        build=(lambda s, i=_idx: _wood_floor_result(i, seed=s)),
         seeds=(7,),  # one seed; geometry deterministic.
     ))
 
@@ -341,9 +347,9 @@ _DECORATOR_TAG_FOR_VARIANT = {
 }
 
 
-def _decorator_buf(
+def _decorator_result(
     variant: str, shape_key: str, *, seed: int,
-) -> bytes:
+) -> BuildResult:
     """Build a single-room level with the given decorator tag."""
     shape, rect, canvas = _SHAPES[shape_key]()
     level = _single_room_level(
@@ -354,7 +360,8 @@ def _decorator_buf(
     # variant. Tags are case-insensitive at the consumer.
     tag = _DECORATOR_TAG_FOR_VARIANT[variant]
     level.rooms[0].tags = [tag]
-    return build_floor_ir(level, seed=seed)
+    buf = build_floor_ir(level, seed=seed)
+    return BuildResult(buf=buf, level=level)
 
 
 for _variant in _DECORATOR_TAG_FOR_VARIANT:
@@ -371,7 +378,7 @@ for _variant in _DECORATOR_TAG_FOR_VARIANT:
                 "tag": _DECORATOR_TAG_FOR_VARIANT[_variant],
             },
             build=(lambda s, v=_variant, k=_shape_key:
-                   _decorator_buf(v, k, seed=s)),
+                   _decorator_result(v, k, seed=s)),
             seeds=(7,),
         ))
 
@@ -385,9 +392,9 @@ for _variant in _DECORATOR_TAG_FOR_VARIANT:
 # feature on the room's centre tile.
 
 
-def _fixture_buf(
+def _fixture_result(
     feature: str, shape_key: str, *, seed: int,
-) -> bytes:
+) -> BuildResult:
     """Build a single-room level with the given fixture stamped at
     the room's centre tile."""
     shape, rect, canvas = _SHAPES[shape_key]()
@@ -397,7 +404,8 @@ def _fixture_buf(
     cx, cy = rect.center
     if level.in_bounds(cx, cy):
         level.tiles[cy][cx].feature = feature
-    return build_floor_ir(level, seed=seed)
+    buf = build_floor_ir(level, seed=seed)
+    return BuildResult(buf=buf, level=level)
 
 
 _FIXTURE_FEATURES = {
@@ -424,7 +432,7 @@ for _fixture, _feature in _FIXTURE_FEATURES.items():
                 "shape": _shape_key,
             },
             build=(lambda s, f=_feature, k=_shape_key:
-                   _fixture_buf(f, k, seed=s)),
+                   _fixture_result(f, k, seed=s)),
             seeds=(7,),
         ))
 
@@ -457,7 +465,7 @@ for _shape_key in ("rect", "octagon", "circle", "pill"):
         ),
         params={"style": "DungeonInk", "shape": _shape_key},
         build=(lambda s, k=_shape_key:
-               _single_shape_buf(k, theme="dungeon", seed=s)),
+               _single_shape_result(k, theme="dungeon", seed=s)),
         seeds=(7,),
     ))
 
@@ -472,7 +480,7 @@ for _shape_key in ("rect", "octagon", "circle", "pill"):
         ),
         params={"style": "CaveInk", "shape": _shape_key},
         build=(lambda s, k=_shape_key:
-               _single_shape_buf(k, theme="cave", seed=s)),
+               _single_shape_result(k, theme="cave", seed=s)),
         seeds=(7,),
     ))
 
@@ -512,8 +520,10 @@ def _twin_rooms_level(theme: str = "dungeon") -> Level:
     return level
 
 
-def _twin_rooms_buf(seed: int, *, theme: str = "dungeon") -> bytes:
-    return build_floor_ir(_twin_rooms_level(theme=theme), seed=seed)
+def _twin_rooms_result(seed: int, *, theme: str = "dungeon") -> BuildResult:
+    level = _twin_rooms_level(theme=theme)
+    buf = build_floor_ir(level, seed=seed)
+    return BuildResult(buf=buf, level=level)
 
 
 CATALOG.extend([
@@ -529,7 +539,7 @@ CATALOG.extend([
             "double-darkened (~64) value."
         ),
         params={"layout": "twin_rect_adjacent"},
-        build=lambda s: _twin_rooms_buf(s),
+        build=lambda s: _twin_rooms_result(s),
         seeds=(7,),
     ),
 ])

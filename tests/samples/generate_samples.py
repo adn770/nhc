@@ -81,12 +81,12 @@ def _select(
 
 
 def _render_one(
-    spec_index: int, seed: int, outdir: Path,
+    spec_index: int, seed: int, outdir: Path, labels: bool,
 ) -> tuple[str, Path]:
     """Worker function. Process pool forks the catalog so we look
     up the spec by index to dodge pickling the build callable."""
     spec = CATALOG[spec_index]
-    base = write_sample(spec, seed, outdir)
+    base = write_sample(spec, seed, outdir, inject_labels=labels)
     label = f"{spec.category}/{spec.name}_seed{seed}"
     return label, base
 
@@ -164,6 +164,15 @@ def main(argv: list[str] | None = None) -> int:
         "--list", action="store_true",
         help="List matching samples without rendering.",
     )
+    parser.add_argument(
+        "--labels", action="store_true",
+        help=(
+            "Inject debug overlays into the SVG (room IDs, door "
+            "markers, corridor IDs). PNG output stays clean. "
+            "Off by default — raw renders are the canonical "
+            "artifact."
+        ),
+    )
     args = parser.parse_args(argv)
 
     seeds = _parse_seeds(args.seeds)
@@ -192,7 +201,9 @@ def main(argv: list[str] | None = None) -> int:
         # explodes during catalog development.
         for idx, seed in jobs:
             try:
-                label, base = _render_one(idx, seed, args.outdir)
+                label, base = _render_one(
+                    idx, seed, args.outdir, args.labels,
+                )
                 print(f"  ✓ {label}", flush=True)
             except Exception as exc:  # noqa: BLE001
                 failures.append(
@@ -203,8 +214,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         with ProcessPoolExecutor(max_workers=args.workers) as pool:
             futures = {
-                pool.submit(_render_one, idx, seed, args.outdir):
-                (idx, seed)
+                pool.submit(
+                    _render_one, idx, seed, args.outdir, args.labels,
+                ): (idx, seed)
                 for idx, seed in jobs
             }
             for fut in as_completed(futures):

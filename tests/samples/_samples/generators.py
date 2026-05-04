@@ -4,6 +4,11 @@ generators so each sample exercises the full IR pipeline.
 Used to surface integration bugs that pure synthetic samples miss:
 generator-induced layouts, real RNG sequences, real wall-emit
 patterns, real corridor connectivity.
+
+Each builder returns a :class:`BuildResult` carrying both the IR
+buffer and the source ``Level`` (and ``Site`` when relevant) so
+the optional ``--labels`` overlay can extract room / corridor /
+door metadata.
 """
 
 from __future__ import annotations
@@ -12,13 +17,15 @@ import random as _stdrandom
 
 from nhc.rendering.ir_emitter import build_floor_ir
 
-from ._core import CATALOG, SampleSpec
+from ._core import BuildResult, CATALOG, SampleSpec
 
 
 # ── BSP shape-variety sweep ────────────────────────────────────────
 
 
-def _build_bsp(seed: int, *, shape_variety: float, theme: str) -> bytes:
+def _build_bsp(
+    seed: int, *, shape_variety: float, theme: str,
+) -> BuildResult:
     from nhc.dungeon.generator import GenerationParams
     from nhc.dungeon.generators.bsp import BSPGenerator
 
@@ -28,13 +35,16 @@ def _build_bsp(seed: int, *, shape_variety: float, theme: str) -> bytes:
         theme=theme,
     )
     level = BSPGenerator().generate(params)
-    return build_floor_ir(level, seed=seed)
+    buf = build_floor_ir(level, seed=seed)
+    return BuildResult(buf=buf, level=level)
 
 
 # ── Structural templates ───────────────────────────────────────────
 
 
-def _build_template(seed: int, *, template: str, w: int, h: int) -> bytes:
+def _build_template(
+    seed: int, *, template: str, w: int, h: int,
+) -> BuildResult:
     from nhc.dungeon.generator import GenerationParams
     from nhc.dungeon.pipeline import generate_level as gen_level
 
@@ -43,13 +53,16 @@ def _build_template(seed: int, *, template: str, w: int, h: int) -> bytes:
         shape_variety=0.5, template=template,
     )
     level = gen_level(params)
-    return build_floor_ir(level, seed=seed)
+    buf = build_floor_ir(level, seed=seed)
+    return BuildResult(buf=buf, level=level)
 
 
 # ── Underworld biomes ──────────────────────────────────────────────
 
 
-def _build_underworld(seed: int, *, theme: str, w: int, h: int) -> bytes:
+def _build_underworld(
+    seed: int, *, theme: str, w: int, h: int,
+) -> BuildResult:
     from nhc.dungeon.generator import GenerationParams
     from nhc.dungeon.pipeline import generate_level as gen_level
 
@@ -58,13 +71,14 @@ def _build_underworld(seed: int, *, theme: str, w: int, h: int) -> bytes:
         shape_variety=0.3, theme=theme,
     )
     level = gen_level(params)
-    return build_floor_ir(level, seed=seed)
+    buf = build_floor_ir(level, seed=seed)
+    return BuildResult(buf=buf, level=level)
 
 
 # ── Settlements (town surface at each size class) ──────────────────
 
 
-def _build_settlement(seed: int, *, size_class: str) -> bytes:
+def _build_settlement(seed: int, *, size_class: str) -> BuildResult:
     from nhc.sites.town import assemble_town
 
     site = assemble_town(
@@ -72,17 +86,19 @@ def _build_settlement(seed: int, *, size_class: str) -> bytes:
         _stdrandom.Random(seed),
         size_class=size_class,
     )
-    return build_floor_ir(site.surface, seed=seed, site=site)
+    buf = build_floor_ir(site.surface, seed=seed, site=site)
+    return BuildResult(buf=buf, level=site.surface, site=site)
 
 
 # ── Sites (macro: surface for each kind) ───────────────────────────
 
 
-def _build_site_surface(seed: int, *, kind: str) -> bytes:
+def _build_site_surface(seed: int, *, kind: str) -> BuildResult:
     from nhc.sites._site import assemble_site
 
     site = assemble_site(kind, f"site_{kind}_seed{seed}", _stdrandom.Random(seed))
-    return build_floor_ir(site.surface, seed=seed, site=site)
+    buf = build_floor_ir(site.surface, seed=seed, site=site)
+    return BuildResult(buf=buf, level=site.surface, site=site)
 
 
 # ── Catalog ────────────────────────────────────────────────────────
