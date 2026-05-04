@@ -45,15 +45,19 @@ class TestTinyFarm:
 
         The sub-hex dispatcher sizes family-site levels using
         ``SITE_TIER_DIMS``; a unified TINY farm must fit so the
-        dispatcher does not need to crop it.
+        dispatcher does not need to crop it. The 1-tile VOID
+        margin contract (``design/level_surface_layout.md``) adds
+        one tile of VOID on every side, so the surface itself sits
+        at ``tier_dims + 2`` while the renderable area fits the
+        envelope.
         """
         tiny_w, tiny_h = SITE_TIER_DIMS[SiteTier.TINY]
         for seed in range(20):
             site = assemble_farm(
                 "f1", random.Random(seed), tier=SiteTier.TINY,
             )
-            assert site.surface.width <= tiny_w
-            assert site.surface.height <= tiny_h
+            assert site.surface.width <= tiny_w + 2
+            assert site.surface.height <= tiny_h + 2
 
     def test_has_no_barn(self):
         """TINY farms are a farmhouse only — no barn."""
@@ -209,12 +213,16 @@ class TestSmallFarmUnchanged:
         assert default.surface.width == explicit.surface.width
         assert default.surface.height == explicit.surface.height
 
-    def test_small_surface_is_30x22(self):
+    def test_small_surface_is_32x24(self):
+        """SMALL farm surface is the pre-M6a 30x22 renderable area
+        plus a 1-tile VOID margin on every side per
+        ``design/level_surface_layout.md`` — surface dims are
+        therefore 32x24."""
         site = assemble_farm(
             "f1", random.Random(1), tier=SiteTier.SMALL,
         )
-        assert site.surface.width == 30
-        assert site.surface.height == 22
+        assert site.surface.width == 32
+        assert site.surface.height == 24
 
     def test_small_barn_probability_unchanged(self):
         trials = 200

@@ -32,17 +32,22 @@ from nhc.sites._site import (
 
 # ── Farm tunable constants (tier-indexed) ────────────────────
 
+# Surface dims are the previous renderable area + 2 in each axis
+# (1-tile VOID margin on every side per
+# ``design/level_surface_layout.md``); the farmhouse / barn
+# positions shift by (+1, +1) so each building stays inside the
+# buildable area.
 FARM_SURFACE_WIDTH: dict[SiteTier, int] = {
-    SiteTier.TINY: 15,
-    SiteTier.SMALL: 30,
+    SiteTier.TINY: 17,
+    SiteTier.SMALL: 32,
 }
 FARM_SURFACE_HEIGHT: dict[SiteTier, int] = {
-    SiteTier.TINY: 10,
-    SiteTier.SMALL: 22,
+    SiteTier.TINY: 12,
+    SiteTier.SMALL: 24,
 }
 FARM_FARMHOUSE_POS: dict[SiteTier, tuple[int, int]] = {
-    SiteTier.TINY: (4, 2),
-    SiteTier.SMALL: (5, 4),
+    SiteTier.TINY: (5, 3),
+    SiteTier.SMALL: (6, 5),
 }
 FARM_FARMHOUSE_SIZE: dict[SiteTier, tuple[int, int]] = {
     SiteTier.TINY: (7, 6),
@@ -50,7 +55,7 @@ FARM_FARMHOUSE_SIZE: dict[SiteTier, tuple[int, int]] = {
 }
 FARM_BARN_POS: dict[SiteTier, tuple[int, int] | None] = {
     SiteTier.TINY: None,
-    SiteTier.SMALL: (18, 10),
+    SiteTier.SMALL: (19, 11),
 }
 FARM_BARN_SIZE: dict[SiteTier, tuple[int, int] | None] = {
     SiteTier.TINY: None,
@@ -397,9 +402,11 @@ def _build_farm_surface(
     # Both render on Terrain.GRASS so the theme grass tint + blade
     # strokes paint the base look (Phase 3a / 3b of the rendering
     # refactor); the surface_type tag layers a hoe-row or scattered-
-    # stone overlay on top.
-    for y in range(surface.height):
-        for x in range(surface.width):
+    # stone overlay on top. The outermost row / column on every
+    # side stays VOID — that's the 1-tile margin contract per
+    # ``design/level_surface_layout.md``.
+    for y in range(1, surface.height - 1):
+        for x in range(1, surface.width - 1):
             if (x, y) in blocked:
                 continue
             if (x, y) in garden_tiles:
