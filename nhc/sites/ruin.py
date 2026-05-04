@@ -54,19 +54,44 @@ RUIN_ENCLOSURE_KIND = "fortification"  # stone reads as ancient;
 RUIN_DESCENT_FLOORS = 3
 RUIN_DESCENT_TEMPLATE = "procedural:ruin"
 
-# Per-kind tier table. M6b only supports the default tier
-# (TINY); future tiers can grow when gameplay calls for it.
-RUIN_DIMS_BY_TIER: dict[SiteTier, tuple[int, int]] = {
-    SiteTier.TINY: (18, 14),
-}
-
-RUIN_SURFACE_WIDTH = RUIN_DIMS_BY_TIER[SiteTier.TINY][0]
-RUIN_SURFACE_HEIGHT = RUIN_DIMS_BY_TIER[SiteTier.TINY][1]
-RUIN_BUILDING_POS = (6, 4)
+# Building / enclosure layout. The fortification outer rect is
+# the building footprint plus ``RUIN_ENCLOSURE_PADDING`` on each
+# side; the surface is ``fortification_outer + 2`` so the
+# 1-tile VOID margin contract holds — see
+# ``design/level_surface_layout.md``. The fortification polygon
+# is anchored at ``(1, 1)``, mirroring the town palisade and
+# keep fortification patterns.
 RUIN_BUILDING_SIZE = (7, 6)
 RUIN_ENCLOSURE_PADDING = 3
 RUIN_GATE_LENGTH_TILES = 2
 RUIN_PARTIAL_WALL_DROP_RANGE = (2, 4)
+
+# Building origin: 1 (VOID margin) + RUIN_ENCLOSURE_PADDING.
+RUIN_BUILDING_POS = (
+    1 + RUIN_ENCLOSURE_PADDING,
+    1 + RUIN_ENCLOSURE_PADDING,
+)
+
+# Fortification outer dims = building size + padding on each
+# side. Surface = outer + 2.
+RUIN_FORTIFICATION_OUTER_WIDTH = (
+    RUIN_BUILDING_SIZE[0] + 2 * RUIN_ENCLOSURE_PADDING
+)
+RUIN_FORTIFICATION_OUTER_HEIGHT = (
+    RUIN_BUILDING_SIZE[1] + 2 * RUIN_ENCLOSURE_PADDING
+)
+
+# Per-kind tier table. M6b only supports the default tier
+# (TINY); future tiers can grow when gameplay calls for it.
+RUIN_DIMS_BY_TIER: dict[SiteTier, tuple[int, int]] = {
+    SiteTier.TINY: (
+        RUIN_FORTIFICATION_OUTER_WIDTH + 2,
+        RUIN_FORTIFICATION_OUTER_HEIGHT + 2,
+    ),
+}
+
+RUIN_SURFACE_WIDTH = RUIN_DIMS_BY_TIER[SiteTier.TINY][0]
+RUIN_SURFACE_HEIGHT = RUIN_DIMS_BY_TIER[SiteTier.TINY][1]
 
 
 def assemble_ruin(
@@ -118,7 +143,7 @@ def assemble_ruin(
     building.validate()
 
     buildings = [building]
-    enclosure = _build_broken_fortification([building], rng)
+    enclosure = _build_broken_fortification(rng)
     surface = _build_ruin_surface(
         f"{site_id}_surface", buildings, enclosure, biome,
     )
@@ -285,26 +310,20 @@ def _place_entry_door(
     return (dx, dy)
 
 
-def _build_broken_fortification(
-    buildings: list[Building], rng: random.Random,
-) -> Enclosure:
+def _build_broken_fortification(rng: random.Random) -> Enclosure:
     """Axis-aligned fortification with a single broken gate.
 
-    The enclosure is structurally a regular keep-style
-    fortification -- the "broken" aspect is conceptual (gate
-    count is fixed at 1, gate length is two tiles, styling lives
-    in future surface rendering choices).
+    The polygon vertices are anchored at ``(1, 1)`` so the
+    ``Level`` reserves a 1-tile VOID margin around every
+    renderable element — see ``design/level_surface_layout.md``.
+    The "broken" aspect is conceptual (gate count is fixed at 1,
+    gate length is two tiles, styling lives in future surface
+    rendering choices).
     """
-    xs: list[int] = []
-    ys: list[int] = []
-    for b in buildings:
-        xs.extend([b.base_rect.x, b.base_rect.x2])
-        ys.extend([b.base_rect.y, b.base_rect.y2])
-    pad = RUIN_ENCLOSURE_PADDING
-    min_x = min(xs) - pad
-    max_x = max(xs) + pad
-    min_y = min(ys) - pad
-    max_y = max(ys) + pad
+    min_x = 1
+    min_y = 1
+    max_x = 1 + RUIN_FORTIFICATION_OUTER_WIDTH
+    max_y = 1 + RUIN_FORTIFICATION_OUTER_HEIGHT
     polygon = [
         (min_x, min_y),
         (max_x, min_y),
