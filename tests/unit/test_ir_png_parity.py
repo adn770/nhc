@@ -28,6 +28,7 @@ from __future__ import annotations
 import io
 import json
 import math
+import re
 
 from pathlib import Path
 
@@ -212,6 +213,68 @@ def test_resvg_of_ir_svg_psnr_against_reference(emitted) -> None:
         f"{inputs.descriptor}: resvg-of-ir-svg PSNR {db:.2f} dB "
         f"(threshold {threshold:.1f} dB)"
     )
+
+
+# ── Layer 3: SVG structural sanity (Phase 2.21) ─────────────────
+
+
+# Background rectangle emitted by the Rust SvgPainter for resvg
+# parity. Phase 2.19 added this so the resvg backend lands the same
+# canvas-clear background that tiny-skia gets for free; the literal
+# fragment is load-bearing for the cross-rasteriser PSNR gate.
+_SVG_BG_RECT: str = (
+    '<rect width="100%" height="100%" fill="#F5EDE0"/>'
+)
+
+
+def _svg_structural_assertions(descriptor: str, svg: str) -> None:
+    """Cheap envelope-shape checks shared by every fixture flavour.
+
+    Replaces the byte-equal ``floor.svg`` baseline that Phase 2.19
+    deprecated: PSNR covers the rasterised contract, structural
+    sanity covers "is this even an SVG document?". Catches truncated
+    output, runaway nesting, dropped backgrounds, and similar
+    envelope-level breakage that would otherwise sneak past PSNR
+    when the failure mode is a fully-blank or fully-broken document.
+    """
+    assert svg.startswith("<?xml") or svg.startswith("<svg"), (
+        f"{descriptor}: SVG must start with <?xml or <svg, "
+        f"got {svg[:32]!r}"
+    )
+    open_svg = len(re.findall(r"<svg(?:\s|>)", svg))
+    close_svg = svg.count("</svg>")
+    assert open_svg == 1 and close_svg == 1, (
+        f"{descriptor}: expected exactly one <svg> open and one "
+        f"</svg> close, got {open_svg} / {close_svg}"
+    )
+    assert "viewBox=" in svg, (
+        f"{descriptor}: SVG missing viewBox attribute"
+    )
+    assert _SVG_BG_RECT in svg, (
+        f"{descriptor}: SVG missing background rect "
+        f"({_SVG_BG_RECT!r}) — Phase 2.19 added this for resvg "
+        f"parity; dropping it breaks the cross-rasteriser gate"
+    )
+    g_open = len(re.findall(r"<g(?:\s|>)", svg))
+    g_close = svg.count("</g>")
+    assert g_open == g_close, (
+        f"{descriptor}: <g> envelope imbalance "
+        f"({g_open} open vs {g_close} close)"
+    )
+
+
+def test_ir_svg_structural_sanity(emitted) -> None:
+    """SVG envelope shape + background + balanced groups.
+
+    Phase 2.21 retires the byte-equal ``floor.svg`` baseline; this
+    test plus the PSNR gates above replace it. PSNR catches
+    rasterised-pixel drift, this catches structural breakage —
+    truncated output, missing background, runaway/dropped
+    ``<g>`` nesting, etc.
+    """
+    inputs, buf = emitted
+    svg = ir_to_svg(buf)
+    _svg_structural_assertions(inputs.descriptor, svg)
 
 
 # ── Synthetic-IR roof gate (Phase 8.1c.2) ──────────────────────

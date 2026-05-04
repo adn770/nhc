@@ -2,18 +2,11 @@
 """Regenerate the floor-IR parity fixtures.
 
 The fixtures (under ``tests/fixtures/floor_ir/<descriptor>/``)
-are the byte-equal parity gate that protects every transition in
-the IR migration plan up to Phase 7, plus the cross-rasteriser
-parity contract from Phase 8 onward (``design/map_ir.md`` §9.4).
-Each fixture carries:
+gate the IR emit + cross-rasteriser contract from
+``design/map_ir.md`` §9.4. Each fixture carries:
 
-- ``floor.svg``        — IR-driven SVG output; bit-for-bit
-                         reference.
 - ``floor.nir``        — IR FlatBuffer.
 - ``floor.json``       — canonicalised JSON dump of the IR.
-- ``hatch.svg``        — per-layer relaxed-gate snapshot lock.
-- ``floor_detail.svg`` — per-layer relaxed-gate snapshot lock.
-- ``thematic_detail.svg`` — per-layer relaxed-gate snapshot lock.
 - ``structural.json``  — IR-level structural-invariants snapshot
                          (op counts, region counts, layer element
                          counts) that ``test_ir_png_parity.py``
@@ -25,6 +18,13 @@ Each fixture carries:
                          accidental tiny-skia drift surfaces in
                          CI as a parity failure, not a quietly
                          updated fixture.
+
+Phase 2.19 retired the per-layer SVG snapshots
+(``hatch.svg`` / ``floor_detail.svg`` / ``thematic_detail.svg``);
+Phase 2.21 retired the whole-floor ``floor.svg`` baseline. PSNR
+plus structural-sanity assertions in
+``tests/unit/test_ir_png_parity.py`` now cover what those text
+dumps used to gate against.
 
 The descriptor encodes the level construction tuple as
 ``<seed>_<shape>_<theme>_<floor_kind>`` so a regression bisects
@@ -53,7 +53,6 @@ from pathlib import Path
 
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.pipeline import generate_level
-from nhc.rendering.level_svg import render_level_svg
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -91,9 +90,8 @@ _FIXTURES: tuple[Fixture, ...] = (
 # alongside the gameplay fixtures under
 # tests/fixtures/floor_ir/<descriptor>/ so the regen + check flow
 # is uniform. Synthetic fixtures only commit floor.nir +
-# reference.png + structural.json (no floor.svg / floor.json /
-# hatch.svg / floor_detail.svg / thematic_detail.svg — those carry
-# no signal for the roof primitive).
+# reference.png + structural.json (no floor.json — that signal
+# would carry no useful roof-primitive info).
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -357,7 +355,6 @@ def _build_level(fx: Fixture):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _RenderedFixture:
-    svg: str
     nir: bytes
     js: str
     structural: str
@@ -365,24 +362,23 @@ class _RenderedFixture:
 
 
 def _render_fixture(fx: Fixture) -> _RenderedFixture:
-    """Build the level and return all six artefacts.
+    """Build the level and return all four artefacts.
 
     Phase 1.k lights up ``nir`` and ``json`` — :func:`build_floor_ir`
     drives the IR pipeline that ``render_floor_svg`` now routes
     through, and the canonicalised JSON dump from
     :mod:`nhc.rendering.ir.dump` makes the buffer git-reviewable.
 
-    Phase 4 sub-step 1.f adds the per-layer ``hatch.svg`` snapshot
-    — the relaxed parity gate replaces byte-equal-with-legacy with
-    structural invariants + a byte-equal snapshot lock against the
-    Rust output. Sub-step 3.f extends the same shape to
-    ``floor_detail.svg``; sub-step 4.f to ``thematic_detail.svg``.
-
     Phase 8.0 pre-step (`design/map_ir.md` §9.4) adds
     ``structural.json`` (the IR-level invariants snapshot) and
     ``reference.png`` (the canonical tiny-skia rasterisation that
     the PSNR > 35 dB pixel-parity gate measures every rasteriser
     against).
+
+    Phase 2.21 retired ``floor.svg`` from the fixture set: the
+    byte-equal SVG baseline is no longer the source of truth.
+    PSNR (rasterised contract) plus structural sanity (envelope
+    shape) cover what the SVG dump used to gate against.
     """
     import nhc_render
 
@@ -391,19 +387,18 @@ def _render_fixture(fx: Fixture) -> _RenderedFixture:
     from nhc.rendering.ir_emitter import build_floor_ir
 
     level = _build_level(fx)
-    svg = render_level_svg(level, seed=fx.seed)
     nir = bytes(build_floor_ir(level, seed=fx.seed))
     js = dump(nir)
     # Phase 2.19 retired the per-layer SVG snapshots
     # (hatch / floor_detail / thematic_detail) along with
     # `nhc.rendering.ir_to_svg.layer_to_svg` and the legacy
-    # `test_emit_*_invariants.py` consumers; the remaining gate
-    # is the cross-rasteriser PSNR contract in
+    # `test_emit_*_invariants.py` consumers; Phase 2.21 retired
+    # the whole-floor `floor.svg` baseline. The remaining gate is
+    # the cross-rasteriser PSNR + structural-sanity contract in
     # `tests/unit/test_ir_png_parity.py`.
     structural = dump_structural(nir)
     reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
     return _RenderedFixture(
-        svg=svg,
         nir=nir,
         js=js,
         structural=structural,
@@ -910,7 +905,6 @@ def _write_fixture(
     rendered = _render_fixture(fx)
     out = root / fx.descriptor
     out.mkdir(parents=True, exist_ok=True)
-    (out / "floor.svg").write_text(rendered.svg)
     (out / "floor.nir").write_bytes(rendered.nir)
     (out / "floor.json").write_text(rendered.js)
     (out / "structural.json").write_text(rendered.structural)
@@ -925,7 +919,6 @@ def _check_fixture(fx: Fixture, root: Path) -> list[str]:
     out = root / fx.descriptor
     drifts: list[str] = []
     text_artefacts: list[tuple[str, str]] = [
-        ("floor.svg", rendered.svg),
         ("floor.json", rendered.js),
         ("structural.json", rendered.structural),
     ]
