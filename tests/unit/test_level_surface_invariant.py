@@ -20,7 +20,10 @@ from typing import Callable
 import pytest
 
 from nhc.dungeon.generator import GenerationParams
-from nhc.dungeon.model import Level
+from nhc.dungeon.interior._floor import build_building_floor
+from nhc.dungeon.model import (
+    CircleShape, Level, LShape, Rect, RectShape, RoomShape,
+)
 from nhc.dungeon.pipeline import generate_level
 from nhc.sites._layout import RenderableBBox, compute_renderable_bbox
 from nhc.sites._site import Site, assemble_site
@@ -154,6 +157,73 @@ def test_renderable_bbox_inside_surface(
     )
     assert bbox.max_y <= level.height - 2, (
         f"{name}@{seed}: bbox.max_y={bbox.max_y} > "
+        f"height-2={level.height - 2}"
+    )
+
+
+# Building floor entry point — ``build_building_floor`` produces
+# per-floor ``Level`` objects nested inside a ``Building``. The
+# floor's ``Level`` is allocated as ``base_rect.x + width + 2`` ×
+# ``base_rect.y + height + 2``; the perimeter shell stamped by
+# ``compose_shell`` paints WALL on the 8-neighbour of every
+# footprint tile, so the contract holds iff the footprint sits at
+# ``base_rect.{x,y} >= 1``. Every real caller in ``nhc/sites/``
+# passes ``base_rect`` with positive offsets — confirmed by the
+# end-to-end audit recorded in the commit body. The
+# parametrisation below mirrors that real-caller pattern: each
+# entry exercises a distinct partitioner branch in
+# ``resolve_partitioner`` (``single_room``, ``divided``,
+# ``lshape`` via L-shape delegation, ``temple``, ``rect_bsp``,
+# ``sector``).
+_BUILDING_FLOOR_CASES: list[tuple[str, str, RoomShape, int]] = [
+    ("stable", "single_room", RectShape(), 6),
+    ("residential", "divided", RectShape(), 8),
+    ("residential", "lshape", LShape(corner="top-left"), 8),
+    ("temple", "temple", RectShape(), 14),
+    ("shop", "rect_bsp", RectShape(), 10),
+    ("mage_residence", "sector", CircleShape(), 11),
+]
+
+
+@pytest.mark.parametrize("seed", [7, 42, 99])
+@pytest.mark.parametrize(
+    "archetype,partitioner,shape,size", _BUILDING_FLOOR_CASES,
+    ids=[f"{arch}:{part}" for arch, part, _, _ in _BUILDING_FLOOR_CASES],
+)
+def test_building_floor_renderable_bbox_inside_surface(
+    archetype: str, partitioner: str,
+    shape: RoomShape, size: int, seed: int,
+) -> None:
+    """Building floor entry point — the per-floor ``Level`` keeps
+    a 1-tile VOID margin under realistic-caller inputs."""
+    del partitioner  # parametrised id-only marker for grouping
+    rng = random.Random(seed)
+    base_rect = Rect(2, 2, size, size)
+    level = build_building_floor(
+        building_id=f"b_{archetype}_seed{seed}",
+        floor_idx=0,
+        base_shape=shape,
+        base_rect=base_rect,
+        n_floors=1,
+        rng=rng,
+        archetype=archetype,
+        tags=[],
+    )
+    bbox = compute_renderable_bbox(level)
+    label = f"building_floor:{archetype}@{seed}"
+    assert not bbox.empty, f"{label}: empty renderable bbox"
+    assert bbox.min_x >= 1, (
+        f"{label}: bbox.min_x={bbox.min_x} < 1"
+    )
+    assert bbox.min_y >= 1, (
+        f"{label}: bbox.min_y={bbox.min_y} < 1"
+    )
+    assert bbox.max_x <= level.width - 2, (
+        f"{label}: bbox.max_x={bbox.max_x} > "
+        f"width-2={level.width - 2}"
+    )
+    assert bbox.max_y <= level.height - 2, (
+        f"{label}: bbox.max_y={bbox.max_y} > "
         f"height-2={level.height - 2}"
     )
 
