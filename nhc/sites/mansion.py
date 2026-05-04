@@ -33,8 +33,13 @@ from nhc.hexcrawl.model import DungeonRef
 
 # Per-kind tier table. M6b only supports the default tier
 # (MEDIUM); future tiers grow when gameplay calls for it.
+# Surface dims are the previous renderable area + 2 in each axis
+# (1-tile VOID margin on every side per
+# ``design/level_surface_layout.md``); the building layout origin
+# shifts by (+1, +1) so the compound stays inside the buildable
+# area.
 MANSION_DIMS_BY_TIER: dict[SiteTier, tuple[int, int]] = {
-    SiteTier.MEDIUM: (40, 18),
+    SiteTier.MEDIUM: (42, 20),
 }
 
 MANSION_SURFACE_WIDTH = MANSION_DIMS_BY_TIER[SiteTier.MEDIUM][0]
@@ -42,8 +47,8 @@ MANSION_SURFACE_HEIGHT = MANSION_DIMS_BY_TIER[SiteTier.MEDIUM][1]
 MANSION_BUILDING_COUNT_RANGE = (2, 4)
 MANSION_BUILDING_WIDTH_RANGE = (6, 8)
 MANSION_BUILDING_HEIGHT = 7
-MANSION_BUILDING_Y = 4
-MANSION_BUILDING_X_START = 3
+MANSION_BUILDING_Y = 5
+MANSION_BUILDING_X_START = 4
 MANSION_FLOOR_COUNT_RANGE = (1, 2)
 MANSION_DESCENT_PROBABILITY = 0.2
 MANSION_DESCENT_TEMPLATE = "procedural:crypt"
@@ -431,9 +436,11 @@ def _build_mansion_surface(
     # manicured grounds -- buildings are the only non-garden
     # surface. GARDEN tiles use Terrain.GRASS so the theme grass
     # tint paints the base look; the GARDEN tag layers a hoe-row
-    # overlay on top via the rendering pipeline.
-    for y in range(surface.height):
-        for x in range(surface.width):
+    # overlay on top via the rendering pipeline. The outermost
+    # row / column on every side stays VOID — that's the 1-tile
+    # margin contract per ``design/level_surface_layout.md``.
+    for y in range(1, surface.height - 1):
+        for x in range(1, surface.width - 1):
             if (x, y) in blocked:
                 continue
             surface.tiles[y][x] = Tile(
