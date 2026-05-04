@@ -94,10 +94,15 @@ class TestClippedCornerHelper:
 
 def _wall_segment_count(svg: str) -> int:
     """Count the M (moveto) commands in the thick-wall path,
-    which approximates the number of distinct wall segments."""
+    which approximates the number of distinct wall segments.
+
+    The Rust SvgPainter trims trailing ``.0`` from numeric
+    attributes, so accept both ``stroke-width="5"`` and the
+    legacy ``stroke-width="5.0"`` form.
+    """
     import re
     matches = re.findall(
-        r'<path d="([^"]+)"[^/]*stroke-width="5\.0"', svg,
+        r'<path d="([^"]+)"[^/]*stroke-width="5(?:\.0)?"', svg,
     )
     return sum(d.count("M") for d in matches)
 

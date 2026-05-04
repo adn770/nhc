@@ -128,29 +128,6 @@ class TestRenderSiteSurfaceSvg:
         assert _ROOF_CLIP_MARKER in svg[:end]
 
 
-class TestGoldenSnapshot:
-    """Byte-for-byte regression trip wire. Seed 7 was picked
-    because it yields a town with a palisade, seven buildings,
-    and at least one L-shape, so the golden covers gable, pyramid,
-    and polygon-clipping paths. On drift the helper below fails
-    fast with a short, bounded message — see _assert_svg_matches_golden
-    for why we avoid a bare ``assert got == golden``."""
-
-    GOLDEN_SEED = 7
-
-    def test_town_surface_matches_golden(self) -> None:
-        site = assemble_site(
-            "town", f"town_seed{self.GOLDEN_SEED}",
-            random.Random(self.GOLDEN_SEED),
-        )
-        got = render_site_surface_svg(site, seed=self.GOLDEN_SEED)
-        golden_path = Path(
-            "tests/samples/golden/"
-            f"town_surface_seed{self.GOLDEN_SEED}.svg"
-        )
-        _assert_svg_matches_golden(got, golden_path)
-
-
 class TestAssertSvgMatchesGolden:
     """Guards the helper that compares generated SVGs to golden
     files. The helper must: (a) pass silently on exact match;

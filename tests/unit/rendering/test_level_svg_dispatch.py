@@ -45,7 +45,9 @@ def test_plain_dungeon_level_unaffected():
     level = generate_level(params)
     # No site passed; building_id unset. Plain floor render.
     svg = render_level_svg(level, site=None, seed=42)
-    assert svg.startswith("<svg")
+    # The Rust SvgPainter prefixes an XML prolog before <svg>.
+    assert svg.startswith("<svg") or svg.startswith("<?xml")
+    assert "<svg" in svg
     assert BRICK_FILL not in svg
     assert STONE_FILL not in svg
 
