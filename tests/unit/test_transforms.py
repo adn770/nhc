@@ -4,13 +4,29 @@ import random
 
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
-from nhc.dungeon.model import Level, SurfaceType, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 from nhc.dungeon.transforms import (
+    MIN_TRACK_RUN_LENGTH,
     TRANSFORM_REGISTRY,
     add_cart_tracks,
     add_ore_deposits,
     narrow_corridors,
 )
+
+
+def _empty_level(w: int, h: int) -> Level:
+    """Build a void Level for hand-crafted track-stub fixtures."""
+    return Level.create_empty("t", "t", 0, w, h)
+
+
+def _stamp_corridor_run(
+    level: Level, points: list[tuple[int, int]],
+) -> None:
+    for x, y in points:
+        level.tiles[y][x] = Tile(
+            terrain=Terrain.FLOOR,
+            surface_type=SurfaceType.CORRIDOR,
+        )
 
 
 def _make_level(seed: int = 42) -> Level:
@@ -60,6 +76,90 @@ class TestAddCartTracks:
                     assert (x, y) in pre_corridors, (
                         "Track tile must originate from a corridor"
                     )
+
+
+class TestCartTrackStubFilter:
+    """Phase 1 of the cart-track topology refactor — short runs
+    stay ``CORRIDOR`` so the painter doesn't decorate stubs that
+    read as track debris rather than rail."""
+
+    def test_min_track_run_length_constant(self):
+        # The constant defines the threshold; the rest of this
+        # class assumes it's 3 tiles. Bumping the constant should
+        # update both this test and the docstring of
+        # ``add_cart_tracks``.
+        assert MIN_TRACK_RUN_LENGTH == 3
+
+    def test_one_tile_stub_stays_corridor(self):
+        level = _empty_level(8, 4)
+        _stamp_corridor_run(level, [(2, 2)])
+        add_cart_tracks(level, random.Random(0))
+        assert (
+            level.tiles[2][2].surface_type
+            is SurfaceType.CORRIDOR
+        )
+
+    def test_two_tile_stub_stays_corridor(self):
+        level = _empty_level(8, 4)
+        _stamp_corridor_run(level, [(2, 2), (3, 2)])
+        add_cart_tracks(level, random.Random(0))
+        for x in (2, 3):
+            assert (
+                level.tiles[2][x].surface_type
+                is SurfaceType.CORRIDOR
+            )
+
+    def test_three_tile_run_upgrades_to_track(self):
+        level = _empty_level(8, 4)
+        _stamp_corridor_run(level, [(2, 2), (3, 2), (4, 2)])
+        add_cart_tracks(level, random.Random(0))
+        for x in (2, 3, 4):
+            assert (
+                level.tiles[2][x].surface_type
+                is SurfaceType.TRACK
+            )
+
+    def test_l_shaped_run_counts_total_tiles(self):
+        # Three-tile L-shape: still ≥ MIN, all three upgrade.
+        level = _empty_level(8, 4)
+        _stamp_corridor_run(level, [(2, 1), (2, 2), (3, 2)])
+        add_cart_tracks(level, random.Random(0))
+        for x, y in [(2, 1), (2, 2), (3, 2)]:
+            assert (
+                level.tiles[y][x].surface_type
+                is SurfaceType.TRACK
+            )
+
+    def test_disconnected_runs_are_separate(self):
+        # Two 2-tile runs separated by a void column. Both stay
+        # CORRIDOR even though their combined tile count is 4 —
+        # 4-connectivity gates the threshold per run.
+        level = _empty_level(10, 4)
+        _stamp_corridor_run(level, [(1, 2), (2, 2)])
+        _stamp_corridor_run(level, [(7, 2), (8, 2)])
+        add_cart_tracks(level, random.Random(0))
+        for x in (1, 2, 7, 8):
+            assert (
+                level.tiles[2][x].surface_type
+                is SurfaceType.CORRIDOR
+            )
+
+    def test_door_features_block_track_upgrade(self):
+        # A corridor tile carrying a door feature is not eligible;
+        # the run on each side counts toward its own length.
+        level = _empty_level(10, 4)
+        _stamp_corridor_run(
+            level, [(1, 2), (2, 2), (3, 2), (4, 2), (5, 2)],
+        )
+        # Door at (3, 2) splits the 5-tile run into two 2-tile
+        # halves -- both halves stay CORRIDOR.
+        level.tiles[2][3].feature = "door_closed"
+        add_cart_tracks(level, random.Random(0))
+        for x in (1, 2, 4, 5):
+            assert (
+                level.tiles[2][x].surface_type
+                is SurfaceType.CORRIDOR
+            )
 
 
 class TestAddOreDeposits:

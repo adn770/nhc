@@ -12,19 +12,70 @@ import random
 from nhc.dungeon.model import Level, SurfaceType, Terrain
 
 
+# Minimum corridor-run length (4-connected) eligible for cart-track
+# upgrade. Runs shorter than this stay tagged as ``CORRIDOR``: 1- or
+# 2-tile stubs (room thresholds, single-tile bridges between adjacent
+# rooms) read as track debris rather than rail when they receive
+# rails, so we skip them. The renderer treats sub-threshold corridors
+# as plain stone floor.
+MIN_TRACK_RUN_LENGTH = 3
+
+
 def add_cart_tracks(level: Level, rng: random.Random) -> None:
     """Mark corridor tiles as mine cart tracks.
 
-    Walks each corridor run and marks contiguous stretches as
-    tracks. Short stubs (< 3 tiles) are skipped.
+    Walks each 4-connected corridor run and marks contiguous
+    stretches of length ≥ :data:`MIN_TRACK_RUN_LENGTH` as
+    :attr:`SurfaceType.TRACK`. Shorter runs stay ``CORRIDOR`` so
+    the cart-track painter doesn't decorate single-tile stubs
+    that read as track debris rather than rail.
     """
+    visited: set[tuple[int, int]] = set()
     for y in range(level.height):
         for x in range(level.width):
+            if (x, y) in visited:
+                continue
             tile = level.tiles[y][x]
-            if (tile.terrain == Terrain.FLOOR
-                    and tile.surface_type == SurfaceType.CORRIDOR
-                    and not tile.feature):
-                tile.surface_type = SurfaceType.TRACK
+            if not _is_track_eligible(tile):
+                continue
+            run = _flood_fill_corridor(level, x, y, visited)
+            if len(run) < MIN_TRACK_RUN_LENGTH:
+                continue
+            for rx, ry in run:
+                level.tiles[ry][rx].surface_type = SurfaceType.TRACK
+
+
+def _is_track_eligible(tile) -> bool:
+    """Track-eligible tiles: FLOOR + CORRIDOR + no feature."""
+    return (
+        tile.terrain == Terrain.FLOOR
+        and tile.surface_type == SurfaceType.CORRIDOR
+        and not tile.feature
+    )
+
+
+def _flood_fill_corridor(
+    level: Level, sx: int, sy: int,
+    visited: set[tuple[int, int]],
+) -> list[tuple[int, int]]:
+    """4-connected flood fill of track-eligible corridor tiles."""
+    stack = [(sx, sy)]
+    run: list[tuple[int, int]] = []
+    while stack:
+        x, y = stack.pop()
+        if (x, y) in visited:
+            continue
+        if not (0 <= x < level.width and 0 <= y < level.height):
+            continue
+        if not _is_track_eligible(level.tiles[y][x]):
+            continue
+        visited.add((x, y))
+        run.append((x, y))
+        stack.extend([
+            (x + 1, y), (x - 1, y),
+            (x, y + 1), (x, y - 1),
+        ])
+    return run
 
 
 def narrow_corridors(level: Level, rng: random.Random) -> None:
