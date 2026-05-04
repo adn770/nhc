@@ -35,19 +35,19 @@ tilesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
-isHorizontal(index: number):boolean|null {
+openSides(index: number):number|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? !!this.bb!.readInt8(this.bb!.__vector(this.bb_pos + offset) + index) : false;
+  return offset ? this.bb!.readUint8(this.bb!.__vector(this.bb_pos + offset) + index) : 0;
 }
 
-isHorizontalLength():number {
+openSidesLength():number {
   const offset = this.bb!.__offset(this.bb_pos, 6);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
-isHorizontalArray():Int8Array|null {
+openSidesArray():Uint8Array|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? new Int8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+  return offset ? new Uint8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
 }
 
 static startCartTracksVariant(builder:flatbuffers.Builder) {
@@ -62,19 +62,19 @@ static startTilesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(8, numElems, 4);
 }
 
-static addIsHorizontal(builder:flatbuffers.Builder, isHorizontalOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(1, isHorizontalOffset, 0);
+static addOpenSides(builder:flatbuffers.Builder, openSidesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(1, openSidesOffset, 0);
 }
 
-static createIsHorizontalVector(builder:flatbuffers.Builder, data:boolean[]):flatbuffers.Offset {
+static createOpenSidesVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset {
   builder.startVector(1, data.length, 1);
   for (let i = data.length - 1; i >= 0; i--) {
-    builder.addInt8(+data[i]!);
+    builder.addInt8(data[i]!);
   }
   return builder.endVector();
 }
 
-static startIsHorizontalVector(builder:flatbuffers.Builder, numElems:number) {
+static startOpenSidesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(1, numElems, 1);
 }
 
@@ -83,10 +83,10 @@ static endCartTracksVariant(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createCartTracksVariant(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, isHorizontalOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createCartTracksVariant(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, openSidesOffset:flatbuffers.Offset):flatbuffers.Offset {
   CartTracksVariant.startCartTracksVariant(builder);
   CartTracksVariant.addTiles(builder, tilesOffset);
-  CartTracksVariant.addIsHorizontal(builder, isHorizontalOffset);
+  CartTracksVariant.addOpenSides(builder, openSidesOffset);
   return CartTracksVariant.endCartTracksVariant(builder);
 }
 }
