@@ -12,8 +12,8 @@ overlays on top:
 Doors deliberately stay out of the SVG: the web / console
 clients render them directly from ``Tile.door_side`` metadata.
 
-The composition matches what ``tests/samples/generate_svg.py``
-has been producing for months; M5 wires it through the production
+The composition matches what the dev sample-generator tool has
+been producing for months; M5 wires it through the production
 pipeline so the in-game view catches up to the sample tooling.
 """
 

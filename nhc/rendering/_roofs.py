@@ -15,10 +15,10 @@ Public API:
         Includes one ``<defs>`` block with per-building clipPath
         definitions plus the clipped roof bodies.
 
-Historically this code lived in ``tests/samples/generate_svg.py``.
-It now sits in production so the game's site-surface SVG pipeline
-(M5) can paint rooftops on the floor layer without importing dev
-tooling.
+Historically this code lived in the dev sample-generator tool.
+It now sits in production so the game's site-surface SVG
+pipeline (M5) can paint rooftops on the floor layer without
+importing dev tooling.
 """
 
 from __future__ import annotations
