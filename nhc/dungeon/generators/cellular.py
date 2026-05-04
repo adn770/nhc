@@ -194,9 +194,16 @@ class CellularGenerator(DungeonGenerator):
     def _init_grid(
         level: Level, density: float, rng: random.Random,
     ) -> None:
-        """Seed interior cells as FLOOR with given probability."""
-        for y in range(1, level.height - 1):
-            for x in range(1, level.width - 1):
+        """Seed interior cells as FLOOR with given probability.
+
+        Floor placement is restricted to ``[2, w-3] × [2, h-3]`` so
+        the wall ring built by :meth:`_build_walls` lands at most
+        at ``[1, w-2] × [1, h-2]``, leaving a 1-tile VOID margin
+        on every canvas edge per the level-surface contract
+        (``design/level_surface_layout.md``).
+        """
+        for y in range(2, level.height - 2):
+            for x in range(2, level.width - 2):
                 if rng.random() < density:
                     level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
 
@@ -206,8 +213,8 @@ class CellularGenerator(DungeonGenerator):
         w, h = level.width, level.height
         new_states: list[tuple[int, int, Terrain]] = []
 
-        for y in range(1, h - 1):
-            for x in range(1, w - 1):
+        for y in range(2, h - 2):
+            for x in range(2, w - 2):
                 count = 0
                 for dy in range(-1, 2):
                     for dx in range(-1, 2):
@@ -378,7 +385,10 @@ class CellularGenerator(DungeonGenerator):
             for px in candidates:
                 for side in (1, -1):
                     ny = y + side
-                    if not (0 < ny < h - 1):
+                    # Restrict the detour row to the floor-eligible
+                    # band so the rebuilt wall ring stays inside the
+                    # 1-tile VOID margin.
+                    if not (1 < ny < h - 2):
                         continue
                     # All three detour cells must be carvable
                     if not all(
@@ -423,7 +433,10 @@ class CellularGenerator(DungeonGenerator):
             for py in candidates:
                 for side in (1, -1):
                     nx = x + side
-                    if not (0 < nx < w - 1):
+                    # Restrict the detour column to the floor-
+                    # eligible band so the rebuilt wall ring stays
+                    # inside the 1-tile VOID margin.
+                    if not (1 < nx < w - 2):
                         continue
                     if not all(
                         _is_carvable(nx, py + d)
@@ -780,10 +793,11 @@ def _carve_winding_corridor(
             my += rng.randint(-jitter_cap, jitter_cap)
         else:
             mx += rng.randint(-jitter_cap, jitter_cap)
-        # Clamp to interior bounds (leave a 1-tile margin for the
-        # wall step later).
-        mx = max(1, min(level.width - 2, mx))
-        my = max(1, min(level.height - 2, my))
+        # Clamp to the floor-eligible interior so the surrounding
+        # wall ring stays inside the 1-tile VOID margin per
+        # ``design/level_surface_layout.md``.
+        mx = max(2, min(level.width - 3, mx))
+        my = max(2, min(level.height - 3, my))
         waypoints.append((mx, my))
     waypoints.append((x2, y2))
 

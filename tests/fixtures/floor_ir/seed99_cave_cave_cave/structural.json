@@ -5,13 +5,13 @@
     "FloorGridOp": 1,
     "FloorOp": 1,
     "HatchOp": 1,
-    "ShadowOp": 8,
+    "ShadowOp": 7,
     "StairsOp": 1,
     "TerrainDetailOp": 1,
     "TerrainTintOp": 1,
     "ThematicDetailOp": 1
   },
-  "region_count": 10,
-  "region_polygon_rings": 2,
-  "region_polygon_vertices": 1170
+  "region_count": 9,
+  "region_polygon_rings": 4,
+  "region_polygon_vertices": 1023
 }

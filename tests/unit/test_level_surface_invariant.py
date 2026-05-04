@@ -111,19 +111,13 @@ _ALL_GENERATORS: list[tuple[str, _BuildFn]] = [
 
 # Generators that don't yet satisfy the 1-tile VOID margin
 # contract. Each entry is removed in its own refactor commit.
-# Town (all four size classes) is fixed in this commit; cellular
-# and ``theme:cave`` (its companion biome) await the dungeon-side
-# audit pass in a later commit. ``site:keep`` and ``site:ruin``
-# already satisfy the contract — their enclosure polygons
-# contribute their max-edge-coord-1 to the bbox so the
-# fortification ring stays inside the 1-tile margin even though
-# the surface is over-allocated relative to the rendered
-# content. Tightening that over-allocation is a separate
-# concern; the contract test does not gate it.
-_XFAIL: set[str] = {
-    "dungeon:cellular",
-    "theme:cave",
-}
+# ``site:keep`` and ``site:ruin`` already satisfy the contract —
+# their enclosure polygons contribute their max-edge-coord-1 to
+# the bbox so the fortification ring stays inside the 1-tile
+# margin even though the surface is over-allocated relative to
+# the rendered content. Tightening that over-allocation is a
+# separate concern; the contract test does not gate it.
+_XFAIL: set[str] = set()
 
 
 @pytest.mark.parametrize("seed", [7, 42, 99])
