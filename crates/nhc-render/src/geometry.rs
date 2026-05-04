@@ -21,6 +21,7 @@ use geo::{
     Coord, LineString, MultiPolygon, Point, Polygon,
 };
 
+use crate::painter::{PathOps, Vec2};
 use crate::python_random::PyRandom;
 
 /// Centripetal Catmull-Rom → cubic Bézier control points (α=0.5).
@@ -300,26 +301,49 @@ fn jitter_ring_outward(
     out
 }
 
-/// Smooth a closed ring into a Catmull-Rom cubic-Bézier subpath.
-///
-/// Returns just the path data string (M…C…Z), without the `<path>`
-/// wrapper. Mirrors `_cave_geometry.py:_ring_to_subpath`.
-fn ring_to_subpath(coords: &[(f64, f64)]) -> String {
-    if coords.len() < 3 {
-        return String::new();
-    }
-    let svg = smooth_closed_path(coords);
-    // smooth_closed_path returns `<path d="..."/>` — extract d=...
-    if let Some(start) = svg.find("d=\"") {
-        let rest = &svg[start + 3..];
-        if let Some(end) = rest.rfind('"') {
-            return rest[..end].to_owned();
-        }
-    }
-    String::new()
+/// Mirror the legacy `{:.1}` truncation + reparse used by the SVG
+/// d-string round-trip (`format!("{:.1}", v)` → `f32::parse`). The
+/// cave pipeline previously round-tripped every coordinate through
+/// the d-string before reaching the rasteriser; emitting PathOps
+/// directly preserves that contract by routing each vertex through
+/// the same one-decimal truncation. Required for byte-equivalent
+/// PNG parity vs the legacy two-step pipeline.
+fn round_legacy_1(v: f64) -> f32 {
+    let s = format!("{:.1}", v);
+    s.parse::<f64>().unwrap_or(v) as f32
 }
 
-/// Reconstruct the cave SVG path from raw tile-boundary coordinates.
+/// Smooth a closed ring into a Catmull-Rom cubic-Bézier subpath
+/// emitted as PathOps (M + per-vertex C + Z). Mirrors
+/// `_cave_geometry.py:_ring_to_subpath` followed by the d-string →
+/// `parse_path_d_pathops` round-trip the legacy pipeline performed,
+/// short-circuited via `round_legacy_1` on every coordinate.
+fn ring_to_subpath_ops(path: &mut PathOps, coords: &[(f64, f64)]) -> bool {
+    let n = coords.len();
+    if n < 3 {
+        return false;
+    }
+    path.move_to(Vec2::new(
+        round_legacy_1(coords[0].0),
+        round_legacy_1(coords[0].1),
+    ));
+    for i in 0..n {
+        let p0 = coords[(i + n - 1) % n];
+        let p1 = coords[i];
+        let p2 = coords[(i + 1) % n];
+        let p3 = coords[(i + 2) % n];
+        let (c1x, c1y, c2x, c2y) = centripetal_bezier_cps(p0, p1, p2, p3);
+        path.cubic_to(
+            Vec2::new(round_legacy_1(c1x), round_legacy_1(c1y)),
+            Vec2::new(round_legacy_1(c2x), round_legacy_1(c2y)),
+            Vec2::new(round_legacy_1(p2.0), round_legacy_1(p2.1)),
+        );
+    }
+    path.close();
+    true
+}
+
+/// Reconstruct the cave PathOps from raw tile-boundary coordinates.
 ///
 /// Ports `ir_to_svg.py:_cave_path_from_outline`. Pipeline:
 ///   `Polygon(vertices) → buffer(0.3*CELL) → simplify → orient CCW
@@ -328,17 +352,25 @@ fn ring_to_subpath(coords: &[(f64, f64)]) -> String {
 /// The seed offset `+ 0x5A17E5` matches `_render_context.py:117` so
 /// the jitter sequence is byte-identical to the Python pipeline.
 ///
-/// Returns a `<path d="…"/>` string (no fill/stroke attrs); callers
-/// inject the appropriate presentation attributes.
+/// Returns a [`PathOps`] (one MoveTo + N CubicTo + Close per ring;
+/// holes append further MoveTo/CubicTo/Close subpaths). Callers
+/// drive [`crate::painter::Painter::stroke_path`] /
+/// [`crate::painter::Painter::fill_path`] directly with the result.
+///
+/// Phase 2.20 retired the SVG d-string return: the pipeline routes
+/// each emitted coordinate through `round_legacy_1` so the PathOps
+/// vertices are bit-identical to what the old `smooth_closed_path`
+/// → `parse_path_d_pathops` round-trip produced. That preserves the
+/// `seed99_cave_cave_cave` ≥ 50 dB PSNR override.
 ///
 /// PSNR contract: the buffer step diverges sub-pixel from Shapely/GEOS
 /// on the raw tile-boundary polygon; PSNR ≥ 50 dB at the parity gate.
 pub fn cave_path_from_outline(
     vertices: &[(f64, f64)],
     base_seed: u64,
-) -> String {
+) -> PathOps {
     if vertices.len() < 4 {
-        return r#"<path d=""/>"#.to_owned();
+        return PathOps::new();
     }
 
     let buffer_r = CELL * 0.3;
@@ -348,7 +380,7 @@ pub fn cave_path_from_outline(
     // Build floor polygon from raw vertices.
     let floor_poly = coords_to_geo_polygon(vertices);
     if floor_poly.exterior().0.is_empty() {
-        return r#"<path d=""/>"#.to_owned();
+        return PathOps::new();
     }
 
     // Outward buffer with rounded corners. `geo_buffer 0.2.0` uses
@@ -364,7 +396,7 @@ pub fn cave_path_from_outline(
     let inflated: MultiPolygon<f64> =
         geo_buffer::buffer_polygon_rounded(&buffer_input, buffer_r);
     if inflated.0.is_empty() {
-        return r#"<path d=""/>"#.to_owned();
+        return PathOps::new();
     }
     // Pick the largest component by area (Python: `max(geoms, key=area)`).
     let mut simp_poly = inflated
@@ -398,10 +430,11 @@ pub fn cave_path_from_outline(
     };
 
     if ext_coords.len() < 3 {
-        return r#"<path d=""/>"#.to_owned();
+        return PathOps::new();
     }
 
     let mut rng = PyRandom::from_seed(base_seed + 0x5A17E5);
+    let mut path = PathOps::new();
 
     // Exterior ring.
     let ext_d = densify_ring(&ext_coords, step);
@@ -411,12 +444,7 @@ pub fn cave_path_from_outline(
         &mut rng,
         &simp_poly,
     );
-    let ext_sub = ring_to_subpath(&ext_j);
-
-    let mut subpaths = Vec::new();
-    if !ext_sub.is_empty() {
-        subpaths.push(ext_sub);
-    }
+    ring_to_subpath_ops(&mut path, &ext_j);
 
     // Holes (cave regions with interior voids — rare in practice).
     for hole in simp_poly.interiors() {
@@ -438,16 +466,10 @@ pub fn cave_path_from_outline(
             &mut rng,
             &simp_poly,
         );
-        let h_sub = ring_to_subpath(&h_j);
-        if !h_sub.is_empty() {
-            subpaths.push(h_sub);
-        }
+        ring_to_subpath_ops(&mut path, &h_j);
     }
 
-    if subpaths.is_empty() {
-        return r#"<path d=""/>"#.to_owned();
-    }
-    format!(r#"<path d="{}"/>"#, subpaths.join(" "))
+    path
 }
 
 /// Return `true` if the seed offset for the cave pipeline is `0x5A17E5`.

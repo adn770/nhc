@@ -34,8 +34,6 @@ use crate::painter::{
     Color, FillRule, Paint, Painter, PathOps, Vec2,
 };
 
-use super::path_parser::parse_path_d_pathops;
-
 // Colour constants — match the existing palette in
 // `walls_and_floors.rs` exactly; do NOT redefine.
 const FLOOR_R: u8 = 0xFF;
@@ -308,11 +306,11 @@ fn draw_pill(
 ///   → densify(0.8*CELL) → jitter_ring_outward(seed + 0x5A17E5)
 ///   → smooth_closed_path`
 ///
-/// The SVG `d=` string returned by `cave_path_from_outline` is
-/// re-parsed into a backend-agnostic [`PathOps`] via
-/// [`parse_path_d_pathops`] (the Painter twin of `parse_path_d`)
-/// so the Painter dispatch can drive it without a tiny-skia
-/// dependency at this layer.
+/// Phase 2.20 — `cave_path_from_outline` now returns `PathOps`
+/// directly (was a `<path d="…"/>` SVG string parsed back via
+/// `parse_path_d_pathops`). The pipeline routes each emitted vertex
+/// through the same `{:.1}` legacy-rounding contract so the byte-
+/// equivalent PSNR ≥ 50 dB cave-fixture parity is preserved.
 fn draw_cave_floor(
     outline: &crate::ir::Outline<'_>,
     fir: &FloorIR<'_>,
@@ -327,15 +325,10 @@ fn draw_cave_floor(
         .map(|v| (v.x() as f64, v.y() as f64))
         .collect();
 
-    let path_svg = cave_path_from_outline(&coords, fir.base_seed());
-    let d = match extract_d_from_path(path_svg.as_str()) {
-        Some(d) if !d.is_empty() => d,
-        _ => return,
-    };
-    let path = match parse_path_d_pathops(d) {
-        Some(p) => p,
-        None => return,
-    };
+    let path = cave_path_from_outline(&coords, fir.base_seed());
+    if path.is_empty() {
+        return;
+    }
     let paint = cave_floor_paint();
     painter.fill_path(&path, &paint, FillRule::EvenOdd);
 }
@@ -347,18 +340,6 @@ fn floor_paint(style: FloorStyle) -> Paint {
         FloorStyle::WoodFloor => wood_floor_paint(),
         _ => dungeon_floor_paint(),
     }
-}
-
-/// `<path d="..."/>` → the inner d= string.
-///
-/// Mirrors the helper in `walls_and_floors.rs` — kept local to
-/// avoid coupling the two modules.
-fn extract_d_from_path(s: &str) -> Option<&str> {
-    let needle = "d=\"";
-    let start = s.find(needle)? + needle.len();
-    let rest = &s[start..];
-    let end = rest.find('"')?;
-    Some(&rest[..end])
 }
 
 #[cfg(test)]
@@ -1171,15 +1152,6 @@ mod tests {
             (BG_R, BG_G, BG_B),
             "pixel ({px},{py}) outside FloorOp should remain parchment BG"
         );
-    }
-
-    // ── extract_d_from_path helper ───────────────────────────────
-
-    #[test]
-    fn extract_d_pulls_attribute() {
-        use super::extract_d_from_path;
-        let s = "<path d=\"M0,0 L10,10 Z\"/>";
-        assert_eq!(extract_d_from_path(s), Some("M0,0 L10,10 Z"));
     }
 
     // ── Phase 2.15f sanity: floor paints round-trip via Painter ──

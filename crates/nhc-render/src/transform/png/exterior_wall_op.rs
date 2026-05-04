@@ -37,7 +37,6 @@ use crate::ir::{
 use crate::painter::{
     Color, LineCap, LineJoin, Paint, Painter, PathOps, Stroke, Vec2,
 };
-use crate::transform::png::path_parser::parse_path_d_pathops;
 
 use super::building_exterior_wall::{render_masonry_polygon, MasonryMaterial};
 use super::enclosure::{render_enclosure_polygon, EnclosureKind};
@@ -445,6 +444,9 @@ fn draw_dungeon_ink_pill(
 }
 
 /// CaveInk exterior wall — run the cave pipeline and stroke the result.
+///
+/// Phase 2.20 — `cave_path_from_outline` now returns `PathOps`
+/// directly; the legacy SVG d-string round-trip is gone.
 fn draw_cave_ink(
     outline: &Outline<'_>,
     fir: &FloorIR<'_>,
@@ -459,16 +461,10 @@ fn draw_cave_ink(
         .map(|v| (v.x() as f64, v.y() as f64))
         .collect();
 
-    let path_svg = cave_path_from_outline(&coords, fir.base_seed());
-    // Extract d=... from <path d="..."/>.
-    let d = match extract_d_from_path_svg(&path_svg) {
-        Some(d) if !d.is_empty() => d,
-        _ => return,
-    };
-    let path = match parse_path_d_pathops(d) {
-        Some(p) => p,
-        None => return,
-    };
+    let path = cave_path_from_outline(&coords, fir.base_seed());
+    if path.is_empty() {
+        return;
+    }
     painter.stroke_path(&path, &ink_paint(), &wall_stroke());
 }
 
@@ -731,15 +727,6 @@ fn push_arc_pathops(
         );
         angle += seg_angle;
     }
-}
-
-/// `<path d="..."/>` → the inner `d=...` string.
-fn extract_d_from_path_svg(s: &str) -> Option<&str> {
-    let needle = "d=\"";
-    let start = s.find(needle)? + needle.len();
-    let rest = &s[start..];
-    let end = rest.find('"')?;
-    Some(&rest[..end])
 }
 
 // ── Gating helper ───────────────────────────────────────────────────────

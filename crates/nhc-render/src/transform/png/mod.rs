@@ -23,13 +23,11 @@ use crate::ir::{
 };
 use crate::painter::{Painter, SkiaPainter};
 
-// Shared infrastructure consumed by per-primitive handlers.
-// `path_parser` survives as `floor_op.rs::draw_polygon` still
-// parses cave path-d strings via `parse_path_d_pathops`.
-// `fragment` / `polygon_path` / `svg_attr` are retired in this
-// commit — every op handler now drives the [`Painter`] trait
-// directly, so the SVG-string fragment path is dead code.
-mod path_parser;
+// Phase 2.20 retired the last per-handler shared infrastructure
+// (`path_parser`): `cave_path_from_outline` returns PathOps directly,
+// so `floor_op` / `exterior_wall_op` no longer round-trip through an
+// SVG d-string. `fragment` / `polygon_path` / `svg_attr` are retired
+// — every op handler now drives the [`Painter`] trait directly.
 
 // Per-primitive raster handlers — one module per Op kind.
 mod building_exterior_wall;
