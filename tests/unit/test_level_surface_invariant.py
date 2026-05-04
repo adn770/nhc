@@ -121,12 +121,10 @@ _ALL_GENERATORS: list[tuple[str, _BuildFn]] = [
 # content. Tightening that over-allocation is a separate
 # concern; the contract test does not gate it.
 _XFAIL: set[str] = {
-    "site:tower",
     "site:farm",
     "site:mansion",
     "site:temple",
     "site:cottage",
-    "site:mage_residence",
     "dungeon:cellular",
     "theme:cave",
 }

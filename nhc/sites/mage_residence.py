@@ -68,7 +68,11 @@ def assemble_mage_residence(
     else:
         if size % 2 == 0:
             size += 1
-    base_rect = Rect(1, 1, size, size)
+    # Place the residence's base rect at (2, 2) so the 1-tile
+    # decoration overhang sits at (1, 1)-(size+2, size+2) — that
+    # gives a 1-tile VOID margin against every canvas edge per
+    # ``design/level_surface_layout.md``.
+    base_rect = Rect(2, 2, size, size)
     base_shape: RoomShape = (
         OctagonShape() if shape_key == "octagon" else CircleShape()
     )
