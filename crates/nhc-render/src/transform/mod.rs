@@ -1,18 +1,12 @@
 //! Transformer back-ends — IR → output.
 //!
-//! Three submodules, each shipped in its own phase of
-//! `plans/nhc_ir_migration_plan.md`:
-//!
-//! - `svg.rs` — optional Rust SVG emitter for Phase 1 parity
-//!   testing (the Python emitter remains canonical there).
-//! - `png.rs` — `tiny-skia`-driven rasteriser, Phase 5. Replaces
-//!   the resvg-py stepping stone and runs entirely in Rust.
-//! - `canvas.rs` — emits a typed-array stream of canvas2d
-//!   opcodes for the WASM Phase 6 client renderer.
-//!
-//! Phase 5.1 lands the `png` submodule with a stub that resolves
-//! the canvas dimensions and returns an empty PNG; later sub-
-//! phases populate the pixmap primitive-by-primitive.
+//! - `png/` — `tiny-skia`-driven rasteriser. Each op handler
+//!   writes through the `Painter` trait against the
+//!   `SkiaPainter` impl that `floor_ir_to_png` constructs.
+//! - `svg/` — IR → SVG document. Re-uses the same op handlers
+//!   driving an `SvgPainter` (Phase 2.16 of
+//!   `plans/nhc_pure_ir_plan.md`). Also houses the resvg-based
+//!   `svg_to_png` cross-rasteriser used by the parity harness.
 
 pub mod png;
 pub mod svg;

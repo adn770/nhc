@@ -21,12 +21,15 @@ use tiny_skia::{Color, Pixmap, Transform};
 use crate::ir::{
     floor_ir_buffer_has_identifier, root_as_floor_ir, FloorIR, Op, OpEntry,
 };
+use crate::painter::{Painter, SkiaPainter};
 
 // Shared infrastructure consumed by per-primitive handlers.
-mod fragment;
+// `path_parser` survives as `floor_op.rs::draw_polygon` still
+// parses cave path-d strings via `parse_path_d_pathops`.
+// `fragment` / `polygon_path` / `svg_attr` are retired in this
+// commit — every op handler now drives the [`Painter`] trait
+// directly, so the SVG-string fragment path is dead code.
 mod path_parser;
-mod polygon_path;
-mod svg_attr;
 
 // Per-primitive raster handlers — one module per Op kind.
 mod building_exterior_wall;
@@ -94,32 +97,14 @@ impl std::fmt::Display for PngError {
 
 impl std::error::Error for PngError {}
 
-/// Drawing surface every per-primitive handler composes against.
-///
-/// `transform` is the accumulated SVG → PNG-pixel transform —
-/// the `translate(padding, padding)` from `ir_to_svg`'s outer
-/// `<g>` plus the user-supplied `scale`. Per-primitive handlers
-/// either pass it straight through to `Pixmap::fill_path` /
-/// `stroke_path`, or pre-compose their own per-op transform and
-/// pass the combined result.
-///
-/// `scratch` is a same-sized pixmap pre-allocated for offscreen
-/// `<g opacity="X">` compositing in `fragment::paint_fragment`
-/// — children render into the scratch at full alpha, then the
-/// scratch blits onto `pixmap` with `PixmapPaint::opacity = X`.
-/// Pre-allocating once at the `floor_ir_to_png` entry point
-/// dodges the per-group allocation that the seed99 fixture's
-/// dense `<g opacity>` clusters would otherwise induce.
-pub struct RasterCtx<'a> {
-    pub pixmap: &'a mut Pixmap,
-    pub scratch: &'a mut Pixmap,
-    pub transform: Transform,
-    pub scale: f32,
-}
-
-/// Op-handler signature. Phase 5.2 / 5.3 / 5.4 commits each
-/// register exactly one such function.
-pub type OpHandler = fn(&OpEntry<'_>, &FloorIR<'_>, &mut RasterCtx<'_>);
+/// Op-handler signature. Phase 2.16 of `plans/nhc_pure_ir_plan.md`
+/// lifted [`SkiaPainter`] construction up to [`floor_ir_to_png`]
+/// and switched every handler from the legacy `RasterCtx` shim to
+/// `&mut dyn Painter`. Both [`floor_ir_to_png`] and
+/// [`super::svg::floor_ir_to_svg`] now drive the same handler map
+/// — the only difference is which concrete `Painter` impl arrives
+/// at the top of the dispatch loop.
+pub type OpHandler = fn(&OpEntry<'_>, &FloorIR<'_>, &mut dyn Painter);
 
 /// Layer-name → op-tag-set mapping. Mirrors `_LAYER_OPS` in
 /// `nhc/rendering/ir_to_svg.py`; the per-layer parity harness in
@@ -206,14 +191,8 @@ pub fn floor_ir_to_png(
             "buffer does not carry the NIR3 file_identifier".to_string(),
         ));
     }
-    let layer_filter = if let Some(name) = layer {
-        match layer_ops().get(name) {
-            Some(set) => Some(*set),
-            None => return Err(PngError::UnknownLayer(name.to_string())),
-        }
-    } else {
-        None
-    };
+    let layer_filter =
+        resolve_layer_filter(layer).map_err(PngError::UnknownLayer)?;
 
     let fir = root_as_floor_ir(buf)
         .map_err(|e| PngError::InvalidBuffer(e.to_string()))?;
@@ -226,20 +205,36 @@ pub fn floor_ir_to_png(
     let ph = (svg_h * scale).round().max(0.0) as u32;
     let mut pixmap = Pixmap::new(pw, ph)
         .ok_or(PngError::InvalidCanvas { width: pw, height: ph })?;
-    let mut scratch = Pixmap::new(pw, ph)
-        .ok_or(PngError::InvalidCanvas { width: pw, height: ph })?;
 
     pixmap.fill(Color::from_rgba8(BG_R, BG_G, BG_B, 0xFF));
 
+    // Pre-bake the SVG → PNG-pixel transform (`translate(padding,
+    // padding)` + user-supplied `scale`) onto the painter; every
+    // op handler now drives the active surface through `&mut dyn
+    // Painter`, so the painter holds the only copy of the base
+    // transform.
     let transform = Transform::from_translate(padding, padding)
         .post_scale(scale, scale);
-    let mut ctx = RasterCtx {
-        pixmap: &mut pixmap,
-        scratch: &mut scratch,
-        transform,
-        scale,
-    };
+    let mut painter = SkiaPainter::with_transform(&mut pixmap, transform);
 
+    dispatch_ops(&fir, layer_filter, &mut painter);
+
+    drop(painter);
+    pixmap
+        .encode_png()
+        .map_err(|e| PngError::EncodeFailed(e.to_string()))
+}
+
+/// Walk the IR's `ops[]` array once and dispatch each entry
+/// against the shared [`op_handlers`] map. Used by both
+/// [`floor_ir_to_png`] and [`super::svg::floor_ir_to_svg`] —
+/// the only difference between the two transformer entry points
+/// is which concrete `Painter` impl arrives here.
+pub(crate) fn dispatch_ops(
+    fir: &FloorIR<'_>,
+    layer_filter: Option<&'static [Op]>,
+    painter: &mut dyn Painter,
+) {
     let handlers = op_handlers();
     if let Some(ops) = fir.ops() {
         for entry in ops.iter() {
@@ -253,14 +248,27 @@ pub fn floor_ir_to_png(
             // tags they own; tags without a handler silently skip
             // (the parity harness catches the visual delta).
             if let Some(handler) = handlers.get(&op_type.0) {
-                handler(&entry, &fir, &mut ctx);
+                handler(&entry, fir, painter);
             }
         }
     }
+}
 
-    pixmap
-        .encode_png()
-        .map_err(|e| PngError::EncodeFailed(e.to_string()))
+/// Resolve a layer name through [`layer_ops`] for the SVG /
+/// PNG entry points. Public to the crate so the SVG entry point
+/// in `super::svg` can mirror the PNG layer-filter handling
+/// without re-deriving the mapping.
+pub(crate) fn resolve_layer_filter(
+    layer: Option<&str>,
+) -> Result<Option<&'static [Op]>, String> {
+    let Some(name) = layer else {
+        return Ok(None);
+    };
+    layer_ops()
+        .get(name)
+        .copied()
+        .map(Some)
+        .ok_or_else(|| name.to_string())
 }
 
 #[cfg(test)]

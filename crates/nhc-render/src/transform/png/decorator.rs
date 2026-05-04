@@ -27,15 +27,13 @@
 //! 2.20 retires the SVG-string emit path crate-wide.
 
 use crate::ir::{DecoratorOp, FloorIR, OpEntry};
-use crate::painter::SkiaPainter;
+use crate::painter::Painter;
 use crate::primitives;
-
-use super::RasterCtx;
 
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     _fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_decorator_op() {
         Some(o) => o,
@@ -44,23 +42,23 @@ pub(super) fn draw(
     let seed = op.seed();
 
     // Painter-trait dispatch — every decorator branch (Phase 2.13a–g)
-    // runs through the same `SkiaPainter`, so the legacy
+    // runs through the shared `&mut dyn Painter` arriving from
+    // `floor_ir_to_png` / `floor_ir_to_svg`, so the legacy
     // `paint_fragments` SVG-string round-trip is gone from this
     // dispatcher.
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
-    paint_cobblestone(&op, seed, &mut painter);
-    paint_brick(&op, seed, &mut painter);
-    paint_flagstone(&op, seed, &mut painter);
-    paint_opus_romano(&op, seed, &mut painter);
-    paint_field_stone(&op, seed, &mut painter);
-    paint_cart_tracks(&op, seed, &mut painter);
-    paint_ore_deposit(&op, seed, &mut painter);
+    paint_cobblestone(&op, seed, painter);
+    paint_brick(&op, seed, painter);
+    paint_flagstone(&op, seed, painter);
+    paint_opus_romano(&op, seed, painter);
+    paint_field_stone(&op, seed, painter);
+    paint_cart_tracks(&op, seed, painter);
+    paint_ore_deposit(&op, seed, painter);
 }
 
 fn paint_cobblestone(
     op: &DecoratorOp<'_>,
     seed: u64,
-    painter: &mut SkiaPainter<'_>,
+    painter: &mut dyn Painter,
 ) {
     let variants = match op.cobblestone() {
         Some(v) => v,
@@ -81,7 +79,7 @@ fn paint_cobblestone(
 fn paint_brick(
     op: &DecoratorOp<'_>,
     seed: u64,
-    painter: &mut SkiaPainter<'_>,
+    painter: &mut dyn Painter,
 ) {
     let variants = match op.brick() {
         Some(v) => v,
@@ -102,7 +100,7 @@ fn paint_brick(
 fn paint_flagstone(
     op: &DecoratorOp<'_>,
     seed: u64,
-    painter: &mut SkiaPainter<'_>,
+    painter: &mut dyn Painter,
 ) {
     let variants = match op.flagstone() {
         Some(v) => v,
@@ -123,7 +121,7 @@ fn paint_flagstone(
 fn paint_opus_romano(
     op: &DecoratorOp<'_>,
     seed: u64,
-    painter: &mut SkiaPainter<'_>,
+    painter: &mut dyn Painter,
 ) {
     let variants = match op.opus_romano() {
         Some(v) => v,
@@ -144,7 +142,7 @@ fn paint_opus_romano(
 fn paint_field_stone(
     op: &DecoratorOp<'_>,
     seed: u64,
-    painter: &mut SkiaPainter<'_>,
+    painter: &mut dyn Painter,
 ) {
     let variants = match op.field_stone() {
         Some(v) => v,
@@ -165,7 +163,7 @@ fn paint_field_stone(
 fn paint_cart_tracks(
     op: &DecoratorOp<'_>,
     seed: u64,
-    painter: &mut SkiaPainter<'_>,
+    painter: &mut dyn Painter,
 ) {
     let variants = match op.cart_tracks() {
         Some(v) => v,
@@ -195,7 +193,7 @@ fn paint_cart_tracks(
 fn paint_ore_deposit(
     op: &DecoratorOp<'_>,
     seed: u64,
-    painter: &mut SkiaPainter<'_>,
+    painter: &mut dyn Painter,
 ) {
     let variants = match op.ore_deposit() {
         Some(v) => v,

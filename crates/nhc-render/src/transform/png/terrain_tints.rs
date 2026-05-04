@@ -23,10 +23,8 @@
 use std::collections::HashMap;
 
 use crate::ir::{FloorIR, Outline, OpEntry, TerrainKind, TerrainTintOp};
-use crate::painter::{FillRule, Painter, PathOps, SkiaPainter, Vec2};
+use crate::painter::{FillRule, Painter, PathOps, Vec2};
 use crate::primitives::terrain_tints::paint_terrain_tints;
-
-use super::RasterCtx;
 
 /// `(tint_hex, opacity)` pair for one terrain kind in one theme.
 type TerrainStyle = (&'static str, f64);
@@ -236,7 +234,7 @@ fn collect_washes(op: &TerrainTintOp<'_>) -> Vec<(i32, i32, i32, i32, String, f6
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_terrain_tint_op() {
         Some(o) => o,
@@ -250,8 +248,6 @@ pub(super) fn draw(
     let washes = collect_washes(&op);
     let clip = build_clip(&op, fir);
 
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
-
     // Tile tints: clipped to the dungeon-interior outline when the
     // op carries a region_ref. Mirrors the legacy
     // `Mask::new` + `mask.fill_path(EvenOdd)` envelope the prior
@@ -262,16 +258,16 @@ pub(super) fn draw(
         match &clip {
             Some(clip_path) => {
                 painter.push_clip(clip_path, FillRule::EvenOdd);
-                paint_terrain_tints(&mut painter, &tiles, &palette_map, &[]);
+                paint_terrain_tints(painter, &tiles, &palette_map, &[]);
                 painter.pop_clip();
             }
             None => {
-                paint_terrain_tints(&mut painter, &tiles, &palette_map, &[]);
+                paint_terrain_tints(painter, &tiles, &palette_map, &[]);
             }
         }
     }
     // Washes layered on top, unclipped.
     if !washes.is_empty() {
-        paint_terrain_tints(&mut painter, &[], &palette_map, &washes);
+        paint_terrain_tints(painter, &[], &palette_map, &washes);
     }
 }

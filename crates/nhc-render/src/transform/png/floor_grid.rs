@@ -15,12 +15,10 @@
 
 use crate::ir::{FloorGridOp, FloorIR, OpEntry, Outline};
 use crate::painter::{
-    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, SkiaPainter,
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps,
     Stroke, Vec2,
 };
 use crate::primitives::floor_grid::paint_floor_grid_paths;
-
-use super::RasterCtx;
 
 const GRID_WIDTH: f32 = 0.3;
 const GRID_OPACITY: f32 = 0.7;
@@ -93,7 +91,7 @@ fn build_clip(
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_floor_grid_op() {
         Some(o) => o,
@@ -115,8 +113,6 @@ pub(super) fn draw(
     );
     let stroke = grid_stroke();
     let clip = build_clip(&op, fir);
-
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
 
     if !room_paths.is_empty() {
         match &clip {

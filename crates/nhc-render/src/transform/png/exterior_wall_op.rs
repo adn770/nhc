@@ -35,13 +35,12 @@ use crate::ir::{
     Cut, CutStyle, FloorIR, OpEntry, Outline, OutlineKind, WallStyle,
 };
 use crate::painter::{
-    Color, LineCap, LineJoin, Paint, Painter, PathOps, SkiaPainter, Stroke, Vec2,
+    Color, LineCap, LineJoin, Paint, Painter, PathOps, Stroke, Vec2,
 };
 use crate::transform::png::path_parser::parse_path_d_pathops;
 
 use super::building_exterior_wall::{render_masonry_polygon, MasonryMaterial};
 use super::enclosure::{render_enclosure_polygon, EnclosureKind};
-use super::RasterCtx;
 
 const INK_R: u8 = 0x00;
 const INK_G: u8 = 0x00;
@@ -73,7 +72,7 @@ fn wall_stroke() -> Stroke {
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_exterior_wall_op() {
         Some(o) => o,
@@ -89,27 +88,19 @@ pub(super) fn draw(
 
     match style {
         WallStyle::DungeonInk => {
-            let mut painter =
-                SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
-            draw_dungeon_ink(&outline, &cuts, &mut painter);
+            draw_dungeon_ink(&outline, &cuts, painter);
         }
         WallStyle::CaveInk => {
-            let mut painter =
-                SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
-            draw_cave_ink(&outline, fir, &mut painter);
+            draw_cave_ink(&outline, fir, painter);
         }
         WallStyle::MasonryBrick | WallStyle::MasonryStone => {
             if let Some(material) = MasonryMaterial::from_wall_style(style) {
                 let polygon = polygon_from_outline(&outline);
-                let mut painter = SkiaPainter::with_transform(
-                    ctx.pixmap,
-                    ctx.transform,
-                );
                 render_masonry_polygon(
                     &polygon,
                     material,
                     op.rng_seed(),
-                    &mut painter,
+                    painter,
                 );
             }
         }
@@ -121,10 +112,6 @@ pub(super) fn draw(
                 let polygon = polygon_from_outline(&outline);
                 let (by_edge, midpoints) =
                     gate_spans_per_edge_from_cuts(&polygon, &cuts);
-                let mut painter = SkiaPainter::with_transform(
-                    ctx.pixmap,
-                    ctx.transform,
-                );
                 render_enclosure_polygon(
                     &polygon,
                     &by_edge,
@@ -132,7 +119,7 @@ pub(super) fn draw(
                     enc_style,
                     op.corner_style().0,
                     op.rng_seed(),
-                    &mut painter,
+                    painter,
                 );
             }
         }

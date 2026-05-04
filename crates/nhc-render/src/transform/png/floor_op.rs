@@ -31,11 +31,10 @@
 use crate::geometry::cave_path_from_outline;
 use crate::ir::{FloorIR, FloorStyle, Op, OpEntry, OutlineKind};
 use crate::painter::{
-    Color, FillRule, Paint, Painter, PathOps, SkiaPainter, Vec2,
+    Color, FillRule, Paint, Painter, PathOps, Vec2,
 };
 
 use super::path_parser::parse_path_d_pathops;
-use super::RasterCtx;
 
 // Colour constants — match the existing palette in
 // `walls_and_floors.rs` exactly; do NOT redefine.
@@ -66,8 +65,9 @@ fn wood_floor_paint() -> Paint {
 
 /// Return `true` if the IR contains any `FloorOp` entries.
 ///
-/// Called by `walls_and_floors::draw` to gate the legacy floor pass
-/// off when the new FloorOp handler owns the floor surface.
+/// Predates the v4 cut — `walls_and_floors` is gone, but the
+/// helper sticks around for any future external gating need.
+#[allow(dead_code)]
 pub(super) fn has_floor_ops(fir: &FloorIR<'_>) -> bool {
     let ops = match fir.ops() {
         Some(o) => o,
@@ -79,8 +79,9 @@ pub(super) fn has_floor_ops(fir: &FloorIR<'_>) -> bool {
 /// Return `true` if the IR contains any `FloorOp` with
 /// `style == CaveFloor`.
 ///
-/// Called by `walls_and_floors::draw` to gate `draw_cave_region`
-/// off when the new FloorOp handler owns the cave fill.
+/// Predates the v4 cut — `walls_and_floors` is gone, but the
+/// helper sticks around for any future external gating need.
+#[allow(dead_code)]
 pub(super) fn has_cave_floor_op(fir: &FloorIR<'_>) -> bool {
     let ops = match fir.ops() {
         Some(o) => o,
@@ -103,7 +104,7 @@ pub(super) fn has_cave_floor_op(fir: &FloorIR<'_>) -> bool {
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_floor_op() {
         Some(o) => o,
@@ -118,20 +119,14 @@ pub(super) fn draw(
         None => return,
     };
     let style = op.style();
-    // Construct the painter once at the dispatch entry; every
-    // descriptor branch drives it through `&mut dyn Painter` so the
-    // Phase 2.16 SVG branch can swap impls without touching this
-    // file again.
-    let mut painter =
-        SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
     match outline.descriptor_kind() {
-        OutlineKind::Circle => draw_circle(&outline, style, &mut painter),
-        OutlineKind::Pill => draw_pill(&outline, style, &mut painter),
+        OutlineKind::Circle => draw_circle(&outline, style, painter),
+        OutlineKind::Pill => draw_pill(&outline, style, painter),
         OutlineKind::Polygon => {
             if style == FloorStyle::CaveFloor {
-                draw_cave_floor(&outline, fir, &mut painter);
+                draw_cave_floor(&outline, fir, painter);
             } else {
-                draw_polygon(&outline, style, &mut painter);
+                draw_polygon(&outline, style, painter);
             }
         }
         _ => {}

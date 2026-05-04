@@ -15,7 +15,7 @@ use std::f32::consts::SQRT_2;
 
 use crate::ir::WallStyle;
 use crate::painter::{
-    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Rect, Stroke,
+    Color, LineCap, LineJoin, Paint, Painter, PathOps, Rect, Stroke,
     Transform, Vec2,
 };
 use crate::rng::SplitMix64;

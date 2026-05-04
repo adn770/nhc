@@ -17,17 +17,15 @@
 //! own `nhc.rendering._terrain_detail` module.
 
 use crate::ir::{FloorIR, OpEntry, Outline, TerrainDetailOp, TerrainKind};
-use crate::painter::{FillRule, PathOps, Painter, SkiaPainter, Vec2};
+use crate::painter::{FillRule, PathOps, Painter, Vec2};
 use crate::primitives::terrain_detail::{
     paint_chasm, paint_lava, paint_water,
 };
 
-use super::RasterCtx;
-
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_terrain_detail_op() {
         Some(o) => o,
@@ -74,8 +72,6 @@ pub(super) fn draw(
 
     let clip = build_clip_pathops(&op, fir);
 
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
-
     // Room: clipped inside the dungeon-interior outline (when
     // present). Each kind wraps its own `<g opacity>` envelope
     // through begin_group / end_group.
@@ -83,24 +79,24 @@ pub(super) fn draw(
         match &clip {
             Some(clip_path) => {
                 painter.push_clip(clip_path, FillRule::EvenOdd);
-                paint_water(&mut painter, &water_room, seed);
-                paint_lava(&mut painter, &lava_room, seed, ember_ink);
-                paint_chasm(&mut painter, &chasm_room, seed);
+                paint_water(painter, &water_room, seed);
+                paint_lava(painter, &lava_room, seed, ember_ink);
+                paint_chasm(painter, &chasm_room, seed);
                 painter.pop_clip();
             }
             None => {
-                paint_water(&mut painter, &water_room, seed);
-                paint_lava(&mut painter, &lava_room, seed, ember_ink);
-                paint_chasm(&mut painter, &chasm_room, seed);
+                paint_water(painter, &water_room, seed);
+                paint_lava(painter, &lava_room, seed, ember_ink);
+                paint_chasm(painter, &chasm_room, seed);
             }
         }
     }
 
     // Corridor: unclipped.
     if !corr_empty {
-        paint_water(&mut painter, &water_corr, seed);
-        paint_lava(&mut painter, &lava_corr, seed, ember_ink);
-        paint_chasm(&mut painter, &chasm_corr, seed);
+        paint_water(painter, &water_corr, seed);
+        paint_lava(painter, &lava_corr, seed, ember_ink);
+        paint_chasm(painter, &chasm_corr, seed);
     }
 }
 

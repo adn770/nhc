@@ -15,17 +15,15 @@
 //! `pop_clip`; corridor-side fragments paint unclipped.
 
 use crate::ir::{FloorIR, OpEntry, Outline, ThematicDetailOp};
-use crate::painter::{FillRule, PathOps, Painter, SkiaPainter, Vec2};
+use crate::painter::{FillRule, PathOps, Painter, Vec2};
 use crate::primitives::thematic_detail::{
     paint_thematic_detail_side, thematic_detail_shapes,
 };
 
-use super::RasterCtx;
-
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_thematic_detail_op() {
         Some(o) => o,
@@ -62,23 +60,21 @@ pub(super) fn draw(
 
     let clip = build_clip_pathops(&op, fir);
 
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
-
     // Room: clipped inside the dungeon-interior outline (when
     // present), wrapped in per-fragment `<g opacity>` envelopes.
     match &clip {
         Some(clip_path) => {
             painter.push_clip(clip_path, FillRule::EvenOdd);
-            paint_thematic_detail_side(&mut painter, &room);
+            paint_thematic_detail_side(painter, &room);
             painter.pop_clip();
         }
         None => {
-            paint_thematic_detail_side(&mut painter, &room);
+            paint_thematic_detail_side(painter, &room);
         }
     }
 
     // Corridor: unclipped.
-    paint_thematic_detail_side(&mut painter, &corridor);
+    paint_thematic_detail_side(painter, &corridor);
 }
 
 /// Walk the thematic-detail op's `region_ref` outline into a

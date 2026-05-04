@@ -12,15 +12,13 @@
 //! `begin_group` / `end_group` envelope.
 
 use crate::ir::{FloorIR, OpEntry};
-use crate::painter::SkiaPainter;
+use crate::painter::Painter;
 use crate::primitives;
-
-use super::RasterCtx;
 
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     _fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_bush_feature_op() {
         Some(o) => o,
@@ -33,6 +31,5 @@ pub(super) fn draw(
     if tiles.is_empty() {
         return;
     }
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
-    primitives::bush::paint_bush(&mut painter, &tiles);
+    primitives::bush::paint_bush(painter, &tiles);
 }

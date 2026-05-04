@@ -22,11 +22,9 @@
 use crate::ir::{FloorIR, OpEntry, Region, RoofOp};
 use crate::painter::{
     Color, FillRule, LineCap, Paint, Painter, PathOps, Rect as PRect,
-    SkiaPainter, Stroke, Vec2,
+    Stroke, Vec2,
 };
 use crate::rng::SplitMix64;
-
-use super::RasterCtx;
 
 
 // ── Constants ───────────────────────────────────────────────────
@@ -400,7 +398,7 @@ fn build_clip_pathops(region: &Region<'_>) -> Option<PathOps> {
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op: RoofOp = match entry.op_as_roof_op() {
         Some(o) => o,
@@ -436,7 +434,6 @@ pub(super) fn draw(
     let pw = max_x - min_x;
     let ph = max_y - min_y;
 
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
     let pushed = if let Some(clip_path) = clip.as_ref() {
         painter.push_clip(clip_path, FillRule::EvenOdd);
         true
@@ -446,10 +443,10 @@ pub(super) fn draw(
     match mode {
         Mode::Gable => draw_gable_sides(
             min_x, min_y, pw, ph, pw >= ph,
-            &sunlit, &shadow, &mut rng, &mut painter,
+            &sunlit, &shadow, &mut rng, painter,
         ),
         Mode::Pyramid => draw_pyramid_sides(
-            &polygon, &sunlit, &shadow, &mut rng, &mut painter,
+            &polygon, &sunlit, &shadow, &mut rng, painter,
         ),
     }
     if pushed {

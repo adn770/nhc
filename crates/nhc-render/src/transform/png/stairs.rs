@@ -18,15 +18,13 @@
 //! consume the same `(x, y, direction)` tuple shape.
 
 use crate::ir::{FloorIR, OpEntry, StairDirection};
-use crate::painter::SkiaPainter;
+use crate::painter::Painter;
 use crate::primitives::stairs as stairs_prim;
-
-use super::RasterCtx;
 
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     _fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_stairs_op() {
         Some(o) => o,
@@ -47,6 +45,5 @@ pub(super) fn draw(
         })
         .collect();
 
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
-    stairs_prim::paint_stairs(&mut painter, &stair_tuples, theme, fill_color);
+    stairs_prim::paint_stairs(painter, &stair_tuples, theme, fill_color);
 }

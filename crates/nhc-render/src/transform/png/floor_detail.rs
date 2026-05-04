@@ -42,7 +42,7 @@
 //! the `paint_fragments` import is gone.
 
 use crate::ir::{FloorDetailOp, FloorIR, OpEntry, Outline};
-use crate::painter::{FillRule, PathOps, Painter, SkiaPainter, Vec2};
+use crate::painter::{FillRule, PathOps, Painter, Vec2};
 use crate::primitives::floor_detail::{
     floor_detail_shapes, paint_floor_detail_side,
 };
@@ -50,12 +50,10 @@ use crate::primitives::wood_floor::{
     paint_wood_floor, PolyVertex, WoodRoom,
 };
 
-use super::RasterCtx;
-
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_floor_detail_op() {
         Some(o) => o,
@@ -109,9 +107,6 @@ pub(super) fn draw(
         let dungeon_clip = build_clip_pathops(&op, fir);
         let building_clip = polygon_to_pathops(&wood_polygon);
 
-        let mut painter =
-            SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
-
         // Push dungeon clip first (when present), then the
         // building polygon — push_clip intersects with the
         // current top, so the result is `dungeon ∩ building`.
@@ -125,7 +120,7 @@ pub(super) fn draw(
             pushed += 1;
         }
         paint_wood_floor(
-            &mut painter, &wood_tiles, &wood_polygon, &wood_rooms, op.seed(),
+            painter, &wood_tiles, &wood_polygon, &wood_rooms, op.seed(),
         );
         for _ in 0..pushed {
             painter.pop_clip();
@@ -155,23 +150,21 @@ pub(super) fn draw(
 
     let clip = build_clip_pathops(&op, fir);
 
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
-
     // Room: clipped inside the dungeon-interior outline (when
     // present), wrapped in `<g opacity>` group envelopes.
     match &clip {
         Some(clip_path) => {
             painter.push_clip(clip_path, FillRule::EvenOdd);
-            paint_floor_detail_side(&mut painter, &room);
+            paint_floor_detail_side(painter, &room);
             painter.pop_clip();
         }
         None => {
-            paint_floor_detail_side(&mut painter, &room);
+            paint_floor_detail_side(painter, &room);
         }
     }
 
     // Corridor: unclipped.
-    paint_floor_detail_side(&mut painter, &corridor);
+    paint_floor_detail_side(painter, &corridor);
 }
 
 /// Walk the floor-detail op's `region_ref` outline into a

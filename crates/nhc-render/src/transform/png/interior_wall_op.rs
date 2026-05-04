@@ -25,10 +25,8 @@
 
 use crate::ir::{FloorIR, OpEntry, WallStyle};
 use crate::painter::{
-    Color, LineCap, Paint, Painter, PathOps, SkiaPainter, Stroke, Vec2,
+    Color, LineCap, Paint, Painter, PathOps, Stroke, Vec2,
 };
-
-use super::RasterCtx;
 
 // Interior wall stroke width: CELL * 0.25.
 // CELL = 32 px → 8.0 px.
@@ -62,7 +60,7 @@ fn interior_wall_stroke() -> Stroke {
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     _fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_interior_wall_op() {
         Some(o) => o,
@@ -95,7 +93,6 @@ pub(super) fn draw(
     if path.is_empty() {
         return;
     }
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
     painter.stroke_path(&path, &paint, &stroke);
 }
 

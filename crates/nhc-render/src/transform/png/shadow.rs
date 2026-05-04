@@ -13,31 +13,28 @@
 //! `SkiaPainter` and calls `paint_*` against it.
 
 use crate::ir::{FloorIR, OpEntry, ShadowKind, ShadowOp};
-use crate::painter::SkiaPainter;
+use crate::painter::Painter;
 use crate::primitives::shadow as shadow_prim;
-
-use super::RasterCtx;
 
 /// `OpHandler` dispatch entry. Registered against
 /// `Op::ShadowOp` in `super::op_handlers`.
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let op = match entry.op_as_shadow_op() {
         Some(o) => o,
         None => return,
     };
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
     match op.kind() {
-        ShadowKind::Corridor => paint_corridor(&op, &mut painter),
-        ShadowKind::Room => paint_room(&op, fir, &mut painter),
+        ShadowKind::Corridor => paint_corridor(&op, painter),
+        ShadowKind::Room => paint_room(&op, fir, painter),
         _ => {}
     }
 }
 
-fn paint_corridor(op: &ShadowOp<'_>, painter: &mut SkiaPainter<'_>) {
+fn paint_corridor(op: &ShadowOp<'_>, painter: &mut dyn Painter) {
     let tiles = match op.tiles() {
         Some(t) => t,
         None => return,
@@ -52,7 +49,7 @@ fn paint_corridor(op: &ShadowOp<'_>, painter: &mut SkiaPainter<'_>) {
 fn paint_room(
     op: &ShadowOp<'_>,
     fir: &FloorIR<'_>,
-    painter: &mut SkiaPainter<'_>,
+    painter: &mut dyn Painter,
 ) {
     let region_ref = match op.region_ref() {
         Some(r) => r,

@@ -28,11 +28,10 @@
 
 use crate::ir::{FloorIR, FloorStyle, Op, OpEntry, OutlineKind, RegionKind};
 use crate::painter::{
-    Color, LineCap, LineJoin, Paint, Painter, PathOps, SkiaPainter, Stroke, Vec2,
+    Color, LineCap, LineJoin, Paint, Painter, PathOps, Stroke, Vec2,
 };
 
 use super::exterior_wall_op::has_dungeon_ink_wall_ops;
-use super::RasterCtx;
 
 const CELL: f32 = 32.0;
 const INK_R: u8 = 0x00;
@@ -57,7 +56,7 @@ fn wall_stroke() -> Stroke {
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     // Guard: only emit when the DungeonInk consumer is fully active.
     if !has_dungeon_ink_wall_ops(fir) {
@@ -122,7 +121,6 @@ pub(super) fn draw(
     if path.is_empty() {
         return;
     }
-    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
     painter.stroke_path(&path, &ink_paint(), &wall_stroke());
 }
 

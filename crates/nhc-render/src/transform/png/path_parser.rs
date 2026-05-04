@@ -25,6 +25,13 @@ use crate::painter::{PathOps, Vec2};
 /// right; each token either kicks off a new command (M / L /
 /// C / Z) or supplies coordinate pairs that the running command
 /// consumes. Unknown commands skip the token.
+///
+/// Phase 2.16 retired the legacy `fragment::paint_fragment`
+/// caller; this helper now lives only as a parity reference for
+/// the [`parse_path_d_pathops`] twin (the active consumer is
+/// `floor_op.rs::draw_polygon` for cave outlines). Kept for the
+/// in-module unit tests until the module retires entirely.
+#[allow(dead_code)]
 pub fn parse_path_d(s: &str) -> Option<tiny_skia::Path> {
     let mut pb = PathBuilder::new();
     let mut any = false;
@@ -205,6 +212,7 @@ pub fn parse_path_d_pathops(s: &str) -> Option<PathOps> {
 /// degenerates to plain circular endpoint-to-center geometry.
 /// Falls back to a straight line for degenerate radii or
 /// coincident endpoints.
+#[allow(dead_code)]
 fn append_arc(
     pb: &mut PathBuilder,
     start: (f32, f32),
