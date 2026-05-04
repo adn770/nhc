@@ -125,32 +125,6 @@ fn brick_shapes(tiles: &[(i32, i32)], seed: u64) -> Vec<BrickShape> {
 
     bricks
 }
-
-/// Brick decorator entry point — Phase 4 sub-step 7.
-///
-/// `tiles` is the BRICK-surface tile list. `seed` already
-/// includes the legacy `+333` decorator-pipeline offset.
-/// Returns one `<g>` envelope (running-bond rects) or empty.
-pub fn draw_brick(tiles: &[(i32, i32)], seed: u64) -> Vec<String> {
-    if tiles.is_empty() {
-        return Vec::new();
-    }
-    let bricks = brick_shapes(tiles, seed);
-    if bricks.is_empty() {
-        return Vec::new();
-    }
-
-    let mut frags: Vec<String> = Vec::with_capacity(bricks.len());
-    for shape in &bricks {
-        frags.push(format_brick_svg(shape));
-    }
-    vec![format!(
-        "<g opacity=\"0.35\" fill=\"none\" stroke=\"{BRICK_STROKE}\" \
-         stroke-width=\"0.4\">{}</g>",
-        frags.concat(),
-    )]
-}
-
 /// Painter-trait entry point — Phase 2.13b port.
 ///
 /// Walks the same shape stream as `draw_brick` and dispatches the
@@ -200,15 +174,6 @@ pub fn paint_brick(
 }
 
 // ── SVG-string formatter (legacy path) ────────────────────────
-
-fn format_brick_svg(shape: &BrickShape) -> String {
-    let BrickShape::Brick { x, y, w, h } = *shape;
-    format!(
-        "<rect x=\"{x:.1}\" y=\"{y:.1}\" \
-         width=\"{w:.1}\" height=\"{h:.1}\" rx=\"0.5\"/>",
-    )
-}
-
 // ── Painter helpers ───────────────────────────────────────────
 
 /// Mirror the legacy SVG-string path's `{:.1}` truncation +
@@ -248,27 +213,6 @@ mod tests {
     use crate::painter::{
         FillRule, Paint, Painter, PathOps, Rect, Stroke, Vec2,
     };
-
-    #[test]
-    fn empty_tiles_returns_empty() {
-        assert!(draw_brick(&[], 333).is_empty());
-    }
-
-    #[test]
-    fn deterministic_for_same_seed() {
-        let tiles: Vec<(i32, i32)> = (0..6)
-            .flat_map(|y| (0..6).map(move |x| (x, y)))
-            .collect();
-        assert_eq!(draw_brick(&tiles, 333), draw_brick(&tiles, 333));
-    }
-
-    #[test]
-    fn brick_stroke_present() {
-        let out = draw_brick(&[(0, 0)], 42);
-        assert!(!out.is_empty());
-        assert!(out[0].contains("#A05530"));
-    }
-
     // ── Painter-path tests ─────────────────────────────────────
 
     /// Records every Painter call. Mirrors the trait-level
@@ -420,25 +364,6 @@ mod tests {
         paint_brick(&mut painter, &grid(6), 333);
         assert!(painter.stroke_rect_count() > 0);
     }
-
-    /// Painter and SVG paths consume the RNG in lock-step — the
-    /// stamp counts (rects on the SVG side, stroke_rect on the
-    /// Painter side) must match.
-    #[test]
-    fn paint_and_draw_emit_same_stamp_counts() {
-        let tiles = grid(6);
-        let mut painter = CaptureCalls::default();
-        paint_brick(&mut painter, &tiles, 333);
-        let svg = draw_brick(&tiles, 333);
-        let svg_rects: usize =
-            svg.iter().map(|g| g.matches("<rect").count()).sum();
-        assert_eq!(
-            painter.stroke_rect_count(),
-            svg_rects,
-            "brick stamp counts must match between SVG and Painter paths",
-        );
-    }
-
     /// Different seeds drive different RNG streams — the captured
     /// call sequence must differ.
     #[test]

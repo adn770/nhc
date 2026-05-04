@@ -126,27 +126,6 @@ fn flagstone_shapes(tiles: &[(i32, i32)], seed: u64) -> Vec<FlagstoneShape> {
 
     plates
 }
-
-pub fn draw_flagstone(tiles: &[(i32, i32)], seed: u64) -> Vec<String> {
-    if tiles.is_empty() {
-        return Vec::new();
-    }
-    let plates = flagstone_shapes(tiles, seed);
-    if plates.is_empty() {
-        return Vec::new();
-    }
-
-    let mut frags: Vec<String> = Vec::with_capacity(plates.len());
-    for shape in &plates {
-        frags.push(format_plate_svg(shape));
-    }
-    vec![format!(
-        "<g opacity=\"0.35\" fill=\"none\" stroke=\"{FLAGSTONE_STROKE}\" \
-         stroke-width=\"0.4\">{}</g>",
-        frags.concat(),
-    )]
-}
-
 /// Painter-trait entry point — Phase 2.13c port.
 ///
 /// Walks the same shape stream as `draw_flagstone` and dispatches
@@ -194,18 +173,6 @@ pub fn paint_flagstone(
 }
 
 // ── SVG-string formatter (legacy path) ────────────────────────
-
-fn format_plate_svg(shape: &FlagstoneShape) -> String {
-    let FlagstoneShape::Plate { p0, p1, p2, p3, p4 } = *shape;
-    format!(
-        "<polygon points=\"\
-         {:.1},{:.1} {:.1},{:.1} {:.1},{:.1} \
-         {:.1},{:.1} {:.1},{:.1}\"/>",
-        p0.0, p0.1, p1.0, p1.1, p2.0, p2.1,
-        p3.0, p3.1, p4.0, p4.1,
-    )
-}
-
 // ── Painter helpers ───────────────────────────────────────────
 
 /// Mirror the legacy SVG-string path's `{:.1}` truncation +
@@ -245,28 +212,6 @@ mod tests {
     use crate::painter::{
         FillRule, Paint, Painter, PathOps, Rect, Stroke, Vec2,
     };
-
-    #[test]
-    fn empty_tiles_returns_empty() {
-        assert!(draw_flagstone(&[], 333).is_empty());
-    }
-
-    #[test]
-    fn deterministic_for_same_seed() {
-        let tiles: Vec<(i32, i32)> = (0..4)
-            .flat_map(|y| (0..4).map(move |x| (x, y)))
-            .collect();
-        assert_eq!(draw_flagstone(&tiles, 333), draw_flagstone(&tiles, 333));
-    }
-
-    #[test]
-    fn four_plates_per_tile() {
-        let out = draw_flagstone(&[(0, 0)], 42);
-        assert_eq!(out.len(), 1);
-        let n_polygons = out[0].matches("<polygon").count();
-        assert_eq!(n_polygons, 4, "4 quadrants × 1 pentagon each");
-    }
-
     // ── Painter-path tests ─────────────────────────────────────
 
     /// Records every Painter call. Mirrors the trait-level
@@ -436,25 +381,6 @@ mod tests {
             "4 quadrants × 1 pentagon each",
         );
     }
-
-    /// Painter and SVG paths consume the RNG in lock-step — the
-    /// stamp counts (polygons on the SVG side, stroke_path on the
-    /// Painter side) must match.
-    #[test]
-    fn paint_and_draw_emit_same_stamp_counts() {
-        let tiles = grid(4);
-        let mut painter = CaptureCalls::default();
-        paint_flagstone(&mut painter, &tiles, 333);
-        let svg = draw_flagstone(&tiles, 333);
-        let svg_polygons: usize =
-            svg.iter().map(|g| g.matches("<polygon").count()).sum();
-        assert_eq!(
-            painter.stroke_path_count(),
-            svg_polygons,
-            "flagstone stamp counts must match between SVG and Painter paths",
-        );
-    }
-
     /// Different seeds drive different RNG streams — the captured
     /// call sequence must differ.
     #[test]

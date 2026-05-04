@@ -71,12 +71,6 @@ pub const TILE_FILLS_OPACITY: f32 = 0.3;
 /// Group-opacity envelope for the `hatch_lines` bucket. Lifts the
 /// `<g opacity="0.5">` wrapper from `nhc/rendering/ir_to_svg.py`.
 pub const HATCH_LINES_OPACITY: f32 = 0.5;
-
-/// Three SVG fragment buckets emitted per hatch call:
-/// `(tile_fills, hatch_lines, hatch_stones)`. The Python handler
-/// stitches them into the legacy `<g opacity="...">` envelopes.
-type Buckets = (Vec<String>, Vec<String>, Vec<String>);
-
 /// Per-tile shape — backend-agnostic record. The shape stream is
 /// the single source of truth: `draw_hatch_*` formats each shape
 /// as an SVG fragment string, `paint_hatch_*` dispatches each
@@ -117,31 +111,6 @@ enum HatchShape {
 /// `Buckets` (the SVG-string version) so the SVG emitter and the
 /// Painter emitter stay symmetrical at the bucket boundary.
 type ShapeBuckets = (Vec<HatchShape>, Vec<HatchShape>, Vec<HatchShape>);
-
-/// Corridor halo — adjacent-VOID tiles around corridors / doors.
-/// `tiles` is the pre-sorted list emitted by `_floor_layers.py`
-/// 1.c.1; the seed already includes the legacy `+7` offset. No
-/// 10 % skip applies (caves and corridor halos take the dense
-/// path in the legacy renderer).
-pub fn draw_hatch_corridor(tiles: &[(i32, i32)], seed: u64) -> Buckets {
-    let shapes = corridor_shapes(tiles, seed);
-    shapes_to_svg_buckets(&shapes)
-}
-
-/// Room (perimeter) halo — candidate tiles emitted by
-/// `_floor_layers.py` 1.b after the Perlin distance filter.
-/// `is_outer[i]` carries the cave-aware `dist > base_distance_limit
-/// * 0.5` flag; the 10 % RNG skip fires only on outer tiles, in
-/// lock-step with the consumer-side legacy walk.
-pub fn draw_hatch_room(
-    tiles: &[(i32, i32)],
-    is_outer: &[bool],
-    seed: u64,
-) -> Buckets {
-    let shapes = room_shapes(tiles, is_outer, seed);
-    shapes_to_svg_buckets(&shapes)
-}
-
 /// Painter-path twin of `draw_hatch_corridor`. Wraps each non-empty
 /// coloured bucket in `begin_group(opacity)` / `end_group()` to
 /// match the legacy SVG `<g opacity="…">` envelopes; the
@@ -220,16 +189,6 @@ fn room_shapes(
 }
 
 // ── Bucket → SVG / Painter dispatchers ───────────────────────
-
-fn shapes_to_svg_buckets(shapes: &ShapeBuckets) -> Buckets {
-    let (tile_fills, hatch_lines, hatch_stones) = shapes;
-    (
-        tile_fills.iter().map(format_shape_svg).collect(),
-        hatch_lines.iter().map(format_shape_svg).collect(),
-        hatch_stones.iter().map(format_shape_svg).collect(),
-    )
-}
-
 fn paint_shape_buckets(
     painter: &mut dyn Painter,
     shapes: &ShapeBuckets,
@@ -256,38 +215,6 @@ fn paint_shape_buckets(
         paint_shape(painter, shape);
     }
 }
-
-fn format_shape_svg(shape: &HatchShape) -> String {
-    match *shape {
-        HatchShape::TileFill { x, y } => format!(
-            "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" \
-             fill=\"{}\"/>",
-            x, y, CELL as i64, CELL as i64, HATCH_UNDERLAY,
-        ),
-        HatchShape::HatchStone {
-            cx,
-            cy,
-            rx,
-            ry,
-            angle_deg,
-            sw,
-        } => format!(
-            "<ellipse cx=\"{cx:.1}\" cy=\"{cy:.1}\" \
-             rx=\"{rx:.1}\" ry=\"{ry:.1}\" \
-             transform=\"rotate({a:.0},{cx:.1},{cy:.1})\" \
-             fill=\"{HATCH_UNDERLAY}\" stroke=\"{STONE_STROKE}\" \
-             stroke-width=\"{sw:.1}\"/>",
-            a = angle_deg,
-        ),
-        HatchShape::HatchLine { x1, y1, x2, y2, sw } => format!(
-            "<line x1=\"{:.1}\" y1=\"{:.1}\" x2=\"{:.1}\" y2=\"{:.1}\" \
-             stroke=\"{INK}\" stroke-width=\"{sw:.2}\" \
-             stroke-linecap=\"round\"/>",
-            x1, y1, x2, y2,
-        ),
-    }
-}
-
 fn paint_shape(painter: &mut dyn Painter, shape: &HatchShape) {
     match *shape {
         HatchShape::TileFill { x, y } => {
@@ -728,11 +655,7 @@ fn clip_line_to_polygon(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        clip_line_to_polygon, draw_hatch_corridor, draw_hatch_room,
-        paint_hatch_corridor, paint_hatch_room, section_to_geo,
-        HATCH_LINES_OPACITY, TILE_FILLS_OPACITY,
-    };
+    use super::{clip_line_to_polygon, paint_hatch_corridor, paint_hatch_room, section_to_geo, HATCH_LINES_OPACITY, TILE_FILLS_OPACITY};
     use crate::painter::{
         FillRule, Paint, Painter, PathOps, Rect, Stroke, Vec2,
     };
@@ -826,58 +749,6 @@ mod tests {
             self.count(&Call::EndGroup)
         }
     }
-
-    #[test]
-    fn corridor_empty_tiles_returns_empty_buckets() {
-        let (a, b, c) = draw_hatch_corridor(&[], 0);
-        assert!(a.is_empty() && b.is_empty() && c.is_empty());
-    }
-
-    #[test]
-    fn room_empty_tiles_returns_empty_buckets() {
-        let (a, b, c) = draw_hatch_room(&[], &[], 0);
-        assert!(a.is_empty() && b.is_empty() && c.is_empty());
-    }
-
-    #[test]
-    fn corridor_emits_one_underlay_per_tile() {
-        let tiles = [(0_i32, 0_i32), (1, 2), (5, 5)];
-        let (fills, _, _) = draw_hatch_corridor(&tiles, 42);
-        assert_eq!(fills.len(), tiles.len());
-        for f in &fills {
-            assert!(f.starts_with("<rect"));
-            assert!(f.contains("fill=\"#D0D0D0\""));
-        }
-    }
-
-    #[test]
-    fn corridor_is_deterministic() {
-        let tiles = [(0_i32, 0_i32), (1, 2), (5, 5), (-1, 7)];
-        let a = draw_hatch_corridor(&tiles, 42);
-        let b = draw_hatch_corridor(&tiles, 42);
-        assert_eq!(a, b);
-    }
-
-    #[test]
-    fn room_outer_skip_consumes_one_rng_per_outer_tile() {
-        // Same tile list, same seed, every-tile-outer flag flipped
-        // off vs on: the on case can drop tiles via the 10 % skip
-        // and is therefore a (non-strict) subset of the off case
-        // by tile-fill count.
-        let tiles: Vec<(i32, i32)> =
-            (0..40).map(|i| (i, 0)).collect();
-        let all_outer = vec![true; tiles.len()];
-        let none_outer = vec![false; tiles.len()];
-        let (fills_off, _, _) = draw_hatch_room(&tiles, &none_outer, 7);
-        let (fills_on, _, _) = draw_hatch_room(&tiles, &all_outer, 7);
-        assert!(fills_on.len() <= fills_off.len());
-        // Different seeds give different RNG behaviour, so don't
-        // assert strict equality on the "off" path — just
-        // determinism.
-        let (fills_off2, _, _) = draw_hatch_room(&tiles, &none_outer, 7);
-        assert_eq!(fills_off, fills_off2);
-    }
-
     #[test]
     fn clip_line_to_polygon_inside_returns_full_chord() {
         // Unit square; line fully inside.
@@ -1038,46 +909,6 @@ mod tests {
         assert_eq!(
             painter.begin_group_count(),
             painter.end_group_count(),
-        );
-    }
-
-    /// Cross-check that the SVG-string emitter and the Painter
-    /// emitter agree on bucket sizes for the same seed/tiles.
-    /// Both consume the same shape stream, so the count of
-    /// fill_rect calls (Painter) equals the count of tile_fills
-    /// (SVG); the count of stroke_path calls (Painter, hatch lines
-    /// only — stones contribute fill_path + stroke_path pairs)
-    /// equals the count of hatch_lines (SVG); and hatch_stones
-    /// pairs (fill_path + stroke_path) match the SVG count.
-    #[test]
-    fn paint_and_draw_agree_on_bucket_counts() {
-        let tiles = [(0_i32, 0_i32), (1, 2), (5, 5), (-1, 7)];
-        let seed = 42;
-
-        let (svg_fills, svg_lines, svg_stones) =
-            draw_hatch_corridor(&tiles, seed);
-
-        let mut painter = CaptureCalls::default();
-        paint_hatch_corridor(&mut painter, &tiles, seed);
-
-        // Each TileFill → one fill_rect.
-        assert_eq!(
-            svg_fills.len(),
-            painter.count(&Call::FillRect),
-            "tile_fills count mismatch",
-        );
-        // Each HatchStone → one fill_path + one stroke_path.
-        // Each HatchLine → one stroke_path. So
-        // total stroke_path = stones + lines, fill_path = stones.
-        assert_eq!(
-            svg_stones.len(),
-            painter.count(&Call::FillPath),
-            "hatch_stones (fill_path) count mismatch",
-        );
-        assert_eq!(
-            svg_lines.len() + svg_stones.len(),
-            painter.count(&Call::StrokePath),
-            "stroke_path total (lines + stones) mismatch",
         );
     }
 }

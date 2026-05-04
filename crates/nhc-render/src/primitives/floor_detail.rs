@@ -168,11 +168,6 @@ type SideShapes = (
 fn empty_side() -> SideShapes {
     (Vec::new(), Vec::new(), Vec::new())
 }
-
-fn side_is_empty(side: &SideShapes) -> bool {
-    side.0.is_empty() && side.1.is_empty() && side.2.is_empty()
-}
-
 /// Walk every tile once and yield three buckets per side (room,
 /// corridor) — `(cracks, scratches, stones)` per side. Mirrors
 /// the legacy `_render_floor_detail` per-tile dispatch. When
@@ -205,33 +200,6 @@ pub fn floor_detail_shapes(
 
     (room, corridor)
 }
-
-/// Floor-detail layer entry point — Phase 4 sub-step 3.d.
-///
-/// `tiles` is the IR's post-filter candidate set produced
-/// emit-side at sub-step 3.b: floor tiles in y-major /
-/// x-minor order with a parallel `is_corridor` flag (third
-/// tuple element). `seed` already carries the `+99` legacy
-/// offset (set on emit at `_floor_layers.py:_emit_floor_detail_ir`).
-///
-/// Returns `(room_groups, corridor_groups)`: two lists of
-/// `<g>` envelope strings ready for the dispatcher to splat.
-/// Each side carries up to three groups (cracks / scratches /
-/// stones) in legacy emit order; empty lists when the tile set
-/// produces no fragments. When `macabre` is `false`, the stone
-/// buckets are dropped entirely (legacy `if not macabre_detail:
-/// stones = []` post-pass).
-pub fn draw_floor_detail(
-    tiles: &[(i32, i32, bool)],
-    seed: u64,
-    theme: &str,
-    macabre: bool,
-) -> (Vec<String>, Vec<String>) {
-    let (room, corridor) =
-        floor_detail_shapes(tiles, seed, theme, macabre);
-    (side_to_svg_groups(&room), side_to_svg_groups(&corridor))
-}
-
 /// Paint a single side's bucket stream onto `painter`. Each
 /// non-empty bucket is wrapped in `begin_group(opacity)` /
 /// `end_group()` to match the legacy SVG `<g opacity="…">`
@@ -266,78 +234,6 @@ pub fn paint_floor_detail_side(
 }
 
 // ── SVG-string formatter (legacy path) ────────────────────────
-
-fn side_to_svg_groups(side: &SideShapes) -> Vec<String> {
-    if side_is_empty(side) {
-        return Vec::new();
-    }
-    let mut out: Vec<String> = Vec::new();
-    let (cracks, scratches, stones) = side;
-    if !cracks.is_empty() {
-        let mut s = String::from("<g opacity=\"0.5\">");
-        for shape in cracks {
-            s.push_str(&format_shape_svg(shape));
-        }
-        s.push_str("</g>");
-        out.push(s);
-    }
-    if !scratches.is_empty() {
-        let mut s = String::from("<g class=\"y-scratch\" opacity=\"0.45\">");
-        for shape in scratches {
-            s.push_str(&format_shape_svg(shape));
-        }
-        s.push_str("</g>");
-        out.push(s);
-    }
-    if !stones.is_empty() {
-        let mut s = String::from("<g opacity=\"0.8\">");
-        for shape in stones {
-            s.push_str(&format_shape_svg(shape));
-        }
-        s.push_str("</g>");
-        out.push(s);
-    }
-    out
-}
-
-fn format_shape_svg(shape: &FloorDetailShape) -> String {
-    match *shape {
-        FloorDetailShape::Crack { x1, y1, x2, y2 } => format!(
-            "<line x1=\"{x1}\" y1=\"{y1}\" \
-             x2=\"{x2}\" y2=\"{y2}\" \
-             stroke=\"{INK}\" stroke-width=\"0.5\" \
-             stroke-linecap=\"round\"/>",
-        ),
-        FloorDetailShape::Stone {
-            cx, cy, rx, ry, angle_deg, sw,
-        } => format!(
-            "<ellipse cx=\"{cx:.1}\" cy=\"{cy:.1}\" \
-             rx=\"{rx:.1}\" ry=\"{ry:.1}\" \
-             transform=\"rotate({a:.0},{cx:.1},{cy:.1})\" \
-             fill=\"{FLOOR_STONE_FILL}\" stroke=\"{FLOOR_STONE_STROKE}\" \
-             stroke-width=\"{sw:.1}\"/>",
-            a = angle_deg,
-        ),
-        FloorDetailShape::Scratch { branches, sw } => {
-            let mut d = String::new();
-            for (i, branch) in branches.iter().enumerate() {
-                if i > 0 {
-                    d.push(' ');
-                }
-                let (x0, y0) = branch[0];
-                d.push_str(&format!("M{x0:.1},{y0:.1}"));
-                for &(x, y) in &branch[1..] {
-                    d.push_str(&format!(" L{x:.1},{y:.1}"));
-                }
-            }
-            format!(
-                "<path d=\"{d}\" fill=\"none\" stroke=\"{INK}\" \
-                 stroke-width=\"{sw:.1}\" stroke-linecap=\"round\"/>",
-            )
-        }
-    }
-}
-
 // ── Painter dispatcher ────────────────────────────────────────
 
 fn paint_shape(painter: &mut dyn Painter, shape: &FloorDetailShape) {
@@ -692,103 +588,6 @@ fn tile_shapes_into_buckets(
 mod tests {
     use super::*;
     use crate::painter::{Paint, Painter, PathOps, Rect, Stroke, Vec2};
-
-    #[test]
-    fn empty_tiles_returns_empty_groups() {
-        let (r, c) = draw_floor_detail(&[], 1234, "dungeon", true);
-        assert!(r.is_empty());
-        assert!(c.is_empty());
-    }
-
-    #[test]
-    fn deterministic_for_same_seed() {
-        let tiles: Vec<(i32, i32, bool)> = (0..30)
-            .flat_map(|y| (0..30).map(move |x| (x, y, x % 3 == 0)))
-            .collect();
-        let a = draw_floor_detail(&tiles, 99, "dungeon", true);
-        let b = draw_floor_detail(&tiles, 99, "dungeon", true);
-        assert_eq!(a, b);
-    }
-
-    #[test]
-    fn cave_theme_emits_more_cracks() {
-        let tiles: Vec<(i32, i32, bool)> = (0..40)
-            .flat_map(|y| (0..40).map(move |x| (x, y, false)))
-            .collect();
-        let (dungeon_room, _) =
-            draw_floor_detail(&tiles, 7, "dungeon", true);
-        let (cave_room, _) =
-            draw_floor_detail(&tiles, 7, "cave", true);
-        // Caves use 0.32 crack_prob × 2.0 detail_scale = 0.64,
-        // dungeons use 0.08 × 1.0 = 0.08 — caves should produce
-        // a substantially larger crack envelope.
-        let dungeon_chars: usize =
-            dungeon_room.iter().map(|s| s.len()).sum();
-        let cave_chars: usize = cave_room.iter().map(|s| s.len()).sum();
-        assert!(
-            cave_chars > dungeon_chars,
-            "cave envelope ({cave_chars}) should exceed dungeon \
-             envelope ({dungeon_chars}) for the same tile set"
-        );
-    }
-
-    #[test]
-    fn macabre_off_drops_stones() {
-        let tiles: Vec<(i32, i32, bool)> = (0..40)
-            .flat_map(|y| (0..40).map(move |x| (x, y, false)))
-            .collect();
-        let (with_stones, _) =
-            draw_floor_detail(&tiles, 41, "crypt", true);
-        let (without_stones, _) =
-            draw_floor_detail(&tiles, 41, "crypt", false);
-        let with_count: usize = with_stones
-            .iter()
-            .map(|s| s.matches("<ellipse").count())
-            .sum();
-        let without_count: usize = without_stones
-            .iter()
-            .map(|s| s.matches("<ellipse").count())
-            .sum();
-        assert!(with_count > 0);
-        assert_eq!(
-            without_count, 0,
-            "macabre=false must drop stone ellipses entirely"
-        );
-    }
-
-    #[test]
-    fn coordinates_stay_inside_bounds() {
-        let tiles: Vec<(i32, i32, bool)> = (0..20)
-            .flat_map(|y| (0..20).map(move |x| (x, y, y % 2 == 0)))
-            .collect();
-        let (room, corridor) =
-            draw_floor_detail(&tiles, 13, "crypt", true);
-        // Tile span is [0, 20*CELL]; allow a 2-cell margin for
-        // the wobble-displaced scratch endpoints (the legacy
-        // wobble width is `length * 0.12`, well within 1 cell).
-        let max_coord = 22.0 * CELL;
-        let min_coord = -CELL;
-        let mut probed = 0;
-        for group in room.iter().chain(corridor.iter()) {
-            // Probe every numeric attribute pair we emit.
-            for attr in ["x1=\"", "y1=\"", "x2=\"", "y2=\"", "cx=\"", "cy=\""] {
-                let mut rest = group.as_str();
-                while let Some(idx) = rest.find(attr) {
-                    rest = &rest[idx + attr.len()..];
-                    let end = rest.find('"').unwrap();
-                    let v: f64 = rest[..end].parse().unwrap();
-                    assert!(
-                        v >= min_coord && v <= max_coord,
-                        "coord {v} outside [{min_coord}, {max_coord}]"
-                    );
-                    rest = &rest[end + 1..];
-                    probed += 1;
-                }
-            }
-        }
-        assert!(probed > 0, "no coordinates probed");
-    }
-
     // ── Painter-path tests ─────────────────────────────────────
 
     /// Records every Painter call. Mirrors the trait-level

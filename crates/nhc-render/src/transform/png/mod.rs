@@ -217,7 +217,7 @@ pub fn floor_ir_to_png(
         .post_scale(scale, scale);
     let mut painter = SkiaPainter::with_transform(&mut pixmap, transform);
 
-    dispatch_ops(&fir, layer_filter, &mut painter);
+    dispatch_ops(&fir, layer_filter, None, &mut painter);
 
     drop(painter);
     pixmap
@@ -230,9 +230,17 @@ pub fn floor_ir_to_png(
 /// [`floor_ir_to_png`] and [`super::svg::floor_ir_to_svg`] —
 /// the only difference between the two transformer entry points
 /// is which concrete `Painter` impl arrives here.
+///
+/// `layer_filter` (when `Some`) restricts dispatch to ops in the
+/// listed tag set — this is the per-layer entry point used by the
+/// parity harness. `skip_filter` (when `Some`) drops ops whose tag
+/// matches — this is the inverse, used by the SVG entry point's
+/// `bare` flag to elide decoration layers from /admin debug
+/// renders.
 pub(crate) fn dispatch_ops(
     fir: &FloorIR<'_>,
     layer_filter: Option<&'static [Op]>,
+    skip_filter: Option<&'static [Op]>,
     painter: &mut dyn Painter,
 ) {
     let handlers = op_handlers();
@@ -241,6 +249,11 @@ pub(crate) fn dispatch_ops(
             let op_type = entry.op_type();
             if let Some(filter) = layer_filter {
                 if !filter.contains(&op_type) {
+                    continue;
+                }
+            }
+            if let Some(skip) = skip_filter {
+                if skip.contains(&op_type) {
                     continue;
                 }
             }
@@ -253,6 +266,22 @@ pub(crate) fn dispatch_ops(
         }
     }
 }
+
+/// Op tags belonging to the four "decoration" layers
+/// (`floor_detail`, `thematic_detail`, `terrain_detail`,
+/// `surface_features`) that the SVG entry point's `bare` flag
+/// elides for /admin debug renders. Mirrors the legacy Python
+/// `_BARE_SKIP_LAYERS` set in `nhc/rendering/ir_to_svg.py`.
+pub(crate) const BARE_SKIP_OPS: &[Op] = &[
+    Op::FloorDetailOp,
+    Op::DecoratorOp,
+    Op::ThematicDetailOp,
+    Op::TerrainDetailOp,
+    Op::WellFeatureOp,
+    Op::FountainFeatureOp,
+    Op::TreeFeatureOp,
+    Op::BushFeatureOp,
+];
 
 /// Resolve a layer name through [`layer_ops`] for the SVG /
 /// PNG entry points. Public to the crate so the SVG entry point

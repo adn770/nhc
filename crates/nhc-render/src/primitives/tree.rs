@@ -86,8 +86,6 @@ const CELL: f64 = 32.0;
 const TREE_CANOPY_FILL: &str = "#6B8A56";
 const TREE_CANOPY_STROKE: &str = "#3F5237";
 const TREE_CANOPY_STROKE_WIDTH: f64 = 1.2;
-const TREE_CANOPY_STROKE_ALPHA: f64 = 0.78;
-
 const TREE_CANOPY_LOBE_COUNT_CHOICES: [i32; 2] = [6, 7];
 const TREE_CANOPY_LOBE_RADIUS: f64 = 0.32 * CELL;
 const TREE_CANOPY_CLUSTER_RADIUS: f64 = 0.30 * CELL;
@@ -108,8 +106,6 @@ const TREE_VOLUME_MARK_RADIUS_MAX: f64 = 0.13 * CELL;
 const TREE_VOLUME_MARK_SWEEP_MIN: f64 = 0.7;
 const TREE_VOLUME_MARK_SWEEP_MAX: f64 = 1.8;
 const TREE_VOLUME_STROKE_WIDTH: f64 = 0.8;
-const TREE_VOLUME_STROKE_ALPHA: f64 = 0.55;
-const TREE_VOLUME_DASH: &str = "2 2";
 const TREE_VOLUME_SALT: i32 = 7011;
 
 const TREE_HUE_JITTER_DEG: f64 = 6.0;
@@ -205,180 +201,6 @@ fn canopy_fill_jitter(tx: i32, ty: i32) -> String {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn scatter_volume_marks(
-    cx: f64, cy: f64,
-    tx: i32, ty: i32, salt: i32,
-    n_marks: i32,
-    area_radius: f64,
-    mark_radius_min: f64, mark_radius_max: f64,
-    sweep_min: f64, sweep_max: f64,
-) -> Vec<String> {
-    let mut out = Vec::with_capacity(n_marks as usize);
-    for i in 0..n_marks {
-        let u = well::hash_unit(tx, ty, salt + i * 17 + 3);
-        let ang = well::hash_norm(tx, ty, salt + i * 19 + 5) * PI;
-        let r_pos = area_radius * u.sqrt();
-        let mx = cx + ang.cos() * r_pos;
-        let my = cy + ang.sin() * r_pos;
-        let u_r = well::hash_unit(tx, ty, salt + i * 23 + 7);
-        let mr =
-            mark_radius_min + (mark_radius_max - mark_radius_min) * u_r;
-        let sweep_start =
-            well::hash_norm(tx, ty, salt + i * 29 + 11) * PI;
-        let u_sw = well::hash_unit(tx, ty, salt + i * 31 + 13);
-        let sweep_len = sweep_min + (sweep_max - sweep_min) * u_sw;
-        out.push(well::arc_path(
-            mx, my, mr, sweep_start, sweep_start + sweep_len,
-        ));
-    }
-    out
-}
-
-fn tree_volume_fragments(cx: f64, cy: f64, tx: i32, ty: i32) -> Vec<String> {
-    scatter_volume_marks(
-        cx, cy, tx, ty, TREE_VOLUME_SALT,
-        TREE_VOLUME_MARK_COUNT,
-        TREE_VOLUME_MARK_AREA_RADIUS,
-        TREE_VOLUME_MARK_RADIUS_MIN,
-        TREE_VOLUME_MARK_RADIUS_MAX,
-        TREE_VOLUME_MARK_SWEEP_MIN,
-        TREE_VOLUME_MARK_SWEEP_MAX,
-    )
-    .into_iter()
-    .map(|d| {
-        format!(
-            "<path class=\"tree-volume\" d=\"{d}\" \
-             fill=\"none\" stroke=\"{TREE_CANOPY_STROKE}\" \
-             stroke-width=\"{TREE_VOLUME_STROKE_WIDTH:.2}\" \
-             stroke-opacity=\"{TREE_VOLUME_STROKE_ALPHA:.2}\" \
-             stroke-dasharray=\"{TREE_VOLUME_DASH}\" \
-             stroke-linecap=\"round\"/>",
-        )
-    })
-    .collect()
-}
-
-fn tree_fragment_for_tile(tx: i32, ty: i32) -> String {
-    let (dx, dy) = center_offset(tx, ty);
-    let cx = (f64::from(tx) + 0.5) * CELL + dx;
-    let cy = (f64::from(ty) + 0.5) * CELL + dy;
-    let trunk_cx = cx;
-    let trunk_cy = cy + TREE_TRUNK_OFFSET_Y;
-    let canopy_d =
-        union_path_from_lobes_pub(&canopy_lobes(cx, cy, tx, ty));
-    let shadow_d =
-        union_path_from_lobes_pub(&shadow_lobes(cx, cy, tx, ty));
-    let canopy_fill = canopy_fill_jitter(tx, ty);
-
-    let mut parts = String::new();
-    parts.push_str(&format!(
-        "<g id=\"tree-{tx}-{ty}\" class=\"tree-feature\">",
-    ));
-    parts.push_str(&format!(
-        "<circle class=\"tree-trunk\" cx=\"{trunk_cx:.1}\" \
-         cy=\"{trunk_cy:.1}\" r=\"{TREE_TRUNK_RADIUS:.1}\" \
-         fill=\"{TREE_TRUNK_FILL}\" stroke=\"{INK}\" \
-         stroke-width=\"{TREE_TRUNK_STROKE_WIDTH:.1}\"/>",
-    ));
-    parts.push_str(&format!(
-        "<path class=\"tree-canopy-shadow\" d=\"{shadow_d}\" \
-         fill=\"{TREE_CANOPY_SHADOW_FILL}\" stroke=\"none\"/>",
-    ));
-    parts.push_str(&format!(
-        "<path class=\"tree-canopy\" d=\"{canopy_d}\" \
-         fill=\"{canopy_fill}\" stroke=\"{TREE_CANOPY_STROKE}\" \
-         stroke-width=\"{TREE_CANOPY_STROKE_WIDTH:.1}\" \
-         stroke-opacity=\"{TREE_CANOPY_STROKE_ALPHA:.2}\"/>",
-    ));
-    for frag in tree_volume_fragments(cx, cy, tx, ty) {
-        parts.push_str(&frag);
-    }
-    parts.push_str("</g>");
-    parts
-}
-
-fn grove_fragment(grove: &[(i32, i32)]) -> String {
-    // Anchor = min(grove) by lexicographic order (x, y) — same as
-    // Python's `min(grove)` on a (tx, ty) tuple.
-    let mut sorted = grove.to_vec();
-    sorted.sort_unstable();
-    let anchor = sorted[0];
-
-    // Collect all canopy + shadow lobes across the grove and
-    // union them.
-    let mut canopy_all: Vec<(f64, f64, f64)> = Vec::new();
-    let mut shadow_all: Vec<(f64, f64, f64)> = Vec::new();
-    for &(tx, ty) in &sorted {
-        let (dx, dy) = center_offset(tx, ty);
-        let cx = (f64::from(tx) + 0.5) * CELL + dx;
-        let cy = (f64::from(ty) + 0.5) * CELL + dy;
-        canopy_all.extend(canopy_lobes(cx, cy, tx, ty));
-        shadow_all.extend(shadow_lobes(cx, cy, tx, ty));
-    }
-    let canopy_d = union_path_from_lobes_pub(&canopy_all);
-    let shadow_d = union_path_from_lobes_pub(&shadow_all);
-    let canopy_fill = canopy_fill_jitter(anchor.0, anchor.1);
-
-    let mut parts = String::new();
-    parts.push_str(&format!(
-        "<g id=\"tree-grove-{}-{}\" class=\"tree-grove\">",
-        anchor.0, anchor.1,
-    ));
-    parts.push_str(&format!(
-        "<path class=\"tree-canopy-shadow\" d=\"{shadow_d}\" \
-         fill=\"{TREE_CANOPY_SHADOW_FILL}\" stroke=\"none\"/>",
-    ));
-    parts.push_str(&format!(
-        "<path class=\"tree-canopy\" d=\"{canopy_d}\" \
-         fill=\"{canopy_fill}\" stroke=\"{TREE_CANOPY_STROKE}\" \
-         stroke-width=\"{TREE_CANOPY_STROKE_WIDTH:.1}\" \
-         stroke-opacity=\"{TREE_CANOPY_STROKE_ALPHA:.2}\"/>",
-    ));
-    // Volume marks: one set per tile, in sorted order.
-    for &(tx, ty) in &sorted {
-        let (dx, dy) = center_offset(tx, ty);
-        let cx = (f64::from(tx) + 0.5) * CELL + dx;
-        let cy = (f64::from(ty) + 0.5) * CELL + dy;
-        for frag in tree_volume_fragments(cx, cy, tx, ty) {
-            parts.push_str(&frag);
-        }
-    }
-    parts.push_str("</g>");
-    parts
-}
-
-/// Tree primitive entry point.
-///
-/// `free_trees` is the list of singletons / pair-tree tiles
-/// (groves of size ≤ 2 — each tile painted individually).
-/// `groves` is the list of groves of size ≥ 3 (each painted as
-/// one fused fragment, anchored at `min(tiles)`).
-///
-/// The emitter Python-side runs a 4-adjacency BFS over
-/// ``tile.feature == "tree"``, splits the result by component
-/// size, and passes both lists across. Returns one fragment
-/// per free tree + one fragment per grove.
-pub fn draw_tree(
-    free_trees: &[(i32, i32)], groves: &[Vec<(i32, i32)>],
-) -> Vec<String> {
-    if free_trees.is_empty() && groves.is_empty() {
-        return Vec::new();
-    }
-    let mut out: Vec<String> = Vec::with_capacity(
-        free_trees.len() + groves.len(),
-    );
-    for &(tx, ty) in free_trees {
-        out.push(tree_fragment_for_tile(tx, ty));
-    }
-    for grove in groves {
-        if grove.is_empty() {
-            continue;
-        }
-        out.push(grove_fragment(grove));
-    }
-    out
-}
-
 // ── Painter-trait port (Phase 2.14c) ──────────────────────────
 
 /// Painter-trait entry point — Phase 2.14c port (the third of
@@ -806,44 +628,6 @@ fn paint_for_hex(hex: &str) -> Paint {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn empty_returns_empty() {
-        assert!(draw_tree(&[], &[]).is_empty());
-    }
-
-    #[test]
-    fn free_tree_envelope() {
-        let out = draw_tree(&[(2, 3)], &[]);
-        assert_eq!(out.len(), 1);
-        assert!(out[0].starts_with("<g id=\"tree-2-3\""));
-        assert!(out[0].contains("class=\"tree-feature\""));
-        assert!(out[0].contains("class=\"tree-trunk\""));
-        assert!(out[0].contains("class=\"tree-canopy\""));
-    }
-
-    #[test]
-    fn grove_envelope() {
-        let grove: Vec<(i32, i32)> = vec![(2, 3), (3, 3), (4, 3)];
-        let out = draw_tree(&[], &[grove]);
-        assert_eq!(out.len(), 1);
-        assert!(out[0].starts_with("<g id=\"tree-grove-2-3\""));
-        assert!(out[0].contains("class=\"tree-grove\""));
-        // Groves drop trunks.
-        assert!(!out[0].contains("class=\"tree-trunk\""));
-    }
-
-    #[test]
-    fn deterministic() {
-        let trees = vec![(5, 7)];
-        let groves: Vec<Vec<(i32, i32)>> =
-            vec![vec![(1, 1), (1, 2), (1, 3)]];
-        assert_eq!(
-            draw_tree(&trees, &groves),
-            draw_tree(&trees, &groves),
-        );
-    }
-
     // ── Painter-path tests ─────────────────────────────────────
 
     use crate::painter::{

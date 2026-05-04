@@ -127,37 +127,6 @@ fn opus_romano_shapes(tiles: &[(i32, i32)]) -> Vec<OpusRomanoStone> {
     }
     stones
 }
-
-/// Opus-romano decorator entry point — Phase 4 sub-step 9.
-///
-/// `tiles` is the OPUS_ROMANO-surface tile list; `seed` is
-/// unused (rotation is per-tile coordinate-derived, not RNG-
-/// driven) but kept for API symmetry with the other decorators.
-pub fn draw_opus_romano(
-    tiles: &[(i32, i32)], _seed: u64,
-) -> Vec<String> {
-    if tiles.is_empty() {
-        return Vec::new();
-    }
-    let stones = opus_romano_shapes(tiles);
-    if stones.is_empty() {
-        return Vec::new();
-    }
-    let mut rects: Vec<String> = Vec::with_capacity(stones.len());
-    for s in &stones {
-        rects.push(format!(
-            "<rect x=\"{:.2}\" y=\"{:.2}\" \
-             width=\"{:.2}\" height=\"{:.2}\" rx=\"0.4\"/>",
-            s.x, s.y, s.w, s.h,
-        ));
-    }
-    vec![format!(
-        "<g opacity=\"0.45\" fill=\"none\" stroke=\"{OPUS_ROMANO_STROKE}\" \
-         stroke-width=\"0.5\">{}</g>",
-        rects.concat(),
-    )]
-}
-
 /// Painter-trait entry point — Phase 2.13d port.
 ///
 /// Walks the same shape stream as `draw_opus_romano` and
@@ -246,32 +215,6 @@ mod tests {
     use crate::painter::{
         FillRule, Paint, Painter, PathOps, Rect, Stroke, Vec2,
     };
-
-    #[test]
-    fn empty_tiles_returns_empty() {
-        assert!(draw_opus_romano(&[], 0).is_empty());
-    }
-
-    #[test]
-    fn four_rects_per_tile() {
-        let out = draw_opus_romano(&[(0, 0)], 0);
-        assert_eq!(out.len(), 1);
-        assert_eq!(out[0].matches("<rect").count(), 4);
-    }
-
-    #[test]
-    fn rotation_independent_of_seed() {
-        // The painter is RNG-free; same input produces same
-        // output regardless of seed.
-        let tiles: Vec<(i32, i32)> = (0..4)
-            .flat_map(|y| (0..4).map(move |x| (x, y)))
-            .collect();
-        assert_eq!(
-            draw_opus_romano(&tiles, 0),
-            draw_opus_romano(&tiles, 999),
-        );
-    }
-
     // ── Painter-path tests ─────────────────────────────────────
 
     /// Records every Painter call. Mirrors the trait-level
@@ -432,26 +375,6 @@ mod tests {
             "4 stones per tile (Versailles 4-stone)",
         );
     }
-
-    /// Painter and SVG paths derive geometry from the same shape
-    /// stream — the stamp counts (rects on the SVG side, stroke_rect
-    /// on the Painter side) must match.
-    #[test]
-    fn paint_and_draw_emit_same_stamp_counts() {
-        let tiles = grid(4);
-        let mut painter = CaptureCalls::default();
-        paint_opus_romano(&mut painter, &tiles, 0);
-        let svg = draw_opus_romano(&tiles, 0);
-        let svg_rects: usize =
-            svg.iter().map(|g| g.matches("<rect").count()).sum();
-        assert_eq!(
-            painter.stroke_rect_count(),
-            svg_rects,
-            "opus_romano stamp counts must match between SVG and \
-             Painter paths",
-        );
-    }
-
     /// RNG-free primitive: same tiles must produce identical
     /// Painter call sequences regardless of seed.
     #[test]

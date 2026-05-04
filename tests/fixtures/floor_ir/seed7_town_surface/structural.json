@@ -1,15 +1,4 @@
 {
-  "layer_element_counts": {
-    "floor_detail": 1287,
-    "floor_grid": 2,
-    "shadows": 6,
-    "stairs": 0,
-    "structural": 11666,
-    "surface_features": 2640,
-    "terrain_detail": 0,
-    "terrain_tints": 1584,
-    "thematic_detail": 0
-  },
   "op_counts": {
     "BushFeatureOp": 1,
     "CorridorWallOp": 1,

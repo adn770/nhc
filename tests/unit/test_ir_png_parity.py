@@ -37,8 +37,6 @@ import pytest
 from PIL import Image
 
 from nhc.rendering.ir.structural import compute_structural
-from nhc.rendering.ir_to_svg import ir_to_svg
-
 from tests.fixtures.floor_ir._inputs import (
     all_descriptors,
     descriptor_inputs,
@@ -52,6 +50,17 @@ nhc_render = pytest.importorskip(
         "or `pip install -e crates/nhc-render` first"
     ),
 )
+
+
+def ir_to_svg(buf: bytes) -> str:
+    """Phase 2.19: Rust ``nhc_render.ir_to_svg`` shim.
+
+    The legacy Python emitter retired this commit; the harness's
+    cross-rasteriser-agreement tests (``svg_to_png(ir_to_svg(buf))``
+    vs ``ir_to_png(buf)``) now drive both sides through the same
+    Painter-trait FFI.
+    """
+    return nhc_render.ir_to_svg(bytes(buf))
 
 
 _FIXTURE_ROOT = (

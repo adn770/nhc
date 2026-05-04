@@ -1,16 +1,4 @@
 {
-  "layer_element_counts": {
-    "floor_detail": 243,
-    "floor_grid": 5,
-    "hatching": 13347,
-    "shadows": 175,
-    "stairs": 16,
-    "structural": 38,
-    "surface_features": 0,
-    "terrain_detail": 93,
-    "terrain_tints": 41,
-    "thematic_detail": 170
-  },
   "op_counts": {
     "CorridorWallOp": 1,
     "ExteriorWallOp": 18,

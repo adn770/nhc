@@ -1116,17 +1116,12 @@ def create_app(
         if entry is None:
             return "floor SVG not found", 404
         bare = request.args.get("bare") == "1"
-        if bare:
-            # Phase 2.18: the Rust `nhc_render.ir_to_svg` does not
-            # accept the `bare` flag yet; the /admin debug visual
-            # keeps routing through the Python emitter until that
-            # feature lands. The non-bare composite path below
-            # already serves the Rust output.
-            from nhc.rendering.ir_to_svg import ir_to_svg
-            svg = ir_to_svg(entry.nir, bare=True)
-        else:
-            import nhc_render
-            svg = nhc_render.ir_to_svg(entry.nir)
+        # Phase 2.19: the Rust `nhc_render.ir_to_svg` accepts the
+        # `bare` flag directly — the legacy Python `ir_to_svg.py`
+        # emitter retired with this commit. Both branches now
+        # drive `transform::svg::floor_ir_to_svg` over the FFI.
+        import nhc_render
+        svg = nhc_render.ir_to_svg(entry.nir, bare=bare)
         resp = make_response(svg)
         resp.headers["Content-Type"] = "image/svg+xml"
         resp.headers["Cache-Control"] = "public, max-age=604800"

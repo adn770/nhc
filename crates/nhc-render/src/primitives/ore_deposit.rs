@@ -107,39 +107,6 @@ fn ore_deposit_shapes(
     }
     diamonds
 }
-
-pub fn draw_ore_deposit(
-    tiles: &[(i32, i32)], seed: u64,
-) -> Vec<String> {
-    if tiles.is_empty() {
-        return Vec::new();
-    }
-    let diamonds = ore_deposit_shapes(tiles, seed);
-    if diamonds.is_empty() {
-        return Vec::new();
-    }
-    let mut frags: Vec<String> = Vec::with_capacity(diamonds.len());
-    for d in &diamonds {
-        let cx = d.cx;
-        let cy = d.cy;
-        let r = d.r;
-        frags.push(format!(
-            "<polygon points=\"\
-             {cx:.1},{:.1} {:.1},{cy:.1} \
-             {cx:.1},{:.1} {:.1},{cy:.1}\"/>",
-            cy - r,
-            cx + r,
-            cy + r,
-            cx - r,
-        ));
-    }
-    vec![format!(
-        "<g id=\"ore-deposits\" fill=\"{ORE_FILL}\" \
-         stroke=\"{ORE_STROKE}\" stroke-width=\"0.4\">{}</g>",
-        frags.concat(),
-    )]
-}
-
 /// Painter-trait entry point — Phase 2.13g port (the seventh and
 /// LAST decorator port).
 ///
@@ -236,28 +203,6 @@ mod tests {
     use crate::painter::{
         FillRule, Paint, Painter, PathOps, Rect, Stroke, Vec2,
     };
-
-    #[test]
-    fn empty_tiles_returns_empty() {
-        assert!(draw_ore_deposit(&[], 333).is_empty());
-    }
-
-    #[test]
-    fn deterministic_for_same_seed() {
-        let tiles = vec![(0, 0), (1, 1), (2, 2)];
-        assert_eq!(
-            draw_ore_deposit(&tiles, 333),
-            draw_ore_deposit(&tiles, 333),
-        );
-    }
-
-    #[test]
-    fn one_diamond_per_tile() {
-        let out = draw_ore_deposit(&[(0, 0), (1, 0), (2, 0)], 42);
-        assert_eq!(out.len(), 1);
-        assert_eq!(out[0].matches("<polygon").count(), 3);
-    }
-
     // ── Painter-path tests ─────────────────────────────────────
 
     /// Records every Painter call. Mirrors the trait-level
@@ -437,27 +382,6 @@ mod tests {
             "one stroke_path per tile",
         );
     }
-
-    /// Painter and SVG paths consume the RNG in lock-step — the
-    /// stamp counts (polygons on the SVG side, fill_path on the
-    /// Painter side) must match.
-    #[test]
-    fn paint_and_draw_emit_same_stamp_counts() {
-        let tiles = diag(8);
-        let seed = 333;
-        let mut painter = CaptureCalls::default();
-        paint_ore_deposit(&mut painter, &tiles, seed);
-        let svg = draw_ore_deposit(&tiles, seed);
-        let svg_polygons: usize =
-            svg.iter().map(|g| g.matches("<polygon").count()).sum();
-        assert_eq!(
-            painter.fill_path_count(),
-            svg_polygons,
-            "ore_deposit stamp counts must match between SVG and \
-             Painter paths (lock-step RNG)",
-        );
-    }
-
     /// Painter-path determinism: same input → same call sequence.
     #[test]
     fn paint_deterministic_for_same_seed() {

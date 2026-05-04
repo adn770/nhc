@@ -55,7 +55,17 @@ from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
 from nhc.dungeon.model import HybridShape, SurfaceType, Terrain
 from nhc.rendering.ir_emitter import build_floor_ir
-from nhc.rendering.ir_to_svg import ir_to_svg
+
+
+def ir_to_svg(buf: bytes) -> str:
+    """Phase 2.19 shim: route through Rust ``nhc_render.ir_to_svg``.
+
+    The legacy Python emitter retired with this commit; this helper
+    keeps the rest of the sample-generator code unchanged.
+    """
+    return nhc_render.ir_to_svg(bytes(buf))
+
+
 from nhc.rendering.svg import (
     CELL, PADDING,
     _room_svg_outline, _find_doorless_openings, _outline_with_gaps,

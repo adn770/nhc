@@ -77,8 +77,6 @@ const BUSH_CANOPY_FILL: &str = "#7A9560";
 const BUSH_CANOPY_STROKE: &str = "#3F5237";
 const BUSH_CANOPY_SHADOW_FILL: &str = "#3F5237";
 const BUSH_CANOPY_STROKE_WIDTH: f64 = 1.0;
-const BUSH_CANOPY_STROKE_ALPHA: f64 = 0.78;
-
 const BUSH_CANOPY_LOBE_COUNT_CHOICES: [i32; 2] = [3, 4];
 const BUSH_CANOPY_LOBE_RADIUS: f64 = 0.16 * CELL;
 const BUSH_CANOPY_CLUSTER_RADIUS: f64 = 0.10 * CELL;
@@ -98,9 +96,6 @@ const BUSH_VOLUME_MARK_RADIUS_MAX: f64 = 0.07 * CELL;
 const BUSH_VOLUME_MARK_SWEEP_MIN: f64 = 0.6;
 const BUSH_VOLUME_MARK_SWEEP_MAX: f64 = 1.5;
 const BUSH_VOLUME_STROKE_WIDTH: f64 = 0.6;
-const BUSH_VOLUME_STROKE_ALPHA: f64 = 0.55;
-const BUSH_VOLUME_DASH: &str = "1.5 1.5";
-
 const BUSH_HUE_JITTER_DEG: f64 = 6.0;
 const BUSH_SAT_JITTER: f64 = 0.05;
 const BUSH_LIGHT_JITTER: f64 = 0.04;
@@ -329,116 +324,7 @@ fn hls_v(m1: f64, m2: f64, hue: f64) -> f64 {
         m1
     }
 }
-
-/// Single bush at tile (tx, ty).
-fn bush_fragment_for_tile(tx: i32, ty: i32) -> String {
-    let (dx, dy) = center_offset(tx, ty);
-    let cx = (f64::from(tx) + 0.5) * CELL + dx;
-    let cy = (f64::from(ty) + 0.5) * CELL + dy;
-
-    let n = lobe_count(tx, ty);
-    let cluster_r = cluster_radius(tx, ty);
-
-    let canopy_lobes = lobe_circles(
-        cx, cy, tx, ty, BUSH_CANOPY_SHAPE_SALT,
-        n, BUSH_CANOPY_LOBE_RADIUS, cluster_r,
-        BUSH_CANOPY_LOBE_RADIUS_JITTER,
-        BUSH_CANOPY_LOBE_OFFSET_JITTER,
-        BUSH_CANOPY_LOBE_ANGLE_JITTER,
-    );
-    let shadow_lobes = lobe_circles(
-        cx + BUSH_CANOPY_SHADOW_OFFSET,
-        cy + BUSH_CANOPY_SHADOW_OFFSET,
-        tx, ty, BUSH_SHADOW_SHAPE_SALT,
-        n, BUSH_CANOPY_SHADOW_LOBE_RADIUS, cluster_r,
-        BUSH_CANOPY_LOBE_RADIUS_JITTER,
-        BUSH_CANOPY_LOBE_OFFSET_JITTER,
-        BUSH_CANOPY_LOBE_ANGLE_JITTER,
-    );
-
-    let canopy_d = union_path_from_lobes(&canopy_lobes);
-    let shadow_d = union_path_from_lobes(&shadow_lobes);
-    let canopy_fill = fill_jitter(tx, ty);
-
-    let mut parts = String::new();
-    parts.push_str(&format!(
-        "<g id=\"bush-{tx}-{ty}\" class=\"bush-feature\">",
-    ));
-    parts.push_str(&format!(
-        "<path class=\"bush-canopy-shadow\" d=\"{shadow_d}\" \
-         fill=\"{BUSH_CANOPY_SHADOW_FILL}\" stroke=\"none\"/>",
-    ));
-    parts.push_str(&format!(
-        "<path class=\"bush-canopy\" d=\"{canopy_d}\" \
-         fill=\"{canopy_fill}\" stroke=\"{BUSH_CANOPY_STROKE}\" \
-         stroke-width=\"{BUSH_CANOPY_STROKE_WIDTH:.1}\" \
-         stroke-opacity=\"{BUSH_CANOPY_STROKE_ALPHA:.2}\"/>",
-    ));
-    // Volume marks: small irregular arcs.
-    for d in scatter_volume_marks(
-        cx, cy, tx, ty, BUSH_VOLUME_SALT,
-        BUSH_VOLUME_MARK_COUNT,
-        BUSH_VOLUME_MARK_AREA_RADIUS,
-        BUSH_VOLUME_MARK_RADIUS_MIN,
-        BUSH_VOLUME_MARK_RADIUS_MAX,
-        BUSH_VOLUME_MARK_SWEEP_MIN,
-        BUSH_VOLUME_MARK_SWEEP_MAX,
-    ) {
-        parts.push_str(&format!(
-            "<path class=\"bush-volume\" d=\"{d}\" \
-             fill=\"none\" stroke=\"{BUSH_CANOPY_STROKE}\" \
-             stroke-width=\"{BUSH_VOLUME_STROKE_WIDTH:.2}\" \
-             stroke-opacity=\"{BUSH_VOLUME_STROKE_ALPHA:.2}\" \
-             stroke-dasharray=\"{BUSH_VOLUME_DASH}\" \
-             stroke-linecap=\"round\"/>",
-        ));
-    }
-    parts.push_str("</g>");
-    parts
-}
-
 #[allow(clippy::too_many_arguments)]
-fn scatter_volume_marks(
-    cx: f64, cy: f64,
-    tx: i32, ty: i32, salt: i32,
-    n_marks: i32,
-    area_radius: f64,
-    mark_radius_min: f64,
-    mark_radius_max: f64,
-    sweep_min: f64,
-    sweep_max: f64,
-) -> Vec<String> {
-    let mut out = Vec::with_capacity(n_marks as usize);
-    for i in 0..n_marks {
-        let u = well::hash_unit(tx, ty, salt + i * 17 + 3);
-        let ang = well::hash_norm(tx, ty, salt + i * 19 + 5) * PI;
-        let r_pos = area_radius * u.sqrt();
-        let mx = cx + ang.cos() * r_pos;
-        let my = cy + ang.sin() * r_pos;
-        let u_r = well::hash_unit(tx, ty, salt + i * 23 + 7);
-        let mr = mark_radius_min + (mark_radius_max - mark_radius_min) * u_r;
-        let sweep_start =
-            well::hash_norm(tx, ty, salt + i * 29 + 11) * PI;
-        let u_sw = well::hash_unit(tx, ty, salt + i * 31 + 13);
-        let sweep_len = sweep_min + (sweep_max - sweep_min) * u_sw;
-        out.push(well::arc_path(
-            mx, my, mr, sweep_start, sweep_start + sweep_len,
-        ));
-    }
-    out
-}
-
-/// Bush primitive entry point.
-pub fn draw_bush(tiles: &[(i32, i32)]) -> Vec<String> {
-    if tiles.is_empty() {
-        return Vec::new();
-    }
-    tiles
-        .iter()
-        .map(|&(tx, ty)| bush_fragment_for_tile(tx, ty))
-        .collect()
-}
-
 // ── Painter-trait port (Phase 2.14d) ──────────────────────────
 
 /// Painter-trait entry point — Phase 2.14d port (the **fourth
@@ -784,34 +670,6 @@ fn paint_for_hex(hex: &str) -> Paint {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn empty_returns_empty() {
-        assert!(draw_bush(&[]).is_empty());
-    }
-
-    #[test]
-    fn emits_g_envelope() {
-        let out = draw_bush(&[(2, 3)]);
-        assert_eq!(out.len(), 1);
-        assert!(out[0].starts_with("<g id=\"bush-2-3\""));
-        assert!(out[0].ends_with("</g>"));
-        assert!(out[0].contains("class=\"bush-canopy\""));
-        assert!(out[0].contains("class=\"bush-canopy-shadow\""));
-    }
-
-    #[test]
-    fn deterministic() {
-        assert_eq!(draw_bush(&[(5, 7)]), draw_bush(&[(5, 7)]));
-    }
-
-    #[test]
-    fn different_tiles_differ() {
-        let a = draw_bush(&[(0, 0)]);
-        let b = draw_bush(&[(99, 99)]);
-        assert_ne!(a, b);
-    }
-
     #[test]
     fn shift_color_round_trip_zero() {
         // Shifting by zero in all dimensions should reproduce the

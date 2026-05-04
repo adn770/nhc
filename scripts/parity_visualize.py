@@ -41,8 +41,12 @@ from PIL import Image
 
 import nhc_render
 from nhc.rendering.ir_emitter import build_floor_ir
-from nhc.rendering.ir_to_svg import ir_to_svg
 from tests.fixtures.floor_ir._inputs import descriptor_inputs
+
+
+def ir_to_svg(buf: bytes) -> str:
+    """Phase 2.19 shim: route through Rust ``nhc_render.ir_to_svg``."""
+    return nhc_render.ir_to_svg(bytes(buf))
 
 
 REPO = Path(__file__).resolve().parents[1]

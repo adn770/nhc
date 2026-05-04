@@ -186,53 +186,6 @@ fn push_stone(
         angle_deg: angle,
     });
 }
-
-/// Cobblestone decorator entry point — Phase 4 sub-step 6.
-///
-/// `tiles` is the cobble-tile list (post-filter by
-/// ``_is_cobble_tile``), in the IR's y-major / x-minor order.
-/// `seed` already includes the decorator-pipeline offset
-/// (``base_seed + 333``); the two sub-decorators
-/// (cobblestone grid, cobble stone) draw their own
-/// independent ``Pcg64Mcg`` streams from ``seed`` and
-/// ``seed ^ 0xC0BB1E_5701E``.
-///
-/// Returns up to two ``<g>`` envelope strings in legacy emit
-/// order: the cobblestone grid (always, when any tile produces
-/// rects) and the cobble-stone group (when at least one stone
-/// rolled in). Empty list when ``tiles`` is empty.
-pub fn draw_cobblestone(
-    tiles: &[(i32, i32)],
-    seed: u64,
-) -> Vec<String> {
-    if tiles.is_empty() {
-        return Vec::new();
-    }
-    let (grid, stones) = cobblestone_shapes(tiles, seed);
-
-    let mut out: Vec<String> = Vec::new();
-    if !grid.is_empty() {
-        let mut s = String::from(
-            "<g opacity=\"0.35\" fill=\"none\" \
-             stroke=\"#8A7A6A\" stroke-width=\"0.4\">",
-        );
-        for shape in &grid {
-            s.push_str(&format_grid_svg(shape));
-        }
-        s.push_str("</g>");
-        out.push(s);
-    }
-    if !stones.is_empty() {
-        let mut s = String::from("<g opacity=\"0.5\">");
-        for shape in &stones {
-            s.push_str(&format_stone_svg(shape));
-        }
-        s.push_str("</g>");
-        out.push(s);
-    }
-    out
-}
-
 /// Painter-trait entry point — Phase 2.13a port.
 ///
 /// Walks the same shape stream as `draw_cobblestone` and dispatches
@@ -314,38 +267,6 @@ pub fn paint_cobblestone(
 }
 
 // ── SVG-string formatter (legacy path) ────────────────────────
-
-fn format_grid_svg(shape: &CobblestoneShape) -> String {
-    match *shape {
-        CobblestoneShape::GridRect { x, y, w, h } => format!(
-            "<rect x=\"{x:.1}\" y=\"{y:.1}\" \
-             width=\"{w:.1}\" height=\"{h:.1}\" \
-             rx=\"1\"/>",
-        ),
-        // Stones never land in the grid bucket — see
-        // cobblestone_shapes.
-        CobblestoneShape::Stone { .. } => String::new(),
-    }
-}
-
-fn format_stone_svg(shape: &CobblestoneShape) -> String {
-    match *shape {
-        CobblestoneShape::Stone {
-            cx, cy, rx, ry, angle_deg,
-        } => format!(
-            "<ellipse cx=\"{cx:.1}\" cy=\"{cy:.1}\" \
-             rx=\"{rx:.1}\" ry=\"{ry:.1}\" \
-             transform=\"rotate({a:.0},{cx:.1},{cy:.1})\" \
-             fill=\"{STONE_FILL}\" stroke=\"{STONE_STROKE}\" \
-             stroke-width=\"0.5\"/>",
-            a = angle_deg,
-        ),
-        // Grid rects never land in the stones bucket — see
-        // cobblestone_shapes.
-        CobblestoneShape::GridRect { .. } => String::new(),
-    }
-}
-
 // ── Painter helpers ───────────────────────────────────────────
 
 /// Build a closed cubic-Bezier ellipse path centred at `(cx, cy)`
@@ -423,62 +344,6 @@ mod tests {
     use crate::painter::{
         FillRule, Paint, Painter, PathOps, Rect, Stroke, Vec2,
     };
-
-    #[test]
-    fn empty_tiles_returns_empty() {
-        assert!(draw_cobblestone(&[], 333).is_empty());
-    }
-
-    #[test]
-    fn deterministic_for_same_seed() {
-        let tiles: Vec<(i32, i32)> = (0..10)
-            .flat_map(|y| (0..10).map(move |x| (x, y)))
-            .collect();
-        assert_eq!(
-            draw_cobblestone(&tiles, 333),
-            draw_cobblestone(&tiles, 333),
-        );
-    }
-
-    #[test]
-    fn different_seeds_diverge() {
-        let tiles: Vec<(i32, i32)> = (0..10)
-            .flat_map(|y| (0..10).map(move |x| (x, y)))
-            .collect();
-        let a = draw_cobblestone(&tiles, 333);
-        let b = draw_cobblestone(&tiles, 7);
-        assert_ne!(a, b, "different seeds should produce different output");
-    }
-
-    #[test]
-    fn grid_emits_per_tile_rect_count() {
-        // Single-tile input: 9 rects unless rare jitter rejects
-        // any. Pin the count at the realistic upper bound.
-        let (out_seed, count) = (42_u64, 9);
-        let out = draw_cobblestone(&[(0, 0)], out_seed);
-        assert!(!out.is_empty());
-        let grid_group = &out[0];
-        let n = grid_group.matches("<rect").count();
-        assert!(
-            n <= count && n >= count - 2,
-            "expected ~{count} rects per tile, got {n}"
-        );
-    }
-
-    #[test]
-    fn stones_appear_with_enough_tiles() {
-        // 12 % per tile × 200 tiles → ~24 stones expected.
-        let tiles: Vec<(i32, i32)> = (0..20)
-            .flat_map(|y| (0..10).map(move |x| (x, y)))
-            .collect();
-        let out = draw_cobblestone(&tiles, 333);
-        let any_stones = out
-            .iter()
-            .any(|g| g.contains("opacity=\"0.5\"")
-                && g.contains("<ellipse"));
-        assert!(any_stones, "at 12 % over 200 tiles, expect a stone group");
-    }
-
     // ── Painter-path tests ─────────────────────────────────────
 
     /// Records every Painter call. Mirrors the trait-level
@@ -638,32 +503,6 @@ mod tests {
             "each stone emits one fill_path + one stroke_path",
         );
     }
-
-    /// Painter and SVG paths consume the RNG in lock-step — the
-    /// stamp counts (rects + ellipses on the SVG side; stroke_rect
-    /// + fill_path on the Painter side) must match.
-    #[test]
-    fn paint_and_draw_emit_same_stamp_counts() {
-        let tiles = grid(15);
-        let mut painter = CaptureCalls::default();
-        paint_cobblestone(&mut painter, &tiles, 333);
-        let svg = draw_cobblestone(&tiles, 333);
-        let svg_rects: usize =
-            svg.iter().map(|g| g.matches("<rect").count()).sum();
-        let svg_ellipses: usize =
-            svg.iter().map(|g| g.matches("<ellipse").count()).sum();
-        assert_eq!(
-            painter.count(&Call::StrokeRect),
-            svg_rects,
-            "grid stamp counts must match between SVG and Painter paths",
-        );
-        assert_eq!(
-            painter.count(&Call::FillPath),
-            svg_ellipses,
-            "stone stamp counts must match between SVG and Painter paths",
-        );
-    }
-
     /// Different seeds drive different RNG streams — the captured
     /// call sequence must differ.
     #[test]

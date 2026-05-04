@@ -105,8 +105,8 @@ def render_floor_svg(
     shells call into them for Phase 1's transitional passthroughs.
     Phase 4 deletes them after the Rust ports.
     """
+    import nhc_render
     from nhc.rendering.ir_emitter import build_floor_ir
-    from nhc.rendering.ir_to_svg import ir_to_svg
 
     buf = build_floor_ir(
         level,
@@ -116,7 +116,7 @@ def render_floor_svg(
         building_polygon=building_polygon,
         vegetation=vegetation,
     )
-    return ir_to_svg(buf)
+    return nhc_render.ir_to_svg(bytes(buf))
 
 
 HATCH_PATCH_SIZE = 16  # tiles per side of the repeating hatch patch

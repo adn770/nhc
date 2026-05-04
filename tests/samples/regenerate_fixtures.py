@@ -360,9 +360,6 @@ class _RenderedFixture:
     svg: str
     nir: bytes
     js: str
-    hatch_svg: str
-    floor_detail_svg: str
-    thematic_detail_svg: str
     structural: str
     reference_png: bytes
 
@@ -392,24 +389,23 @@ def _render_fixture(fx: Fixture) -> _RenderedFixture:
     from nhc.rendering.ir.dump import dump
     from nhc.rendering.ir.structural import dump_structural
     from nhc.rendering.ir_emitter import build_floor_ir
-    from nhc.rendering.ir_to_svg import layer_to_svg
 
     level = _build_level(fx)
     svg = render_level_svg(level, seed=fx.seed)
     nir = bytes(build_floor_ir(level, seed=fx.seed))
     js = dump(nir)
-    hatch_svg = layer_to_svg(nir, layer="hatching")
-    floor_detail_svg = layer_to_svg(nir, layer="floor_detail")
-    thematic_detail_svg = layer_to_svg(nir, layer="thematic_detail")
+    # Phase 2.19 retired the per-layer SVG snapshots
+    # (hatch / floor_detail / thematic_detail) along with
+    # `nhc.rendering.ir_to_svg.layer_to_svg` and the legacy
+    # `test_emit_*_invariants.py` consumers; the remaining gate
+    # is the cross-rasteriser PSNR contract in
+    # `tests/unit/test_ir_png_parity.py`.
     structural = dump_structural(nir)
     reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
     return _RenderedFixture(
         svg=svg,
         nir=nir,
         js=js,
-        hatch_svg=hatch_svg,
-        floor_detail_svg=floor_detail_svg,
-        thematic_detail_svg=thematic_detail_svg,
         structural=structural,
         reference_png=reference_png,
     )
@@ -917,9 +913,6 @@ def _write_fixture(
     (out / "floor.svg").write_text(rendered.svg)
     (out / "floor.nir").write_bytes(rendered.nir)
     (out / "floor.json").write_text(rendered.js)
-    (out / "hatch.svg").write_text(rendered.hatch_svg)
-    (out / "floor_detail.svg").write_text(rendered.floor_detail_svg)
-    (out / "thematic_detail.svg").write_text(rendered.thematic_detail_svg)
     (out / "structural.json").write_text(rendered.structural)
     reference_path = out / "reference.png"
     if regen_reference or not reference_path.exists():
@@ -934,9 +927,6 @@ def _check_fixture(fx: Fixture, root: Path) -> list[str]:
     text_artefacts: list[tuple[str, str]] = [
         ("floor.svg", rendered.svg),
         ("floor.json", rendered.js),
-        ("hatch.svg", rendered.hatch_svg),
-        ("floor_detail.svg", rendered.floor_detail_svg),
-        ("thematic_detail.svg", rendered.thematic_detail_svg),
         ("structural.json", rendered.structural),
     ]
     for name, expected in text_artefacts:

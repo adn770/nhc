@@ -52,10 +52,6 @@ _ALLOWLIST: frozenset[str] = frozenset({
     # RNGs for the procedural geometry helpers above.
     "svg.py",
     "_render_context.py",
-    # Wood-floor from-IR painter seeds `random.Random(op.seed)`
-    # to keep the SVG output deterministic across the
-    # legacy-fixture snapshot lock.
-    "ir_to_svg.py",
     # Floor-detail predicates + (legacy) shapes used by the IR
     # emitter and the still-public test imports — keep the
     # `import random` declaration alive for the few remaining

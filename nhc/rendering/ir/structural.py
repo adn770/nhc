@@ -2,20 +2,26 @@
 
 The IR-level layer of the cross-rasteriser parity contract per
 ``design/map_ir.md`` §9.4: a rasteriser-independent dict of op
-counts, region counts, and per-layer element counts that catches
-emit-side regressions before any rasteriser runs. Pixel-level
-PSNR (``test_ir_png_parity.py``) handles the rasteriser-dependent
+counts and region counts that catches emit-side regressions
+before any rasteriser runs. Pixel-level PSNR
+(``test_ir_png_parity.py``) handles the rasteriser-dependent
 half.
 
 Output is a sorted, JSON-serialisable dict — designed for
 byte-equal comparison against a committed snapshot at
 ``tests/fixtures/floor_ir/<descriptor>/structural.json``.
+
+Phase 2.19 retired the ``layer_element_counts`` field along
+with the Python ``ir_to_svg.py`` emitter that produced the
+``<!-- layer.X: N elements -->`` comments the field parsed out
+of. Per-layer geometry is now covered by the cross-rasteriser
+PSNR gates and the ``op_counts`` dict; layer-element drift was
+always indirect (an SVG-element count, not a structural fact).
 """
 
 from __future__ import annotations
 
 import json
-import re
 from typing import Any
 
 from nhc.rendering.ir._fb import Op
@@ -28,9 +34,6 @@ _OP_TYPE_TO_NAME: dict[int, str] = {
 }
 
 
-_LAYER_COMMENT_RE = re.compile(r"<!-- layer\.([A-Za-z0-9_]+): (\d+) elements")
-
-
 def compute_structural(buf: bytes) -> dict[str, Any]:
     """Compute the structural-invariants snapshot for an IR buffer.
 
@@ -38,19 +41,12 @@ def compute_structural(buf: bytes) -> dict[str, Any]:
 
     - ``op_counts``: ``{op_type_name: count}``, sorted by name.
     - ``region_count``: total count of ``regions[]`` entries.
-    - ``region_polygon_counts``: total polygon-vertex count across
-      all regions (a coarse but cheap proxy for region geometry
-      drift).
-    - ``layer_element_counts``: ``{layer_name: int}`` parsed from
-      the ``<!-- layer.X: N elements -->`` markers ``ir_to_svg``
-      writes per layer.
+    - ``region_polygon_rings`` / ``region_polygon_vertices``:
+      total ring + vertex counts across all regions (coarse but
+      cheap proxies for region geometry drift).
 
-    Cheap: a single FlatBuffer parse + a regex over the SVG output.
+    Cheap: a single FlatBuffer parse — no SVG round-trip.
     """
-    # Local import — `ir_to_svg` imports `_fb` siblings, so importing
-    # at module level would create a cycle on first load.
-    from nhc.rendering.ir_to_svg import ir_to_svg
-
     fir = FloorIR.GetRootAs(buf, 0)
     op_counts: dict[str, int] = {}
     for i in range(fir.OpsLength()):
@@ -69,17 +65,11 @@ def compute_structural(buf: bytes) -> dict[str, Any]:
         polygon_vertices += outline.VerticesLength()
         polygon_rings += outline.RingsLength()
 
-    svg = ir_to_svg(buf)
-    layer_counts: dict[str, int] = {}
-    for m in _LAYER_COMMENT_RE.finditer(svg):
-        layer_counts[m.group(1)] = int(m.group(2))
-
     return {
         "op_counts": dict(sorted(op_counts.items())),
         "region_count": region_count,
         "region_polygon_rings": polygon_rings,
         "region_polygon_vertices": polygon_vertices,
-        "layer_element_counts": dict(sorted(layer_counts.items())),
     }
 
 

@@ -121,55 +121,6 @@ fn cart_tracks_shapes(tiles: &[(i32, i32, bool)]) -> Vec<CartTrackShape> {
     }
     out
 }
-
-pub fn draw_cart_tracks(
-    tiles: &[(i32, i32, bool)], _seed: u64,
-) -> Vec<String> {
-    if tiles.is_empty() {
-        return Vec::new();
-    }
-    let shapes = cart_tracks_shapes(tiles);
-    let mut rails: Vec<String> = Vec::with_capacity(shapes.len() * 2);
-    let mut ties: Vec<String> = Vec::with_capacity(shapes.len());
-
-    for s in &shapes {
-        rails.push(format!(
-            "<line x1=\"{:.1}\" y1=\"{:.1}\" \
-             x2=\"{:.1}\" y2=\"{:.1}\"/>",
-            s.rail_a.0, s.rail_a.1, s.rail_a.2, s.rail_a.3,
-        ));
-        rails.push(format!(
-            "<line x1=\"{:.1}\" y1=\"{:.1}\" \
-             x2=\"{:.1}\" y2=\"{:.1}\"/>",
-            s.rail_b.0, s.rail_b.1, s.rail_b.2, s.rail_b.3,
-        ));
-        ties.push(format!(
-            "<line x1=\"{:.1}\" y1=\"{:.1}\" \
-             x2=\"{:.1}\" y2=\"{:.1}\"/>",
-            s.tie.0, s.tie.1, s.tie.2, s.tie.3,
-        ));
-    }
-
-    let mut out: Vec<String> = Vec::new();
-    if !rails.is_empty() {
-        out.push(format!(
-            "<g id=\"cart-tracks\" opacity=\"0.55\" \
-             stroke=\"{TRACK_RAIL}\" stroke-width=\"0.9\" \
-             stroke-linecap=\"round\">{}</g>",
-            rails.concat(),
-        ));
-    }
-    if !ties.is_empty() {
-        out.push(format!(
-            "<g id=\"cart-track-ties\" opacity=\"0.5\" \
-             stroke=\"{TRACK_TIE}\" stroke-width=\"1.4\" \
-             stroke-linecap=\"round\">{}</g>",
-            ties.concat(),
-        ));
-    }
-    out
-}
-
 /// Painter-trait entry point — Phase 2.13f port.
 ///
 /// Walks the same shape stream as `draw_cart_tracks` and dispatches
@@ -286,27 +237,6 @@ mod tests {
     use crate::painter::{
         FillRule, Paint, Painter, PathOps, Rect, Stroke, Vec2,
     };
-
-    #[test]
-    fn empty_tiles_returns_empty() {
-        assert!(draw_cart_tracks(&[], 0).is_empty());
-    }
-
-    #[test]
-    fn horizontal_tile_emits_rails_and_tie() {
-        let out = draw_cart_tracks(&[(0, 0, true)], 0);
-        assert_eq!(out.len(), 2);
-        assert!(out[0].contains("cart-tracks"));
-        assert!(out[1].contains("cart-track-ties"));
-    }
-
-    #[test]
-    fn vertical_tile_orientation() {
-        let h = &draw_cart_tracks(&[(0, 0, true)], 0)[0];
-        let v = &draw_cart_tracks(&[(0, 0, false)], 0)[0];
-        assert_ne!(h, v, "horizontal vs vertical should differ");
-    }
-
     // ── Painter-path tests ─────────────────────────────────────
 
     /// Records every Painter call. Mirrors the trait-level
@@ -506,27 +436,6 @@ mod tests {
             assert_eq!(*w, tie_w, "ties group uses tie width");
         }
     }
-
-    /// Painter and SVG paths derive geometry from the same shape
-    /// stream — the stamp counts (lines on the SVG side, polylines
-    /// on the Painter side) must match. Three lines per tile across
-    /// the two SVG `<g>` envelopes.
-    #[test]
-    fn paint_and_draw_emit_same_stamp_counts() {
-        let tiles = mixed_tiles(4);
-        let mut painter = CaptureCalls::default();
-        paint_cart_tracks(&mut painter, &tiles, 0);
-        let svg = draw_cart_tracks(&tiles, 0);
-        let svg_lines: usize =
-            svg.iter().map(|g| g.matches("<line").count()).sum();
-        assert_eq!(
-            painter.polyline_count(),
-            svg_lines,
-            "cart_tracks stamp counts must match between SVG and \
-             Painter paths",
-        );
-    }
-
     /// Painter-path determinism: same input → same call sequence.
     #[test]
     fn paint_deterministic_for_same_input() {

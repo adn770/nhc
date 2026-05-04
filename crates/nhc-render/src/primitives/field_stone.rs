@@ -117,35 +117,6 @@ fn field_stone_shapes(tiles: &[(i32, i32)], seed: u64) -> Vec<FieldStoneShape> {
     }
     stones
 }
-
-pub fn draw_field_stone(
-    tiles: &[(i32, i32)], seed: u64,
-) -> Vec<String> {
-    if tiles.is_empty() {
-        return Vec::new();
-    }
-    let stones = field_stone_shapes(tiles, seed);
-    if stones.is_empty() {
-        return Vec::new();
-    }
-    let mut frags: Vec<String> = Vec::with_capacity(stones.len());
-    for s in &stones {
-        frags.push(format!(
-            "<ellipse cx=\"{cx:.1}\" cy=\"{cy:.1}\" \
-             rx=\"{rx:.1}\" ry=\"{ry:.1}\" \
-             transform=\"rotate({a:.0},{cx:.1},{cy:.1})\" \
-             fill=\"{FIELD_STONE_FILL}\" stroke=\"{FIELD_STONE_STROKE}\" \
-             stroke-width=\"0.5\"/>",
-            cx = s.cx,
-            cy = s.cy,
-            rx = s.rx,
-            ry = s.ry,
-            a = s.angle_deg,
-        ));
-    }
-    vec![format!("<g opacity=\"0.8\">{}</g>", frags.concat())]
-}
-
 /// Painter-trait entry point — Phase 2.13e port.
 ///
 /// Walks the same shape stream as `draw_field_stone` and dispatches
@@ -276,38 +247,6 @@ mod tests {
     use crate::painter::{
         FillRule, Paint, Painter, PathOps, Rect, Stroke, Vec2,
     };
-
-    #[test]
-    fn empty_tiles_returns_empty() {
-        assert!(draw_field_stone(&[], 333).is_empty());
-    }
-
-    #[test]
-    fn deterministic_for_same_seed() {
-        let tiles: Vec<(i32, i32)> = (0..10)
-            .flat_map(|y| (0..10).map(move |x| (x, y)))
-            .collect();
-        assert_eq!(
-            draw_field_stone(&tiles, 333),
-            draw_field_stone(&tiles, 333),
-        );
-    }
-
-    #[test]
-    fn around_10_percent_fire_rate() {
-        // 200 tiles × 10 % → ~20 stones expected.
-        let tiles: Vec<(i32, i32)> = (0..20)
-            .flat_map(|y| (0..10).map(move |x| (x, y)))
-            .collect();
-        let out = draw_field_stone(&tiles, 333);
-        assert_eq!(out.len(), 1);
-        let n = out[0].matches("<ellipse").count();
-        assert!(
-            5 <= n && n <= 50,
-            "expected ~20 fires (10 %), got {n}"
-        );
-    }
-
     // ── Painter-path tests ─────────────────────────────────────
 
     /// Records every Painter call. Mirrors the trait-level
@@ -461,28 +400,6 @@ mod tests {
             "each stone emits one fill_path + one stroke_path",
         );
     }
-
-    /// Painter and SVG paths derive geometry from the same shape
-    /// stream — the stamp counts (ellipses on the SVG side, fill_path
-    /// on the Painter side) must match. This is the lock-step
-    /// guarantee that pins the 10 % probabilistic gate.
-    #[test]
-    fn paint_and_draw_emit_same_stamp_counts() {
-        let tiles = grid(20);
-        let seed = 333;
-        let mut painter = CaptureCalls::default();
-        paint_field_stone(&mut painter, &tiles, seed);
-        let svg = draw_field_stone(&tiles, seed);
-        let svg_ellipses: usize =
-            svg.iter().map(|g| g.matches("<ellipse").count()).sum();
-        assert_eq!(
-            painter.fill_path_count(),
-            svg_ellipses,
-            "field_stone stamp counts must match between SVG and \
-             Painter paths (lock-step RNG)",
-        );
-    }
-
     /// Painter-path determinism: same input → same call sequence.
     #[test]
     fn paint_deterministic_for_same_seed() {

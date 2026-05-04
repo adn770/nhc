@@ -28,7 +28,9 @@ use std::fmt::Write as _;
 use crate::ir::{floor_ir_buffer_has_identifier, root_as_floor_ir};
 use crate::painter::SvgPainter;
 
-use super::png::{dispatch_ops, resolve_layer_filter};
+use super::png::{
+    dispatch_ops, resolve_layer_filter, BARE_SKIP_OPS, BG_B, BG_G, BG_R,
+};
 
 // Cross-rasteriser parity helper — used by the test harness
 // (`tests/unit/test_ir_png_parity.py`) to PSNR-compare an SVG
@@ -71,10 +73,16 @@ impl std::error::Error for SvgError {}
 /// the legacy emitter's natural canvas. `layer` (if `Some`)
 /// filters dispatch to one layer through the same
 /// [`super::png::layer_ops`] map the PNG entry point uses.
+/// `bare` (when `true`) elides the four decoration layers
+/// (`floor_detail`, `thematic_detail`, `terrain_detail`,
+/// `surface_features`) for the web `/admin` debug visualisation;
+/// mirrors the legacy Python `_BARE_SKIP_LAYERS` set retired with
+/// `nhc/rendering/ir_to_svg.py` in Phase 2.19.
 pub fn floor_ir_to_svg(
     buf: &[u8],
     scale: f32,
     layer: Option<&str>,
+    bare: bool,
 ) -> Result<String, SvgError> {
     if buf.len() < 8 || !floor_ir_buffer_has_identifier(buf) {
         return Err(SvgError::InvalidBuffer(
@@ -83,6 +91,7 @@ pub fn floor_ir_to_svg(
     }
     let layer_filter =
         resolve_layer_filter(layer).map_err(SvgError::UnknownLayer)?;
+    let skip_filter = if bare { Some(BARE_SKIP_OPS) } else { None };
 
     let fir = root_as_floor_ir(buf)
         .map_err(|e| SvgError::InvalidBuffer(e.to_string()))?;
@@ -95,7 +104,7 @@ pub fn floor_ir_to_svg(
     let ph = (svg_h * scale).max(0.0);
 
     let mut painter = SvgPainter::new();
-    dispatch_ops(&fir, layer_filter, &mut painter);
+    dispatch_ops(&fir, layer_filter, skip_filter, &mut painter);
     let (defs, body) = painter.into_parts();
 
     Ok(assemble_envelope(pw, ph, padding, scale, &defs, &body))
@@ -129,6 +138,17 @@ fn assemble_envelope(
     if !defs.is_empty() {
         let _ = write!(out, "<defs>{defs}</defs>");
     }
+    // Parchment-tone background rect, byte-equivalent to the Python
+    // emitter's `<rect width="100%" height="100%" fill="#F5EDE0"/>`
+    // and to `tiny-skia`'s `pixmap.fill(BG)` in `floor_ir_to_png`.
+    // resvg-renders the SVG against a transparent canvas otherwise,
+    // which surfaces as a black background and tanks the cross-
+    // rasteriser PSNR gate in `tests/unit/test_ir_png_parity.py`.
+    let _ = write!(
+        out,
+        "<rect width=\"100%\" height=\"100%\" fill=\"#{r:02X}{g:02X}{b:02X}\"/>",
+        r = BG_R, g = BG_G, b = BG_B,
+    );
     let _ = write!(
         out,
         "<g transform=\"translate({tx} {ty}) scale({sx} {sy})\">",
@@ -184,7 +204,7 @@ mod tests {
     #[test]
     fn empty_buffer_emits_well_formed_envelope() {
         let buf = build_minimal_buf(2, 2);
-        let svg = floor_ir_to_svg(&buf, 1.0, None).expect("encode succeeds");
+        let svg = floor_ir_to_svg(&buf, 1.0, None, false).expect("encode succeeds");
         assert!(svg.starts_with("<?xml version=\"1.0\""), "missing xml prolog: {svg}");
         assert!(svg.contains("<svg "), "missing svg open: {svg}");
         assert!(svg.ends_with("</svg>"), "missing svg close: {svg}");
@@ -196,7 +216,7 @@ mod tests {
     #[test]
     fn canvas_matches_svg_sizing_rule() {
         let buf = build_minimal_buf(4, 3);
-        let svg = floor_ir_to_svg(&buf, 1.0, None).expect("encode succeeds");
+        let svg = floor_ir_to_svg(&buf, 1.0, None, false).expect("encode succeeds");
         assert!(
             svg.contains("width=\"192\""),
             "missing 192 width: {svg}"
@@ -217,7 +237,7 @@ mod tests {
     #[test]
     fn scale_factor_multiplies_canvas() {
         let buf = build_minimal_buf(4, 3);
-        let svg = floor_ir_to_svg(&buf, 2.0, None).expect("encode succeeds");
+        let svg = floor_ir_to_svg(&buf, 2.0, None, false).expect("encode succeeds");
         assert!(svg.contains("width=\"384\""));
         assert!(svg.contains("height=\"320\""));
         // Outer transform encodes scale 2 + translate(64, 64) in
@@ -234,7 +254,7 @@ mod tests {
 
     #[test]
     fn rejects_buffer_without_identifier() {
-        let err = floor_ir_to_svg(&[0u8; 16], 1.0, None).unwrap_err();
+        let err = floor_ir_to_svg(&[0u8; 16], 1.0, None, false).unwrap_err();
         assert!(matches!(err, SvgError::InvalidBuffer(_)));
     }
 
@@ -256,7 +276,7 @@ mod tests {
             "stairs",
             "surface_features",
         ] {
-            floor_ir_to_svg(&buf, 1.0, Some(layer))
+            floor_ir_to_svg(&buf, 1.0, Some(layer), false)
                 .unwrap_or_else(|e| panic!("layer {layer:?}: {e}"));
         }
     }
@@ -265,7 +285,7 @@ mod tests {
     fn unknown_layer_is_rejected() {
         let buf = build_minimal_buf(2, 2);
         let err =
-            floor_ir_to_svg(&buf, 1.0, Some("not-a-layer")).unwrap_err();
+            floor_ir_to_svg(&buf, 1.0, Some("not-a-layer"), false).unwrap_err();
         assert!(matches!(err, SvgError::UnknownLayer(_)));
     }
 
@@ -275,7 +295,7 @@ mod tests {
     #[test]
     fn empty_body_still_wraps_in_outer_g() {
         let buf = build_minimal_buf(2, 2);
-        let svg = floor_ir_to_svg(&buf, 1.0, None).expect("encode succeeds");
+        let svg = floor_ir_to_svg(&buf, 1.0, None, false).expect("encode succeeds");
         assert!(
             svg.contains("<g transform=\"translate(32 32) scale(1 1)\">"),
             "missing outer g envelope: {svg}"
@@ -316,7 +336,7 @@ mod tests {
         ];
 
         for (name, buf) in fixtures {
-            let svg = floor_ir_to_svg(buf, 1.0, None)
+            let svg = floor_ir_to_svg(buf, 1.0, None, false)
                 .unwrap_or_else(|e| panic!("fixture {name}: {e}"));
             assert!(
                 svg.starts_with("<?xml"),
@@ -339,5 +359,34 @@ mod tests {
                 "fixture {name}: no geometry elements emitted"
             );
         }
+    }
+
+    /// `bare = true` elides the four decoration layers
+    /// (`floor_detail`, `thematic_detail`, `terrain_detail`,
+    /// `surface_features`) — the resulting SVG body is strictly
+    /// shorter than the full composite for any fixture that has
+    /// at least one decoration op. Mirrors the legacy Python
+    /// `_BARE_SKIP_LAYERS` contract retired with `ir_to_svg.py`
+    /// in Phase 2.19; the `/admin?bare=1` debug route depends on
+    /// this filtering shape.
+    #[test]
+    fn bare_flag_shortens_dungeon_fixture() {
+        let buf: &[u8] = include_bytes!(
+            "../../../../../tests/fixtures/floor_ir/\
+             seed42_rect_dungeon_dungeon/floor.nir"
+        );
+        let full = floor_ir_to_svg(buf, 1.0, None, false)
+            .expect("full encode succeeds");
+        let bare = floor_ir_to_svg(buf, 1.0, None, true)
+            .expect("bare encode succeeds");
+        assert!(
+            bare.len() < full.len(),
+            "bare={} not shorter than full={}",
+            bare.len(),
+            full.len(),
+        );
+        // Both must remain well-formed SVG documents.
+        assert!(bare.starts_with("<?xml"));
+        assert!(bare.ends_with("</svg>"));
     }
 }

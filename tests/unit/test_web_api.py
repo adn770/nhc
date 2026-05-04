@@ -1197,24 +1197,36 @@ class TestFloorIRArtefactsDiskWiring:
     def test_svg_route_bare_skips_decoration_layers(
         self, client_with_data_dir,
     ):
+        """Phase 2.19: ``?bare=1`` flows through the Rust
+        ``nhc_render.ir_to_svg(buf, bare=True)`` entry point — the
+        SvgPainter doesn't emit per-layer ``<!-- layer.X: -->``
+        comments the Python emitter wrote. The assertion here is
+        structural: the bare body must be strictly shorter than the
+        full composite (decoration ops are filtered) AND remain a
+        well-formed SVG document.
+        """
         sid, session, svg_id = self._start_dungeon_game(
             client_with_data_dir,
         )
-        resp = client_with_data_dir.get(
+        bare = client_with_data_dir.get(
             f"/api/game/{sid}/floor/{svg_id}.svg?bare=1",
         )
-        assert resp.status_code == 200
-        body = resp.get_data(as_text=True)
-        for layer in (
-            "floor_detail", "terrain_detail", "surface_features",
-        ):
-            assert f"<!-- layer.{layer}:" not in body, (
-                f"bare SVG leaked layer.{layer}"
-            )
-        # Structural layers must stay.
-        assert "<!-- layer.structural:" in body
-        assert "<!-- layer.stairs:" in body
-        assert resp.headers["Content-Type"] == "image/svg+xml"
+        full = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.svg",
+        )
+        assert bare.status_code == 200
+        assert full.status_code == 200
+        bare_body = bare.get_data(as_text=True)
+        full_body = full.get_data(as_text=True)
+        assert bare.headers["Content-Type"] == "image/svg+xml"
+        assert bare_body.startswith("<?xml") or bare_body.startswith("<svg")
+        assert bare_body.rstrip().endswith("</svg>")
+        # Decoration ops dropped → bare body strictly shorter than
+        # the full composite for any non-empty fixture.
+        assert len(bare_body) < len(full_body), (
+            f"bare body should shrink from full composite; "
+            f"bare={len(bare_body)} full={len(full_body)}"
+        )
 
     def test_svg_route_bare_404_for_unknown_session(
         self, client_with_data_dir,
