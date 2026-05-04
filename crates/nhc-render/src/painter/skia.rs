@@ -25,11 +25,12 @@ use tiny_skia::{
     BlendMode, Color as SkColor, FillRule as SkFillRule,
     FilterQuality, LineCap as SkLineCap, LineJoin as SkLineJoin, Mask,
     Paint as SkPaint, PathBuilder, Pixmap, PixmapPaint, Rect as SkRect,
-    Stroke as SkStroke, Transform,
+    Stroke as SkStroke, Transform as SkTransform,
 };
 
 use super::{
-    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOp, PathOps, Rect, Stroke, Vec2,
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOp, PathOps, Rect, Stroke, Transform,
+    Vec2,
 };
 
 /// Paints onto a `tiny_skia::Pixmap` via the `Painter` trait.
@@ -42,7 +43,8 @@ use super::{
 /// trait-level conformance tests in 2.5+.
 pub struct SkiaPainter<'a> {
     target: &'a mut Pixmap,
-    transform: Transform,
+    base_transform: SkTransform,
+    transform_stack: Vec<SkTransform>,
     group_stack: Vec<GroupFrame>,
     clip_stack: Vec<Mask>,
     width: u32,
@@ -61,7 +63,8 @@ impl<'a> SkiaPainter<'a> {
         let (width, height) = (target.width(), target.height());
         Self {
             target,
-            transform: Transform::identity(),
+            base_transform: SkTransform::identity(),
+            transform_stack: Vec::new(),
             group_stack: Vec::new(),
             clip_stack: Vec::new(),
             width,
@@ -72,17 +75,29 @@ impl<'a> SkiaPainter<'a> {
     /// Construct a painter with a non-identity transform applied
     /// to every paint call. Used by op handlers that pre-compose
     /// translate + scale (the legacy `RasterCtx::transform`).
-    pub fn with_transform(target: &'a mut Pixmap, transform: Transform) -> Self {
+    pub fn with_transform(target: &'a mut Pixmap, transform: SkTransform) -> Self {
         let mut this = Self::new(target);
-        this.transform = transform;
+        this.base_transform = transform;
         this
     }
 
-    /// `true` if no `begin_group` / `push_clip` is currently
-    /// open. Used by the 2.5+ port tests to assert that primitives
-    /// balance their scopes.
+    /// `true` if no `begin_group` / `push_clip` / `push_transform`
+    /// is currently open. Used by the 2.5+ port tests to assert
+    /// that primitives balance their scopes.
     pub fn is_balanced(&self) -> bool {
-        self.group_stack.is_empty() && self.clip_stack.is_empty()
+        self.group_stack.is_empty()
+            && self.clip_stack.is_empty()
+            && self.transform_stack.is_empty()
+    }
+
+    /// Cumulative transform currently in effect. The top of the
+    /// transform stack (already composed against `base_transform`
+    /// at push time) when non-empty, else `base_transform`.
+    fn active_transform(&self) -> SkTransform {
+        match self.transform_stack.last() {
+            Some(top) => *top,
+            None => self.base_transform,
+        }
     }
 }
 
@@ -93,7 +108,7 @@ impl<'a> Painter for SkiaPainter<'a> {
             return;
         };
         let p = build_paint(paint);
-        let transform = self.transform;
+        let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
         surface.fill_rect(rect, &p, transform, mask);
@@ -111,7 +126,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         };
         let p = build_paint(paint);
         let s = build_stroke(stroke);
-        let transform = self.transform;
+        let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
         surface.stroke_path(&path, &p, &s, transform, mask);
@@ -127,7 +142,7 @@ impl<'a> Painter for SkiaPainter<'a> {
             return;
         };
         let p = build_paint(paint);
-        let transform = self.transform;
+        let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
         surface.fill_path(&path, &p, SkFillRule::Winding, transform, mask);
@@ -147,7 +162,7 @@ impl<'a> Painter for SkiaPainter<'a> {
             return;
         };
         let p = build_paint(paint);
-        let transform = self.transform;
+        let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
         surface.fill_path(&path, &p, SkFillRule::Winding, transform, mask);
@@ -161,7 +176,7 @@ impl<'a> Painter for SkiaPainter<'a> {
             return;
         };
         let p = build_paint(paint);
-        let transform = self.transform;
+        let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
         surface.fill_path(&path, &p, to_skia_fill_rule(fill_rule), transform, mask);
@@ -176,7 +191,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         };
         let p = build_paint(paint);
         let s = build_stroke(stroke);
-        let transform = self.transform;
+        let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
         surface.stroke_path(&path, &p, &s, transform, mask);
@@ -187,7 +202,7 @@ impl<'a> Painter for SkiaPainter<'a> {
             return;
         };
         let p = build_paint(paint);
-        let transform = self.transform;
+        let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
         surface.fill_path(&path, &p, to_skia_fill_rule(fill_rule), transform, mask);
@@ -199,7 +214,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         };
         let p = build_paint(paint);
         let s = build_stroke(stroke);
-        let transform = self.transform;
+        let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
         surface.stroke_path(&path, &p, &s, transform, mask);
@@ -224,7 +239,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         };
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
-        surface.draw_pixmap(0, 0, frame.scratch.as_ref(), &pp, Transform::identity(), mask);
+        surface.draw_pixmap(0, 0, frame.scratch.as_ref(), &pp, SkTransform::identity(), mask);
     }
 
     fn push_clip(&mut self, path: &PathOps, fill_rule: FillRule) {
@@ -243,12 +258,12 @@ impl<'a> Painter for SkiaPainter<'a> {
         let rule = to_skia_fill_rule(fill_rule);
         let new_mask = if let Some(prev) = self.clip_stack.last() {
             let mut mask = prev.clone();
-            mask.intersect_path(&skia_path, rule, true, self.transform);
+            mask.intersect_path(&skia_path, rule, true, self.active_transform());
             mask
         } else {
             let mut mask = Mask::new(self.width, self.height)
                 .expect("clip mask allocation");
-            mask.fill_path(&skia_path, rule, true, self.transform);
+            mask.fill_path(&skia_path, rule, true, self.active_transform());
             mask
         };
         self.clip_stack.push(new_mask);
@@ -259,6 +274,29 @@ impl<'a> Painter for SkiaPainter<'a> {
             .pop()
             .expect("pop_clip without matching push_clip");
     }
+
+    fn push_transform(&mut self, transform: Transform) {
+        let local = to_skia_transform(transform);
+        let cumulative = match self.transform_stack.last() {
+            Some(top) => top.pre_concat(local),
+            None => self.base_transform.pre_concat(local),
+        };
+        self.transform_stack.push(cumulative);
+    }
+
+    fn pop_transform(&mut self) {
+        self.transform_stack
+            .pop()
+            .expect("pop_transform without matching push_transform");
+    }
+}
+
+/// Convert the painter-trait `Transform` to `tiny_skia::Transform`.
+/// Both encode a 3x2 affine in row order — this is a field-by-field
+/// copy. Kept as a free function (not `From`) to avoid leaking the
+/// painter type into the public surface.
+fn to_skia_transform(t: Transform) -> SkTransform {
+    SkTransform::from_row(t.sx, t.ky, t.kx, t.sy, t.tx, t.ty)
 }
 
 /// Returns the active drawing surface — the top scratch pixmap
@@ -361,7 +399,7 @@ fn path_to_tiny_skia(path: &PathOps) -> Option<tiny_skia::Path> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::painter::{Color as PColor, Paint as PPaint, Stroke as PStroke};
+    use crate::painter::{Color as PColor, Paint as PPaint, Stroke as PStroke, Transform as PTransform};
 
     fn black() -> PPaint {
         PPaint::solid(PColor::rgb(0, 0, 0))
@@ -616,6 +654,70 @@ mod tests {
         // Bottom-left quadrant (outside inner clip) — white.
         let (r, g, b, _) = pixel_rgba(&canvas, 5, 15);
         assert_eq!((r, g, b), (255, 255, 255));
+    }
+
+    #[test]
+    fn push_transform_translates_subsequent_paints() {
+        let mut canvas = white_canvas(20, 20);
+        {
+            let mut painter = SkiaPainter::new(&mut canvas);
+            painter.push_transform(PTransform::translate(10.0, 0.0));
+            painter.fill_rect(Rect::new(0.0, 0.0, 5.0, 5.0), &black());
+            painter.pop_transform();
+            painter.fill_rect(Rect::new(0.0, 0.0, 5.0, 5.0), &black());
+        }
+        // First rect lands at (10, 0..5) — pixel (12, 2) is black.
+        let (r, g, b, _) = pixel_rgba(&canvas, 12, 2);
+        assert_eq!((r, g, b), (0, 0, 0), "translated rect must land at +10");
+        // Second rect lands at (0, 0..5) — pixel (2, 2) is black.
+        let (r, g, b, _) = pixel_rgba(&canvas, 2, 2);
+        assert_eq!((r, g, b), (0, 0, 0), "post-pop rect must land at origin");
+        // Pixel between (8, 2) — outside both rects, white.
+        let (r, g, b, _) = pixel_rgba(&canvas, 8, 2);
+        assert_eq!((r, g, b), (255, 255, 255), "untouched gap must stay white");
+    }
+
+    #[test]
+    fn nested_transforms_compose() {
+        let mut canvas = white_canvas(20, 20);
+        {
+            let mut painter = SkiaPainter::new(&mut canvas);
+            painter.push_transform(PTransform::translate(10.0, 0.0));
+            painter.push_transform(PTransform::translate(0.0, 5.0));
+            painter.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &black());
+            painter.pop_transform();
+            painter.pop_transform();
+        }
+        // (0,0) under translate(10,0) then translate(0,5) lands at (10, 5).
+        let (r, g, b, _) = pixel_rgba(&canvas, 10, 5);
+        assert_eq!((r, g, b), (0, 0, 0), "nested translates must compose");
+    }
+
+    #[test]
+    fn pop_transform_reverts() {
+        let mut canvas = white_canvas(20, 20);
+        {
+            let mut painter = SkiaPainter::new(&mut canvas);
+            painter.push_transform(PTransform::translate(10.0, 0.0));
+            painter.pop_transform();
+            painter.fill_rect(Rect::new(0.0, 0.0, 5.0, 5.0), &black());
+        }
+        // Rect lands back at (0, 0..5).
+        let (r, g, b, _) = pixel_rgba(&canvas, 2, 2);
+        assert_eq!((r, g, b), (0, 0, 0), "post-pop rect lands at origin");
+        // Pixel that would have been hit by the translated rect is white.
+        let (r, g, b, _) = pixel_rgba(&canvas, 12, 2);
+        assert_eq!((r, g, b), (255, 255, 255));
+    }
+
+    #[test]
+    fn balanced_painter_after_paired_transform_calls() {
+        let mut canvas = white_canvas(20, 20);
+        let mut painter = SkiaPainter::new(&mut canvas);
+        painter.push_transform(PTransform::translate(1.0, 1.0));
+        painter.fill_rect(Rect::new(0.0, 0.0, 2.0, 2.0), &black());
+        painter.pop_transform();
+        assert!(painter.is_balanced());
     }
 
     #[test]

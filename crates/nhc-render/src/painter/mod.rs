@@ -143,6 +143,79 @@ impl Stroke {
     }
 }
 
+/// 2D affine transform, encoded as a 3x2 matrix in tiny-skia's
+/// row order. The full 3x3 matrix is
+///
+/// ```text
+/// [sx kx tx]
+/// [ky sy ty]
+/// [0  0  1 ]
+/// ```
+///
+/// so a point `(x, y)` maps to
+/// `(sx*x + kx*y + tx, ky*x + sy*y + ty)`. Field layout matches
+/// `tiny_skia::Transform` so the SkiaPainter conversion is a
+/// direct field copy.
+///
+/// `rotate(angle_rad)` takes **radians** (CCW); the SkiaPainter
+/// converts to degrees internally for `tiny_skia::Transform`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Transform {
+    pub sx: f32,
+    pub kx: f32,
+    pub tx: f32,
+    pub ky: f32,
+    pub sy: f32,
+    pub ty: f32,
+}
+
+impl Default for Transform {
+    fn default() -> Self {
+        Self::identity()
+    }
+}
+
+impl Transform {
+    pub const fn identity() -> Self {
+        Self { sx: 1.0, kx: 0.0, tx: 0.0, ky: 0.0, sy: 1.0, ty: 0.0 }
+    }
+
+    pub const fn translate(dx: f32, dy: f32) -> Self {
+        Self { sx: 1.0, kx: 0.0, tx: dx, ky: 0.0, sy: 1.0, ty: dy }
+    }
+
+    pub const fn scale(sx: f32, sy: f32) -> Self {
+        Self { sx, kx: 0.0, tx: 0.0, ky: 0.0, sy, ty: 0.0 }
+    }
+
+    /// Rotation by `angle_rad` radians, CCW around the origin.
+    pub fn rotate(angle_rad: f32) -> Self {
+        let c = angle_rad.cos();
+        let s = angle_rad.sin();
+        Self { sx: c, kx: -s, tx: 0.0, ky: s, sy: c, ty: 0.0 }
+    }
+
+    /// Rotation by `angle_rad` radians, CCW around `(cx, cy)`.
+    pub fn rotate_around(angle_rad: f32, cx: f32, cy: f32) -> Self {
+        Self::translate(cx, cy)
+            .pre_concat(Self::rotate(angle_rad))
+            .pre_concat(Self::translate(-cx, -cy))
+    }
+
+    /// Matrix product `self * other`. Equivalent to
+    /// `tiny_skia::Transform::pre_concat`.
+    pub fn pre_concat(self, other: Transform) -> Transform {
+        Transform {
+            sx: self.sx * other.sx + self.kx * other.ky,
+            kx: self.sx * other.kx + self.kx * other.sy,
+            tx: self.sx * other.tx + self.kx * other.ty + self.tx,
+            ky: self.ky * other.sx + self.sy * other.ky,
+            sy: self.ky * other.kx + self.sy * other.sy,
+            ty: self.ky * other.tx + self.sy * other.ty + self.ty,
+        }
+    }
+}
+
 /// Atomic path command. Mirrors the SVG `M` / `L` / `Q` / `C`
 /// / `Z` repertoire that every backend natively supports.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -240,6 +313,16 @@ pub trait Painter {
     /// "Region-clipped per-tile ops").
     fn push_clip(&mut self, path: &PathOps, fill_rule: FillRule);
     fn pop_clip(&mut self);
+
+    /// Push a transform onto the current transform stack. Subsequent
+    /// paint calls render under the cumulative transform (base *
+    /// stack product, top-of-stack last applied). Used for rotate-
+    /// around-pivot per-edge runs (Masonry, Palisade, Fortification
+    /// in `transform/png/building_exterior_wall.rs` +
+    /// `transform/png/enclosure.rs`) and any other case where a
+    /// sub-block of paint calls shares a non-trivial transform.
+    fn push_transform(&mut self, transform: Transform);
+    fn pop_transform(&mut self);
 }
 
 #[cfg(test)]
@@ -254,8 +337,10 @@ mod tests {
         calls: Vec<Call>,
         group_depth: i32,
         clip_depth: i32,
+        transform_depth: i32,
         max_group_depth: i32,
         max_clip_depth: i32,
+        max_transform_depth: i32,
     }
 
     #[derive(Debug, PartialEq)]
@@ -272,6 +357,8 @@ mod tests {
         EndGroup,
         PushClip(PathOps, FillRule),
         PopClip,
+        PushTransform(Transform),
+        PopTransform,
     }
 
     impl Painter for MockPainter {
@@ -320,6 +407,17 @@ mod tests {
         fn pop_clip(&mut self) {
             self.clip_depth -= 1;
             self.calls.push(Call::PopClip);
+        }
+        fn push_transform(&mut self, transform: Transform) {
+            self.transform_depth += 1;
+            if self.transform_depth > self.max_transform_depth {
+                self.max_transform_depth = self.transform_depth;
+            }
+            self.calls.push(Call::PushTransform(transform));
+        }
+        fn pop_transform(&mut self) {
+            self.transform_depth -= 1;
+            self.calls.push(Call::PopTransform);
         }
     }
 
@@ -483,6 +581,56 @@ mod tests {
         assert!(matches!(p.calls[2], Call::FillRect(_, _)));
         assert!(matches!(p.calls[3], Call::PopClip));
         assert!(matches!(p.calls[4], Call::EndGroup));
+    }
+
+    #[test]
+    fn push_transform_calls_balance_and_track_depth() {
+        let mut p = MockPainter::default();
+        let t1 = Transform::translate(10.0, 0.0);
+        let t2 = Transform::translate(0.0, 5.0);
+        p.push_transform(t1);
+        p.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &red());
+        p.push_transform(t2);
+        p.fill_rect(Rect::new(1.0, 1.0, 1.0, 1.0), &red());
+        p.pop_transform();
+        p.pop_transform();
+
+        assert_eq!(p.transform_depth, 0, "push/pop pairs must balance");
+        assert_eq!(
+            p.max_transform_depth, 2,
+            "nested push_transform must record max depth"
+        );
+        assert_eq!(p.calls.len(), 6);
+        assert_eq!(p.calls[0], Call::PushTransform(t1));
+        assert_eq!(p.calls[2], Call::PushTransform(t2));
+        assert_eq!(p.calls[4], Call::PopTransform);
+        assert_eq!(p.calls[5], Call::PopTransform);
+    }
+
+    #[test]
+    fn transform_identity_is_neutral_under_pre_concat() {
+        let t = Transform::translate(3.0, 4.0);
+        assert_eq!(Transform::identity().pre_concat(t), t);
+        assert_eq!(t.pre_concat(Transform::identity()), t);
+    }
+
+    #[test]
+    fn transform_translate_compose_via_pre_concat() {
+        let a = Transform::translate(10.0, 0.0);
+        let b = Transform::translate(0.0, 5.0);
+        let composed = a.pre_concat(b);
+        assert_eq!(composed, Transform::translate(10.0, 5.0));
+    }
+
+    #[test]
+    fn transform_rotate_around_pivot_keeps_pivot_fixed() {
+        // Rotating 90 deg CCW around (10, 10) maps (10, 10) -> (10, 10).
+        let t = Transform::rotate_around(std::f32::consts::FRAC_PI_2, 10.0, 10.0);
+        let (x, y) = (10.0_f32, 10.0_f32);
+        let mx = t.sx * x + t.kx * y + t.tx;
+        let my = t.ky * x + t.sy * y + t.ty;
+        assert!((mx - 10.0).abs() < 1e-4, "pivot x drifted: {mx}");
+        assert!((my - 10.0).abs() < 1e-4, "pivot y drifted: {my}");
     }
 
     #[test]

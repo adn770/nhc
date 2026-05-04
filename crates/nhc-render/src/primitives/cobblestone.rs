@@ -533,6 +533,8 @@ mod tests {
         }
         fn push_clip(&mut self, _: &PathOps, _: FillRule) {}
         fn pop_clip(&mut self) {}
+        fn push_transform(&mut self, _: crate::painter::Transform) {}
+        fn pop_transform(&mut self) {}
     }
 
     impl CaptureCalls {

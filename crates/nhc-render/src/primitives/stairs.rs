@@ -359,6 +359,12 @@ mod tests {
         fn pop_clip(&mut self) {
             unreachable!("stairs primitive never pops a clip");
         }
+        fn push_transform(&mut self, _: crate::painter::Transform) {
+            unreachable!("stairs primitive never pushes a transform");
+        }
+        fn pop_transform(&mut self) {
+            unreachable!("stairs primitive never pops a transform");
+        }
     }
 
     #[test]

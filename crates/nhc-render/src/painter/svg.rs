@@ -25,7 +25,8 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 
 use super::{
-    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOp, PathOps, Rect, Stroke, Vec2,
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOp, PathOps, Rect, Stroke, Transform,
+    Vec2,
 };
 
 /// Paints into a `String` buffer of SVG elements + a `<defs>`
@@ -213,6 +214,28 @@ impl Painter for SvgPainter {
     fn pop_clip(&mut self) {
         self.body.push_str("</g>");
     }
+
+    fn push_transform(&mut self, t: Transform) {
+        // SVG `matrix(a b c d e f)` encodes the column-major
+        // 3x3 [[a c e][b d f][0 0 1]]. The painter trait's
+        // Transform mirrors tiny-skia's row layout
+        // [[sx kx tx][ky sy ty][0 0 1]], so the SVG-order
+        // arguments are (sx ky kx sy tx ty).
+        let _ = write!(
+            self.body,
+            "<g transform=\"matrix({} {} {} {} {} {})\">",
+            fmt_num(t.sx),
+            fmt_num(t.ky),
+            fmt_num(t.kx),
+            fmt_num(t.sy),
+            fmt_num(t.tx),
+            fmt_num(t.ty),
+        );
+    }
+
+    fn pop_transform(&mut self) {
+        self.body.push_str("</g>");
+    }
 }
 
 fn fmt_num(v: f32) -> String {
@@ -320,7 +343,7 @@ fn fmt_path_d(path: &PathOps) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::painter::{Color as PColor, Paint as PPaint, Stroke as PStroke};
+    use crate::painter::{Color as PColor, Paint as PPaint, Stroke as PStroke, Transform as PTransform};
 
     fn red() -> PPaint {
         PPaint::solid(PColor::rgb(255, 0, 0))
@@ -556,6 +579,34 @@ mod tests {
         let (defs, body) = p.into_parts();
         assert!(defs.contains("<clipPath"));
         assert!(body.contains("<g clip-path"));
+    }
+
+    #[test]
+    fn push_transform_emits_g_matrix() {
+        let mut p = SvgPainter::new();
+        p.push_transform(PTransform::translate(3.0, 4.0));
+        p.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &red());
+        p.pop_transform();
+        let body = p.body();
+        assert!(
+            body.starts_with("<g transform=\"matrix(1 0 0 1 3 4)\">"),
+            "missing matrix g envelope: {body}"
+        );
+        assert!(body.ends_with("</g>"), "missing closing g: {body}");
+        assert_eq!(body.matches("</g>").count(), 1);
+    }
+
+    #[test]
+    fn nested_push_transform_emits_two_g_matrix() {
+        let mut p = SvgPainter::new();
+        p.push_transform(PTransform::translate(3.0, 0.0));
+        p.push_transform(PTransform::translate(0.0, 4.0));
+        p.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &red());
+        p.pop_transform();
+        p.pop_transform();
+        let body = p.body();
+        assert_eq!(body.matches("<g transform=").count(), 2);
+        assert_eq!(body.matches("</g>").count(), 2);
     }
 
     #[test]

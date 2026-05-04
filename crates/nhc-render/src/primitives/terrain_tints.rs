@@ -194,6 +194,8 @@ mod tests {
         fn end_group(&mut self) {}
         fn push_clip(&mut self, _: &PathOps, _: FillRule) {}
         fn pop_clip(&mut self) {}
+        fn push_transform(&mut self, _: crate::painter::Transform) {}
+        fn pop_transform(&mut self) {}
     }
 
     fn dungeon_palette() -> HashMap<u8, (String, f64)> {

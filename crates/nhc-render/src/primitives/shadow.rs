@@ -314,6 +314,12 @@ mod tests {
         fn pop_clip(&mut self) {
             unreachable!("shadow primitive never pops a clip");
         }
+        fn push_transform(&mut self, _: crate::painter::Transform) {
+            unreachable!("shadow primitive never pushes a transform");
+        }
+        fn pop_transform(&mut self) {
+            unreachable!("shadow primitive never pops a transform");
+        }
     }
 
     #[test]
