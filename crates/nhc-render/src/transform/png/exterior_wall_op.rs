@@ -14,15 +14,13 @@
 //!
 //! Other styles (Masonry, Palisade, Fortification) are routed through
 //! the shared helpers in `building_exterior_wall.rs` and
-//! `enclosure.rs`. Those helpers compose per-edge rotated transforms
-//! (diagonal masonry runs, diamond corner shapes) and therefore still
-//! need direct `tiny_skia::Pixmap` + `Transform` access; they will be
-//! ported in a follow-up commit when the Painter trait grows a
-//! transform stack (or the dispatch carries a base transform that
-//! helpers can pre-compose into a fresh `SkiaPainter`). For now this
-//! handler constructs a `SkiaPainter` only for the DungeonInk and
-//! CaveInk arms; the Masonry / Palisade / Fortification arms keep
-//! threading `&mut RasterCtx` into the legacy helpers unchanged.
+//! `enclosure.rs`. Phase 2.15h ported those helpers onto the Painter
+//! trait via the `push_transform` / `pop_transform` ops added in
+//! 2.15g; the per-edge rotated runs (diagonal masonry chains, diamond
+//! corner shapes) now compose through the painter's transform stack
+//! instead of `ctx.transform.pre_concat`. Every dispatch arm
+//! constructs a `SkiaPainter` and threads it through `&mut dyn
+//! Painter`.
 //!
 //! Cut handling: doors (DoorWood/Iron/Stone/Secret) do NOT create gaps
 //! in the stroke — they are separate overlay layers. Only `CutStyle::None`
@@ -103,7 +101,16 @@ pub(super) fn draw(
         WallStyle::MasonryBrick | WallStyle::MasonryStone => {
             if let Some(material) = MasonryMaterial::from_wall_style(style) {
                 let polygon = polygon_from_outline(&outline);
-                render_masonry_polygon(&polygon, material, op.rng_seed(), ctx);
+                let mut painter = SkiaPainter::with_transform(
+                    ctx.pixmap,
+                    ctx.transform,
+                );
+                render_masonry_polygon(
+                    &polygon,
+                    material,
+                    op.rng_seed(),
+                    &mut painter,
+                );
             }
         }
         WallStyle::Palisade | WallStyle::FortificationMerlon => {
@@ -114,6 +121,10 @@ pub(super) fn draw(
                 let polygon = polygon_from_outline(&outline);
                 let (by_edge, midpoints) =
                     gate_spans_per_edge_from_cuts(&polygon, &cuts);
+                let mut painter = SkiaPainter::with_transform(
+                    ctx.pixmap,
+                    ctx.transform,
+                );
                 render_enclosure_polygon(
                     &polygon,
                     &by_edge,
@@ -121,7 +132,7 @@ pub(super) fn draw(
                     enc_style,
                     op.corner_style().0,
                     op.rng_seed(),
-                    ctx,
+                    &mut painter,
                 );
             }
         }

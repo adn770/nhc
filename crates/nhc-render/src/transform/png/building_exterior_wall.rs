@@ -5,17 +5,17 @@
 //! renders a 2-strip running-bond chain per edge using splitmix64
 //! seeded `rng_seed + edge_idx`. Used for ``WallStyle::MasonryBrick``
 //! and ``WallStyle::MasonryStone`` styles.
-
-use std::f32::consts::PI;
-
-use tiny_skia::{
-    Color, FillRule, LineCap, Paint, PathBuilder, Stroke, Transform,
-};
+//!
+//! Phase 2.15h — ported from direct `tiny_skia::Pixmap` access onto the
+//! [`Painter`] trait. Per-edge rotated transforms (diagonal masonry
+//! runs) are now expressed via [`Painter::push_transform`] /
+//! [`Painter::pop_transform`] rather than `ctx.transform.pre_concat`.
 
 use crate::ir::WallStyle;
+use crate::painter::{
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Stroke, Transform, Vec2,
+};
 use crate::rng::SplitMix64;
-
-use super::RasterCtx;
 
 /// Material discriminator passed to the masonry helpers (collapses
 /// the WallStyle::Masonry* variants into a 2-element enum so the
@@ -73,18 +73,16 @@ impl WallRng {
 }
 
 
-fn rgb_paint(rgb: (u8, u8, u8)) -> Paint<'static> {
-    let mut p = Paint::default();
-    p.set_color(Color::from_rgba8(rgb.0, rgb.1, rgb.2, 255));
-    p.anti_alias = true;
-    p
+fn rgb_paint(rgb: (u8, u8, u8)) -> Paint {
+    Paint::solid(Color::rgba(rgb.0, rgb.1, rgb.2, 1.0))
 }
 
 fn thin_stroke() -> Stroke {
-    let mut s = Stroke::default();
-    s.width = STROKE_WIDTH;
-    s.line_cap = LineCap::Butt;
-    s
+    Stroke {
+        width: STROKE_WIDTH,
+        line_cap: LineCap::Butt,
+        line_join: LineJoin::Miter,
+    }
 }
 
 
@@ -96,58 +94,61 @@ fn material_palette(material: MasonryMaterial) -> ((u8, u8, u8), (u8, u8, u8)) {
 }
 
 
-/// Build a rounded-rect path with corner radius `r`. Mirrors the
-/// SVG `<rect rx="r" ry="r">` shape resvg renders; cubic-bezier
-/// quarter-circles use the standard control distance c ≈ 0.5523r.
+/// Build a rounded-rect path with corner radius `r` as a
+/// backend-agnostic [`PathOps`]. Mirrors the SVG `<rect rx="r" ry="r">`
+/// shape resvg renders; cubic-bezier quarter-circles use the standard
+/// control distance c ≈ 0.5523r.
 fn rounded_rect_path(
     x: f32, y: f32, w: f32, h: f32, r: f32,
-) -> Option<tiny_skia::Path> {
+) -> Option<PathOps> {
+    if w <= 0.0 || h <= 0.0 {
+        return None;
+    }
     let r = r.min(w / 2.0).min(h / 2.0).max(0.0);
     let c = r * 0.5522847498307933; // 4 * (sqrt(2) - 1) / 3
-    let mut pb = PathBuilder::new();
+    let mut path = PathOps::new();
     if r < 1e-3 {
-        pb.move_to(x, y);
-        pb.line_to(x + w, y);
-        pb.line_to(x + w, y + h);
-        pb.line_to(x, y + h);
-        pb.close();
+        path.move_to(Vec2::new(x, y));
+        path.line_to(Vec2::new(x + w, y));
+        path.line_to(Vec2::new(x + w, y + h));
+        path.line_to(Vec2::new(x, y + h));
+        path.close();
     } else {
-        pb.move_to(x + r, y);
-        pb.line_to(x + w - r, y);
-        pb.cubic_to(
-            x + w - r + c, y,
-            x + w, y + r - c,
-            x + w, y + r,
+        path.move_to(Vec2::new(x + r, y));
+        path.line_to(Vec2::new(x + w - r, y));
+        path.cubic_to(
+            Vec2::new(x + w - r + c, y),
+            Vec2::new(x + w, y + r - c),
+            Vec2::new(x + w, y + r),
         );
-        pb.line_to(x + w, y + h - r);
-        pb.cubic_to(
-            x + w, y + h - r + c,
-            x + w - r + c, y + h,
-            x + w - r, y + h,
+        path.line_to(Vec2::new(x + w, y + h - r));
+        path.cubic_to(
+            Vec2::new(x + w, y + h - r + c),
+            Vec2::new(x + w - r + c, y + h),
+            Vec2::new(x + w - r, y + h),
         );
-        pb.line_to(x + r, y + h);
-        pb.cubic_to(
-            x + r - c, y + h,
-            x, y + h - r + c,
-            x, y + h - r,
+        path.line_to(Vec2::new(x + r, y + h));
+        path.cubic_to(
+            Vec2::new(x + r - c, y + h),
+            Vec2::new(x, y + h - r + c),
+            Vec2::new(x, y + h - r),
         );
-        pb.line_to(x, y + r);
-        pb.cubic_to(
-            x, y + r - c,
-            x + r - c, y,
-            x + r, y,
+        path.line_to(Vec2::new(x, y + r));
+        path.cubic_to(
+            Vec2::new(x, y + r - c),
+            Vec2::new(x + r - c, y),
+            Vec2::new(x + r, y),
         );
-        pb.close();
+        path.close();
     }
-    pb.finish()
+    Some(path)
 }
 
 
 fn paint_rounded_rect(
     x: f32, y: f32, w: f32, h: f32,
     fill_rgb: (u8, u8, u8), seam_rgb: (u8, u8, u8),
-    transform: Transform,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let path = match rounded_rect_path(x, y, w, h, CORNER_RADIUS) {
         Some(p) => p,
@@ -156,12 +157,8 @@ fn paint_rounded_rect(
     let fill = rgb_paint(fill_rgb);
     let seam = rgb_paint(seam_rgb);
     let stroke = thin_stroke();
-    ctx.pixmap.fill_path(
-        &path, &fill, FillRule::Winding, transform, None,
-    );
-    ctx.pixmap.stroke_path(
-        &path, &seam, &stroke, transform, None,
-    );
+    painter.fill_path(&path, &fill, FillRule::Winding);
+    painter.stroke_path(&path, &seam, &stroke);
 }
 
 
@@ -170,7 +167,7 @@ fn render_ortho_run(
     horizontal: bool,
     fill_rgb: (u8, u8, u8), seam_rgb: (u8, u8, u8),
     rng: &mut WallRng,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let run_len = if horizontal { (x1 - x0).abs() } else { (y1 - y0).abs() };
     let run_start = if horizontal { x0.min(x1) } else { y0.min(y1) };
@@ -187,10 +184,7 @@ fn render_ortho_run(
             } else {
                 (perp, run_start + pos, strip_thick, width)
             };
-            paint_rounded_rect(
-                rx, ry, rw, rh,
-                fill_rgb, seam_rgb, ctx.transform, ctx,
-            );
+            paint_rounded_rect(rx, ry, rw, rh, fill_rgb, seam_rgb, painter);
             pos += width;
         }
     }
@@ -200,19 +194,26 @@ fn render_diagonal_run(
     x0: f32, y0: f32, x1: f32, y1: f32,
     fill_rgb: (u8, u8, u8), seam_rgb: (u8, u8, u8),
     rng: &mut WallRng,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let dx = x1 - x0;
     let dy = y1 - y0;
     let run_len = (dx * dx + dy * dy).sqrt();
-    let angle_deg = dy.atan2(dx).to_degrees();
+    let angle_rad = dy.atan2(dx);
     let strip_thick = WALL_THICKNESS / (STRIP_COUNT as f32);
-    // `transform = outer * translate(x0, y0) * rotate(angle)` so
-    // the canonical horizontal canvas units land at the run start
-    // rotated to match the edge direction.
-    let local = Transform::from_translate(x0, y0)
-        .pre_concat(Transform::from_rotate(angle_deg));
-    let local_transform = ctx.transform.pre_concat(local);
+    // Equivalent to the legacy
+    //   `local = translate(x0, y0) * rotate(angle_deg)`
+    //   `local_transform = ctx.transform.pre_concat(local)`
+    //
+    // Two `push_transform` calls compose left-to-right via
+    // SkiaPainter::push_transform's `top.pre_concat(local)` semantics,
+    // so the canonical horizontal canvas units land at the run start
+    // rotated to match the edge direction. `painter::Transform::rotate`
+    // takes RADIANS — converted from atan2's natural radians (the
+    // legacy code went through `to_degrees()` only because
+    // `tiny_skia::Transform::from_rotate` takes degrees).
+    painter.push_transform(Transform::translate(x0, y0));
+    painter.push_transform(Transform::rotate(angle_rad));
     for idx in 0..STRIP_COUNT {
         let perp = -WALL_THICKNESS / 2.0 + (idx as f32) * strip_thick;
         let mut pos = STRIP_OFFSETS[idx as usize].max(0.0);
@@ -221,11 +222,13 @@ fn render_diagonal_run(
             width = width.min(run_len - pos);
             paint_rounded_rect(
                 pos, perp, width, strip_thick,
-                fill_rgb, seam_rgb, local_transform, ctx,
+                fill_rgb, seam_rgb, painter,
             );
             pos += width;
         }
     }
+    painter.pop_transform();
+    painter.pop_transform();
 }
 
 
@@ -238,9 +241,8 @@ pub(super) fn render_masonry_polygon(
     polygon: &[(f32, f32)],
     material: MasonryMaterial,
     rng_seed: u64,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
-    let _ = PI;  // keep import (stays used when atan2 lands).
     let n = polygon.len();
     if n < 3 {
         return;
@@ -270,12 +272,12 @@ pub(super) fn render_masonry_polygon(
         if horizontal || vertical {
             render_ortho_run(
                 ax_ext, ay_ext, bx_ext, by_ext, horizontal,
-                fill_rgb, seam_rgb, &mut rng, ctx,
+                fill_rgb, seam_rgb, &mut rng, painter,
             );
         } else {
             render_diagonal_run(
                 ax_ext, ay_ext, bx_ext, by_ext,
-                fill_rgb, seam_rgb, &mut rng, ctx,
+                fill_rgb, seam_rgb, &mut rng, painter,
             );
         }
     }

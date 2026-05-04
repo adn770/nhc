@@ -5,17 +5,20 @@
 //! Fortification battlement chain. Per-edge palisade RNG is splitmix64
 //! seeded with `rng_seed + edge_idx`. Used for ``WallStyle::Palisade``
 //! and ``WallStyle::FortificationMerlon`` styles.
+//!
+//! Phase 2.15h — ported from direct `tiny_skia::Pixmap` access onto the
+//! [`Painter`] trait. The Diamond corner's per-shape rotation around
+//! `(x, y)` is now expressed via [`Painter::push_transform`] /
+//! [`Painter::pop_transform`] using `Transform::rotate_around`.
 
 use std::f32::consts::SQRT_2;
 
-use tiny_skia::{
-    Color, FillRule, LineCap, Paint, PathBuilder, Rect, Stroke, Transform,
-};
-
 use crate::ir::WallStyle;
+use crate::painter::{
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Rect, Stroke,
+    Transform, Vec2,
+};
 use crate::rng::SplitMix64;
-
-use super::RasterCtx;
 
 /// Discriminator passed to [`render_enclosure_polygon`]: collapses the
 /// two enclosure-bearing WallStyle variants into a 2-element enum.
@@ -84,18 +87,16 @@ impl EncRng {
 // ── Paint + stroke helpers ─────────────────────────────────────
 
 
-fn rgb_paint(rgb: (u8, u8, u8), alpha: f32) -> Paint<'static> {
-    let mut p = Paint::default();
-    p.set_color(Color::from_rgba8(rgb.0, rgb.1, rgb.2, (alpha * 255.0) as u8));
-    p.anti_alias = true;
-    p
+fn rgb_paint(rgb: (u8, u8, u8), alpha: f32) -> Paint {
+    Paint::solid(Color::rgba(rgb.0, rgb.1, rgb.2, alpha))
 }
 
 fn thin_stroke(width: f32) -> Stroke {
-    let mut s = Stroke::default();
-    s.width = width;
-    s.line_cap = LineCap::Butt;
-    s
+    Stroke {
+        width,
+        line_cap: LineCap::Butt,
+        line_join: LineJoin::Miter,
+    }
 }
 
 
@@ -148,33 +149,38 @@ fn subsegments(
 // ── Fortification rect (centered) + battlement chain ──────────
 
 
+/// Rect-stroked fill primitive used by the battlement chain. The
+/// fill goes through `fill_rect` and the stroke through `stroke_path`
+/// of an explicit closed-path so the join is identical to the legacy
+/// `pb.move_to ... close ... stroke_path` rendering (a `stroke_rect`
+/// would emit four segments via `tiny_skia`'s `push_rect` which, while
+/// equivalent for axis-aligned rectangles, is held off until the SVG
+/// painter ships in 2.16 to keep the diff parity-tight).
 fn fortif_rect(
     cx: f32, cy: f32, w: f32, h: f32, fill_rgb: (u8, u8, u8),
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
-    let rect = match Rect::from_xywh(cx - w / 2.0, cy - h / 2.0, w, h) {
-        Some(r) => r,
-        None => return,
-    };
+    if w <= 0.0 || h <= 0.0 {
+        return;
+    }
     let fill = rgb_paint(fill_rgb, 1.0);
-    ctx.pixmap.fill_rect(rect, &fill, ctx.transform, None);
+    painter.fill_rect(
+        Rect::new(cx - w / 2.0, cy - h / 2.0, w, h),
+        &fill,
+    );
     let stroke = thin_stroke(FORTIF_STROKE_WIDTH);
     let stroke_paint = rgb_paint(FORTIF_STROKE_RGB, 1.0);
-    let mut pb = PathBuilder::new();
-    pb.move_to(cx - w / 2.0, cy - h / 2.0);
-    pb.line_to(cx + w / 2.0, cy - h / 2.0);
-    pb.line_to(cx + w / 2.0, cy + h / 2.0);
-    pb.line_to(cx - w / 2.0, cy + h / 2.0);
-    pb.close();
-    if let Some(path) = pb.finish() {
-        ctx.pixmap.stroke_path(
-            &path, &stroke_paint, &stroke, ctx.transform, None,
-        );
-    }
+    let mut path = PathOps::new();
+    path.move_to(Vec2::new(cx - w / 2.0, cy - h / 2.0));
+    path.line_to(Vec2::new(cx + w / 2.0, cy - h / 2.0));
+    path.line_to(Vec2::new(cx + w / 2.0, cy + h / 2.0));
+    path.line_to(Vec2::new(cx - w / 2.0, cy + h / 2.0));
+    path.close();
+    painter.stroke_path(&path, &stroke_paint, &stroke);
 }
 
 fn centered_fortification_chain(
-    a: (f32, f32), b: (f32, f32), ctx: &mut RasterCtx<'_>,
+    a: (f32, f32), b: (f32, f32), painter: &mut dyn Painter,
 ) {
     let dx = b.0 - a.0;
     let dy = b.1 - a.1;
@@ -213,7 +219,7 @@ fn centered_fortification_chain(
         } else {
             FORTIF_CRENEL_RGB
         };
-        fortif_rect(cx, cy, shape_w, shape_h, fill_rgb, ctx);
+        fortif_rect(cx, cy, shape_w, shape_h, fill_rgb, painter);
         pos += length;
         alternate = 1 - alternate;
     }
@@ -224,39 +230,42 @@ fn centered_fortification_chain(
 
 
 fn corner_shape(
-    x: f32, y: f32, corner_style: i8, ctx: &mut RasterCtx<'_>,
+    x: f32, y: f32, corner_style: i8, painter: &mut dyn Painter,
 ) {
     // CornerStyle: Merlon=0, Diamond=1, Tower=2.
     let size = FORTIF_SIZE * FORTIF_CORNER_SCALE;
     if corner_style == 1 {
-        // Diamond — 45° rotated black square.
+        // Diamond — 45° rotated black square. Legacy used
+        // `tiny_skia::Transform::from_rotate_at(45.0, x, y)` (degrees);
+        // the painter equivalent is `rotate_around(45°→radians, x, y)`.
         let half = size / 2.0;
-        let rect = match Rect::from_xywh(x - half, y - half, size, size) {
-            Some(r) => r,
-            None => return,
-        };
+        if half <= 0.0 {
+            return;
+        }
         let fill = rgb_paint(FORTIF_CORNER_RGB, 1.0);
-        let rotated = ctx.transform.pre_concat(
-            Transform::from_rotate_at(45.0, x, y),
-        );
-        ctx.pixmap.fill_rect(rect, &fill, rotated, None);
         let stroke = thin_stroke(FORTIF_STROKE_WIDTH);
         let stroke_paint = rgb_paint(FORTIF_STROKE_RGB, 1.0);
-        let mut pb = PathBuilder::new();
-        pb.move_to(x - half, y - half);
-        pb.line_to(x + half, y - half);
-        pb.line_to(x + half, y + half);
-        pb.line_to(x - half, y + half);
-        pb.close();
-        if let Some(path) = pb.finish() {
-            ctx.pixmap.stroke_path(
-                &path, &stroke_paint, &stroke, rotated, None,
-            );
-        }
+        let mut path = PathOps::new();
+        path.move_to(Vec2::new(x - half, y - half));
+        path.line_to(Vec2::new(x + half, y - half));
+        path.line_to(Vec2::new(x + half, y + half));
+        path.line_to(Vec2::new(x - half, y + half));
+        path.close();
+        painter.push_transform(Transform::rotate_around(
+            45.0_f32.to_radians(),
+            x,
+            y,
+        ));
+        painter.fill_rect(
+            Rect::new(x - half, y - half, size, size),
+            &fill,
+        );
+        painter.stroke_path(&path, &stroke_paint, &stroke);
+        painter.pop_transform();
         return;
     }
     // Merlon / Tower fallback: axis-aligned black square.
-    fortif_rect(x, y, size, size, FORTIF_CORNER_RGB, ctx);
+    fortif_rect(x, y, size, size, FORTIF_CORNER_RGB, painter);
 }
 
 
@@ -264,7 +273,7 @@ fn corner_shape(
 
 
 fn palisade_circles(
-    points: &[(f32, f32)], rng: &mut EncRng, ctx: &mut RasterCtx<'_>,
+    points: &[(f32, f32)], rng: &mut EncRng, painter: &mut dyn Painter,
 ) {
     if points.len() < 2 {
         return;
@@ -291,16 +300,11 @@ fn palisade_circles(
             let base_r = rng.uniform(PALI_RADIUS_MIN, PALI_RADIUS_MAX);
             let jitter = rng.uniform(-PALI_RADIUS_JITTER, PALI_RADIUS_JITTER);
             let r = (base_r + jitter).max(0.1);
-            let mut pb = PathBuilder::new();
-            pb.push_circle(cx, cy, r);
-            if let Some(path) = pb.finish() {
-                ctx.pixmap.fill_path(
-                    &path, &fill, FillRule::Winding, ctx.transform, None,
-                );
-                ctx.pixmap.stroke_path(
-                    &path, &stroke_paint, &stroke, ctx.transform, None,
-                );
-            }
+            painter.fill_circle(cx, cy, r, &fill);
+            // Stroke via an explicit circle-as-cubic-Bézier path so
+            // the trait surface stays narrow (no `stroke_circle`).
+            let circle_path = circle_path_ops(cx, cy, r);
+            painter.stroke_path(&circle_path, &stroke_paint, &stroke);
             t += PALI_CIRCLE_STEP;
         }
         carry = (t - seg_len).max(0.0);
@@ -309,7 +313,7 @@ fn palisade_circles(
 
 fn palisade_door_rect(
     a: (f32, f32), b: (f32, f32), t_center: f32,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let dx = b.0 - a.0;
     let dy = b.1 - a.1;
@@ -332,25 +336,53 @@ fn palisade_door_rect(
             PALI_DOOR_LENGTH_PX,
         )
     };
-    let rect = match Rect::from_xywh(x, y, w, h) {
-        Some(r) => r,
-        None => return,
-    };
+    if w <= 0.0 || h <= 0.0 {
+        return;
+    }
     let fill = rgb_paint(PALI_FILL_RGB, 1.0);
-    ctx.pixmap.fill_rect(rect, &fill, ctx.transform, None);
+    painter.fill_rect(Rect::new(x, y, w, h), &fill);
     let stroke = thin_stroke(PALI_STROKE_WIDTH);
     let stroke_paint = rgb_paint(PALI_STROKE_RGB, 1.0);
-    let mut pb = PathBuilder::new();
-    pb.move_to(x, y);
-    pb.line_to(x + w, y);
-    pb.line_to(x + w, y + h);
-    pb.line_to(x, y + h);
-    pb.close();
-    if let Some(path) = pb.finish() {
-        ctx.pixmap.stroke_path(
-            &path, &stroke_paint, &stroke, ctx.transform, None,
-        );
-    }
+    let mut path = PathOps::new();
+    path.move_to(Vec2::new(x, y));
+    path.line_to(Vec2::new(x + w, y));
+    path.line_to(Vec2::new(x + w, y + h));
+    path.line_to(Vec2::new(x, y + h));
+    path.close();
+    painter.stroke_path(&path, &stroke_paint, &stroke);
+}
+
+
+/// Emit a circle as a 4-cubic-Bezier closed [`PathOps`]. Mirrors the
+/// `tiny_skia::PathBuilder::push_circle` shape so the stroked outline
+/// of a palisade post matches the pre-port pixel layout.
+fn circle_path_ops(cx: f32, cy: f32, r: f32) -> PathOps {
+    const KAPPA: f32 = 0.5522847498307933; // 4 * (sqrt(2) - 1) / 3
+    let k = r * KAPPA;
+    let mut path = PathOps::new();
+    path.move_to(Vec2::new(cx + r, cy));
+    path.cubic_to(
+        Vec2::new(cx + r, cy + k),
+        Vec2::new(cx + k, cy + r),
+        Vec2::new(cx, cy + r),
+    );
+    path.cubic_to(
+        Vec2::new(cx - k, cy + r),
+        Vec2::new(cx - r, cy + k),
+        Vec2::new(cx - r, cy),
+    );
+    path.cubic_to(
+        Vec2::new(cx - r, cy - k),
+        Vec2::new(cx - k, cy - r),
+        Vec2::new(cx, cy - r),
+    );
+    path.cubic_to(
+        Vec2::new(cx + k, cy - r),
+        Vec2::new(cx + r, cy - k),
+        Vec2::new(cx + r, cy),
+    );
+    path.close();
+    path
 }
 
 
@@ -367,7 +399,7 @@ pub(super) fn render_enclosure_polygon(
     style: EnclosureKind,
     corner_style: i8,
     rng_seed: u64,
-    ctx: &mut RasterCtx<'_>,
+    painter: &mut dyn Painter,
 ) {
     let n = polygon.len();
     if n < 3 {
@@ -381,10 +413,10 @@ pub(super) fn render_enclosure_polygon(
             let subs = subsegments(a, b, &cuts);
             let mut edge_rng = EncRng::new(rng_seed.wrapping_add(i as u64));
             for (sa, sb) in &subs {
-                palisade_circles(&[*sa, *sb], &mut edge_rng, ctx);
+                palisade_circles(&[*sa, *sb], &mut edge_rng, painter);
             }
             for &t_center in &midpoints[i] {
-                palisade_door_rect(a, b, t_center, ctx);
+                palisade_door_rect(a, b, t_center, painter);
             }
         }
         return;
@@ -423,7 +455,7 @@ pub(super) fn render_enclosure_polygon(
         };
         let subs = subsegments(a_in, b_in, &inset_cuts);
         for (sa, sb) in subs {
-            centered_fortification_chain(sa, sb, ctx);
+            centered_fortification_chain(sa, sb, painter);
         }
     }
     // Wood gate visuals (legacy fortification drew nothing here).
@@ -431,11 +463,11 @@ pub(super) fn render_enclosure_polygon(
         let a = polygon[i];
         let b = polygon[(i + 1) % n];
         for &t_center in &midpoints[i] {
-            palisade_door_rect(a, b, t_center, ctx);
+            palisade_door_rect(a, b, t_center, painter);
         }
     }
     for &(x, y) in polygon {
-        corner_shape(x, y, corner_style, ctx);
+        corner_shape(x, y, corner_style, painter);
     }
 }
 
