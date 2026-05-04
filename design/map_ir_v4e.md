@@ -1,13 +1,15 @@
 # Floor IR v4e — region-keyed pure-IR contract
 
-**Status:** Proposed evolution of `design/map_ir_v4.md`. The v4e
-schema **is** schema 4.0 — there is no intermediate 4.x state.
-The migration runs within the 3.x development cycle as additive
-minor bumps (3.2 → 3.5), and a single atomic 4.0 cut at the end
-drops all legacy v3 ops + intermediate v4-prep fields together
-and bumps `file_identifier` from `"NIR3"` to `"NIR4"`. Replaces
-v4.md once v4e ships. Pre-3.0 contract in `design/map_ir.md`
-remains the historical reference.
+**Status:** Canonical reference. Phases 1 (schema) and 2
+(Painter-trait renderer + retired Python `ir_to_svg.py`) of
+`plans/nhc_pure_ir_plan.md` have shipped on `feat/pure-ir-v4`;
+the WASM `CanvasPainter` (Phase 3) is the remaining work. The
+v4e schema **is** schema 4.0 — there is no intermediate 4.x
+state. The migration ran within the 3.x development cycle as
+additive minor bumps (3.2 → 3.5) and a single atomic 4.0 cut
+at the end (`file_identifier` bumped from `"NIR3"` to `"NIR4"`).
+Pre-3.0 contract in `design/map_ir.md` remains the historical
+reference; `design/map_ir_v4.md` is v4e's predecessor.
 
 Two outcomes the v4 design does not reach but v4e does:
 
@@ -828,10 +830,30 @@ pub trait Painter {
     // are masked by the clip path. Used by region_ref consumers.
     fn push_clip(&mut self, path: &PathOps, fill_rule: FillRule);
     fn pop_clip(&mut self);
+
+    // Transform scope — paints rendered between push_transform
+    // and pop_transform render under the cumulative transform
+    // (active = base × stack-product, top-of-stack last applied).
+    // Used by per-edge rotated runs (Masonry, Palisade,
+    // Fortification) and any other case where a sub-block of
+    // paint calls shares a non-trivial transform.
+    fn push_transform(&mut self, transform: Transform);
+    fn pop_transform(&mut self);
 }
 
 pub struct Paint  { pub color: Color }
 pub struct Stroke { pub width: f32, pub line_cap: LineCap, pub line_join: LineJoin }
+
+/// 2D affine transform encoded as a 3x2 matrix in tiny-skia's
+/// row order. `(x, y)` maps to `(sx*x + kx*y + tx, ky*x + sy*y + ty)`.
+/// Constructors: `identity / translate(dx, dy) / scale(sx, sy) /
+/// rotate(angle_rad) / rotate_around(angle_rad, cx, cy)` and
+/// `pre_concat(other)` for composition. `rotate*` takes radians;
+/// the SkiaPainter converts to degrees internally.
+pub struct Transform {
+    pub sx: f32, pub kx: f32, pub tx: f32,
+    pub ky: f32, pub sy: f32, pub ty: f32,
+}
 ```
 
 ### Group-opacity scope (carryover from v4)
@@ -876,13 +898,52 @@ fn draw_floor_grid_op(op: &FloorGridOp, regions: &[Region], painter: &mut dyn Pa
 }
 ```
 
+### Transform scope (added in Phase 2.15g)
+
+`push_transform(transform)` activates a cumulative transform for
+subsequent paint calls until the matching `pop_transform()`. Each
+push composes left-to-right against the current top of the stack
+(or the painter's base transform when the stack is empty), so
+nested pushes compound naturally — equivalent to the legacy
+`ctx.transform.pre_concat(...)` shape the v3 PNG handlers used
+inline. Implementations:
+
+- **`SkiaPainter`**: maintains a `Vec<tiny_skia::Transform>` of
+  cumulative transforms. The active transform is the top of the
+  stack (or the painter's base transform when empty); every
+  paint call passes `active_transform()` to the underlying
+  `Pixmap::fill_*` / `stroke_*` call.
+- **`SvgPainter`**: emits a `<g transform="matrix(sx ky kx sy
+  tx ty)">` envelope on each push (column-major remap of the
+  row-major Transform fields); pop closes the `</g>`.
+- **`CanvasPainter`** (Phase 3): uses `ctx.save()` +
+  `ctx.transform(...)` on push, `ctx.restore()` on pop.
+
+Per-edge rotated runs (Masonry / Palisade / Fortification stones)
+use this trait surface:
+
+```rust
+fn render_masonry_diagonal_run(
+    cx: f32, cy: f32, angle_rad: f32, painter: &mut dyn Painter,
+) {
+    painter.push_transform(Transform::translate(cx, cy));
+    painter.push_transform(Transform::rotate(angle_rad));
+    /* paint stone rects in run-local coordinates */
+    painter.pop_transform();
+    painter.pop_transform();
+}
+```
+
 ### SkiaPainter
 
 Drives `tiny_skia::Pixmap`. Replaces `transform/png/fragment.rs`
 and the per-handler tiny-skia calls scattered across
 `transform/png/*.rs`. Lifts the existing
 `paint_offscreen_group` mechanism for `begin_group` / `end_group`
-and the existing `Mask::new()` mechanism for clip stack.
+and the existing `Mask::new()` mechanism for clip stack. The
+transform stack is a `Vec<tiny_skia::Transform>` — Color uses f32
+alpha (in `[0.0, 1.0]`) so sub-percent opacities like shadow's
+`0.08` and hatch's `0.04` round-trip without u8 precision loss.
 
 ### SvgPainter
 
@@ -898,6 +959,12 @@ Drives an HTML5 Canvas2D context via `wasm-bindgen`. The 50-line
 opcode emitter the parent migration plan pencilled in for a
 Canvas backend becomes obsolete — Phase 2 already did the
 abstraction work; CanvasPainter implements the trait directly.
+Group-opacity scope maps to `ctx.save()` + `ctx.globalAlpha = X`
++ `ctx.restore()` (or to a same-size offscreen `OffscreenCanvas`
++ `drawImage(... globalAlpha)` if Canvas2D's per-element alpha
+over-darkens overlap regions); clip scope to `ctx.clip()` between
+`save`/`restore`; transform scope to `ctx.save()` +
+`ctx.transform(sx, ky, kx, sy, tx, ty)` + `ctx.restore()`.
 
 ## 8. Cross-rasteriser story
 
@@ -1032,15 +1099,13 @@ are renderer-only refactors that don't touch the schema.
 | **1.25** | 3.5    | Per-tile ops gain `region_ref` (additive parallel of `clipRegion`). | additive |
 | **1.26** | 3.5    | Emitter stops populating deprecated outlines, `Outline.cuts`, `Region.polygon`, `clipRegion`, AND the legacy v3 ops. All consumers on region_ref path. Schema fields stay for back-compat readers; emitter-only change, no schema bump. | non-additive (emitter behaviour change) |
 | **1.27** | 4.0    | Single atomic schema cut. Drop legacy v3 ops (`WallsAndFloorsOp`, `BuildingExteriorWallOp`, `BuildingInteriorWallOp`, `EnclosureOp`, `Gate`, `GateStyle`, `WallMaterial`, `InteriorWallMaterial`, `EnclosureStyle`, `GenericProceduralOp`) AND deprecated v4-prep fields (`Region.polygon`, `FloorOp.outline`, `ExteriorWallOp.outline`, `Outline.cuts`, `clipRegion`). Bump `file_identifier` from `"NIR3"` to `"NIR4"`. `SCHEMA_MAJOR = 4`, `SCHEMA_MINOR = 0`. Tag `ir-schema-4.0`. | atomic break |
-| **2**    | (no bump) | Define `Painter` trait. Implement `SkiaPainter`. Port `crates/nhc-render/src/primitives/*.rs` from `Vec<String>` to `&mut dyn Painter`. | renderer-only refactor |
-| **3**    | (no bump) | Implement `SvgPainter`. Add `nhc_render.ir_to_svg(buf)` PyO3 export. Retire `nhc/rendering/ir_to_svg.py`. | renderer-only |
-| **4**    | (no bump) | Drop `<g clip-path>` wrappers + `<defs><clipPath>` from SvgPainter output. Clip via `push_clip` / `pop_clip` per-element. | renderer-only |
-| **5**    | (no bump) | `nhc-render-wasm` crate + `CanvasPainter` impl. ~50 lines of dispatcher + the trait impl. | renderer-only |
+| **2**    | (no bump) | Define `Painter` trait. Implement `SkiaPainter` + `SvgPainter`. Port `crates/nhc-render/src/primitives/*.rs` and the v4-op handlers in `transform/png/*.rs` from `Vec<String>` / direct tiny-skia to `&mut dyn Painter`. Add `transform/svg/` Rust dispatch. Add `nhc_render.ir_to_svg(buf)` PyO3 export. Retire `nhc/rendering/ir_to_svg.py` + the legacy `draw_*` SVG-string FFI exports. | renderer-only refactor |
+| **3**    | (no bump) | `nhc-render-wasm` crate + `CanvasPainter` impl. ~50 lines of dispatcher + the trait impl. | renderer-only |
 
 Phases 1.22 – 1.26 are independently shippable. Each phase ladder
 lands one or two commits per op kind. Phase 1.27 is the single
 atomic schema cut that finalises v4e; there are no intermediate
-4.x minor states. Phases 2 – 5 are sequential refactors that
+4.x minor states. Phases 2 – 3 are sequential refactors that
 don't touch schema.
 
 ### Determinism contract through migration
@@ -1147,22 +1212,25 @@ nhc/rendering/ir/
 nhc/rendering/
 ├── ir_emitter.py                 # Level → FloorIR translator
 ├── _floor_layers.py              # per-op _emit_*_ir helpers
-├── _outline_helpers.py           # outline_from_<shape> + cuts_for_*
-└── (ir_to_svg.py — RETIRED at Phase 3)
+└── _outline_helpers.py           # outline_from_<shape> + cuts_for_*
+                                  # (ir_to_svg.py — RETIRED at Phase 2.19)
 
 crates/nhc-render/
 ├── src/
 │   ├── ir/                       # generated FB bindings (Rust)
-│   ├── painter.rs                # Painter trait (NEW Phase 2)
+│   ├── painter/                  # Painter trait + Skia/Svg impls
+│   │   ├── mod.rs                # trait + Color/Paint/Stroke/Transform/PathOps
+│   │   ├── skia.rs               # SkiaPainter (tiny_skia::Pixmap)
+│   │   └── svg.rs                # SvgPainter (semantic SVG string)
 │   ├── primitives/               # per-primitive emitters (call &mut dyn Painter)
 │   ├── transform/
-│   │   ├── png/                  # SkiaPainter dispatch (replaces fragment.rs)
-│   │   ├── svg/                  # SvgPainter dispatch (NEW Phase 3)
-│   │   └── canvas/               # CanvasPainter dispatch (NEW Phase 5)
+│   │   ├── png/                  # SkiaPainter dispatch (op handlers)
+│   │   └── svg/                  # SvgPainter dispatch (op handlers)
+│   │                             # (canvas/ — NEW Phase 3 / WASM)
 │   └── geometry.rs               # outline / path utilities
 └── Cargo.toml
 
-crates/nhc-render-wasm/           # NEW Phase 5
+crates/nhc-render-wasm/           # NEW Phase 3 / WASM
 └── (CanvasPainter glue)
 
 tests/unit/
