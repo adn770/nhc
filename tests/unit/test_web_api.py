@@ -1162,7 +1162,16 @@ class TestFloorIRArtefactsDiskWiring:
         self, client_with_data_dir,
     ):
         """Phase 2.5 regression guard: with no ``?bare`` flag, the
-        existing route still serves the cached composite SVG."""
+        existing route still serves the cached composite SVG.
+
+        Phase 2.18: the .svg endpoint now ships the Rust
+        ``nhc_render.ir_to_svg`` output, which doesn't emit the
+        per-layer ``<!-- layer.X: N elements -->`` comments the
+        Python emitter wrote. The structural sanity check here
+        (well-formed envelope + non-empty body) replaces the
+        layer-comment probes; Phase 2.21 formalises this PSNR +
+        structural-sanity gate across the parity harness.
+        """
         sid, session, svg_id = self._start_dungeon_game(
             client_with_data_dir,
         )
@@ -1171,10 +1180,19 @@ class TestFloorIRArtefactsDiskWiring:
         )
         assert resp.status_code == 200
         body = resp.get_data(as_text=True)
-        # The composite SVG carries every layer comment because the
-        # renderer ran a full pipeline at bootstrap.
-        assert "<!-- layer.floor_detail:" in body
-        assert "<!-- layer.surface_features:" in body
+        assert resp.headers["Content-Type"] == "image/svg+xml"
+        # The composite SVG must round-trip through the IR
+        # pipeline as a complete document.
+        assert body.startswith("<?xml") or body.startswith("<svg")
+        assert body.rstrip().endswith("</svg>")
+        # At least one geometry element from the gameplay layers
+        # must appear — guards against an empty envelope leaking
+        # through if the dispatcher silently dropped every op.
+        assert any(
+            tag in body
+            for tag in ("<rect", "<path", "<polygon", "<polyline",
+                        "<circle", "<ellipse", "<line")
+        )
 
     def test_svg_route_bare_skips_decoration_layers(
         self, client_with_data_dir,

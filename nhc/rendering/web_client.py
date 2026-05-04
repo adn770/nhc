@@ -17,6 +17,8 @@ import queue
 import time
 from typing import TYPE_CHECKING, Any
 
+import nhc_render
+
 from nhc.dungeon.model import (
     CircleShape,
     HybridShape,
@@ -32,7 +34,6 @@ from nhc.hexcrawl.model import FLOWER_COORDS, HexWorld
 from nhc.i18n import t as tr
 from nhc.rendering.client import GameClient
 from nhc.rendering.ir_emitter import build_floor_ir
-from nhc.rendering.ir_to_svg import ir_to_svg
 from nhc.rendering.message_throttle import MessageThrottle
 
 if TYPE_CHECKING:
@@ -1357,7 +1358,7 @@ class WebClient(GameClient):
             )
         else:
             veg = self.vegetation if vegetation is None else vegetation
-            self.floor_svg = ir_to_svg(build_floor_ir(
+            self.floor_svg = nhc_render.ir_to_svg(build_floor_ir(
                 level,
                 seed=seed,
                 hatch_distance=hatch_distance,

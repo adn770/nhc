@@ -820,10 +820,10 @@ def create_app(
                 client.floor_svg_id = _uuid.uuid4().hex[:12]
                 logger.info("Resume: floor SVG from disk cache")
             elif game.level:
+                import nhc_render
                 from nhc.rendering.ir_emitter import build_floor_ir
-                from nhc.rendering.ir_to_svg import ir_to_svg
                 seed = game.seed or 0
-                client.floor_svg = ir_to_svg(build_floor_ir(
+                client.floor_svg = nhc_render.ir_to_svg(build_floor_ir(
                     game.level,
                     seed=seed,
                     hatch_distance=config.hatch_distance,
@@ -1032,11 +1032,11 @@ def create_app(
                 logger.info("Floor SVG from disk cache: %d bytes",
                             len(client.floor_svg))
             elif game.level:
+                import nhc_render
                 from nhc.rendering.ir_emitter import build_floor_ir
-                from nhc.rendering.ir_to_svg import ir_to_svg
                 logger.info("Rendering floor SVG...")
                 seed = game.seed or 0
-                client.floor_svg = ir_to_svg(build_floor_ir(
+                client.floor_svg = nhc_render.ir_to_svg(build_floor_ir(
                     game.level,
                     seed=seed,
                     hatch_distance=config.hatch_distance,
@@ -1115,9 +1115,19 @@ def create_app(
         entry = _get_or_build_ir_artefacts(session, svg_id)
         if entry is None:
             return "floor SVG not found", 404
-        from nhc.rendering.ir_to_svg import ir_to_svg
         bare = request.args.get("bare") == "1"
-        resp = make_response(ir_to_svg(entry.nir, bare=bare))
+        if bare:
+            # Phase 2.18: the Rust `nhc_render.ir_to_svg` does not
+            # accept the `bare` flag yet; the /admin debug visual
+            # keeps routing through the Python emitter until that
+            # feature lands. The non-bare composite path below
+            # already serves the Rust output.
+            from nhc.rendering.ir_to_svg import ir_to_svg
+            svg = ir_to_svg(entry.nir, bare=True)
+        else:
+            import nhc_render
+            svg = nhc_render.ir_to_svg(entry.nir)
+        resp = make_response(svg)
         resp.headers["Content-Type"] = "image/svg+xml"
         resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
