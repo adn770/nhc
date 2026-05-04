@@ -46,12 +46,17 @@ from nhc.hexcrawl.model import Biome
 # Per-kind tier table. M6b only supports the default tier
 # (SMALL); future tiers can grow when gameplay calls for it.
 TEMPLE_DIMS_BY_TIER: dict[SiteTier, tuple[int, int]] = {
-    SiteTier.SMALL: (22, 18),
+    # Surface dims are the previous renderable area + 2 in each
+    # axis (1-tile VOID margin on every side per
+    # ``design/level_surface_layout.md``); the building pos shifts
+    # by (+1, +1) to keep the shrine centred inside the new
+    # buildable area.
+    SiteTier.SMALL: (24, 20),
 }
 
 TEMPLE_SURFACE_WIDTH = TEMPLE_DIMS_BY_TIER[SiteTier.SMALL][0]
 TEMPLE_SURFACE_HEIGHT = TEMPLE_DIMS_BY_TIER[SiteTier.SMALL][1]
-TEMPLE_BUILDING_POS = (7, 5)
+TEMPLE_BUILDING_POS = (8, 6)
 TEMPLE_BUILDING_SIZE = (8, 8)
 TEMPLE_GARDEN_RING = 1
 TEMPLE_MYSTERIOUS_DROP_RANGE = (2, 4)
@@ -361,8 +366,11 @@ def _build_temple_surface(
                         garden_tiles.add((ax, ay))
 
     default_surface = _default_surface_type(biome)
-    for y in range(surface.height):
-        for x in range(surface.width):
+    # The outermost row / column on every side stays VOID — that's
+    # the 1-tile margin contract per
+    # ``design/level_surface_layout.md``.
+    for y in range(1, surface.height - 1):
+        for x in range(1, surface.width - 1):
             if (x, y) in blocked:
                 continue
             if (x, y) in garden_tiles:

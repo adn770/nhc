@@ -123,8 +123,6 @@ _ALL_GENERATORS: list[tuple[str, _BuildFn]] = [
 _XFAIL: set[str] = {
     "site:farm",
     "site:mansion",
-    "site:temple",
-    "site:cottage",
     "dungeon:cellular",
     "theme:cave",
 }

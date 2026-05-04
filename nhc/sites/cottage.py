@@ -33,12 +33,17 @@ from nhc.hexcrawl.model import Biome
 # (TINY) so the dispatcher can pass ``tier`` uniformly; further
 # tier entries grow as gameplay calls for it.
 COTTAGE_DIMS_BY_TIER: dict[SiteTier, tuple[int, int]] = {
-    SiteTier.TINY: (14, 12),
+    # Surface dims are the previous renderable area + 2 in each
+    # axis (1-tile VOID margin on every side per
+    # ``design/level_surface_layout.md``); the building pos shifts
+    # by (+1, +1) to keep the cottage centred inside the new
+    # buildable area.
+    SiteTier.TINY: (16, 14),
 }
 
 COTTAGE_SURFACE_WIDTH = COTTAGE_DIMS_BY_TIER[SiteTier.TINY][0]
 COTTAGE_SURFACE_HEIGHT = COTTAGE_DIMS_BY_TIER[SiteTier.TINY][1]
-COTTAGE_BUILDING_POS = (4, 3)
+COTTAGE_BUILDING_POS = (5, 4)
 COTTAGE_BUILDING_SIZE = (5, 5)
 COTTAGE_GARDEN_RING = 1
 
@@ -372,8 +377,11 @@ def _build_cottage_surface(
                 if dist == COTTAGE_GARDEN_RING + 1:
                     garden_tiles.add((ax, ay))
 
-    for y in range(surface.height):
-        for x in range(surface.width):
+    # The outermost row / column on every side stays VOID — that's
+    # the 1-tile margin contract per
+    # ``design/level_surface_layout.md``.
+    for y in range(1, surface.height - 1):
+        for x in range(1, surface.width - 1):
             if (x, y) in blocked:
                 continue
             # GARDEN and FIELD tiles both render on Terrain.GRASS
