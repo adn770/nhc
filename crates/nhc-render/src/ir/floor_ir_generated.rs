@@ -2009,6 +2009,120 @@ impl<'a> ::flatbuffers::Verifiable for V5RoofStyle {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for V5RoofStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_V_5_OP: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_V_5_OP: u8 = 8;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_V_5_OP: [V5Op; 9] = [
+  V5Op::NONE,
+  V5Op::V5PaintOp,
+  V5Op::V5StampOp,
+  V5Op::V5PathOp,
+  V5Op::V5FixtureOp,
+  V5Op::V5StrokeOp,
+  V5Op::ShadowOp,
+  V5Op::V5HatchOp,
+  V5Op::V5RoofOp,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct V5Op(pub u8);
+#[allow(non_upper_case_globals)]
+impl V5Op {
+  pub const NONE: Self = Self(0);
+  pub const V5PaintOp: Self = Self(1);
+  pub const V5StampOp: Self = Self(2);
+  pub const V5PathOp: Self = Self(3);
+  pub const V5FixtureOp: Self = Self(4);
+  pub const V5StrokeOp: Self = Self(5);
+  pub const ShadowOp: Self = Self(6);
+  pub const V5HatchOp: Self = Self(7);
+  pub const V5RoofOp: Self = Self(8);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 8;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::NONE,
+    Self::V5PaintOp,
+    Self::V5StampOp,
+    Self::V5PathOp,
+    Self::V5FixtureOp,
+    Self::V5StrokeOp,
+    Self::ShadowOp,
+    Self::V5HatchOp,
+    Self::V5RoofOp,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::NONE => Some("NONE"),
+      Self::V5PaintOp => Some("V5PaintOp"),
+      Self::V5StampOp => Some("V5StampOp"),
+      Self::V5PathOp => Some("V5PathOp"),
+      Self::V5FixtureOp => Some("V5FixtureOp"),
+      Self::V5StrokeOp => Some("V5StrokeOp"),
+      Self::ShadowOp => Some("ShadowOp"),
+      Self::V5HatchOp => Some("V5HatchOp"),
+      Self::V5RoofOp => Some("V5RoofOp"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for V5Op {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for V5Op {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for V5Op {
+    type Output = V5Op;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for V5Op {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for V5Op {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for V5Op {}
+pub struct V5OpUnionTableOffset {}
+
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_OP: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_OP: u8 = 18;
@@ -10248,6 +10362,311 @@ impl ::core::fmt::Debug for V5RoofOp<'_> {
       ds.finish()
   }
 }
+pub enum V5OpEntryOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct V5OpEntry<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for V5OpEntry<'a> {
+  type Inner = V5OpEntry<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> V5OpEntry<'a> {
+  pub const VT_OP_TYPE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_OP: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    V5OpEntry { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args V5OpEntryArgs
+  ) -> ::flatbuffers::WIPOffset<V5OpEntry<'bldr>> {
+    let mut builder = V5OpEntryBuilder::new(_fbb);
+    if let Some(x) = args.op { builder.add_op(x); }
+    builder.add_op_type(args.op_type);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn op_type(&self) -> V5Op {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<V5Op>(V5OpEntry::VT_OP_TYPE, Some(V5Op::NONE)).unwrap()}
+  }
+  #[inline]
+  pub fn op(&self) -> Option<::flatbuffers::Table<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Table<'a>>>(V5OpEntry::VT_OP, None)}
+  }
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_v5_paint_op(&self) -> Option<V5PaintOp<'a>> {
+    if self.op_type() == V5Op::V5PaintOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { V5PaintOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_v5_stamp_op(&self) -> Option<V5StampOp<'a>> {
+    if self.op_type() == V5Op::V5StampOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { V5StampOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_v5_path_op(&self) -> Option<V5PathOp<'a>> {
+    if self.op_type() == V5Op::V5PathOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { V5PathOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_v5_fixture_op(&self) -> Option<V5FixtureOp<'a>> {
+    if self.op_type() == V5Op::V5FixtureOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { V5FixtureOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_v5_stroke_op(&self) -> Option<V5StrokeOp<'a>> {
+    if self.op_type() == V5Op::V5StrokeOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { V5StrokeOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_shadow_op(&self) -> Option<ShadowOp<'a>> {
+    if self.op_type() == V5Op::ShadowOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { ShadowOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_v5_hatch_op(&self) -> Option<V5HatchOp<'a>> {
+    if self.op_type() == V5Op::V5HatchOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { V5HatchOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_v5_roof_op(&self) -> Option<V5RoofOp<'a>> {
+    if self.op_type() == V5Op::V5RoofOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { V5RoofOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for V5OpEntry<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_union::<V5Op, _>("op_type", Self::VT_OP_TYPE, "op", Self::VT_OP, false, |key, v, pos| {
+        match key {
+          V5Op::V5PaintOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5PaintOp>>("V5Op::V5PaintOp", pos),
+          V5Op::V5StampOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5StampOp>>("V5Op::V5StampOp", pos),
+          V5Op::V5PathOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5PathOp>>("V5Op::V5PathOp", pos),
+          V5Op::V5FixtureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5FixtureOp>>("V5Op::V5FixtureOp", pos),
+          V5Op::V5StrokeOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5StrokeOp>>("V5Op::V5StrokeOp", pos),
+          V5Op::ShadowOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ShadowOp>>("V5Op::ShadowOp", pos),
+          V5Op::V5HatchOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5HatchOp>>("V5Op::V5HatchOp", pos),
+          V5Op::V5RoofOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5RoofOp>>("V5Op::V5RoofOp", pos),
+          _ => Ok(()),
+        }
+     })?
+     .finish();
+    Ok(())
+  }
+}
+pub struct V5OpEntryArgs {
+    pub op_type: V5Op,
+    pub op: Option<::flatbuffers::WIPOffset<::flatbuffers::UnionWIPOffset>>,
+}
+impl<'a> Default for V5OpEntryArgs {
+  #[inline]
+  fn default() -> Self {
+    V5OpEntryArgs {
+      op_type: V5Op::NONE,
+      op: None,
+    }
+  }
+}
+
+pub struct V5OpEntryBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5OpEntryBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_op_type(&mut self, op_type: V5Op) {
+    self.fbb_.push_slot::<V5Op>(V5OpEntry::VT_OP_TYPE, op_type, V5Op::NONE);
+  }
+  #[inline]
+  pub fn add_op(&mut self, op: ::flatbuffers::WIPOffset<::flatbuffers::UnionWIPOffset>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5OpEntry::VT_OP, op);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5OpEntryBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    V5OpEntryBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5OpEntry<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for V5OpEntry<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("V5OpEntry");
+      ds.field("op_type", &self.op_type());
+      match self.op_type() {
+        V5Op::V5PaintOp => {
+          if let Some(x) = self.op_as_v5_paint_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        V5Op::V5StampOp => {
+          if let Some(x) = self.op_as_v5_stamp_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        V5Op::V5PathOp => {
+          if let Some(x) = self.op_as_v5_path_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        V5Op::V5FixtureOp => {
+          if let Some(x) = self.op_as_v5_fixture_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        V5Op::V5StrokeOp => {
+          if let Some(x) = self.op_as_v5_stroke_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        V5Op::ShadowOp => {
+          if let Some(x) = self.op_as_shadow_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        V5Op::V5HatchOp => {
+          if let Some(x) = self.op_as_v5_hatch_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        V5Op::V5RoofOp => {
+          if let Some(x) = self.op_as_v5_roof_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        _ => {
+          let x: Option<()> = None;
+          ds.field("op", &x)
+        },
+      };
+      ds.finish()
+  }
+}
 pub enum OpEntryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -10811,6 +11230,8 @@ impl<'a> FloorIR<'a> {
   pub const VT_FLAGS: ::flatbuffers::VOffsetT = 22;
   pub const VT_REGIONS: ::flatbuffers::VOffsetT = 24;
   pub const VT_OPS: ::flatbuffers::VOffsetT = 26;
+  pub const VT_V5_REGIONS: ::flatbuffers::VOffsetT = 28;
+  pub const VT_V5_OPS: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -10823,6 +11244,8 @@ impl<'a> FloorIR<'a> {
   ) -> ::flatbuffers::WIPOffset<FloorIR<'bldr>> {
     let mut builder = FloorIRBuilder::new(_fbb);
     builder.add_base_seed(args.base_seed);
+    if let Some(x) = args.v5_ops { builder.add_v5_ops(x); }
+    if let Some(x) = args.v5_regions { builder.add_v5_regions(x); }
     if let Some(x) = args.ops { builder.add_ops(x); }
     if let Some(x) = args.regions { builder.add_regions(x); }
     if let Some(x) = args.flags { builder.add_flags(x); }
@@ -10922,6 +11345,20 @@ impl<'a> FloorIR<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OpEntry>>>>(FloorIR::VT_OPS, None)}
   }
+  #[inline]
+  pub fn v5_regions(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5Region<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5Region>>>>(FloorIR::VT_V5_REGIONS, None)}
+  }
+  #[inline]
+  pub fn v5_ops(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5OpEntry<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5OpEntry>>>>(FloorIR::VT_V5_OPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FloorIR<'_> {
@@ -10942,6 +11379,8 @@ impl ::flatbuffers::Verifiable for FloorIR<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<FeatureFlags>>("flags", Self::VT_FLAGS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Region>>>>("regions", Self::VT_REGIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<OpEntry>>>>("ops", Self::VT_OPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<V5Region>>>>("v5_regions", Self::VT_V5_REGIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<V5OpEntry>>>>("v5_ops", Self::VT_V5_OPS, false)?
      .finish();
     Ok(())
   }
@@ -10959,6 +11398,8 @@ pub struct FloorIRArgs<'a> {
     pub flags: Option<::flatbuffers::WIPOffset<FeatureFlags<'a>>>,
     pub regions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Region<'a>>>>>,
     pub ops: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OpEntry<'a>>>>>,
+    pub v5_regions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5Region<'a>>>>>,
+    pub v5_ops: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5OpEntry<'a>>>>>,
 }
 impl<'a> Default for FloorIRArgs<'a> {
   #[inline]
@@ -10976,6 +11417,8 @@ impl<'a> Default for FloorIRArgs<'a> {
       flags: None,
       regions: None,
       ops: None,
+      v5_regions: None,
+      v5_ops: None,
     }
   }
 }
@@ -11034,6 +11477,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorIRBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorIR::VT_OPS, ops);
   }
   #[inline]
+  pub fn add_v5_regions(&mut self, v5_regions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<V5Region<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorIR::VT_V5_REGIONS, v5_regions);
+  }
+  #[inline]
+  pub fn add_v5_ops(&mut self, v5_ops: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<V5OpEntry<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorIR::VT_V5_OPS, v5_ops);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorIRBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FloorIRBuilder {
@@ -11063,6 +11514,8 @@ impl ::core::fmt::Debug for FloorIR<'_> {
       ds.field("flags", &self.flags());
       ds.field("regions", &self.regions());
       ds.field("ops", &self.ops());
+      ds.field("v5_regions", &self.v5_regions());
+      ds.field("v5_ops", &self.v5_ops());
       ds.finish()
   }
 }

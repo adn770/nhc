@@ -853,6 +853,28 @@ table V5RoofOp {
   seed: uint64;
 }
 
+// v5 op union (Phase 1.3 scaffold). At the atomic cut at Phase
+// 1.8, the live ``Op`` union is replaced with the 8 variants
+// listed here (renamed without the ``V5_`` prefix). ShadowOp
+// carries over unchanged from v4 (the design treats it as the
+// 6th v5 op without rename); the union references the v4
+// ShadowOp table directly. The slot numbers below match the
+// canonical ordering in design/map_ir_v5.md §3.6.
+union V5Op {
+  V5PaintOp   = 1,
+  V5StampOp   = 2,
+  V5PathOp    = 3,
+  V5FixtureOp = 4,
+  V5StrokeOp  = 5,
+  ShadowOp    = 6,
+  V5HatchOp   = 7,
+  V5RoofOp    = 8,
+}
+
+table V5OpEntry {
+  op: V5Op;
+}
+
 // ── Op union ────────────────────────────────────────────────
 //
 // Order of variants is part of the schema major version — adding
@@ -912,6 +934,12 @@ table FloorIR {
   flags: FeatureFlags;
   regions: [Region];
   ops: [OpEntry];
+  // ── v5 scaffold (Phase 1.3 / 1.4 of plans/nhc_pure_ir_v5_migration_plan.md)
+  // Additive fields populated by the v5 emitter alongside the v4
+  // regions / ops. The atomic cut at Phase 1.8 drops the v4
+  // ``regions`` / ``ops`` and renames these to canonical names.
+  v5_regions: [V5Region];
+  v5_ops: [V5OpEntry];
 }
 
 root_type FloorIR;

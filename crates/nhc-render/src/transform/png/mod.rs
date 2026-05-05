@@ -31,6 +31,9 @@ use crate::painter::{Painter, SkiaPainter};
 
 // Per-primitive raster handlers — one module per Op kind.
 mod building_exterior_wall;
+// v5 op handlers (Phase 1.3 — not yet wired into op_handlers()).
+pub mod v5;
+
 mod bush;
 mod corridor_wall_op;
 mod decorator;

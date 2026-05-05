@@ -62,6 +62,8 @@ export { V5FixtureOp } from './fb/v5-fixture-op.js';
 export { V5HatchOp } from './fb/v5-hatch-op.js';
 export { V5Material } from './fb/v5-material.js';
 export { V5MaterialFamily } from './fb/v5-material-family.js';
+export { V5Op } from './fb/v5-op.js';
+export { V5OpEntry } from './fb/v5-op-entry.js';
 export { V5PaintOp } from './fb/v5-paint-op.js';
 export { V5PathOp } from './fb/v5-path-op.js';
 export { V5PathStyle } from './fb/v5-path-style.js';

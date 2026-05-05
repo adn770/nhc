@@ -8,6 +8,8 @@ import { FeatureFlags } from '../../../../nhc/rendering/ir/fb/feature-flags.js';
 import { FloorKind } from '../../../../nhc/rendering/ir/fb/floor-kind.js';
 import { OpEntry } from '../../../../nhc/rendering/ir/fb/op-entry.js';
 import { Region } from '../../../../nhc/rendering/ir/fb/region.js';
+import { V5OpEntry } from '../../../../nhc/rendering/ir/fb/v5-op-entry.js';
+import { V5Region } from '../../../../nhc/rendering/ir/fb/v5-region.js';
 
 
 export class FloorIR {
@@ -104,8 +106,28 @@ opsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+v5Regions(index: number, obj?:V5Region):V5Region|null {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? (obj || new V5Region()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+v5RegionsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+v5Ops(index: number, obj?:V5OpEntry):V5OpEntry|null {
+  const offset = this.bb!.__offset(this.bb_pos, 30);
+  return offset ? (obj || new V5OpEntry()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+v5OpsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 30);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startFloorIR(builder:flatbuffers.Builder) {
-  builder.startObject(12);
+  builder.startObject(14);
 }
 
 static addMajor(builder:flatbuffers.Builder, major:number) {
@@ -177,6 +199,38 @@ static createOpsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):f
 }
 
 static startOpsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addV5Regions(builder:flatbuffers.Builder, v5RegionsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(12, v5RegionsOffset, 0);
+}
+
+static createV5RegionsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startV5RegionsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addV5Ops(builder:flatbuffers.Builder, v5OpsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(13, v5OpsOffset, 0);
+}
+
+static createV5OpsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startV5OpsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 

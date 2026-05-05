@@ -91,6 +91,12 @@ def test_minimal_buffer_dump_field_order() -> None:
         "flags",
         "regions",
         "ops",
+        # Phase 1.3 of plans/nhc_pure_ir_v5_migration_plan.md added
+        # ``v5_regions`` and ``v5_ops`` to FloorIR for the v5
+        # scaffold. Phase 1.4 populates them. The atomic cut at
+        # Phase 1.8 drops v4 ``regions`` / ``ops`` and renames these.
+        "v5Regions",
+        "v5Ops",
     ]
     assert out["__type"] == "FloorIRT"
     assert out["major"] == 1

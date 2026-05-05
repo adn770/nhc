@@ -152,8 +152,58 @@ class FloorIR(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(26))
         return o == 0
 
+    # FloorIR
+    def V5Regions(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(28))
+        if o != 0:
+            x = self._tab.Vector(o)
+            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
+            x = self._tab.Indirect(x)
+            from nhc.rendering.ir._fb.V5Region import V5Region
+            obj = V5Region()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # FloorIR
+    def V5RegionsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(28))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # FloorIR
+    def V5RegionsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(28))
+        return o == 0
+
+    # FloorIR
+    def V5Ops(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(30))
+        if o != 0:
+            x = self._tab.Vector(o)
+            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
+            x = self._tab.Indirect(x)
+            from nhc.rendering.ir._fb.V5OpEntry import V5OpEntry
+            obj = V5OpEntry()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # FloorIR
+    def V5OpsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(30))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # FloorIR
+    def V5OpsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(30))
+        return o == 0
+
 def FloorIRStart(builder):
-    builder.StartObject(12)
+    builder.StartObject(14)
 
 def Start(builder):
     FloorIRStart(builder)
@@ -242,6 +292,30 @@ def FloorIRStartOpsVector(builder, numElems):
 def StartOpsVector(builder, numElems):
     return FloorIRStartOpsVector(builder, numElems)
 
+def FloorIRAddV5Regions(builder, v5Regions):
+    builder.PrependUOffsetTRelativeSlot(12, flatbuffers.number_types.UOffsetTFlags.py_type(v5Regions), 0)
+
+def AddV5Regions(builder, v5Regions):
+    FloorIRAddV5Regions(builder, v5Regions)
+
+def FloorIRStartV5RegionsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartV5RegionsVector(builder, numElems):
+    return FloorIRStartV5RegionsVector(builder, numElems)
+
+def FloorIRAddV5Ops(builder, v5Ops):
+    builder.PrependUOffsetTRelativeSlot(13, flatbuffers.number_types.UOffsetTFlags.py_type(v5Ops), 0)
+
+def AddV5Ops(builder, v5Ops):
+    FloorIRAddV5Ops(builder, v5Ops)
+
+def FloorIRStartV5OpsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartV5OpsVector(builder, numElems):
+    return FloorIRStartV5OpsVector(builder, numElems)
+
 def FloorIREnd(builder):
     return builder.EndObject()
 
@@ -251,6 +325,8 @@ def End(builder):
 import nhc.rendering.ir._fb.FeatureFlags
 import nhc.rendering.ir._fb.OpEntry
 import nhc.rendering.ir._fb.Region
+import nhc.rendering.ir._fb.V5OpEntry
+import nhc.rendering.ir._fb.V5Region
 try:
     from typing import List, Optional
 except:
@@ -273,6 +349,8 @@ class FloorIRT(object):
         flags = None,
         regions = None,
         ops = None,
+        v5Regions = None,
+        v5Ops = None,
     ):
         self.major = major  # type: int
         self.minor = minor  # type: int
@@ -286,6 +364,8 @@ class FloorIRT(object):
         self.flags = flags  # type: Optional[nhc.rendering.ir._fb.FeatureFlags.FeatureFlagsT]
         self.regions = regions  # type: Optional[List[nhc.rendering.ir._fb.Region.RegionT]]
         self.ops = ops  # type: Optional[List[nhc.rendering.ir._fb.OpEntry.OpEntryT]]
+        self.v5Regions = v5Regions  # type: Optional[List[nhc.rendering.ir._fb.V5Region.V5RegionT]]
+        self.v5Ops = v5Ops  # type: Optional[List[nhc.rendering.ir._fb.V5OpEntry.V5OpEntryT]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -335,6 +415,22 @@ class FloorIRT(object):
                 else:
                     opEntry_ = nhc.rendering.ir._fb.OpEntry.OpEntryT.InitFromObj(floorIr.Ops(i))
                     self.ops.append(opEntry_)
+        if not floorIr.V5RegionsIsNone():
+            self.v5Regions = []
+            for i in range(floorIr.V5RegionsLength()):
+                if floorIr.V5Regions(i) is None:
+                    self.v5Regions.append(None)
+                else:
+                    v5Region_ = nhc.rendering.ir._fb.V5Region.V5RegionT.InitFromObj(floorIr.V5Regions(i))
+                    self.v5Regions.append(v5Region_)
+        if not floorIr.V5OpsIsNone():
+            self.v5Ops = []
+            for i in range(floorIr.V5OpsLength()):
+                if floorIr.V5Ops(i) is None:
+                    self.v5Ops.append(None)
+                else:
+                    v5OpEntry_ = nhc.rendering.ir._fb.V5OpEntry.V5OpEntryT.InitFromObj(floorIr.V5Ops(i))
+                    self.v5Ops.append(v5OpEntry_)
 
     # FloorIRT
     def Pack(self, builder):
@@ -358,6 +454,22 @@ class FloorIRT(object):
             for i in reversed(range(len(self.ops))):
                 builder.PrependUOffsetTRelative(opslist[i])
             ops = builder.EndVector()
+        if self.v5Regions is not None:
+            v5Regionslist = []
+            for i in range(len(self.v5Regions)):
+                v5Regionslist.append(self.v5Regions[i].Pack(builder))
+            FloorIRStartV5RegionsVector(builder, len(self.v5Regions))
+            for i in reversed(range(len(self.v5Regions))):
+                builder.PrependUOffsetTRelative(v5Regionslist[i])
+            v5Regions = builder.EndVector()
+        if self.v5Ops is not None:
+            v5Opslist = []
+            for i in range(len(self.v5Ops)):
+                v5Opslist.append(self.v5Ops[i].Pack(builder))
+            FloorIRStartV5OpsVector(builder, len(self.v5Ops))
+            for i in reversed(range(len(self.v5Ops))):
+                builder.PrependUOffsetTRelative(v5Opslist[i])
+            v5Ops = builder.EndVector()
         FloorIRStart(builder)
         FloorIRAddMajor(builder, self.major)
         FloorIRAddMinor(builder, self.minor)
@@ -375,5 +487,9 @@ class FloorIRT(object):
             FloorIRAddRegions(builder, regions)
         if self.ops is not None:
             FloorIRAddOps(builder, ops)
+        if self.v5Regions is not None:
+            FloorIRAddV5Regions(builder, v5Regions)
+        if self.v5Ops is not None:
+            FloorIRAddV5Ops(builder, v5Ops)
         floorIr = FloorIREnd(builder)
         return floorIr
