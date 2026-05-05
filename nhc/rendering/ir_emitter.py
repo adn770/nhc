@@ -166,6 +166,20 @@ class FloorIRBuilder:
         fir.regions = list(self.regions)
         fir.ops = list(self.ops)
 
+        # Phase 1.4 of plans/nhc_pure_ir_v5_migration_plan.md:
+        # populate the v5 scaffold fields alongside the live v4
+        # regions / ops. The v5 op consumers under
+        # ``crates/nhc-render/src/transform/png/v5/`` are not yet
+        # wired into the live dispatch loop; this emit path lets
+        # Phase 1.5's parity gate exercise them.
+        from nhc.rendering.v5_emit import translate_all
+
+        v5_regions, v5_ops = translate_all(
+            regions=fir.regions, ops=fir.ops
+        )
+        fir.v5Regions = v5_regions
+        fir.v5Ops = v5_ops
+
         builder = flatbuffers.Builder(1024)
         builder.Finish(fir.Pack(builder), _FILE_IDENTIFIER)
         return bytes(builder.Output())

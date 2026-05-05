@@ -1,0 +1,71 @@
+"""v5 emit translators (Phase 1.4 of v5 migration plan).
+
+Translates the accumulated v4 regions / ops on a
+:class:`FloorIRBuilder` into v5-shaped ``V5Region`` / ``V5OpEntry``
+records. The atomic cut at Phase 1.8 drops the v4 emit path; until
+then the translators run alongside, populating
+``FloorIR.v5_regions`` / ``FloorIR.v5_ops`` in parallel with the
+live ``regions`` / ``ops`` so v5 consumers can be exercised
+without touching the live render path.
+
+Module layout mirrors the v5 op taxonomy
+(``design/map_ir_v5.md`` §3.5):
+
+- :mod:`materials` — ``V5Material`` / ``V5WallMaterial`` factories
+- :mod:`regions`   — ``Region`` → ``V5Region`` translator
+- :mod:`paint`     — ``FloorOp`` (+ DecoratorOp stone variants) → ``V5PaintOp``
+- :mod:`stamp`     — ``FloorGridOp`` / ``FloorDetailOp`` / etc. → ``V5StampOp``
+- :mod:`path`      — ``DecoratorOp.cart_tracks`` / ``ore_deposit`` → ``V5PathOp``
+- :mod:`fixture`   — ``Tree`` / ``Bush`` / ``Well`` / ``Fountain`` / ``Stairs`` /
+                     thematic-detail fixtures → ``V5FixtureOp``
+- :mod:`stroke`    — ``InteriorWallOp`` / ``ExteriorWallOp`` /
+                     ``CorridorWallOp`` → ``V5StrokeOp``
+- :mod:`roof`      — ``RoofOp`` → ``V5RoofOp``
+
+Each translator is pure: it reads a v4 op (or list) and returns a
+v5 op (or list). The wiring at :func:`translate_all` runs the
+full set against a builder and returns the (regions, ops) pair.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from nhc.rendering.v5_emit.fixture import translate_fixtures
+from nhc.rendering.v5_emit.paint import translate_paint_ops
+from nhc.rendering.v5_emit.path import translate_path_ops
+from nhc.rendering.v5_emit.regions import translate_region
+from nhc.rendering.v5_emit.roof import translate_roof_ops
+from nhc.rendering.v5_emit.stamp import translate_stamp_ops
+from nhc.rendering.v5_emit.stroke import translate_stroke_ops
+
+__all__ = [
+    "translate_all",
+    "translate_region",
+    "translate_paint_ops",
+    "translate_path_ops",
+    "translate_stroke_ops",
+    "translate_roof_ops",
+    "translate_stamp_ops",
+    "translate_fixtures",
+]
+
+
+def translate_all(
+    *, regions: list[Any], ops: list[Any]
+) -> tuple[list[Any], list[Any]]:
+    """Translate v4 regions + ops into v5 regions + ``V5OpEntry`` list.
+
+    Pure function; does not mutate inputs. Used by
+    :class:`FloorIRBuilder.finish` to populate the
+    ``v5_regions`` / ``v5_ops`` scaffold fields on ``FloorIR``.
+    """
+    v5_regions = [translate_region(r) for r in regions]
+    v5_ops: list[Any] = []
+    v5_ops.extend(translate_paint_ops(ops))
+    v5_ops.extend(translate_stroke_ops(ops))
+    v5_ops.extend(translate_roof_ops(ops))
+    v5_ops.extend(translate_stamp_ops(ops))
+    v5_ops.extend(translate_path_ops(ops))
+    v5_ops.extend(translate_fixtures(ops))
+    return v5_regions, v5_ops
