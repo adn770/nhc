@@ -1,13 +1,16 @@
-"""``DecoratorOp.cart_tracks`` / ``ore_deposit`` → ``V5PathOp``.
+"""Builder / level walk → ``V5OpEntry(V5PathOp)``.
 
-v4 packs cart-tracks and ore-deposit as variants on the
-``DecoratorOp`` parallel-vectors layout. v5 promotes them to a
-dedicated ``V5PathOp`` per network with a stable ``style`` enum.
+Phase 4.3a entry point. :func:`emit_paths` walks the level's
+per-tile classification (via the same ``_is_track_tile`` /
+``_is_ore_tile`` predicates the v4 emit pipeline uses) to derive
+cart-tracks and ore-deposit networks, and ships one ``V5PathOp``
+per non-empty network. Mirrors the source logic of the
+DecoratorOp emit branch in
+:func:`nhc.rendering._floor_layers._emit_floor_detail_ir`.
 
-Cart-tracks already ship the per-tile open-sides bitmask in v4
-(``CartTracksVariant.open_sides``) — the v5 painter re-derives
-the topology from the unordered tile set, so the open-sides
-bitmask is dropped on the v5 side. Ore-deposit ships only tiles.
+:func:`translate_path_ops` is retained as a back-compat shim for
+:func:`translate_all` and walks ``builder.ops`` for v4
+``DecoratorOp`` entries.
 """
 
 from __future__ import annotations
@@ -39,9 +42,63 @@ def _make_path_op(
     return op
 
 
+def emit_paths(builder: Any) -> list[V5OpEntryT]:
+    """Walk the level for cart-tracks / ore-deposit candidate tiles
+    and emit one V5PathOp per non-empty network.
+
+    Gated on the same ``interior_finish == "wood"`` short-circuit
+    that v4 emit honours: building floors with wood interior finish
+    skip the decorator pass entirely.
+    """
+    from nhc.rendering._floor_detail import _is_ore_tile, _is_track_tile
+    from nhc.rendering.ir._fb.TileCoord import TileCoordT
+
+    ctx = builder.ctx
+    if getattr(ctx, "interior_finish", "") == "wood":
+        return []
+
+    level = ctx.level
+    tiles_grid = getattr(level, "tiles", None)
+    if tiles_grid is None:
+        return []
+
+    track_coords: list[tuple[int, int]] = []
+    ore_coords: list[tuple[int, int]] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            if _is_track_tile(level, x, y):
+                track_coords.append((x, y))
+            if _is_ore_tile(level, x, y):
+                ore_coords.append((x, y))
+
+    if not (track_coords or ore_coords):
+        return []
+
+    seed = ctx.seed + 333
+    result: list[V5OpEntryT] = []
+    if track_coords:
+        result.append(_wrap(_make_path_op(
+            region_ref="",
+            tiles=[TileCoordT(x=x, y=y) for x, y in track_coords],
+            style=V5PathStyle.CartTracks,
+            seed=seed,
+        )))
+    if ore_coords:
+        result.append(_wrap(_make_path_op(
+            region_ref="",
+            tiles=[TileCoordT(x=x, y=y) for x, y in ore_coords],
+            style=V5PathStyle.OreVein,
+            seed=seed,
+        )))
+    return result
+
+
 def translate_path_ops(ops: list[Any]) -> list[V5OpEntryT]:
-    """Walk every ``DecoratorOp`` and emit one ``V5PathOp`` per
-    non-empty cart-tracks / ore-deposit network."""
+    """Walk every v4 ``DecoratorOp`` and emit one ``V5PathOp`` per
+    non-empty cart-tracks / ore-deposit network.
+
+    Retained for back-compat with :func:`translate_all`.
+    """
     result: list[V5OpEntryT] = []
     for entry in ops:
         if getattr(entry, "opType", None) != Op.DecoratorOp:
@@ -53,22 +110,20 @@ def translate_path_ops(ops: list[Any]) -> list[V5OpEntryT]:
         for variant in deco.cartTracks or []:
             if not variant.tiles:
                 continue
-            path_op = _make_path_op(
+            result.append(_wrap(_make_path_op(
                 region_ref=rr,
                 tiles=variant.tiles,
                 style=V5PathStyle.CartTracks,
                 seed=seed,
-            )
-            result.append(_wrap(path_op))
+            )))
 
         for variant in deco.oreDeposit or []:
             if not variant.tiles:
                 continue
-            path_op = _make_path_op(
+            result.append(_wrap(_make_path_op(
                 region_ref=rr,
                 tiles=variant.tiles,
                 style=V5PathStyle.OreVein,
                 seed=seed,
-            )
-            result.append(_wrap(path_op))
+            )))
     return result
