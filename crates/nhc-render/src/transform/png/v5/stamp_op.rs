@@ -387,6 +387,227 @@ fn paint_moss(
     );
 }
 
+/// Blood bit — red splatters / stains at very low density. Per
+/// hit, paint 1 large central ellipse + 1-2 small droplets nearby
+/// to read as a splatter pattern.
+fn paint_blood(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const BLOOD_BASE: Color = Color::rgba(0x88, 0x10, 0x10, 1.0);
+    const BLOOD_DARK: Color = Color::rgba(0x55, 0x08, 0x08, 1.0);
+    const BLOOD_PROB: f64 = 0.04;
+    const BLOOD_OPACITY: f32 = 0.65;
+    const BLOOD_SEED_SALT: u64 = 0x_B100_D5EE_D000_0001;
+
+    paint_per_tile_decorator(
+        painter,
+        outline,
+        region_path,
+        seed,
+        BLOOD_SEED_SALT,
+        BLOOD_PROB,
+        BLOOD_OPACITY,
+        |painter, rng, px, py| {
+            let cx = px + rng.gen_range((CELL * 0.30)..(CELL * 0.70));
+            let cy = py + rng.gen_range((CELL * 0.30)..(CELL * 0.70));
+            let rx = rng.gen_range((CELL * 0.10)..(CELL * 0.18));
+            let ry = rng.gen_range((CELL * 0.08)..(CELL * 0.16));
+            painter.fill_ellipse(
+                cx as f32, cy as f32, rx as f32, ry as f32,
+                &Paint::solid(BLOOD_BASE),
+            );
+            let n_droplets = rng.gen_range(1..=2);
+            for _ in 0..n_droplets {
+                let dx = rng.gen_range(-(CELL * 0.20)..(CELL * 0.20));
+                let dy = rng.gen_range(-(CELL * 0.20)..(CELL * 0.20));
+                let dr = rng.gen_range((CELL * 0.025)..(CELL * 0.05));
+                painter.fill_ellipse(
+                    (cx + dx) as f32, (cy + dy) as f32,
+                    dr as f32, dr as f32,
+                    &Paint::solid(BLOOD_DARK),
+                );
+            }
+        },
+    );
+}
+
+/// Ash bit — fine grey dusting at moderate density. Per hit,
+/// paint 4-6 tiny grey dots scattered uniformly in the tile.
+fn paint_ash(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const ASH_BASE: Color = Color::rgba(0x66, 0x66, 0x66, 1.0);
+    const ASH_PROB: f64 = 0.30;
+    const ASH_OPACITY: f32 = 0.40;
+    const ASH_SEED_SALT: u64 = 0x_A5C0_DAD5_BE00_0001;
+
+    paint_per_tile_decorator(
+        painter,
+        outline,
+        region_path,
+        seed,
+        ASH_SEED_SALT,
+        ASH_PROB,
+        ASH_OPACITY,
+        |painter, rng, px, py| {
+            let n_dots = rng.gen_range(4..=6);
+            for _ in 0..n_dots {
+                let cx = px + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let cy = py + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let r = rng.gen_range((CELL * 0.015)..(CELL * 0.04));
+                painter.fill_circle(
+                    cx as f32, cy as f32, r as f32,
+                    &Paint::solid(ASH_BASE),
+                );
+            }
+        },
+    );
+}
+
+/// Puddles bit — dark wet spots at low density. Per hit, paint 1
+/// dark blue ellipse covering ~40% of the tile.
+fn paint_puddles(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const PUDDLE_BASE: Color = Color::rgba(0x18, 0x28, 0x40, 1.0);
+    const PUDDLE_PROB: f64 = 0.05;
+    const PUDDLE_OPACITY: f32 = 0.45;
+    const PUDDLE_SEED_SALT: u64 = 0x_BEAD_DA85_E000_0001;
+
+    paint_per_tile_decorator(
+        painter,
+        outline,
+        region_path,
+        seed,
+        PUDDLE_SEED_SALT,
+        PUDDLE_PROB,
+        PUDDLE_OPACITY,
+        |painter, rng, px, py| {
+            let cx = px + rng.gen_range((CELL * 0.30)..(CELL * 0.70));
+            let cy = py + rng.gen_range((CELL * 0.30)..(CELL * 0.70));
+            let rx = rng.gen_range((CELL * 0.18)..(CELL * 0.30));
+            let ry = rng.gen_range((CELL * 0.12)..(CELL * 0.22));
+            painter.fill_ellipse(
+                cx as f32, cy as f32, rx as f32, ry as f32,
+                &Paint::solid(PUDDLE_BASE),
+            );
+        },
+    );
+}
+
+/// Ripples bit (Liquid:Water) — static concentric-ring patterns.
+/// Per hit, stroke 1-2 circles centred in the tile to read as
+/// surface motion.
+fn paint_ripples(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const RIPPLE_INK: Color = Color::rgba(0x4A, 0x78, 0x88, 1.0);
+    const RIPPLE_PROB: f64 = 0.45;
+    const RIPPLE_OPACITY: f32 = 0.35;
+    const RIPPLE_SEED_SALT: u64 = 0x_77AA_2E22_7E2E_7A77;
+
+    paint_per_tile_decorator(
+        painter,
+        outline,
+        region_path,
+        seed,
+        RIPPLE_SEED_SALT,
+        RIPPLE_PROB,
+        RIPPLE_OPACITY,
+        |painter, rng, px, py| {
+            let cx = px + rng.gen_range((CELL * 0.30)..(CELL * 0.70));
+            let cy = py + rng.gen_range((CELL * 0.30)..(CELL * 0.70));
+            let n_rings = rng.gen_range(1..=2);
+            for ring in 0..n_rings {
+                let r = (CELL * 0.15) + (ring as f64) * (CELL * 0.10);
+                let mut path = PathOps::new();
+                let segs = 16;
+                let cx32 = cx as f32;
+                let cy32 = cy as f32;
+                let r32 = r as f32;
+                for i in 0..=segs {
+                    let theta = (i as f32) * std::f32::consts::TAU
+                        / (segs as f32);
+                    let x = cx32 + r32 * theta.cos();
+                    let y = cy32 + r32 * theta.sin();
+                    if i == 0 {
+                        path.move_to(Vec2::new(x, y));
+                    } else {
+                        path.line_to(Vec2::new(x, y));
+                    }
+                }
+                painter.stroke_path(
+                    &path,
+                    &Paint::solid(RIPPLE_INK),
+                    &Stroke {
+                        width: 0.5,
+                        line_cap: LineCap::Round,
+                        line_join: LineJoin::Round,
+                    },
+                );
+            }
+        },
+    );
+}
+
+/// LavaCracks bit (Liquid:Lava) — static angular crack network.
+/// Per hit, stroke 2-3 short line segments forming an angular
+/// crack pattern in bright orange ink.
+fn paint_lava_cracks(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const LAVA_INK: Color = Color::rgba(0xFF, 0xC8, 0x40, 1.0);
+    const LAVA_PROB: f64 = 0.30;
+    const LAVA_OPACITY: f32 = 0.55;
+    const LAVA_SEED_SALT: u64 = 0x_1A7A_BEEF_DEAD_F1AA;
+
+    paint_per_tile_decorator(
+        painter,
+        outline,
+        region_path,
+        seed,
+        LAVA_SEED_SALT,
+        LAVA_PROB,
+        LAVA_OPACITY,
+        |painter, rng, px, py| {
+            let n_cracks = rng.gen_range(2..=3);
+            for _ in 0..n_cracks {
+                let x0 = px + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let y0 = py + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let x1 = px + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let y1 = py + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let mut path = PathOps::new();
+                path.move_to(Vec2::new(x0 as f32, y0 as f32));
+                path.line_to(Vec2::new(x1 as f32, y1 as f32));
+                painter.stroke_path(
+                    &path,
+                    &Paint::solid(LAVA_INK),
+                    &Stroke {
+                        width: 0.6,
+                        line_cap: LineCap::Round,
+                        line_join: LineJoin::Round,
+                    },
+                );
+            }
+        },
+    );
+}
+
 /// Per-bit dispatcher. Phase 2.9 commits replace each not-yet-
 /// lifted arm with the bit's real painter.
 fn dispatch_bit(
@@ -410,9 +631,26 @@ fn dispatch_bit(
         bit::MOSS => {
             paint_moss(painter, outline, region_path, seed);
         }
-        // Not-yet-lifted bits — emit a single translucent fill of
-        // the region in the bit's sentinel hue so the dispatcher
-        // stays observable while the per-bit work sequences in.
+        bit::BLOOD => {
+            paint_blood(painter, outline, region_path, seed);
+        }
+        bit::ASH => {
+            paint_ash(painter, outline, region_path, seed);
+        }
+        bit::PUDDLES => {
+            paint_puddles(painter, outline, region_path, seed);
+        }
+        bit::RIPPLES => {
+            paint_ripples(painter, outline, region_path, seed);
+        }
+        bit::LAVA_CRACKS => {
+            paint_lava_cracks(painter, outline, region_path, seed);
+        }
+        // No more not-yet-lifted bits at Phase 2.9 — every bit in
+        // the v5 registry has a real painter. The wildcard arm
+        // keeps the sentinel-fill behaviour as a safety net for
+        // future additive minor-bumps that introduce new bits;
+        // visual review flags them via the magenta sentinel.
         _ => {
             let paint = Paint::solid(stub_color(bit_value));
             painter.fill_path(region_path, &paint, FillRule::Winding);
@@ -468,13 +706,19 @@ mod tests {
     use crate::painter::test_util::{MockPainter, PainterCall};
 
     fn build_stamp_op(mask: u32) -> Vec<u8> {
-        // 4×4-tile region in pixel coords (0,0) → (128,128).
+        // 12×12-tile region in pixel coords (0,0) → (384,384).
+        // Sized so even the lowest-probability bits (Blood at 4%,
+        // Puddles at 5%) reliably hit at least once on the
+        // ``seed = 0xCAFE`` test stream — 144 tiles × 0.04 ≈ 5.76
+        // expected hits. A 4×4 region only had 0.6 expected hits
+        // for Blood, often producing empty groups that broke the
+        // envelope-shape assertion.
         let mut fbb = FlatBufferBuilder::new();
         let verts = fbb.create_vector(&[
             FbVec2::new(0.0, 0.0),
-            FbVec2::new(128.0, 0.0),
-            FbVec2::new(128.0, 128.0),
-            FbVec2::new(0.0, 128.0),
+            FbVec2::new(384.0, 0.0),
+            FbVec2::new(384.0, 384.0),
+            FbVec2::new(0.0, 384.0),
         ]);
         let outline = Outline::create(
             &mut fbb,
@@ -571,26 +815,36 @@ mod tests {
         );
     }
 
-    /// Not-yet-lifted bits keep the placeholder fill behaviour —
-    /// one fill_path per enabled bit. Pin so a regression in the
-    /// dispatcher (e.g. an already-lifted bit's arm leaking into
-    /// the wildcard) surfaces here. Each Phase 2.9 commit removes
-    /// one bit from this list as it lands its real painter.
+    /// Every bit in the v5 registry now has a real painter. Pin
+    /// the dispatch envelope shape (push_clip ⊃ … ⊃ pop_clip) for
+    /// each lifted bit so a regression in any individual arm
+    /// surfaces with a fixture-flavour-aware error. Sentinel hits
+    /// at the wildcard arm would emit a single FillPath without
+    /// the clip envelope — distinct shape, easy to catch.
     #[test]
-    fn unlifted_bits_emit_single_fill_path_each() {
+    fn every_bit_paints_inside_clipped_envelope() {
         for bit_value in [
+            bit::GRID_LINES, bit::CRACKS, bit::SCRATCHES,
             bit::RIPPLES, bit::LAVA_CRACKS,
-            bit::BLOOD, bit::ASH, bit::PUDDLES,
+            bit::MOSS, bit::BLOOD, bit::ASH, bit::PUDDLES,
         ] {
             let painter = run(&build_stamp_op(bit_value));
-            let fill_paths = painter
+            let kinds: Vec<&str> = painter
                 .calls
                 .iter()
-                .filter(|c| matches!(c, PainterCall::FillPath(_, _, _)))
-                .count();
+                .map(|c| match c {
+                    PainterCall::PushClip(_, _) => "push_clip",
+                    PainterCall::PopClip => "pop_clip",
+                    _ => "other",
+                })
+                .collect();
             assert_eq!(
-                fill_paths, 1,
-                "bit 0x{bit_value:x}: expected 1 fill_path call (got {fill_paths})"
+                kinds.first(), Some(&"push_clip"),
+                "bit 0x{bit_value:x}: missing push_clip envelope (calls: {kinds:?})"
+            );
+            assert_eq!(
+                kinds.last(), Some(&"pop_clip"),
+                "bit 0x{bit_value:x}: missing pop_clip envelope (calls: {kinds:?})"
             );
         }
     }
@@ -645,15 +899,15 @@ mod tests {
     }
 
     #[test]
-    fn enumerate_region_tiles_for_4x4_rect_returns_16() {
+    fn enumerate_region_tiles_for_12x12_rect_returns_144() {
         let buf = build_stamp_op(bit::GRID_LINES);
         let fir = root_as_floor_ir(&buf).expect("parse");
         let regions = fir.v5_regions().expect("v5_regions");
         let region = regions.get(0);
         let outline = region.outline().expect("outline");
         let tiles = enumerate_region_tiles(&outline);
-        // (0,0)→(128,128) at 32 px/tile = 4×4 = 16 tiles.
-        assert_eq!(tiles.len(), 16);
+        // (0,0)→(384,384) at 32 px/tile = 12×12 = 144 tiles.
+        assert_eq!(tiles.len(), 144);
     }
 
     #[test]
