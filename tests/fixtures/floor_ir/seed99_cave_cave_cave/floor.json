@@ -26094,6 +26094,1734 @@
     },
     {
       "__type": "V5OpEntryT",
+      "opType": 4,
+      "op": {
+        "__type": "V5FixtureOpT",
+        "regionRef": "",
+        "kind": 1,
+        "anchors": [
+          {
+            "__type": "V5AnchorT",
+            "x": 5,
+            "y": 3,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 42,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 35,
+            "y": 11,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 46,
+            "y": 24,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 43,
+            "y": 33,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          }
+        ],
+        "seed": 298
+      }
+    },
+    {
+      "__type": "V5OpEntryT",
+      "opType": 4,
+      "op": {
+        "__type": "V5FixtureOpT",
+        "regionRef": "",
+        "kind": 2,
+        "anchors": [
+          {
+            "__type": "V5AnchorT",
+            "x": 2,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 41,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 4,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 27,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 37,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 38,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 6,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 13,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 36,
+            "y": 17,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 45,
+            "y": 17,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 34,
+            "y": 19,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 53,
+            "y": 23,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          }
+        ],
+        "seed": 298
+      }
+    },
+    {
+      "__type": "V5OpEntryT",
+      "opType": 4,
+      "op": {
+        "__type": "V5FixtureOpT",
+        "regionRef": "",
+        "kind": 0,
+        "anchors": [
+          {
+            "__type": "V5AnchorT",
+            "x": 6,
+            "y": 11,
+            "variant": 0,
+            "orientation": 2,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 56,
+            "y": 11,
+            "variant": 0,
+            "orientation": 1,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 16,
+            "y": 13,
+            "variant": 0,
+            "orientation": 2,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 42,
+            "y": 14,
+            "variant": 0,
+            "orientation": 1,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 45,
+            "y": 24,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          }
+        ],
+        "seed": 298
+      }
+    },
+    {
+      "__type": "V5OpEntryT",
+      "opType": 4,
+      "op": {
+        "__type": "V5FixtureOpT",
+        "regionRef": "",
+        "kind": 3,
+        "anchors": [
+          {
+            "__type": "V5AnchorT",
+            "x": 5,
+            "y": 2,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 40,
+            "y": 3,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 6,
+            "y": 4,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 42,
+            "y": 4,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 30,
+            "y": 5,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 30,
+            "y": 5,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 30,
+            "y": 5,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 40,
+            "y": 5,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 41,
+            "y": 5,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 5,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 2,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 4,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 4,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 4,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 30,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 30,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 30,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 38,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 43,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 2,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 2,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 2,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 2,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 5,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 7,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 7,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 7,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 36,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 39,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 40,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 40,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 40,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 45,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 4,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 27,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 31,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 31,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 31,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 35,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 36,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 36,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 36,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 37,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 46,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 5,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 5,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 5,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 5,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 9,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 10,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 10,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 10,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 33,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 33,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 33,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 34,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 35,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 35,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 35,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 36,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 3,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 5,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 5,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 5,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 5,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 36,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 55,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 7,
+            "y": 11,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 8,
+            "y": 11,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 8,
+            "y": 11,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 8,
+            "y": 11,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 19,
+            "y": 11,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 19,
+            "y": 11,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 19,
+            "y": 11,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 36,
+            "y": 11,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 36,
+            "y": 11,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 36,
+            "y": 11,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 12,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 16,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 16,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 16,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 17,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 17,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 17,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 19,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 19,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 19,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 19,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 16,
+            "y": 13,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 16,
+            "y": 13,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 16,
+            "y": 13,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 54,
+            "y": 13,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 54,
+            "y": 13,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 54,
+            "y": 13,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 42,
+            "y": 14,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 42,
+            "y": 14,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 42,
+            "y": 14,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 50,
+            "y": 14,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 50,
+            "y": 14,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 50,
+            "y": 14,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 42,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 50,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 52,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 41,
+            "y": 17,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 43,
+            "y": 18,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 53,
+            "y": 20,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 52,
+            "y": 23,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 52,
+            "y": 23,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 52,
+            "y": 23,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 46,
+            "y": 24,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 51,
+            "y": 24,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 52,
+            "y": 24,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 46,
+            "y": 25,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 47,
+            "y": 25,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 51,
+            "y": 25,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 51,
+            "y": 25,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 51,
+            "y": 25,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 51,
+            "y": 25,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 53,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 53,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 53,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 45,
+            "y": 28,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 47,
+            "y": 28,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 47,
+            "y": 28,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 47,
+            "y": 28,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 47,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 47,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 47,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 31,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 31,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 31,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 45,
+            "y": 31,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 45,
+            "y": 31,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 45,
+            "y": 31,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 44,
+            "y": 32,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 45,
+            "y": 32,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 46,
+            "y": 32,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "V5AnchorT",
+            "x": 45,
+            "y": 34,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          }
+        ],
+        "seed": 198
+      }
+    },
+    {
+      "__type": "V5OpEntryT",
       "opType": 7,
       "op": {
         "__type": "V5HatchOpT",

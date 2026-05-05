@@ -40,6 +40,10 @@ from nhc.rendering.v5_emit.roof import translate_roof_ops
 from nhc.rendering.v5_emit.shadow import translate_shadow_ops
 from nhc.rendering.v5_emit.stamp import translate_stamp_ops
 from nhc.rendering.v5_emit.stroke import translate_stroke_ops
+from nhc.rendering.v5_emit.thematic_detail import (
+    translate_floor_detail_loose_stones,
+    translate_thematic_detail_ops,
+)
 
 __all__ = [
     "translate_all",
@@ -52,6 +56,8 @@ __all__ = [
     "translate_hatch_ops",
     "translate_stamp_ops",
     "translate_fixtures",
+    "translate_thematic_detail_ops",
+    "translate_floor_detail_loose_stones",
 ]
 
 
@@ -73,5 +79,7 @@ def translate_all(
     v5_ops.extend(translate_stamp_ops(ops))
     v5_ops.extend(translate_path_ops(ops))
     v5_ops.extend(translate_fixtures(ops))
+    v5_ops.extend(translate_thematic_detail_ops(ops))
+    v5_ops.extend(translate_floor_detail_loose_stones(ops))
     v5_ops.extend(translate_hatch_ops(ops))
     return v5_regions, v5_ops

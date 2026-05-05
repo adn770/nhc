@@ -20,6 +20,8 @@ use pyo3::prelude::*;
 use pyo3::exceptions::PyValueError;
 
 use crate::perlin;
+use crate::primitives::floor_detail::floor_detail_loose_stone_placements;
+use crate::primitives::thematic_detail::thematic_detail_placements;
 use crate::rng::SplitMix64;
 use crate::transform::png as transform_png;
 use crate::transform::svg as transform_svg;
@@ -124,6 +126,43 @@ fn ir_to_svg(
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Run the v4 thematic-detail probability gate at emit time so
+/// the v5 emit pipeline can land explicit V5FixtureOp anchors at
+/// the same tiles where the v4 painter would render webs / bones
+/// / skulls. Returns a list of ``(kind, x, y, orientation)``
+/// tuples — kind is 0=Web, 2=Bones, 1=Skull (matching
+/// V5FixtureKind enum values).
+///
+/// Phase 2.11 emit-side close-out: ThematicDetailOp's tile-level
+/// scatter (probability-gated against the v4 RNG) becomes
+/// explicit per-anchor placements in the v5 IR so the per-anchor
+/// painters added in 21790269 fire on the actual fixture content.
+#[pyfunction]
+fn thematic_detail_anchors(
+    tiles: Vec<(i32, i32, bool, u8)>,
+    seed: u64,
+    theme: &str,
+    macabre: bool,
+) -> Vec<(u8, i32, i32, u8)> {
+    thematic_detail_placements(&tiles, seed, theme, macabre)
+        .into_iter()
+        .map(|p| (p.kind, p.x, p.y, p.orientation))
+        .collect()
+}
+
+/// Run the v4 floor-detail probability gate at emit time and
+/// return the tile coords where the stones bucket landed shapes.
+/// Used by v5 emit to land V5FixtureOp(LooseStone) anchors.
+#[pyfunction]
+fn floor_detail_loose_stone_anchors(
+    tiles: Vec<(i32, i32, bool)>,
+    seed: u64,
+    theme: &str,
+    macabre: bool,
+) -> Vec<(i32, i32)> {
+    floor_detail_loose_stone_placements(&tiles, seed, theme, macabre)
+}
+
 /// PyO3 module entry point. The function name MUST match the
 /// `[lib] name` in Cargo.toml (`nhc_render`) so Python's
 /// import machinery finds it.
@@ -135,5 +174,7 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ir_to_png_v5, m)?)?;
     m.add_function(wrap_pyfunction!(svg_to_png, m)?)?;
     m.add_function(wrap_pyfunction!(ir_to_svg, m)?)?;
+    m.add_function(wrap_pyfunction!(thematic_detail_anchors, m)?)?;
+    m.add_function(wrap_pyfunction!(floor_detail_loose_stone_anchors, m)?)?;
     Ok(())
 }

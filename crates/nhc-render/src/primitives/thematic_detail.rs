@@ -355,6 +355,102 @@ fn tile_shapes_into_buckets(
     }
 }
 
+// ── Anchor-placement entry point (v5 emit) ────────────────────
+
+/// Per-anchor placement record — what the v5 emit pipeline ships
+/// as a `V5FixtureOp` anchor. ``kind`` is one of
+/// `KIND_WEB` / `KIND_BONES` / `KIND_SKULL`; ``orientation`` carries
+/// the web corner (0=NW, 1=NE, 2=SW, 3=SE per the legacy
+/// `wall_bits` encoding) for Web kind, otherwise 0.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ThematicDetailPlacement {
+    pub kind: u8,
+    pub x: i32,
+    pub y: i32,
+    pub orientation: u8,
+}
+
+pub const KIND_WEB: u8 = 0;
+pub const KIND_BONES: u8 = 2;
+pub const KIND_SKULL: u8 = 1;
+
+/// Run the v4 thematic-detail probability gate to determine which
+/// tiles get web / bone / skull placements. Walks the same RNG
+/// stream as `thematic_detail_shapes` so the gate decisions are
+/// byte-equal between the v4 paint path (which calls
+/// `thematic_detail_shapes` and renders shapes inline) and the v5
+/// emit path (which calls this function to land explicit
+/// V5FixtureOp anchors).
+///
+/// The macabre gate drops bones / skulls when ``macabre`` is
+/// `false` — same post-pass the legacy emitter applies.
+pub fn thematic_detail_placements(
+    tiles: &[(i32, i32, bool, u8)],
+    seed: u64,
+    theme: &str,
+    macabre: bool,
+) -> Vec<ThematicDetailPlacement> {
+    let mut rng = Pcg64Mcg::seed_from_u64(seed);
+    let probs = theme_probs(theme);
+    let mut out: Vec<ThematicDetailPlacement> = Vec::new();
+
+    for &(x, y, _is_corridor, wall_bits) in tiles {
+        let px = f64::from(x) * CELL;
+        let py = f64::from(y) * CELL;
+
+        // Web gate — consume the same RNG samples the painter
+        // would, so subsequent tiles see the same RNG state.
+        if rng.gen::<f64>() < probs.web {
+            let mut available: Vec<i32> = Vec::with_capacity(4);
+            if wall_bits & 0x01 != 0 { available.push(0); }
+            if wall_bits & 0x02 != 0 { available.push(1); }
+            if wall_bits & 0x04 != 0 { available.push(2); }
+            if wall_bits & 0x08 != 0 { available.push(3); }
+            if !available.is_empty() {
+                let &corner = available.choose(&mut rng).unwrap();
+                // Drain the same RNG samples ``web_shape`` consumes
+                // so the gate's RNG stream stays aligned with the
+                // v4 painter's stream.
+                let _ = web_shape(&mut rng, px, py, corner);
+                out.push(ThematicDetailPlacement {
+                    kind: KIND_WEB,
+                    x,
+                    y,
+                    orientation: corner as u8,
+                });
+            }
+        }
+
+        // Bones gate — same RNG-drain pattern.
+        if rng.gen::<f64>() < probs.bones {
+            let _ = bones_shape(&mut rng, px, py);
+            if macabre {
+                out.push(ThematicDetailPlacement {
+                    kind: KIND_BONES,
+                    x,
+                    y,
+                    orientation: 0,
+                });
+            }
+        }
+
+        // Skull gate — same RNG-drain pattern.
+        if rng.gen::<f64>() < probs.skull {
+            let _ = skull_shape(&mut rng, px, py);
+            if macabre {
+                out.push(ThematicDetailPlacement {
+                    kind: KIND_SKULL,
+                    x,
+                    y,
+                    orientation: 0,
+                });
+            }
+        }
+    }
+
+    out
+}
+
 // ── Legacy SVG-string emit path ───────────────────────────────
 // ── Painter dispatcher ────────────────────────────────────────
 

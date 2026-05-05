@@ -200,6 +200,44 @@ pub fn floor_detail_shapes(
 
     (room, corridor)
 }
+/// Run the v4 floor-detail probability gate and return the tile
+/// coordinates where the stones bucket would have placed shapes.
+/// Used by the v5 emit path to land explicit V5FixtureOp(LooseStone)
+/// anchors at the same tiles where the v4 painter would render the
+/// stone-cluster shapes.
+///
+/// The function walks the same RNG stream as `floor_detail_shapes`
+/// (gated by ``stone_prob`` per tile, plus the ``macabre`` post-
+/// pass that drops the stones bucket entirely when macabre detail
+/// is off). Each emitted stone shape contributes one anchor at the
+/// hosting tile; tiles with cluster_prob hits emit multiple anchors
+/// (mirrors the v4 cluster expansion).
+pub fn floor_detail_loose_stone_placements(
+    tiles: &[(i32, i32, bool)],
+    seed: u64,
+    theme: &str,
+    macabre: bool,
+) -> Vec<(i32, i32)> {
+    if !macabre {
+        // Macabre gate drops the stones bucket entirely. Return
+        // empty so the v5 emit path emits no LooseStone anchors.
+        return Vec::new();
+    }
+    let (room, corridor) = floor_detail_shapes(tiles, seed, theme, macabre);
+    let mut out: Vec<(i32, i32)> = Vec::new();
+    for side in [&room, &corridor] {
+        let (_cracks, _scratches, stones) = side;
+        for shape in stones {
+            if let FloorDetailShape::Stone { cx, cy, .. } = shape {
+                let tx = (*cx / CELL).floor() as i32;
+                let ty = (*cy / CELL).floor() as i32;
+                out.push((tx, ty));
+            }
+        }
+    }
+    out
+}
+
 /// Paint a single side's bucket stream onto `painter`. Each
 /// non-empty bucket is wrapped in `begin_group(opacity)` /
 /// `end_group()` to match the legacy SVG `<g opacity="…">`
