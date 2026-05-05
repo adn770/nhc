@@ -399,6 +399,70 @@ def test_build_floor_ir_populates_v5_regions_and_v5_ops() -> None:
     assert fir.V5OpsLength() > 0
 
 
+# ── emit_shadows(builder) — Phase 4.3a per-module migration ────
+
+
+def test_emit_shadows_walks_builder_ctx_and_matches_translate_shadow_ops() -> None:
+    """``emit_shadows(builder)`` derives the v5 ShadowOp stream from
+    builder.ctx + level (no v4-op input). Asserts the output matches
+    what ``translate_shadow_ops(builder.ops)`` would produce when v4
+    emit also ran on the same builder."""
+    from nhc.dungeon.generator import GenerationParams
+    from nhc.dungeon.pipeline import generate_level
+    from nhc.rendering._render_context import build_render_context
+    from nhc.rendering._cave_geometry import _build_cave_wall_geometry
+    from nhc.rendering._dungeon_polygon import _build_dungeon_polygon
+    from nhc.rendering.ir_emitter import FloorIRBuilder, IR_STAGES
+    from nhc.rendering.v5_emit import emit_shadows, translate_shadow_ops
+
+    params = GenerationParams(
+        width=24, height=16, depth=1, seed=42, theme="dungeon",
+        shape_variety=0.0,
+    )
+    level = generate_level(params)
+    ctx = build_render_context(
+        level,
+        seed=42,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+    )
+    builder = FloorIRBuilder(ctx)
+    for stage in IR_STAGES:
+        stage(builder)
+
+    via_emit = emit_shadows(builder)
+    via_translate = translate_shadow_ops(builder.ops)
+
+    assert len(via_emit) == len(via_translate)
+    for a, b in zip(via_emit, via_translate):
+        assert a.opType == V5Op.ShadowOp
+        assert b.opType == V5Op.ShadowOp
+        assert a.op.kind == b.op.kind
+        # Room shadows carry regionRef; Corridor shadows carry tiles.
+        assert getattr(a.op, "regionRef", "") == getattr(
+            b.op, "regionRef", ""
+        )
+        a_tiles = getattr(a.op, "tiles", None) or []
+        b_tiles = getattr(b.op, "tiles", None) or []
+        assert len(a_tiles) == len(b_tiles)
+
+
+def test_emit_shadows_returns_empty_when_shadows_disabled() -> None:
+    """``ctx.shadows_enabled = False`` (e.g. on building floors) skips
+    the layer entirely — :func:`emit_shadows` returns an empty list."""
+
+    class _StubCtx:
+        shadows_enabled = False
+        level = None
+
+    class _StubBuilder:
+        ctx = _StubCtx()
+
+    from nhc.rendering.v5_emit import emit_shadows
+
+    assert emit_shadows(_StubBuilder()) == []
+
+
 # ── emit_all(builder) — Phase 4.3a entry point ─────────────────
 
 

@@ -37,7 +37,7 @@ from nhc.rendering.v5_emit.paint import translate_paint_ops
 from nhc.rendering.v5_emit.path import translate_path_ops
 from nhc.rendering.v5_emit.regions import translate_region
 from nhc.rendering.v5_emit.roof import translate_roof_ops
-from nhc.rendering.v5_emit.shadow import translate_shadow_ops
+from nhc.rendering.v5_emit.shadow import emit_shadows, translate_shadow_ops
 from nhc.rendering.v5_emit.stamp import translate_stamp_ops
 from nhc.rendering.v5_emit.stroke import translate_stroke_ops
 from nhc.rendering.v5_emit.thematic_detail import (
@@ -47,6 +47,7 @@ from nhc.rendering.v5_emit.thematic_detail import (
 
 __all__ = [
     "emit_all",
+    "emit_shadows",
     "translate_all",
     "translate_region",
     "translate_paint_ops",
@@ -67,12 +68,24 @@ def emit_all(builder: Any) -> tuple[list[Any], list[Any]]:
 
     Phase 4.3a entry point. Takes a :class:`FloorIRBuilder` and walks
     its ``ctx`` / ``regions`` / ``site`` to produce
-    ``(v5_regions, v5_ops)``. Subsequent per-module commits replace
-    each ``translate_*_ops`` call with a direct ctx-walk; for this
-    scaffolding commit the function delegates to the existing
-    translators so output is structurally invariant.
+    ``(v5_regions, v5_ops)``. Per-module sub-commits migrate each
+    translator under this umbrella; modules already migrated walk
+    ``builder`` directly, modules pending migration still consume
+    ``builder.ops``.
     """
-    return translate_all(regions=builder.regions, ops=builder.ops)
+    v5_regions = [translate_region(r) for r in builder.regions]
+    v5_ops: list[Any] = []
+    v5_ops.extend(emit_shadows(builder))
+    v5_ops.extend(translate_paint_ops(builder.ops))
+    v5_ops.extend(translate_stroke_ops(builder.ops))
+    v5_ops.extend(translate_roof_ops(builder.ops))
+    v5_ops.extend(translate_stamp_ops(builder.ops))
+    v5_ops.extend(translate_path_ops(builder.ops))
+    v5_ops.extend(translate_fixtures(builder.ops))
+    v5_ops.extend(translate_thematic_detail_ops(builder.ops))
+    v5_ops.extend(translate_floor_detail_loose_stones(builder.ops))
+    v5_ops.extend(translate_hatch_ops(builder.ops))
+    return v5_regions, v5_ops
 
 
 def translate_all(
