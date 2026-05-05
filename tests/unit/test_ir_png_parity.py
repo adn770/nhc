@@ -1,26 +1,28 @@
 """Cross-rasteriser parity gate for the IR pipeline.
 
-Phase 8.0 pre-step (per ``plans/nhc_ir_migration_plan.md``):
-the harness pivots from the per-layer / whole-floor pixel-diff
-regime that Phase 5 lived on to the two-layer parity contract
-codified in ``design/map_ir.md`` §9.4:
+Phase 4.2c of ``plans/nhc_pure_ir_v5_migration_plan.md`` flipped the
+gate from the v4 op stream to v5: the tiny-skia drift gate uses
+``ir_to_png_v5`` and the cross-rasteriser-agreement gate uses
+``svg_to_png(ir_to_svg_v5(buf))``. Both v5 entry points share
+``dispatch_v5_ops`` internally so the cross-rasteriser PSNR floor
+jumped from the v4-era 17–35 dB ceiling to 60+ dB on every fixture.
+
+The two-layer contract from ``design/map_ir.md`` §9.4 still holds:
 
 1. **IR-level structural validation** (rasteriser-independent).
    Op counts by type, region count, region polygon vertex count,
-   and the per-layer element-count breakdown
-   (``<!-- layer.X: N elements -->`` markers from ``ir_to_svg``)
-   are snapshot-locked against
-   ``tests/fixtures/floor_ir/<descriptor>/structural.json``.
+   and the per-layer element-count breakdown are snapshot-locked
+   against ``tests/fixtures/floor_ir/<descriptor>/structural.json``.
    Catches emit-side regressions before any rasteriser runs.
 
 2. **Pixel-level PSNR > 35 dB** vs canonical reference image. The
    reference is the tiny-skia PNG of the fixture's IR, frozen at
    ``tests/fixtures/floor_ir/<descriptor>/reference.png`` and only
    regenerated under ``--regen-reference``. Every rasteriser is
-   measured against the same reference — currently tiny-skia
-   itself (drift gate) and ``ir_to_svg`` rendered through
-   ``nhc_render.svg_to_png`` (the cross-rasteriser-agreement gate). Phase 11
-   adds the WASM Canvas third side.
+   measured against the same reference — tiny-skia itself (drift
+   gate) and the v5 SVG path rendered through ``nhc_render.svg_to_png``
+   (the cross-rasteriser-agreement gate). Phase 5 adds the WASM
+   Canvas third side post-cut.
 """
 
 from __future__ import annotations
@@ -54,14 +56,14 @@ nhc_render = pytest.importorskip(
 
 
 def ir_to_svg(buf: bytes) -> str:
-    """Phase 2.19: Rust ``nhc_render.ir_to_svg`` shim.
+    """Rust ``nhc_render.ir_to_svg_v5`` shim.
 
-    The legacy Python emitter retired this commit; the harness's
-    cross-rasteriser-agreement tests (``svg_to_png(ir_to_svg(buf))``
-    vs ``ir_to_png(buf)``) now drive both sides through the same
-    Painter-trait FFI.
+    Phase 4.2c of ``plans/nhc_pure_ir_v5_migration_plan.md`` flipped
+    the parity gate from the v4 SVG path to v5. The shim keeps the
+    callsite name stable so 4.3's mechanical V5* → canonical rename
+    drops the ``_v5`` suffix without churning every test body.
     """
-    return nhc_render.ir_to_svg(bytes(buf))
+    return nhc_render.ir_to_svg_v5(bytes(buf))
 
 
 _FIXTURE_ROOT = (
@@ -77,26 +79,19 @@ PSNR_THRESHOLD_DB: float = 35.0
 
 # Per-fixture relaxations.
 #
-# After the 1.27 schema cut the committed `reference.png` files were
-# regenerated from the Rust tiny-skia pipeline. The cross-rasteriser
-# resvg test compares the Python ir_to_svg → resvg-rasterised output
-# against the Rust reference, so any geometry divergence between the
-# Python and Rust paths surfaces here as a PSNR drop.
+# Phase 4.2c flipped both rasteriser sides to the v5 entry points
+# (``ir_to_png_v5`` and ``ir_to_svg_v5``), which share
+# ``dispatch_v5_ops`` internally and only differ in the concrete
+# Painter (SkiaPainter vs SvgPainter). The cross-rasteriser PSNR
+# jumped from the 17–35 dB v4 ceiling to 60+ dB on every measured
+# fixture, so the v4-era overrides (notably the 17 dB seed99 cave
+# override caused by Python ir_to_svg's GEOS buffer diverging from
+# the Rust straight-skeleton) are stale and the maps reset to
+# empty. Both maps stay defined so a future fixture-specific
+# tightening can pin individually.
 TINY_SKIA_PSNR_OVERRIDES: dict[str, float] = {}
 
-RESVG_PSNR_OVERRIDES: dict[str, float] = {
-    # Cave wall pipeline: `geometry::cave_path_from_outline` runs
-    # `geo_buffer::buffer_polygon_rounded` (Rust straight-skeleton)
-    # where Python uses Shapely's GEOS buffer. The two produce
-    # geometrically equivalent polygons (sym-diff < 0.01% by area)
-    # but Rust emits ~2× the vertex count. After Douglas-Peucker
-    # `simplify` both end at ~225 verts, but at slightly different
-    # positions, shifting the smoothed wall stroke by 1-3 px along
-    # the boundary. The reference.png is now from the Rust pipeline,
-    # so the Python-svg → resvg path diverges on the cave stroke.
-    # A future `geos`-FFI port could close the gap byte-equally.
-    "seed99_cave_cave_cave": 17.0,
-}
+RESVG_PSNR_OVERRIDES: dict[str, float] = {}
 
 
 def _tiny_skia_threshold(descriptor: str) -> float:
@@ -180,7 +175,7 @@ def test_tiny_skia_psnr_against_reference(emitted) -> None:
     ``--regen-reference``.
     """
     inputs, buf = emitted
-    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / inputs.descriptor / "reference.png"
     ).read_bytes()
@@ -317,7 +312,7 @@ def test_synthetic_roof_tiny_skia_psnr(synthetic_roof_buf) -> None:
     layout, palette, or geometry from the Phase 8.1c.2 baseline.
     """
     fx, buf = synthetic_roof_buf
-    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -406,7 +401,7 @@ def test_synthetic_enclosure_tiny_skia_psnr(
     palette / dimensions / RNG / shape from the 8.2c baseline.
     """
     fx, buf = synthetic_enclosure_buf
-    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -490,7 +485,7 @@ def test_synthetic_building_wall_tiny_skia_psnr(
 ) -> None:
     """tiny-skia output: PSNR > 40 dB vs the committed reference."""
     fx, buf = synthetic_building_wall_buf
-    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -584,7 +579,7 @@ def test_site_tiny_skia_psnr(site_buf) -> None:
     time on a clean background).
     """
     fx, buf = site_buf
-    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -661,7 +656,7 @@ def building_buf(request):
 def test_building_tiny_skia_psnr(building_buf) -> None:
     """tiny-skia output: PSNR > 35 dB vs the committed reference."""
     fx, buf = building_buf
-    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()

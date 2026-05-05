@@ -397,7 +397,7 @@ def _render_fixture(fx: Fixture) -> _RenderedFixture:
     # the cross-rasteriser PSNR + structural-sanity contract in
     # `tests/unit/test_ir_png_parity.py`.
     structural = dump_structural(nir)
-    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
     return _RenderedFixture(
         nir=nir,
         js=js,
@@ -471,7 +471,7 @@ def _render_synthetic_fixture(
     from nhc.rendering.ir.structural import dump_structural
 
     nir = _build_synthetic_buf(fx)
-    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
     structural = dump_structural(nir)
     return nir, reference_png, structural
 
@@ -574,7 +574,7 @@ def _render_synthetic_enclosure_fixture(
     import nhc_render
     from nhc.rendering.ir.structural import dump_structural
     nir = _build_synthetic_enclosure_buf(fx)
-    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
     structural = dump_structural(nir)
     return nir, reference_png, structural
 
@@ -654,7 +654,7 @@ def _render_site_fixture(fx: SiteFixture) -> tuple[bytes, bytes, str]:
         vegetation=fx.vegetation,
         site=site,
     ))
-    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
     structural = dump_structural(nir)
     return nir, reference_png, structural
 
@@ -727,7 +727,7 @@ def _render_building_fixture(
         hatch_distance=2.0,
         site=site,
     ))
-    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
     structural = dump_structural(nir)
     return nir, reference_png, structural
 
@@ -842,7 +842,7 @@ def _render_synthetic_building_wall_fixture(
     import nhc_render
     from nhc.rendering.ir.structural import dump_structural
     nir = _build_synthetic_building_wall_buf(fx)
-    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
     structural = dump_structural(nir)
     return nir, reference_png, structural
 
