@@ -9,7 +9,13 @@
 use crate::painter::material::{fill_region, Material};
 use crate::painter::{Color, Painter, PathOps};
 
-const PLAIN_FILL: Color = Color::rgba(0xFF, 0xFF, 0xFF, 1.0);
+pub(crate) const PLAIN_FILL: Color = Color::rgba(0xFF, 0xFF, 0xFF, 1.0);
+/// Plain has no tonal axis. The shadow role for substance-driven
+/// strokes (e.g. WallTreatment::PlainStroke over a Plain wall) reads
+/// as a neutral mid-grey ink so a wall painted on plain parchment
+/// renders visibly without leaning towards any natural-stone hue.
+pub(crate) const PLAIN_SHADOW: Color = Color::rgba(0x33, 0x33, 0x33, 1.0);
+pub(crate) const PLAIN_HIGHLIGHT: Color = Color::rgba(0xFF, 0xFF, 0xFF, 1.0);
 
 pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, _material: &Material) {
     fill_region(painter, region_path, PLAIN_FILL);

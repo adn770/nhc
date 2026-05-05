@@ -1,37 +1,63 @@
 //! V5StrokeOp consumer — wall stroke along outline.
 //!
-//! Phase 1.3 ships the dispatch shape: read geometry from
+//! Phase 1.3 shipped the dispatch shape: read geometry from
 //! `region_ref` (→ Region.outline) or from `op.outline` (interior
-//! partitions, free-standing walls). Dispatch on
+//! partitions, free-standing walls), dispatch on
 //! `wall_material.treatment` (PlainStroke / Masonry / Partition /
 //! Palisade / Fortification).
 //!
-//! Phase 2.8 lifts today's per-treatment painters (Masonry,
-//! Palisade, Fortification — already implemented in v4e) into the
-//! v5 dispatcher. PlainStroke and Partition are new for v5.
+//! Phase 2.8 of `plans/nhc_pure_ir_v5_migration_plan.md` wires
+//! substance-aware palette resolution: stroke ink comes from the
+//! wall material's `(family, style, tone)` shadow palette role —
+//! the same shadow colour that decorators use for seams / mortar
+//! when painting over a region of the same family. Per-treatment
+//! stroke width gives a visible visual differentiator between the
+//! five treatments (PlainStroke 1.5 px, Masonry 3.0, Partition
+//! 1.0, Palisade 2.5, Fortification 4.0) so the dispatch is
+//! observable on the rendered output even before each treatment's
+//! drawing algorithm lands.
+//!
+//! Per-treatment drawing algorithms (Masonry running-bond layout,
+//! Palisade vertical-pole grid, Fortification crenellated
+//! battlement with `CornerStyle` handling, Partition dressed
+//! thin-wall) ride additive Phase 2.8 follow-on commits — this
+//! commit ships the dispatch shape + substance palette baseline
+//! so the rest of the plan can sequence per-treatment work.
 
 use flatbuffers::{ForwardsUOffset, Vector};
 
 use super::region_path::outline_to_path;
-use crate::ir::{V5Region, V5StrokeOp, V5WallTreatment};
-use crate::painter::{Color, Paint, Painter, Stroke};
+use crate::ir::{V5MaterialFamily, V5Region, V5StrokeOp, V5WallTreatment};
+use crate::painter::material::{substance_color, Family, PaletteRole};
+use crate::painter::{Paint, Painter, Stroke};
 
-/// Sentinel placeholder colour per WallTreatment. Phase 2.8
-/// replaces these with substance-aware palettes (the wall's
-/// MaterialFamily / style picks the colour; the treatment picks
-/// the drawing algorithm).
-fn stub_paint(treatment: V5WallTreatment) -> Paint {
-    Paint::solid(match treatment {
-        V5WallTreatment::PlainStroke => Color::rgba(0x18, 0x12, 0x0E, 1.0),
-        V5WallTreatment::Masonry => Color::rgba(0x40, 0x38, 0x2C, 1.0),
-        V5WallTreatment::Partition => Color::rgba(0x60, 0x4A, 0x32, 1.0),
-        V5WallTreatment::Palisade => Color::rgba(0x55, 0x3B, 0x22, 1.0),
-        V5WallTreatment::Fortification => Color::rgba(0x12, 0x10, 0x10, 1.0),
-        _ => Color::rgba(0xFF, 0x00, 0xFF, 1.0),
-    })
+/// Map the FlatBuffers `V5MaterialFamily` to the painter's `Family`
+/// POD. Mirrors the bridge in `super::material_from_fb`.
+fn family_from_fb(family: V5MaterialFamily) -> Family {
+    match family {
+        V5MaterialFamily::Cave => Family::Cave,
+        V5MaterialFamily::Wood => Family::Wood,
+        V5MaterialFamily::Stone => Family::Stone,
+        V5MaterialFamily::Earth => Family::Earth,
+        V5MaterialFamily::Liquid => Family::Liquid,
+        V5MaterialFamily::Special => Family::Special,
+        _ => Family::Plain,
+    }
 }
 
-const STUB_STROKE_WIDTH: f32 = 2.0;
+/// Per-treatment stroke width baseline. Acts as a visible visual
+/// differentiator between the five treatments while the per-
+/// treatment drawing algorithms are deferred to follow-on commits.
+fn treatment_stroke_width(treatment: V5WallTreatment) -> f32 {
+    match treatment {
+        V5WallTreatment::PlainStroke => 1.5,
+        V5WallTreatment::Masonry => 3.0,
+        V5WallTreatment::Partition => 1.0,
+        V5WallTreatment::Palisade => 2.5,
+        V5WallTreatment::Fortification => 4.0,
+        _ => 1.5,
+    }
+}
 
 pub fn draw<'a>(
     op: V5StrokeOp<'a>,
@@ -61,8 +87,10 @@ pub fn draw<'a>(
         Some(m) => m,
         None => return false,
     };
-    let paint = stub_paint(wm.treatment());
-    let stroke = Stroke::solid(STUB_STROKE_WIDTH);
+    let family = family_from_fb(wm.family());
+    let color = substance_color(family, wm.style(), wm.tone(), PaletteRole::Shadow);
+    let paint = Paint::solid(color);
+    let stroke = Stroke::solid(treatment_stroke_width(wm.treatment()));
     painter.stroke_path(&path, &paint, &stroke);
     true
 }
@@ -79,9 +107,14 @@ mod tests {
         V5StrokeOp as FbV5StrokeOp, V5StrokeOpArgs, V5WallMaterial,
         V5WallMaterialArgs, V5WallTreatment, Vec2 as FbVec2,
     };
+    use crate::painter::families::stone;
     use crate::painter::test_util::{MockPainter, PainterCall};
 
-    fn build_stroke_op_with_region(treatment: V5WallTreatment) -> Vec<u8> {
+    fn build_stroke_op_with_region(
+        family: V5MaterialFamily,
+        style: u8,
+        treatment: V5WallTreatment,
+    ) -> Vec<u8> {
         let mut fbb = FlatBufferBuilder::new();
         let verts = fbb.create_vector(&[
             FbVec2::new(0.0, 0.0),
@@ -114,8 +147,8 @@ mod tests {
         let wall_material = V5WallMaterial::create(
             &mut fbb,
             &V5WallMaterialArgs {
-                family: V5MaterialFamily::Stone,
-                style: 0,
+                family,
+                style,
                 treatment,
                 corner_style: CornerStyle::Merlon,
                 tone: 0,
@@ -157,10 +190,8 @@ mod tests {
         fbb.finished_data().to_vec()
     }
 
-    #[test]
-    fn draw_strokes_region_outline_with_treatment_paint() {
-        let buf = build_stroke_op_with_region(V5WallTreatment::Masonry);
-        let fir = root_as_floor_ir(&buf).expect("parse");
+    fn paint_for(buf: &[u8]) -> (PainterCall,) {
+        let fir = root_as_floor_ir(buf).expect("parse");
         let regions = fir.v5_regions().expect("v5_regions");
         let op = fir
             .v5_ops()
@@ -168,25 +199,38 @@ mod tests {
             .get(0)
             .op_as_v5_stroke_op()
             .expect("stroke op");
-
         let mut painter = MockPainter::default();
         let painted = draw(op, regions, &mut painter);
         assert!(painted);
         assert_eq!(painter.calls.len(), 1);
-        match &painter.calls[0] {
-            PainterCall::StrokePath(_, paint, stroke) => {
-                assert_eq!(stroke.width, 2.0);
-                // Masonry stub paint = #40382C
-                assert_eq!(paint.color.r, 0x40);
-                assert_eq!(paint.color.g, 0x38);
-                assert_eq!(paint.color.b, 0x2C);
+        (painter.calls.into_iter().next().unwrap(),)
+    }
+
+    /// Stroke colour pulls the family's `Shadow` palette. With a
+    /// Stone family at style=0 (Cobblestone), the shadow colour is
+    /// the cobblestone mortar (`#9A8A7A`).
+    #[test]
+    fn stroke_color_resolves_to_family_shadow_palette() {
+        let buf = build_stroke_op_with_region(
+            V5MaterialFamily::Stone,
+            0,
+            V5WallTreatment::Masonry,
+        );
+        let (call,) = paint_for(&buf);
+        let expected = stone::palette(0).shadow;
+        match call {
+            PainterCall::StrokePath(_, paint, _) => {
+                assert_eq!(paint.color, expected);
             }
             other => panic!("expected StrokePath, got {other:?}"),
         }
     }
 
+    /// Per-treatment stroke widths must be distinct so the dispatch
+    /// is observable on rendered output even before each treatment's
+    /// drawing algorithm lands.
     #[test]
-    fn draw_picks_distinct_paint_per_treatment() {
+    fn each_treatment_picks_a_distinct_stroke_width() {
         let mut seen = Vec::new();
         for treatment in [
             V5WallTreatment::PlainStroke,
@@ -195,28 +239,49 @@ mod tests {
             V5WallTreatment::Palisade,
             V5WallTreatment::Fortification,
         ] {
-            let buf = build_stroke_op_with_region(treatment);
-            let fir = root_as_floor_ir(&buf).expect("parse");
-            let regions = fir.v5_regions().expect("v5_regions");
-            let op = fir
-                .v5_ops()
-                .expect("v5_ops")
-                .get(0)
-                .op_as_v5_stroke_op()
-                .expect("stroke op");
-            let mut painter = MockPainter::default();
-            assert!(draw(op, regions, &mut painter));
-            match &painter.calls[0] {
-                PainterCall::StrokePath(_, paint, _) => {
-                    let key = (paint.color.r, paint.color.g, paint.color.b);
+            let buf = build_stroke_op_with_region(
+                V5MaterialFamily::Stone,
+                0,
+                treatment,
+            );
+            let (call,) = paint_for(&buf);
+            match call {
+                PainterCall::StrokePath(_, _, stroke) => {
                     assert!(
-                        !seen.contains(&key),
-                        "treatment {treatment:?} reuses earlier palette"
+                        !seen.contains(&stroke.width.to_bits()),
+                        "treatment {treatment:?} reuses earlier stroke width"
                     );
-                    seen.push(key);
+                    seen.push(stroke.width.to_bits());
                 }
                 other => panic!("expected StrokePath, got {other:?}"),
             }
         }
+    }
+
+    /// Different families produce distinct stroke colours for the
+    /// same treatment — pins the substance-driven palette dispatch.
+    #[test]
+    fn different_families_produce_distinct_stroke_colors() {
+        let stone_buf = build_stroke_op_with_region(
+            V5MaterialFamily::Stone,
+            0,
+            V5WallTreatment::Masonry,
+        );
+        let wood_buf = build_stroke_op_with_region(
+            V5MaterialFamily::Wood,
+            0,
+            V5WallTreatment::Masonry,
+        );
+        let (stone_call,) = paint_for(&stone_buf);
+        let (wood_call,) = paint_for(&wood_buf);
+        let stone_color = match stone_call {
+            PainterCall::StrokePath(_, p, _) => p.color,
+            _ => panic!(),
+        };
+        let wood_color = match wood_call {
+            PainterCall::StrokePath(_, p, _) => p.color,
+            _ => panic!(),
+        };
+        assert_ne!(stone_color, wood_color);
     }
 }

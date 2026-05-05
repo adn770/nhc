@@ -105,6 +105,90 @@ pub(crate) fn fill_region<P: Painter + ?Sized>(
     painter.fill_path(region_path, &paint, FillRule::Winding);
 }
 
+/// Per-family palette role. Wall strokes typically pull `Shadow`
+/// (the substance's seam / mortar colour); decorator overlays may
+/// pull `Highlight`. Phase 2.8 uses this from the v5 StrokeOp
+/// dispatcher to derive substance-aware ink from the wall material.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PaletteRole {
+    Base,
+    Highlight,
+    Shadow,
+}
+
+/// Resolve a substance palette colour from `(family, style, tone)`
+/// and the requested role. Bridges the per-family palette tables
+/// (defined module-locally in `families/<family>.rs`) into a
+/// single dispatch surface that the v5 op handlers can call without
+/// knowing about per-family colour types.
+///
+/// `style` and `tone` are family-specific indices; out-of-range
+/// values fall back to the per-family sentinel palette (magenta) so
+/// painter coverage gaps surface visually rather than silently.
+pub fn substance_color(
+    family: Family,
+    style: u8,
+    tone: u8,
+    role: PaletteRole,
+) -> Color {
+    use super::families::{cave, earth, liquid, plain, special, stone, wood};
+    match family {
+        Family::Plain => match role {
+            PaletteRole::Base => plain::PLAIN_FILL,
+            PaletteRole::Highlight => plain::PLAIN_HIGHLIGHT,
+            PaletteRole::Shadow => plain::PLAIN_SHADOW,
+        },
+        Family::Cave => {
+            let p = cave::palette(style);
+            match role {
+                PaletteRole::Base => p.base,
+                PaletteRole::Highlight => p.highlight,
+                PaletteRole::Shadow => p.shadow,
+            }
+        }
+        Family::Wood => {
+            let p = wood::palette(style, tone);
+            match role {
+                PaletteRole::Base => p.base,
+                PaletteRole::Highlight => p.highlight,
+                PaletteRole::Shadow => p.shadow,
+            }
+        }
+        Family::Stone => {
+            let p = stone::palette(style);
+            match role {
+                PaletteRole::Base => p.base,
+                PaletteRole::Highlight => p.highlight,
+                PaletteRole::Shadow => p.shadow,
+            }
+        }
+        Family::Earth => {
+            let p = earth::palette(style);
+            match role {
+                PaletteRole::Base => p.base,
+                PaletteRole::Highlight => p.highlight,
+                PaletteRole::Shadow => p.shadow,
+            }
+        }
+        Family::Liquid => {
+            let p = liquid::palette(style);
+            match role {
+                PaletteRole::Base => p.base,
+                PaletteRole::Highlight => p.highlight,
+                PaletteRole::Shadow => p.shadow,
+            }
+        }
+        Family::Special => {
+            let p = special::palette(style);
+            match role {
+                PaletteRole::Base => p.base,
+                PaletteRole::Highlight => p.highlight,
+                PaletteRole::Shadow => p.shadow,
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
