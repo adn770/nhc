@@ -19,9 +19,15 @@
 //! Surface authority: `design/map_ir_v4e.md` §7. When the design
 //! and this module diverge, the design wins.
 
+pub mod families;
+pub mod material;
 pub mod skia;
 pub mod svg;
 
+#[cfg(test)]
+pub(crate) mod test_util;
+
+pub use material::{paint_material, Family, Material, V5_MATERIAL_FALLBACK_COLOR};
 pub use skia::SkiaPainter;
 pub use svg::SvgPainter;
 
@@ -327,99 +333,8 @@ pub trait Painter {
 
 #[cfg(test)]
 mod tests {
+    use super::test_util::{MockPainter, PainterCall as Call};
     use super::*;
-
-    /// Records every `Painter` call for assertion in unit tests.
-    /// Used as a behavioural fixture for trait-conformance checks
-    /// before the SkiaPainter / SvgPainter impls land.
-    #[derive(Debug, Default)]
-    struct MockPainter {
-        calls: Vec<Call>,
-        group_depth: i32,
-        clip_depth: i32,
-        transform_depth: i32,
-        max_group_depth: i32,
-        max_clip_depth: i32,
-        max_transform_depth: i32,
-    }
-
-    #[derive(Debug, PartialEq)]
-    enum Call {
-        FillRect(Rect, Paint),
-        StrokeRect(Rect, Paint, Stroke),
-        FillCircle(f32, f32, f32, Paint),
-        FillEllipse(f32, f32, f32, f32, Paint),
-        FillPolygon(Vec<Vec2>, Paint, FillRule),
-        StrokePolyline(Vec<Vec2>, Paint, Stroke),
-        FillPath(PathOps, Paint, FillRule),
-        StrokePath(PathOps, Paint, Stroke),
-        BeginGroup(f32),
-        EndGroup,
-        PushClip(PathOps, FillRule),
-        PopClip,
-        PushTransform(Transform),
-        PopTransform,
-    }
-
-    impl Painter for MockPainter {
-        fn fill_rect(&mut self, rect: Rect, paint: &Paint) {
-            self.calls.push(Call::FillRect(rect, *paint));
-        }
-        fn stroke_rect(&mut self, rect: Rect, paint: &Paint, stroke: &Stroke) {
-            self.calls.push(Call::StrokeRect(rect, *paint, *stroke));
-        }
-        fn fill_circle(&mut self, cx: f32, cy: f32, r: f32, paint: &Paint) {
-            self.calls.push(Call::FillCircle(cx, cy, r, *paint));
-        }
-        fn fill_ellipse(&mut self, cx: f32, cy: f32, rx: f32, ry: f32, paint: &Paint) {
-            self.calls.push(Call::FillEllipse(cx, cy, rx, ry, *paint));
-        }
-        fn fill_polygon(&mut self, vertices: &[Vec2], paint: &Paint, fill_rule: FillRule) {
-            self.calls.push(Call::FillPolygon(vertices.to_vec(), *paint, fill_rule));
-        }
-        fn stroke_polyline(&mut self, vertices: &[Vec2], paint: &Paint, stroke: &Stroke) {
-            self.calls.push(Call::StrokePolyline(vertices.to_vec(), *paint, *stroke));
-        }
-        fn fill_path(&mut self, path: &PathOps, paint: &Paint, fill_rule: FillRule) {
-            self.calls.push(Call::FillPath(path.clone(), *paint, fill_rule));
-        }
-        fn stroke_path(&mut self, path: &PathOps, paint: &Paint, stroke: &Stroke) {
-            self.calls.push(Call::StrokePath(path.clone(), *paint, *stroke));
-        }
-        fn begin_group(&mut self, opacity: f32) {
-            self.group_depth += 1;
-            if self.group_depth > self.max_group_depth {
-                self.max_group_depth = self.group_depth;
-            }
-            self.calls.push(Call::BeginGroup(opacity));
-        }
-        fn end_group(&mut self) {
-            self.group_depth -= 1;
-            self.calls.push(Call::EndGroup);
-        }
-        fn push_clip(&mut self, path: &PathOps, fill_rule: FillRule) {
-            self.clip_depth += 1;
-            if self.clip_depth > self.max_clip_depth {
-                self.max_clip_depth = self.clip_depth;
-            }
-            self.calls.push(Call::PushClip(path.clone(), fill_rule));
-        }
-        fn pop_clip(&mut self) {
-            self.clip_depth -= 1;
-            self.calls.push(Call::PopClip);
-        }
-        fn push_transform(&mut self, transform: Transform) {
-            self.transform_depth += 1;
-            if self.transform_depth > self.max_transform_depth {
-                self.max_transform_depth = self.transform_depth;
-            }
-            self.calls.push(Call::PushTransform(transform));
-        }
-        fn pop_transform(&mut self) {
-            self.transform_depth -= 1;
-            self.calls.push(Call::PopTransform);
-        }
-    }
 
     fn red() -> Paint {
         Paint::solid(Color::rgb(255, 0, 0))
