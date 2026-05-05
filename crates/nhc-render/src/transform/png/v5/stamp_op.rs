@@ -23,6 +23,9 @@ use flatbuffers::{ForwardsUOffset, Vector};
 use super::region_path::outline_to_path;
 use crate::ir::{FloorIR, Outline, V5Region, V5StampOp};
 use crate::painter::{Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Stroke};
+use crate::primitives::floor_detail::{
+    floor_detail_shapes, paint_floor_detail_side, FloorDetailShape,
+};
 use crate::primitives::floor_grid::paint_floor_grid_paths;
 
 /// Tile size in pixels — same convention as the other v5 op
@@ -222,6 +225,75 @@ fn paint_grid_lines(
     painter.pop_clip();
 }
 
+/// Cracks bit — lift the per-tile crack generator from
+/// ``primitives::floor_detail::floor_detail_shapes``. Walks every
+/// region tile, picks ``crack_prob`` of them via the seeded RNG,
+/// emits a diagonal corner-line shape per hit, and paints them
+/// inside a single ``begin_group(CRACKS_OPACITY)`` envelope. The
+/// scratches + stones buckets from the same generator are dropped
+/// — the Scratches bit (Phase 2.9c) consumes the scratches bucket
+/// independently, and the stones bucket isn't a v5 decorator
+/// (LooseStone is a FixtureKind, not a StampOp bit).
+fn paint_cracks(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    paint_floor_detail_bucket(painter, outline, region_path, seed, FloorDetailBucket::Cracks);
+}
+
+/// Bucket selector for `paint_floor_detail_bucket` — picks which
+/// of the three buckets `floor_detail_shapes` returns to paint.
+/// Cracks (Phase 2.9b) and Scratches (Phase 2.9c) share the same
+/// generator and only diverge on this selector.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum FloorDetailBucket {
+    Cracks,
+    Scratches,
+}
+
+fn paint_floor_detail_bucket(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+    bucket: FloorDetailBucket,
+) {
+    let tiles_xy = enumerate_region_tiles(outline);
+    if tiles_xy.is_empty() {
+        return;
+    }
+    let tiles: Vec<(i32, i32, bool)> = tiles_xy
+        .into_iter()
+        .map(|(x, y)| (x, y, false))
+        .collect();
+    // Theme defaults to "dungeon" — v5 doesn't carry a theme on
+    // the IR. Cave-floor decorators (denser cracks, sparser
+    // scratches) ride a separate StampOp emitted with a different
+    // density / mask combination.
+    let (room_side, _corridor_side) =
+        floor_detail_shapes(&tiles, seed, "dungeon", false);
+    let (cracks, scratches, _stones) = room_side;
+    // Build a SideShapes tuple containing only the bucket the
+    // caller asked for; the floor_detail dispatcher walks all 3
+    // buckets but skips empty ones.
+    let only_bucket: (
+        Vec<FloorDetailShape>,
+        Vec<FloorDetailShape>,
+        Vec<FloorDetailShape>,
+    ) = match bucket {
+        FloorDetailBucket::Cracks => (cracks, Vec::new(), Vec::new()),
+        FloorDetailBucket::Scratches => (Vec::new(), scratches, Vec::new()),
+    };
+    if only_bucket.0.is_empty() && only_bucket.1.is_empty() && only_bucket.2.is_empty() {
+        return;
+    }
+    painter.push_clip(region_path, FillRule::EvenOdd);
+    paint_floor_detail_side(painter, &only_bucket);
+    painter.pop_clip();
+}
+
 /// Per-bit dispatcher. Phase 2.9 commits replace each not-yet-
 /// lifted arm with the bit's real painter.
 fn dispatch_bit(
@@ -235,6 +307,9 @@ fn dispatch_bit(
     match bit_value {
         bit::GRID_LINES => {
             paint_grid_lines(painter, fir, outline, region_path, seed);
+        }
+        bit::CRACKS => {
+            paint_cracks(painter, outline, region_path, seed);
         }
         // Not-yet-lifted bits — emit a single translucent fill of
         // the region in the bit's sentinel hue so the dispatcher
@@ -399,12 +474,13 @@ mod tests {
 
     /// Not-yet-lifted bits keep the placeholder fill behaviour —
     /// one fill_path per enabled bit. Pin so a regression in the
-    /// dispatcher (e.g. GridLines arm leaking into the wildcard)
-    /// surfaces here.
+    /// dispatcher (e.g. an already-lifted bit's arm leaking into
+    /// the wildcard) surfaces here. Each Phase 2.9 commit removes
+    /// one bit from this list as it lands its real painter.
     #[test]
     fn unlifted_bits_emit_single_fill_path_each() {
         for bit_value in [
-            bit::CRACKS, bit::SCRATCHES, bit::RIPPLES, bit::LAVA_CRACKS,
+            bit::SCRATCHES, bit::RIPPLES, bit::LAVA_CRACKS,
             bit::MOSS, bit::BLOOD, bit::ASH, bit::PUDDLES,
         ] {
             let painter = run(&build_stamp_op(bit_value));
@@ -418,6 +494,37 @@ mod tests {
                 "bit 0x{bit_value:x}: expected 1 fill_path call (got {fill_paths})"
             );
         }
+    }
+
+    /// Cracks bit emits the lifted floor-detail crack generator
+    /// inside a `begin_group(CRACKS_OPACITY)` envelope, all under
+    /// a region-clip. Pin the envelope shape: push_clip ⊃
+    /// begin_group ⊃ stroke_paths ⊃ end_group ⊃ pop_clip.
+    #[test]
+    fn cracks_bit_paints_inside_clipped_group_envelope() {
+        let painter = run(&build_stamp_op(bit::CRACKS));
+        let kinds: Vec<&str> = painter
+            .calls
+            .iter()
+            .map(|c| match c {
+                PainterCall::PushClip(_, _) => "push_clip",
+                PainterCall::PopClip => "pop_clip",
+                PainterCall::BeginGroup(_) => "begin_group",
+                PainterCall::EndGroup => "end_group",
+                PainterCall::StrokePath(_, _, _) => "stroke_path",
+                _ => "other",
+            })
+            .collect();
+        assert_eq!(kinds.first(), Some(&"push_clip"));
+        assert_eq!(kinds.last(), Some(&"pop_clip"));
+        assert!(
+            kinds.contains(&"begin_group") && kinds.contains(&"end_group"),
+            "expected begin_group + end_group inside push_clip envelope, got {kinds:?}"
+        );
+        assert!(
+            kinds.contains(&"stroke_path"),
+            "expected stroke_path calls inside the group envelope, got {kinds:?}"
+        );
     }
 
     #[test]
