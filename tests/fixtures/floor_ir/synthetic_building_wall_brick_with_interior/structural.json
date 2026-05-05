@@ -1,7 +1,6 @@
 {
   "op_counts": {
-    "ExteriorWallOp": 1,
-    "InteriorWallOp": 2
+    "V5StrokeOp": 3
   },
   "region_count": 1,
   "region_polygon_rings": 0,

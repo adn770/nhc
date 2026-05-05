@@ -1,12 +1,9 @@
 {
   "op_counts": {
-    "CorridorWallOp": 1,
-    "ExteriorWallOp": 4,
-    "FloorDetailOp": 1,
-    "FloorGridOp": 1,
-    "FloorOp": 228,
-    "InteriorWallOp": 4,
-    "StairsOp": 1
+    "V5FixtureOp": 1,
+    "V5PaintOp": 228,
+    "V5StampOp": 2,
+    "V5StrokeOp": 9
   },
   "region_count": 6,
   "region_polygon_rings": 4,

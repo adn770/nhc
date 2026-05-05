@@ -14,6 +14,12 @@ Tools:
 - :class:`GetIROpsTool` — op-vector summary, or filter by kind
 - :class:`GetIRDiffTool` — structural diff between two .nir files
 - :class:`GetWallCoverageTool` — legacy + new-op wall summary
+
+Phase 4.1 of plans/nhc_pure_ir_v5_migration_plan.md: every consumer
+here reads the v5 op stream (``v5Ops`` / ``v5Regions``) instead of
+the v4 stream (``ops`` / ``regions``). The v4 stream still rides
+alongside in fresh IR until the atomic cut at 4.3; Phase 4.1
+retires v4-side reading so the cut is mechanical.
 """
 
 from __future__ import annotations
@@ -29,22 +35,32 @@ from nhc.debug_tools.base import BaseTool
 # WallStyle / OutlineKind reverse maps (stable enums — hardcoded for clarity)
 # ---------------------------------------------------------------------------
 
-_WALL_STYLE: dict[int, str] = {
-    0: "DungeonInk",
-    1: "CaveInk",
-    2: "MasonryBrick",
-    3: "MasonryStone",
-    4: "PartitionStone",
-    5: "PartitionBrick",
-    6: "PartitionWood",
-    7: "Palisade",
-    8: "FortificationMerlon",
-}
-
 _OUTLINE_KIND: dict[int, str] = {
     0: "Polygon",
     1: "Circle",
     2: "Pill",
+}
+
+# v5 ``WallTreatment`` enum names (per design/map_ir_v5.md §3.4).
+# Replaces the v4 ``WallStyle`` reverse map used pre-Phase-4.1.
+_WALL_TREATMENT: dict[int, str] = {
+    0: "PlainStroke",
+    1: "Masonry",
+    2: "Partition",
+    3: "Palisade",
+    4: "Fortification",
+}
+
+# v5 ``MaterialFamily`` enum names — used by GetWallCoverageTool to
+# describe a wall's substance family alongside its treatment.
+_MATERIAL_FAMILY: dict[int, str] = {
+    0: "Plain",
+    1: "Cave",
+    2: "Wood",
+    3: "Stone",
+    4: "Earth",
+    5: "Liquid",
+    6: "Special",
 }
 
 
@@ -169,8 +185,11 @@ class GetIRBufferTool(BaseTool):
             ),
             "major": d["major"],
             "minor": d["minor"],
-            "region_count": len(d.get("regions") or []),
-            "op_count": len(d.get("ops") or []),
+            # v5 op / region counts (Phase 4.1). The v4 streams
+            # still ride alongside in fresh IR until the atomic cut
+            # at 4.3, but every consumer here reports the v5 view.
+            "region_count": len(d.get("v5Regions") or []),
+            "op_count": len(d.get("v5Ops") or []),
         }
         if kwargs.get("include_dump"):
             from nhc.rendering.ir.dump import dump
@@ -224,7 +243,9 @@ class GetIRRegionTool(BaseTool):
         if err is not None:
             return err
         d = _load_dump(path.read_bytes())
-        regions = d.get("regions") or []
+        # Phase 4.1: read v5Regions (V5Region — no `kind` field per
+        # design/map_ir_v5.md §3.2; tooling infers role from `id`).
+        regions = d.get("v5Regions") or []
         region_id = kwargs.get("region_id")
         if region_id is None:
             return {
@@ -232,8 +253,8 @@ class GetIRRegionTool(BaseTool):
                 "regions": [
                     {
                         "id": r["id"],
-                        "kind": r["kind"],
                         "shape_tag": r.get("shapeTag", ""),
+                        "parent_id": r.get("parentId", ""),
                     }
                     for r in regions
                 ],
@@ -293,7 +314,11 @@ class GetIROpsTool(BaseTool):
         if err is not None:
             return err
         d = _load_dump(path.read_bytes())
-        ops = d.get("ops") or []
+        # Phase 4.1: read v5Ops (the v5 op stream). Op kinds are
+        # named after the v5 union variants — V5PaintOp, V5StampOp,
+        # V5PathOp, V5FixtureOp, V5StrokeOp, ShadowOp (carried over),
+        # V5HatchOp, V5RoofOp.
+        ops = d.get("v5Ops") or []
         kind = kwargs.get("kind")
         if kind is None:
             summary: dict[str, int] = {}
@@ -375,14 +400,15 @@ class GetIRDiffTool(BaseTool):
 
         d1 = _load_dump(before_path.read_bytes())
         d2 = _load_dump(after_path.read_bytes())
-        ids1 = {r["id"] for r in (d1.get("regions") or [])}
-        ids2 = {r["id"] for r in (d2.get("regions") or [])}
+        # Phase 4.1: diff over the v5 op + region streams.
+        ids1 = {r["id"] for r in (d1.get("v5Regions") or [])}
+        ids2 = {r["id"] for r in (d2.get("v5Regions") or [])}
         op_counts_1: dict[str, int] = {}
-        for entry in (d1.get("ops") or []):
+        for entry in (d1.get("v5Ops") or []):
             ot = entry.get("opType", "?")
             op_counts_1[ot] = op_counts_1.get(ot, 0) + 1
         op_counts_2: dict[str, int] = {}
-        for entry in (d2.get("ops") or []):
+        for entry in (d2.get("v5Ops") or []):
             ot = entry.get("opType", "?")
             op_counts_2[ot] = op_counts_2.get(ot, 0) + 1
         # Per-kind net changes (positive = added in `after`).
@@ -410,11 +436,10 @@ class GetWallCoverageTool(BaseTool):
 
     name = "get_wall_coverage"
     description = (
-        "Report legacy wall data (counts from WallsAndFloorsOp) "
-        "and new-op summary (ExteriorWallOp / InteriorWallOp / "
-        "CorridorWallOp) for a .nir buffer. Useful for diagnosing "
-        "migration progress during 1.17 / 1.18 / 1.19 where wall "
-        "data flows through both paths."
+        "Report wall coverage from V5StrokeOp entries: per-treatment "
+        "(PlainStroke / Masonry / Partition / Palisade / "
+        "Fortification) counts, per-substance-family counts, and "
+        "per-stroke (region_ref, treatment, family, style) detail."
     )
     parameters = {
         "type": "object",
@@ -446,81 +471,50 @@ class GetWallCoverageTool(BaseTool):
         if err is not None:
             return err
         d = _load_dump(path.read_bytes())
-        ops = d.get("ops") or []
+        ops = d.get("v5Ops") or []
 
-        # Legacy fields (from WallsAndFloorsOp)
-        wall_segments = 0
-        smooth_walls = 0
-        wall_ext_d = 0
-        cave_region = False
-
-        # New-op accumulators
-        exterior_walls: list[dict[str, Any]] = []
-        interior_walls: list[dict[str, Any]] = []
-        corridor_wall_op: dict[str, Any] | None = None
+        strokes: list[dict[str, Any]] = []
 
         for entry in ops:
             op_type = entry.get("opType", "")
+            if op_type != "V5StrokeOp":
+                continue
             op = entry.get("op", {})
+            wm = op.get("wallMaterial") or {}
+            outline = op.get("outline") or {}
+            treatment_int = wm.get("treatment", 0)
+            family_int = wm.get("family", 0)
+            cuts = op.get("cuts") or []
+            strokes.append({
+                "region_ref": op.get("regionRef", ""),
+                "treatment": _WALL_TREATMENT.get(
+                    treatment_int, str(treatment_int)
+                ),
+                "family": _MATERIAL_FAMILY.get(
+                    family_int, str(family_int)
+                ),
+                "style": wm.get("style", 0),
+                "tone": wm.get("tone", 0),
+                "outline_kind": _OUTLINE_KIND.get(
+                    outline.get("descriptorKind", 0),
+                    str(outline.get("descriptorKind", 0)),
+                ),
+                "vertices_count": len(outline.get("vertices") or []),
+                "cuts_count": len(cuts),
+            })
 
-            if op_type == "WallsAndFloorsOp":
-                wall_segments = len(op.get("wallSegments") or [])
-                smooth_walls = len(op.get("smoothRoomRegions") or [])
-                wall_ext_d = len(op.get("wallExtensionsDChars") or [])
-                # Phase 1.19: caveRegion is the empty string in fresh
-                # IR; treat it as "absent" so the report reflects the
-                # consumer-facing reality (the new pipeline reads
-                # CaveFloor FloorOp.outline.vertices instead).
-                cave_region = bool(op.get("caveRegion"))
-
-            elif op_type == "ExteriorWallOp":
-                outline = op.get("outline") or {}
-                style_int = op.get("style", 0)
-                dk = outline.get("descriptorKind", 0)
-                exterior_walls.append({
-                    "style": _WALL_STYLE.get(style_int, str(style_int)),
-                    "outline_kind": _OUTLINE_KIND.get(dk, str(dk)),
-                    "vertices_count": len(outline.get("vertices") or []),
-                    "cuts_count": len(outline.get("cuts") or []),
-                })
-
-            elif op_type == "InteriorWallOp":
-                outline = op.get("outline") or {}
-                style_int = op.get("style", 0)
-                dk = outline.get("descriptorKind", 0)
-                interior_walls.append({
-                    "style": _WALL_STYLE.get(style_int, str(style_int)),
-                    "outline_kind": _OUTLINE_KIND.get(dk, str(dk)),
-                    "vertices_count": len(outline.get("vertices") or []),
-                    "cuts_count": len(outline.get("cuts") or []),
-                    "closed": outline.get("closed", False),
-                })
-
-            elif op_type == "CorridorWallOp":
-                style_int = op.get("style", 0)
-                corridor_wall_op = {
-                    "tiles_count": len(op.get("tiles") or []),
-                    "style": _WALL_STYLE.get(style_int, str(style_int)),
-                }
-
-        # by_style: count ExteriorWallOps per style
-        by_style: dict[str, int] = {}
-        for w in exterior_walls:
-            s = w["style"]
-            by_style[s] = by_style.get(s, 0) + 1
+        by_treatment: dict[str, int] = {}
+        by_family: dict[str, int] = {}
+        for s in strokes:
+            by_treatment[s["treatment"]] = (
+                by_treatment.get(s["treatment"], 0) + 1
+            )
+            by_family[s["family"]] = by_family.get(s["family"], 0) + 1
 
         return {
             "path": str(path),
-            "legacy": {
-                "wall_segments_count": wall_segments,
-                "smooth_walls_count": smooth_walls,
-                "wall_extensions_d_chars": wall_ext_d,
-                "cave_region_present": cave_region,
-            },
-            "new": {
-                "exterior_walls": exterior_walls,
-                "interior_walls": interior_walls,
-                "corridor_wall_op": corridor_wall_op,
-            },
-            "by_style": by_style,
+            "stroke_count": len(strokes),
+            "by_treatment": by_treatment,
+            "by_family": by_family,
+            "strokes": strokes,
         }

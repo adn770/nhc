@@ -35682,7 +35682,7 @@
   "v5Ops": [
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35695,7 +35695,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35708,7 +35708,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35721,7 +35721,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35734,7 +35734,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35747,7 +35747,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35760,7 +35760,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35773,7 +35773,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35786,7 +35786,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35799,7 +35799,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35812,7 +35812,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35825,7 +35825,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35838,7 +35838,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35851,7 +35851,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35864,7 +35864,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35877,7 +35877,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35890,7 +35890,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35903,7 +35903,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -35916,7 +35916,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Corridor",
@@ -37055,14 +37055,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_1",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37072,14 +37072,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_2",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37089,14 +37089,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_3",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37106,14 +37106,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_4",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37123,14 +37123,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_5",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37140,14 +37140,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_6",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37157,14 +37157,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_7",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37174,14 +37174,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_8",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37191,14 +37191,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_9",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37208,14 +37208,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_10",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37225,14 +37225,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_11",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37242,14 +37242,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_12",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37259,14 +37259,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_13",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37276,14 +37276,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_14",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37293,14 +37293,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_15",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37310,14 +37310,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_16",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37327,14 +37327,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "room_17",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37344,14 +37344,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "vault_1",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37361,14 +37361,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "corridor",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 0,
+          "family": "Plain",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -37378,17 +37378,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_3",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -37426,17 +37426,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_5",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -37516,17 +37516,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_7",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -37592,17 +37592,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_8",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -37626,17 +37626,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_11",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -37674,17 +37674,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_12",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -37750,17 +37750,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_13",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -37840,17 +37840,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_16",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -37916,17 +37916,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_17",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -37992,17 +37992,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "vault_1",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -38011,17 +38011,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_1",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -38059,17 +38059,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_2",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -38121,17 +38121,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_4",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -38155,17 +38155,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_6",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -38203,17 +38203,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_9",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -38265,17 +38265,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_10",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -38299,17 +38299,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_14",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -38361,17 +38361,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "room_15",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -38423,17 +38423,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "corridor",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -38442,7 +38442,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 2,
+      "opType": "V5StampOp",
       "op": {
         "__type": "V5StampOpT",
         "regionRef": "dungeon",
@@ -38454,7 +38454,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 2,
+      "opType": "V5StampOp",
       "op": {
         "__type": "V5StampOpT",
         "regionRef": "dungeon",
@@ -38466,7 +38466,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 2,
+      "opType": "V5StampOp",
       "op": {
         "__type": "V5StampOpT",
         "regionRef": "dungeon",
@@ -38478,11 +38478,11 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 4,
+      "opType": "V5FixtureOp",
       "op": {
         "__type": "V5FixtureOpT",
         "regionRef": "",
-        "kind": 8,
+        "kind": "Stair",
         "anchors": [
           {
             "__type": "V5AnchorT",
@@ -38510,11 +38510,11 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 4,
+      "opType": "V5FixtureOp",
       "op": {
         "__type": "V5FixtureOpT",
         "regionRef": "",
-        "kind": 0,
+        "kind": "Web",
         "anchors": [
           {
             "__type": "V5AnchorT",
@@ -38582,11 +38582,11 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 4,
+      "opType": "V5FixtureOp",
       "op": {
         "__type": "V5FixtureOpT",
         "regionRef": "",
-        "kind": 1,
+        "kind": "Skull",
         "anchors": [
           {
             "__type": "V5AnchorT",
@@ -39034,11 +39034,11 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 4,
+      "opType": "V5FixtureOp",
       "op": {
         "__type": "V5FixtureOpT",
         "regionRef": "",
-        "kind": 2,
+        "kind": "Bone",
         "anchors": [
           {
             "__type": "V5AnchorT",
@@ -39676,11 +39676,11 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 4,
+      "opType": "V5FixtureOp",
       "op": {
         "__type": "V5FixtureOpT",
         "regionRef": "",
-        "kind": 3,
+        "kind": "LooseStone",
         "anchors": [
           {
             "__type": "V5AnchorT",
@@ -41598,10 +41598,10 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 7,
+      "opType": "V5HatchOp",
       "op": {
         "__type": "V5HatchOpT",
-        "kind": 0,
+        "kind": "Room",
         "regionRef": "",
         "subtractRegionRefs": [
           "dungeon"
@@ -46066,10 +46066,10 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 7,
+      "opType": "V5HatchOp",
       "op": {
         "__type": "V5HatchOpT",
-        "kind": 2,
+        "kind": "Corridor",
         "regionRef": "",
         "subtractRegionRefs": [],
         "tiles": [

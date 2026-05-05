@@ -25899,7 +25899,7 @@
   "v5Ops": [
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -25912,7 +25912,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -25925,7 +25925,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -25938,7 +25938,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -25951,7 +25951,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -25964,7 +25964,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -25977,7 +25977,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 6,
+      "opType": "ShadowOp",
       "op": {
         "__type": "ShadowOpT",
         "kind": "Room",
@@ -25990,14 +25990,14 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 1,
+      "opType": "V5PaintOp",
       "op": {
         "__type": "V5PaintOpT",
         "regionRef": "cave.0",
         "subtractRegionRefs": [],
         "material": {
           "__type": "V5MaterialT",
-          "family": 1,
+          "family": "Cave",
           "style": 0,
           "subPattern": 0,
           "tone": 0,
@@ -26007,17 +26007,17 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 5,
+      "opType": "V5StrokeOp",
       "op": {
         "__type": "V5StrokeOpT",
         "regionRef": "cave.0",
         "outline": null,
         "wallMaterial": {
           "__type": "V5WallMaterialT",
-          "family": 3,
+          "family": "Stone",
           "style": 8,
-          "treatment": 0,
-          "cornerStyle": 0,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
           "tone": 0,
           "seed": 0
         },
@@ -26026,7 +26026,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 2,
+      "opType": "V5StampOp",
       "op": {
         "__type": "V5StampOpT",
         "regionRef": "dungeon",
@@ -26038,7 +26038,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 2,
+      "opType": "V5StampOp",
       "op": {
         "__type": "V5StampOpT",
         "regionRef": "dungeon",
@@ -26050,7 +26050,7 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 2,
+      "opType": "V5StampOp",
       "op": {
         "__type": "V5StampOpT",
         "regionRef": "dungeon",
@@ -26062,11 +26062,11 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 4,
+      "opType": "V5FixtureOp",
       "op": {
         "__type": "V5FixtureOpT",
         "regionRef": "",
-        "kind": 8,
+        "kind": "Stair",
         "anchors": [
           {
             "__type": "V5AnchorT",
@@ -26094,11 +26094,11 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 4,
+      "opType": "V5FixtureOp",
       "op": {
         "__type": "V5FixtureOpT",
         "regionRef": "",
-        "kind": 1,
+        "kind": "Skull",
         "anchors": [
           {
             "__type": "V5AnchorT",
@@ -26156,11 +26156,11 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 4,
+      "opType": "V5FixtureOp",
       "op": {
         "__type": "V5FixtureOpT",
         "regionRef": "",
-        "kind": 2,
+        "kind": "Bone",
         "anchors": [
           {
             "__type": "V5AnchorT",
@@ -26288,11 +26288,11 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 4,
+      "opType": "V5FixtureOp",
       "op": {
         "__type": "V5FixtureOpT",
         "regionRef": "",
-        "kind": 0,
+        "kind": "Web",
         "anchors": [
           {
             "__type": "V5AnchorT",
@@ -26350,11 +26350,11 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 4,
+      "opType": "V5FixtureOp",
       "op": {
         "__type": "V5FixtureOpT",
         "regionRef": "",
-        "kind": 3,
+        "kind": "LooseStone",
         "anchors": [
           {
             "__type": "V5AnchorT",
@@ -27822,10 +27822,10 @@
     },
     {
       "__type": "V5OpEntryT",
-      "opType": 7,
+      "opType": "V5HatchOp",
       "op": {
         "__type": "V5HatchOpT",
-        "kind": 0,
+        "kind": "Room",
         "regionRef": "",
         "subtractRegionRefs": [
           "dungeon"

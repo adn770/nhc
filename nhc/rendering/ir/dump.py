@@ -22,6 +22,7 @@ from typing import Any
 
 from nhc.rendering.ir._fb import (
     CobblePattern,
+    CornerStyle,
     FloorKind,
     FountainShape,
     HatchKind,
@@ -30,6 +31,12 @@ from nhc.rendering.ir._fb import (
     ShadowKind,
     StairDirection,
     TerrainKind,
+    V5FixtureKind,
+    V5MaterialFamily,
+    V5Op,
+    V5PathStyle,
+    V5RoofStyle,
+    V5WallTreatment,
     WellShape,
 )
 from nhc.rendering.ir._fb.FloorIR import FloorIR, FloorIRT
@@ -68,6 +75,29 @@ _ENUM_FIELDS: dict[tuple[str, str], dict[int, str]] = {
         TerrainKind.TerrainKind
     ),
     ("OpEntryT", "opType"): _enum_value_to_name(Op.Op),
+    # v5 enum-typed fields — Phase 1.1 schema scaffold lifted them
+    # into the IR, Phase 4.1 lifts them into the canonical dump
+    # representation so consumers (ir_query, structural diffs)
+    # can read v5 op kinds as strings.
+    ("V5OpEntryT", "opType"): _enum_value_to_name(V5Op.V5Op),
+    ("V5MaterialT", "family"): _enum_value_to_name(
+        V5MaterialFamily.V5MaterialFamily
+    ),
+    ("V5WallMaterialT", "family"): _enum_value_to_name(
+        V5MaterialFamily.V5MaterialFamily
+    ),
+    ("V5WallMaterialT", "treatment"): _enum_value_to_name(
+        V5WallTreatment.V5WallTreatment
+    ),
+    ("V5WallMaterialT", "cornerStyle"): _enum_value_to_name(
+        CornerStyle.CornerStyle
+    ),
+    ("V5FixtureOpT", "kind"): _enum_value_to_name(
+        V5FixtureKind.V5FixtureKind
+    ),
+    ("V5PathOpT", "style"): _enum_value_to_name(V5PathStyle.V5PathStyle),
+    ("V5RoofOpT", "style"): _enum_value_to_name(V5RoofStyle.V5RoofStyle),
+    ("V5HatchOpT", "kind"): _enum_value_to_name(HatchKind.HatchKind),
 }
 
 

@@ -1,15 +1,11 @@
 {
   "op_counts": {
-    "ExteriorWallOp": 1,
-    "FloorDetailOp": 1,
-    "FloorGridOp": 1,
-    "FloorOp": 1,
-    "HatchOp": 1,
     "ShadowOp": 7,
-    "StairsOp": 1,
-    "TerrainDetailOp": 1,
-    "TerrainTintOp": 1,
-    "ThematicDetailOp": 1
+    "V5FixtureOp": 5,
+    "V5HatchOp": 1,
+    "V5PaintOp": 1,
+    "V5StampOp": 3,
+    "V5StrokeOp": 1
   },
   "region_count": 9,
   "region_polygon_rings": 4,
