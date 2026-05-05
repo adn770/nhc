@@ -35,7 +35,7 @@ from nhc.rendering.v5_emit.fixture import translate_fixtures
 from nhc.rendering.v5_emit.hatch import emit_hatches, translate_hatch_ops
 from nhc.rendering.v5_emit.paint import translate_paint_ops
 from nhc.rendering.v5_emit.path import translate_path_ops
-from nhc.rendering.v5_emit.regions import translate_region
+from nhc.rendering.v5_emit.regions import emit_regions, translate_region
 from nhc.rendering.v5_emit.roof import emit_roofs, translate_roof_ops
 from nhc.rendering.v5_emit.shadow import emit_shadows, translate_shadow_ops
 from nhc.rendering.v5_emit.stamp import translate_stamp_ops
@@ -48,6 +48,7 @@ from nhc.rendering.v5_emit.thematic_detail import (
 __all__ = [
     "emit_all",
     "emit_hatches",
+    "emit_regions",
     "emit_roofs",
     "emit_shadows",
     "translate_all",
@@ -75,7 +76,7 @@ def emit_all(builder: Any) -> tuple[list[Any], list[Any]]:
     ``builder`` directly, modules pending migration still consume
     ``builder.ops``.
     """
-    v5_regions = [translate_region(r) for r in builder.regions]
+    v5_regions = emit_regions(builder)
     v5_ops: list[Any] = []
     v5_ops.extend(emit_shadows(builder))
     v5_ops.extend(translate_paint_ops(builder.ops))
