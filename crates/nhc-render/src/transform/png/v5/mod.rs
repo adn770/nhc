@@ -17,6 +17,7 @@ pub mod hatch_op;
 pub mod paint_op;
 pub mod path_op;
 pub mod region_path;
+pub mod roof_op;
 pub mod stamp_op;
 pub mod stroke_op;
 

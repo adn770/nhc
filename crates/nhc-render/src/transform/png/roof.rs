@@ -418,14 +418,40 @@ pub(super) fn draw(
     }
     let shape_tag = region.shape_tag().unwrap_or("");
     let tint = op.tint().unwrap_or("#8A7A5A");
-    let mut rng = RoofRng::new(op.rng_seed());
+    let clip = build_clip_pathops(&region);
+    draw_roof_polygon(
+        painter,
+        &polygon,
+        shape_tag,
+        tint,
+        op.rng_seed(),
+        clip.as_ref(),
+    );
+}
+
+/// Polygon-driven inner roof painter — shared by the v4 OpEntry
+/// dispatch (above) and the v5 V5RoofOp dispatch
+/// (`super::v5::roof_op::draw`). Both paths look the region up in
+/// their respective regions vector, extract the polygon + shape_tag
+/// + tint + seed, build a clip path, and call here.
+pub(super) fn draw_roof_polygon(
+    painter: &mut dyn Painter,
+    polygon: &[(f32, f32)],
+    shape_tag: &str,
+    tint: &str,
+    seed: u64,
+    clip: Option<&PathOps>,
+) {
+    if polygon.len() < 3 {
+        return;
+    }
+    let mut rng = RoofRng::new(seed);
     let sunlit = shade_palette(tint, true);
     let shadow = shade_palette(tint, false);
-    let clip = build_clip_pathops(&region);
-    let mode = geometry_mode(shape_tag, &polygon);
+    let mode = geometry_mode(shape_tag, polygon);
     let (mut min_x, mut max_x) = (f32::INFINITY, f32::NEG_INFINITY);
     let (mut min_y, mut max_y) = (f32::INFINITY, f32::NEG_INFINITY);
-    for &(x, y) in &polygon {
+    for &(x, y) in polygon {
         if x < min_x { min_x = x; }
         if x > max_x { max_x = x; }
         if y < min_y { min_y = y; }
@@ -434,7 +460,7 @@ pub(super) fn draw(
     let pw = max_x - min_x;
     let ph = max_y - min_y;
 
-    let pushed = if let Some(clip_path) = clip.as_ref() {
+    let pushed = if let Some(clip_path) = clip {
         painter.push_clip(clip_path, FillRule::EvenOdd);
         true
     } else {
@@ -446,7 +472,7 @@ pub(super) fn draw(
             &sunlit, &shadow, &mut rng, painter,
         ),
         Mode::Pyramid => draw_pyramid_sides(
-            &polygon, &sunlit, &shadow, &mut rng, painter,
+            polygon, &sunlit, &shadow, &mut rng, painter,
         ),
     }
     if pushed {

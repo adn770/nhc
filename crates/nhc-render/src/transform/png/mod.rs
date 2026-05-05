@@ -433,12 +433,11 @@ fn dispatch_v5_ops(
                     v5::hatch_op::draw(op, regions, painter);
                 }
             }
-            // V5RoofOp not yet handled — the v5 roof handler ports
-            // separately because the v4 roof painter looks regions
-            // up via fir.regions() (v4) and the painter logic needs
-            // refactoring to take a (polygon, shape_tag, tint, seed)
-            // tuple before the v5 dispatch can call it cleanly.
-            V5Op::V5RoofOp => {}
+            V5Op::V5RoofOp => {
+                if let Some(op) = entry.op_as_v5_roof_op() {
+                    v5::roof_op::draw(op, regions, painter);
+                }
+            }
             _ => {}
         }
     }
