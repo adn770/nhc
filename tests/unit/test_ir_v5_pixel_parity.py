@@ -75,9 +75,7 @@ V5_PSNR_THRESHOLD_DB: float = 10.0
 # fixture's measured PSNR — bump the override here at the same
 # time to pin the new floor.
 #
-# Current floors (measured at HEAD = Phase 2.11-partial /
-# Phase 2.10 / Phase 2.8 substance-baseline / Phase 2.3-2.4
-# palette-half / Phase 2.1-2.7 baseline):
+# Current floors (measured at HEAD with GridLines decorator bit):
 V5_PSNR_OVERRIDES: dict[str, float] = {
     "seed42_rect_dungeon_dungeon": 12.5,
     "seed7_octagon_crypt_dungeon": 12.5,

@@ -1,9 +1,16 @@
 //! V5StampOp consumer — per-region surface texture overlays.
 //!
-//! Phase 1.3 ships the dispatch shape: walk the bits of
+//! Phase 1.3 shipped the dispatch shape: walk the bits of
 //! `decorator_mask`, fan out to per-bit painter stubs. Phase 2.9
-//! lands real per-bit algorithms (cracks, scratches, moss, blood,
-//! ash, puddles, ripples, lava-cracks, grid-lines).
+//! of `plans/nhc_pure_ir_v5_migration_plan.md` lands real per-bit
+//! algorithms one bit at a time:
+//!
+//! - GridLines (this commit) lifts ``primitives::floor_grid::
+//!   paint_floor_grid_paths`` and pushes the region outline as a
+//!   clip path so the wobbly-grid strokes stay inside the region.
+//! - Cracks / Scratches / Moss / Blood / Ash / Puddles / Ripples /
+//!   LavaCracks land in subsequent Phase 2.9 commits, sequenced
+//!   one per bit per the migration plan §2.9 ladder.
 //!
 //! Per-bit baseline densities live in the painter source (not in
 //! the IR). `StampOp.density` (uint8, 128 = baseline) scales
@@ -14,8 +21,13 @@
 use flatbuffers::{ForwardsUOffset, Vector};
 
 use super::region_path::outline_to_path;
-use crate::ir::{V5Region, V5StampOp};
-use crate::painter::{Color, FillRule, Paint, Painter};
+use crate::ir::{FloorIR, Outline, V5Region, V5StampOp};
+use crate::painter::{Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Stroke};
+use crate::primitives::floor_grid::paint_floor_grid_paths;
+
+/// Tile size in pixels — same convention as the other v5 op
+/// handlers. Matches the canonical `FloorIR.cell` default.
+const CELL: f64 = 32.0;
 
 /// Stable bit assignments — mirrors design/map_ir_v5.md §5 and
 /// the V5StampOp bit registry. Adding a new decorator bit (Phase 2
@@ -38,12 +50,13 @@ pub mod bit {
     ];
 }
 
-/// Sentinel placeholder colour for each bit (Phase 1.3 stub).
-/// Phase 2.9 swaps these for real per-bit painters with seed-
-/// driven per-tile placement.
+/// Sentinel placeholder colour for not-yet-lifted bits. Each bit's
+/// real painter replaces the corresponding match arm in
+/// `dispatch_bit`; remaining bits emit a single translucent fill of
+/// the region in the bit's sentinel hue so the dispatcher stays
+/// observable while the per-bit work sequences in.
 fn stub_color(bit_value: u32) -> Color {
     match bit_value {
-        bit::GRID_LINES => Color::rgba(0xC0, 0xC0, 0xC0, 0.20),
         bit::CRACKS => Color::rgba(0x40, 0x40, 0x40, 0.45),
         bit::SCRATCHES => Color::rgba(0x60, 0x60, 0x60, 0.30),
         bit::RIPPLES => Color::rgba(0xFF, 0xFF, 0xFF, 0.20),
@@ -56,8 +69,186 @@ fn stub_color(bit_value: u32) -> Color {
     }
 }
 
+/// GridLines stroke styling — lifts ``transform/png/floor_grid.rs``
+/// constants verbatim so the lifted painter reads pixel-equal to
+/// the v4 FloorGridOp dispatch.
+const GRID_WIDTH: f32 = 0.3;
+const GRID_OPACITY: f32 = 0.7;
+const GRID_INK: Paint = Paint {
+    color: Color { r: 0, g: 0, b: 0, a: GRID_OPACITY },
+};
+
+fn grid_stroke() -> Stroke {
+    Stroke {
+        width: GRID_WIDTH,
+        line_cap: LineCap::Round,
+        line_join: LineJoin::Round,
+    }
+}
+
+/// Ray-cast point-in-polygon test against a single ring.
+fn point_in_ring(px: f64, py: f64, ring: &[(f64, f64)]) -> bool {
+    let n = ring.len();
+    if n < 3 {
+        return false;
+    }
+    let mut inside = false;
+    let mut j = n - 1;
+    for i in 0..n {
+        let (xi, yi) = ring[i];
+        let (xj, yj) = ring[j];
+        if (yi > py) != (yj > py) {
+            let t = (py - yi) / (yj - yi);
+            if px < xi + t * (xj - xi) {
+                inside = !inside;
+            }
+        }
+        j = i;
+    }
+    inside
+}
+
+/// Multi-ring point-in-polygon via even-odd rule. Each enclosing
+/// ring contributes XOR — outer ring + inner hole rings naturally
+/// punch holes through the predicate.
+fn point_in_outline(px: f64, py: f64, outline: &Outline<'_>) -> bool {
+    let verts = match outline.vertices() {
+        Some(v) if v.len() >= 3 => v,
+        _ => return false,
+    };
+    let coords: Vec<(f64, f64)> = verts
+        .iter()
+        .map(|p| (p.x() as f64, p.y() as f64))
+        .collect();
+    match outline.rings() {
+        Some(rs) if rs.len() > 0 => {
+            let mut inside = false;
+            for r in rs.iter() {
+                let start = r.start() as usize;
+                let count = r.count() as usize;
+                if start + count > coords.len() {
+                    continue;
+                }
+                if point_in_ring(px, py, &coords[start..start + count]) {
+                    inside = !inside;
+                }
+            }
+            inside
+        }
+        _ => point_in_ring(px, py, &coords),
+    }
+}
+
+/// Enumerate integer tile coords (x, y) whose centre lies inside
+/// the region's outline. The shared backbone for every per-tile
+/// decorator-bit painter (GridLines + the upcoming Cracks /
+/// Scratches / Moss / Blood / Ash / Puddles).
+fn enumerate_region_tiles(outline: &Outline<'_>) -> Vec<(i32, i32)> {
+    let verts = match outline.vertices() {
+        Some(v) if v.len() >= 3 => v,
+        _ => return Vec::new(),
+    };
+    let mut x0 = f64::INFINITY;
+    let mut y0 = f64::INFINITY;
+    let mut x1 = f64::NEG_INFINITY;
+    let mut y1 = f64::NEG_INFINITY;
+    for v in verts.iter() {
+        let x = v.x() as f64;
+        let y = v.y() as f64;
+        if x < x0 { x0 = x; }
+        if y < y0 { y0 = y; }
+        if x > x1 { x1 = x; }
+        if y > y1 { y1 = y; }
+    }
+    if !x0.is_finite() {
+        return Vec::new();
+    }
+    let tx0 = (x0 / CELL).floor() as i32;
+    let ty0 = (y0 / CELL).floor() as i32;
+    let tx1 = (x1 / CELL).ceil() as i32 - 1;
+    let ty1 = (y1 / CELL).ceil() as i32 - 1;
+    let mut tiles = Vec::new();
+    for ty in ty0..=ty1 {
+        for tx in tx0..=tx1 {
+            let cx = (tx as f64 + 0.5) * CELL;
+            let cy = (ty as f64 + 0.5) * CELL;
+            if point_in_outline(cx, cy, outline) {
+                tiles.push((tx, ty));
+            }
+        }
+    }
+    tiles
+}
+
+/// GridLines bit — wobbly Perlin grid (lift from
+/// ``primitives::floor_grid::paint_floor_grid_paths``). Emits the
+/// per-tile right + bottom edges as stroked PathOps. The region
+/// outline pushes as an EvenOdd clip so strokes don't leak past
+/// the region boundary; matches the v4 FloorGridOp dispatch's
+/// `Mask::new + mask.fill_path(EvenOdd)` envelope.
+fn paint_grid_lines(
+    painter: &mut dyn Painter,
+    fir: &FloorIR<'_>,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    let tiles_xy = enumerate_region_tiles(outline);
+    if tiles_xy.is_empty() {
+        return;
+    }
+    // The v4 painter takes (x, y, is_corridor) — at the StampOp
+    // level we no longer carry the corridor distinction, so feed
+    // every tile through the room-bucket path. Corridor-specific
+    // grid styling rides separate StampOps targeting the corridor
+    // region with a different decorator mask if it ever needs to
+    // diverge.
+    let tiles: Vec<(i32, i32, bool)> = tiles_xy
+        .into_iter()
+        .map(|(x, y)| (x, y, false))
+        .collect();
+    let (room_paths, _corridor_paths) = paint_floor_grid_paths(
+        fir.width_tiles() as i32,
+        fir.height_tiles() as i32,
+        &tiles,
+        seed,
+    );
+    if room_paths.is_empty() {
+        return;
+    }
+    let stroke = grid_stroke();
+    painter.push_clip(region_path, FillRule::EvenOdd);
+    painter.stroke_path(&room_paths, &GRID_INK, &stroke);
+    painter.pop_clip();
+}
+
+/// Per-bit dispatcher. Phase 2.9 commits replace each not-yet-
+/// lifted arm with the bit's real painter.
+fn dispatch_bit(
+    bit_value: u32,
+    painter: &mut dyn Painter,
+    fir: &FloorIR<'_>,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    match bit_value {
+        bit::GRID_LINES => {
+            paint_grid_lines(painter, fir, outline, region_path, seed);
+        }
+        // Not-yet-lifted bits — emit a single translucent fill of
+        // the region in the bit's sentinel hue so the dispatcher
+        // stays observable while the per-bit work sequences in.
+        _ => {
+            let paint = Paint::solid(stub_color(bit_value));
+            painter.fill_path(region_path, &paint, FillRule::Winding);
+        }
+    }
+}
+
 pub fn draw<'a>(
     op: V5StampOp<'a>,
+    fir: &FloorIR<'_>,
     regions: Vector<'a, ForwardsUOffset<V5Region<'a>>>,
     painter: &mut dyn Painter,
 ) -> bool {
@@ -81,13 +272,9 @@ pub fn draw<'a>(
     if mask == 0 {
         return false;
     }
-    // Phase 1.3 stub: each enabled bit emits one full-region
-    // translucent fill in its sentinel hue. Phase 2.9 replaces
-    // each arm with seed-driven per-tile stamping.
     for bit_value in bit::ALL {
         if mask & bit_value != 0 {
-            let paint = Paint::solid(stub_color(*bit_value));
-            painter.fill_path(&path, &paint, FillRule::Winding);
+            dispatch_bit(*bit_value, painter, fir, &outline, &path, op.seed());
         }
     }
     true
@@ -104,15 +291,16 @@ mod tests {
         V5Region as FbV5Region, V5RegionArgs, V5StampOp as FbV5StampOp,
         V5StampOpArgs, Vec2 as FbVec2,
     };
-    use crate::painter::test_util::MockPainter;
+    use crate::painter::test_util::{MockPainter, PainterCall};
 
     fn build_stamp_op(mask: u32) -> Vec<u8> {
+        // 4×4-tile region in pixel coords (0,0) → (128,128).
         let mut fbb = FlatBufferBuilder::new();
         let verts = fbb.create_vector(&[
             FbVec2::new(0.0, 0.0),
-            FbVec2::new(32.0, 0.0),
-            FbVec2::new(32.0, 32.0),
-            FbVec2::new(0.0, 32.0),
+            FbVec2::new(128.0, 0.0),
+            FbVec2::new(128.0, 128.0),
+            FbVec2::new(0.0, 128.0),
         ]);
         let outline = Outline::create(
             &mut fbb,
@@ -159,8 +347,8 @@ mod tests {
             &FloorIRArgs {
                 major: 4,
                 minor: 0,
-                width_tiles: 4,
-                height_tiles: 4,
+                width_tiles: 8,
+                height_tiles: 8,
                 cell: 32,
                 padding: 32,
                 v5_regions: Some(v5_regions),
@@ -172,13 +360,8 @@ mod tests {
         fbb.finished_data().to_vec()
     }
 
-    #[test]
-    fn draw_emits_one_call_per_enabled_decorator_bit() {
-        // Three bits set: GridLines | Cracks | Moss → 3 fill_path
-        // calls in stub-mode.
-        let mask = bit::GRID_LINES | bit::CRACKS | bit::MOSS;
-        let buf = build_stamp_op(mask);
-        let fir = root_as_floor_ir(&buf).expect("parse");
+    fn run(buf: &[u8]) -> MockPainter {
+        let fir = root_as_floor_ir(buf).expect("parse");
         let regions = fir.v5_regions().expect("v5_regions");
         let op = fir
             .v5_ops()
@@ -186,11 +369,55 @@ mod tests {
             .get(0)
             .op_as_v5_stamp_op()
             .expect("stamp op");
-
         let mut painter = MockPainter::default();
-        let painted = draw(op, regions, &mut painter);
+        let painted = draw(op, &fir, regions, &mut painter);
         assert!(painted);
-        assert_eq!(painter.calls.len(), 3);
+        painter
+    }
+
+    /// GridLines bit emits a clipped stroke_path for the wobbly
+    /// grid. Pin the call signature: push_clip + stroke_path +
+    /// pop_clip in that order.
+    #[test]
+    fn grid_lines_bit_emits_clipped_stroke_path() {
+        let painter = run(&build_stamp_op(bit::GRID_LINES));
+        let kinds: Vec<&str> = painter
+            .calls
+            .iter()
+            .map(|c| match c {
+                PainterCall::PushClip(_, _) => "push_clip",
+                PainterCall::PopClip => "pop_clip",
+                PainterCall::StrokePath(_, _, _) => "stroke_path",
+                _ => "other",
+            })
+            .collect();
+        assert!(
+            kinds.windows(3).any(|w| w == ["push_clip", "stroke_path", "pop_clip"]),
+            "expected push_clip + stroke_path + pop_clip sequence, got {kinds:?}"
+        );
+    }
+
+    /// Not-yet-lifted bits keep the placeholder fill behaviour —
+    /// one fill_path per enabled bit. Pin so a regression in the
+    /// dispatcher (e.g. GridLines arm leaking into the wildcard)
+    /// surfaces here.
+    #[test]
+    fn unlifted_bits_emit_single_fill_path_each() {
+        for bit_value in [
+            bit::CRACKS, bit::SCRATCHES, bit::RIPPLES, bit::LAVA_CRACKS,
+            bit::MOSS, bit::BLOOD, bit::ASH, bit::PUDDLES,
+        ] {
+            let painter = run(&build_stamp_op(bit_value));
+            let fill_paths = painter
+                .calls
+                .iter()
+                .filter(|c| matches!(c, PainterCall::FillPath(_, _, _)))
+                .count();
+            assert_eq!(
+                fill_paths, 1,
+                "bit 0x{bit_value:x}: expected 1 fill_path call (got {fill_paths})"
+            );
+        }
     }
 
     #[test]
@@ -206,8 +433,28 @@ mod tests {
             .expect("stamp op");
 
         let mut painter = MockPainter::default();
-        let painted = draw(op, regions, &mut painter);
+        let painted = draw(op, &fir, regions, &mut painter);
         assert!(!painted);
         assert!(painter.calls.is_empty());
+    }
+
+    #[test]
+    fn enumerate_region_tiles_for_4x4_rect_returns_16() {
+        let buf = build_stamp_op(bit::GRID_LINES);
+        let fir = root_as_floor_ir(&buf).expect("parse");
+        let regions = fir.v5_regions().expect("v5_regions");
+        let region = regions.get(0);
+        let outline = region.outline().expect("outline");
+        let tiles = enumerate_region_tiles(&outline);
+        // (0,0)→(128,128) at 32 px/tile = 4×4 = 16 tiles.
+        assert_eq!(tiles.len(), 16);
+    }
+
+    #[test]
+    fn point_in_ring_handles_simple_square() {
+        let ring = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+        assert!(point_in_ring(5.0, 5.0, &ring));
+        assert!(!point_in_ring(15.0, 5.0, &ring));
+        assert!(!point_in_ring(5.0, -1.0, &ring));
     }
 }

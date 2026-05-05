@@ -405,7 +405,7 @@ fn dispatch_v5_ops(
             }
             V5Op::V5StampOp => {
                 if let Some(op) = entry.op_as_v5_stamp_op() {
-                    v5::stamp_op::draw(op, regions, painter);
+                    v5::stamp_op::draw(op, fir, regions, painter);
                 }
             }
             V5Op::V5PathOp => {
