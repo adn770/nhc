@@ -32,7 +32,7 @@ from __future__ import annotations
 from typing import Any
 
 from nhc.rendering.v5_emit.fixture import translate_fixtures
-from nhc.rendering.v5_emit.hatch import translate_hatch_ops
+from nhc.rendering.v5_emit.hatch import emit_hatches, translate_hatch_ops
 from nhc.rendering.v5_emit.paint import translate_paint_ops
 from nhc.rendering.v5_emit.path import translate_path_ops
 from nhc.rendering.v5_emit.regions import translate_region
@@ -47,6 +47,7 @@ from nhc.rendering.v5_emit.thematic_detail import (
 
 __all__ = [
     "emit_all",
+    "emit_hatches",
     "emit_roofs",
     "emit_shadows",
     "translate_all",
@@ -85,7 +86,7 @@ def emit_all(builder: Any) -> tuple[list[Any], list[Any]]:
     v5_ops.extend(translate_fixtures(builder.ops))
     v5_ops.extend(translate_thematic_detail_ops(builder.ops))
     v5_ops.extend(translate_floor_detail_loose_stones(builder.ops))
-    v5_ops.extend(translate_hatch_ops(builder.ops))
+    v5_ops.extend(emit_hatches(builder))
     return v5_regions, v5_ops
 
 

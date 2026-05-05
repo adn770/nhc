@@ -551,6 +551,51 @@ def test_emit_roofs_skips_non_surface_irs() -> None:
     assert emit_roofs(builder) == []
 
 
+# ── emit_hatches(builder) — Phase 4.3a per-module migration ────
+
+
+def test_emit_hatches_walks_builder_ctx_and_matches_translate_hatch_ops() -> None:
+    """``emit_hatches(builder)`` derives the v5 HatchOp stream from
+    builder.ctx + level. Asserts the output matches what
+    ``translate_hatch_ops(builder.ops)`` produces when v4 emit also
+    ran on the same builder."""
+    from nhc.dungeon.generator import GenerationParams
+    from nhc.dungeon.pipeline import generate_level
+    from nhc.rendering._render_context import build_render_context
+    from nhc.rendering._cave_geometry import _build_cave_wall_geometry
+    from nhc.rendering._dungeon_polygon import _build_dungeon_polygon
+    from nhc.rendering.ir_emitter import FloorIRBuilder, IR_STAGES
+    from nhc.rendering.v5_emit import emit_hatches, translate_hatch_ops
+
+    params = GenerationParams(
+        width=24, height=16, depth=1, seed=42, theme="dungeon",
+        shape_variety=0.0,
+    )
+    level = generate_level(params)
+    ctx = build_render_context(
+        level,
+        seed=42,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+    )
+    builder = FloorIRBuilder(ctx)
+    for stage in IR_STAGES:
+        stage(builder)
+
+    via_emit = emit_hatches(builder)
+    via_translate = translate_hatch_ops(builder.ops)
+
+    assert len(via_emit) == len(via_translate)
+    for a, b in zip(via_emit, via_translate):
+        assert a.opType == V5Op.V5HatchOp
+        assert b.opType == V5Op.V5HatchOp
+        assert a.op.kind == b.op.kind
+        a_tiles = a.op.tiles or []
+        b_tiles = b.op.tiles or []
+        assert len(a_tiles) == len(b_tiles)
+        assert a.op.seed == b.op.seed
+
+
 # ── emit_all(builder) — Phase 4.3a entry point ─────────────────
 
 
