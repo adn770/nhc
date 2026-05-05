@@ -1,20 +1,53 @@
 //! V5PathOp consumer — connected tile networks with style-driven
 //! topology.
 //!
-//! Phase 1.3 ships the dispatch shape: read the unordered tile
-//! list, dispatch on `style` (CartTracks / OreVein) to a stub
-//! painter. Phase 2.10 lifts today's CartTracks 4-neighbour
-//! topology painter (already shipped at d82c9900 — the L-corner /
-//! T-junction dispatch) and OreVein contour painter into the v5
-//! handler.
+//! Phase 2.10 of `plans/nhc_pure_ir_v5_migration_plan.md`. Lifts
+//! the v4e CartTracks 4-neighbour topology painter (the L-corner /
+//! T-junction dispatch shipped at d82c9900, lifted here from
+//! `crates/nhc-render/src/primitives/cart_tracks.rs::paint_cart_tracks`)
+//! and the OreVein contour painter
+//! (`primitives/ore_deposit.rs::paint_ore_deposit`) into the v5
+//! handler. The unordered tile list in `V5PathOp.tiles` is enough
+//! for both pipelines: CartTracks derives the per-tile open-sides
+//! 4-bit mask from the set, OreVein consumes the raw set.
+
+use std::collections::HashSet;
 
 use flatbuffers::{ForwardsUOffset, Vector};
 
 use crate::ir::{V5PathOp, V5PathStyle, V5Region};
-use crate::painter::{Color, FillRule, Paint, Painter, PathOps, Vec2};
+use crate::painter::Painter;
+use crate::primitives::cart_tracks::{
+    paint_cart_tracks, OPEN_E, OPEN_N, OPEN_S, OPEN_W,
+};
+use crate::primitives::ore_deposit::paint_ore_deposit;
 
-const CART_TRACK_STUB_COLOR: Color = Color::rgba(0x6B, 0x4A, 0x2A, 0.45);
-const ORE_VEIN_STUB_COLOR: Color = Color::rgba(0xC2, 0x9B, 0x3F, 0.55);
+/// Compute the 4-bit open-sides mask for each tile in `tiles`. Bit
+/// `OPEN_N` is set when the tile's N neighbour is also in the set,
+/// etc. Mirrors the v4 `_open_sides_for_tracks` helper that the
+/// emitter used to fill `CartTracksVariant.open_sides[]`.
+fn open_sides_for(tiles: &[(i32, i32)]) -> Vec<(i32, i32, u8)> {
+    let set: HashSet<(i32, i32)> = tiles.iter().copied().collect();
+    tiles
+        .iter()
+        .map(|&(x, y)| {
+            let mut mask: u8 = 0;
+            if set.contains(&(x, y - 1)) {
+                mask |= OPEN_N;
+            }
+            if set.contains(&(x, y + 1)) {
+                mask |= OPEN_S;
+            }
+            if set.contains(&(x + 1, y)) {
+                mask |= OPEN_E;
+            }
+            if set.contains(&(x - 1, y)) {
+                mask |= OPEN_W;
+            }
+            (x, y, mask)
+        })
+        .collect()
+}
 
 pub fn draw<'a>(
     op: V5PathOp<'a>,
@@ -25,30 +58,25 @@ pub fn draw<'a>(
         Some(t) if !t.is_empty() => t,
         _ => return false,
     };
-    let color = match op.style() {
-        V5PathStyle::CartTracks => CART_TRACK_STUB_COLOR,
-        V5PathStyle::OreVein => ORE_VEIN_STUB_COLOR,
-        _ => return false,
-    };
-    // Phase 1.3 stub: paint a small marker rectangle at each tile
-    // centre. Phase 2.10 replaces this with the per-style topology
-    // painter. The path constructed here is a simple per-tile box
-    // — enough for the dispatcher contract test.
-    let mut path = PathOps::new();
-    let cell = 32.0;
-    for i in 0..tiles.len() {
-        let t = tiles.get(i);
-        let x = t.x() as f32 * cell + cell * 0.25;
-        let y = t.y() as f32 * cell + cell * 0.25;
-        path.move_to(Vec2::new(x, y));
-        path.line_to(Vec2::new(x + cell * 0.5, y));
-        path.line_to(Vec2::new(x + cell * 0.5, y + cell * 0.5));
-        path.line_to(Vec2::new(x, y + cell * 0.5));
-        path.close();
+    let coords: Vec<(i32, i32)> = (0..tiles.len())
+        .map(|i| {
+            let t = tiles.get(i);
+            (t.x(), t.y())
+        })
+        .collect();
+    let seed = op.seed();
+    match op.style() {
+        V5PathStyle::CartTracks => {
+            let with_mask = open_sides_for(&coords);
+            paint_cart_tracks(painter, &with_mask, seed);
+            true
+        }
+        V5PathStyle::OreVein => {
+            paint_ore_deposit(painter, &coords, seed);
+            true
+        }
+        _ => false,
     }
-    let paint = Paint::solid(color);
-    painter.fill_path(&path, &paint, FillRule::Winding);
-    true
 }
 
 #[cfg(test)]
@@ -61,20 +89,21 @@ mod tests {
         TileCoord, V5OpEntry, V5OpEntryArgs, V5Op,
         V5PathOp as FbV5PathOp, V5PathOpArgs, V5PathStyle, V5Region as FbV5Region,
     };
-    use crate::painter::test_util::MockPainter;
+    use crate::painter::test_util::{MockPainter, PainterCall};
 
-    fn build_path_op(style: V5PathStyle, n_tiles: usize) -> Vec<u8> {
+    fn build_path_op(style: V5PathStyle, tiles: &[(i32, i32)]) -> Vec<u8> {
         let mut fbb = FlatBufferBuilder::new();
-        let tiles_vec: Vec<TileCoord> = (0..n_tiles)
-            .map(|i| TileCoord::new(i as i32, 5))
+        let tiles_vec: Vec<TileCoord> = tiles
+            .iter()
+            .map(|&(x, y)| TileCoord::new(x, y))
             .collect();
-        let tiles = fbb.create_vector(&tiles_vec);
+        let tiles_offset = fbb.create_vector(&tiles_vec);
         let region_ref = fbb.create_string("corridor.0");
         let path_op = FbV5PathOp::create(
             &mut fbb,
             &V5PathOpArgs {
                 region_ref: Some(region_ref),
-                tiles: Some(tiles),
+                tiles: Some(tiles_offset),
                 style,
                 seed: 0xFACE,
             },
@@ -107,10 +136,8 @@ mod tests {
         fbb.finished_data().to_vec()
     }
 
-    #[test]
-    fn draw_dispatches_on_cart_tracks_style() {
-        let buf = build_path_op(V5PathStyle::CartTracks, 3);
-        let fir = root_as_floor_ir(&buf).expect("parse");
+    fn run_draw(buf: &[u8]) -> MockPainter {
+        let fir = root_as_floor_ir(buf).expect("parse");
         let regions = fir.v5_regions().expect("v5_regions");
         let op = fir
             .v5_ops()
@@ -118,16 +145,61 @@ mod tests {
             .get(0)
             .op_as_v5_path_op()
             .expect("path op");
-
         let mut painter = MockPainter::default();
         let painted = draw(op, regions, &mut painter);
         assert!(painted);
-        assert_eq!(painter.calls.len(), 1, "stub paints one fill_path");
+        painter
+    }
+
+    /// Three connected tiles `(0,5)-(1,5)-(2,5)` form a horizontal
+    /// straight track segment. Cart-tracks paints rail strokes (in a
+    /// group envelope) and tie strokes (in another group envelope).
+    /// Pin that the lifted painter ran by asserting at least one
+    /// `BeginGroup` + `StrokePolyline` + `EndGroup` triple.
+    #[test]
+    fn draw_runs_cart_tracks_painter_for_connected_tiles() {
+        let tiles = [(0, 5), (1, 5), (2, 5)];
+        let buf = build_path_op(V5PathStyle::CartTracks, &tiles);
+        let painter = run_draw(&buf);
+        assert!(painter.calls.iter().any(|c| matches!(c, PainterCall::BeginGroup(_))));
+        assert!(painter.calls.iter().any(|c| matches!(c, PainterCall::StrokePolyline(_, _, _))));
+        assert!(painter.calls.iter().any(|c| matches!(c, PainterCall::EndGroup)));
+    }
+
+    /// OreVein paints diamonds (fill_path + stroke_path per diamond)
+    /// inside one `BeginGroup` envelope. Pin that the lifted painter
+    /// ran by checking for `FillPath` + `StrokePath` calls inside
+    /// the group envelope.
+    #[test]
+    fn draw_runs_ore_vein_painter_for_tile_set() {
+        let tiles = [(2, 4), (3, 4), (4, 4), (4, 5)];
+        let buf = build_path_op(V5PathStyle::OreVein, &tiles);
+        let painter = run_draw(&buf);
+        assert!(painter.calls.iter().any(|c| matches!(c, PainterCall::BeginGroup(_))));
+        assert!(painter.calls.iter().any(|c| matches!(c, PainterCall::FillPath(_, _, _))));
+        assert!(painter.calls.iter().any(|c| matches!(c, PainterCall::StrokePath(_, _, _))));
+    }
+
+    /// open_sides_for derives the 4-bit neighbour mask correctly
+    /// from an unordered tile set. A 3-tile horizontal run `(0,5)-
+    /// (1,5)-(2,5)` produces masks: left tile open-E only, middle
+    /// open-E|W, right open-W only.
+    #[test]
+    fn open_sides_for_derives_neighbour_mask_from_tile_set() {
+        let tiles = vec![(0, 5), (1, 5), (2, 5)];
+        let with_mask = open_sides_for(&tiles);
+        let lookup: std::collections::HashMap<(i32, i32), u8> = with_mask
+            .iter()
+            .map(|&(x, y, m)| ((x, y), m))
+            .collect();
+        assert_eq!(lookup[&(0, 5)], OPEN_E);
+        assert_eq!(lookup[&(1, 5)], OPEN_E | OPEN_W);
+        assert_eq!(lookup[&(2, 5)], OPEN_W);
     }
 
     #[test]
     fn draw_skips_empty_tile_list() {
-        let buf = build_path_op(V5PathStyle::CartTracks, 0);
+        let buf = build_path_op(V5PathStyle::CartTracks, &[]);
         let fir = root_as_floor_ir(&buf).expect("parse");
         let regions = fir.v5_regions().expect("v5_regions");
         let op = fir
