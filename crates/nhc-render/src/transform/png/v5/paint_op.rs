@@ -62,6 +62,8 @@ mod tests {
         V5RegionArgs, Vec2 as FbVec2,
     };
     use crate::painter::test_util::{MockPainter, PainterCall};
+    use crate::painter::SkiaPainter;
+    use tiny_skia::Pixmap;
 
     /// Assemble a tiny FloorIR with one V5Region and one V5PaintOp
     /// inside the v5 scaffold fields. Returns the buffer.
@@ -172,6 +174,53 @@ mod tests {
             PainterCall::FillPath(_, _, _) => {}
             other => panic!("expected FillPath, got {other:?}"),
         }
+    }
+
+    /// Phase 2.1 — end-to-end pixel parity for the Plain family
+    /// dispatch path. Builds a synthetic V5PaintOp with
+    /// `Material::Plain`, dispatches through `paint_op::draw` with a
+    /// real `SkiaPainter`, and asserts that pixels inside the region
+    /// land at the v4 DungeonFloor reference colour `#FFFFFF`. Acts
+    /// as the smoke test that pins the v5 dispatch loop end-to-end.
+    #[test]
+    fn draw_with_plain_material_paints_white_through_skia_painter() {
+        let buf = build_floor_ir_with_v5_paint_op(V5MaterialFamily::Plain);
+        let fir = root_as_floor_ir(&buf).expect("parse");
+        let regions = fir.v5_regions().expect("v5_regions");
+        let op = fir
+            .v5_ops()
+            .expect("v5_ops")
+            .get(0)
+            .op_as_v5_paint_op()
+            .expect("v5 paint op");
+
+        // Region outline covers (0,0) → (32,32). Allocate a pixmap
+        // a tad larger than the outline so we can sample pixels
+        // both inside and outside the painted region.
+        let mut pixmap = Pixmap::new(48, 48).expect("pixmap");
+        pixmap.fill(tiny_skia::Color::TRANSPARENT);
+        {
+            let mut painter = SkiaPainter::new(&mut pixmap);
+            let painted = super::draw(op, regions, &mut painter);
+            assert!(painted, "draw should succeed for a valid Plain op");
+        }
+
+        // Pixel inside the region (16, 16) — must be #FFFFFF, the v4
+        // DungeonFloor reference colour.
+        let inside = pixmap.pixel(16, 16).expect("pixel inside");
+        assert_eq!(
+            (inside.red(), inside.green(), inside.blue(), inside.alpha()),
+            (0xFF, 0xFF, 0xFF, 0xFF),
+            "Plain dispatch must paint #FFFFFF inside the region"
+        );
+        // Pixel outside the region (40, 40) — must remain transparent
+        // (untouched). Validates the dispatch respects region geometry.
+        let outside = pixmap.pixel(40, 40).expect("pixel outside");
+        assert_eq!(
+            outside.alpha(),
+            0,
+            "pixels outside the region must remain transparent"
+        );
     }
 
     #[test]
