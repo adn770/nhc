@@ -1,25 +1,20 @@
-"""Texture-overlay v4 ops → ``V5StampOp``.
+"""Builder / level walk → ``V5OpEntry(V5StampOp)``.
 
-The v4 emitter splits texture overlays across multiple op types:
+Phase 4.3a entry point. :func:`emit_stamps` walks the level
+directly to derive the three texture-overlay stamp ops the v4
+emit pipeline produces:
 
-- ``FloorGridOp``       — wobbly Perlin grid
-- ``FloorDetailOp``     — cracks, scratches, loose stones
-- ``ThematicDetailOp``  — webs, bones, skulls (scatter)
-- ``DecoratorOp``       — multiple stone-pattern variants (handled
-                          in :mod:`paint`) PLUS cart_tracks /
-                          ore_deposit (handled in :mod:`path`)
-- ``TerrainDetailOp``   — water ripples, lava cracks, chasm
+- ``GridLines`` (mirrors :func:`_emit_floor_grid_ir` — emitted
+  whenever the level has any non-VOID tile).
+- ``Cracks | Scratches`` (mirrors :func:`_emit_floor_detail_ir`
+  — emitted when the floor-detail candidate set is non-empty,
+  or when the wood-floor short-circuit fires).
+- ``Ripples | LavaCracks`` (mirrors :func:`_emit_terrain_detail_ir`
+  — emitted whenever the level has any WATER / LAVA / CHASM tile).
 
-v5 collapses the texture-overlay parts into ``V5StampOp`` with a
-``decorator_mask`` bitfield. The thematic-detail object scatter
-parts (webs / bones / skulls) ride through :mod:`fixture`
-instead.
-
-The translator emits one ``V5StampOp`` per source op, mapping the
-op kind to the corresponding bit. For Phase 1.4, the per-tile
-densities and seed values aren't replayed — the v5 painter
-re-derives placement from the op's seed at consume time. Phase 1.5
-validates the visual result.
+:func:`translate_stamp_ops` is retained as a back-compat shim for
+:func:`translate_all` and walks ``builder.ops`` for v4
+``FloorGridOp`` / ``FloorDetailOp`` / ``TerrainDetailOp`` entries.
 """
 
 from __future__ import annotations
@@ -32,8 +27,8 @@ from nhc.rendering.ir._fb.V5OpEntry import V5OpEntryT
 from nhc.rendering.ir._fb.V5StampOp import V5StampOpT
 
 
-# Decorator-bit registry — mirrors design/map_ir_v5.md §5 and
-# the ``bit::`` constants on the Rust handler at
+# Decorator-bit registry — mirrors design/map_ir_v5.md §5 and the
+# ``bit::`` constants on the Rust handler at
 # ``transform/png/v5/stamp_op.rs``.
 BIT_GRID_LINES = 1 << 0
 BIT_CRACKS = 1 << 1
@@ -58,13 +53,107 @@ def _make_stamp_op(*, region_ref: str, mask: int, seed: int) -> V5StampOpT:
     op.regionRef = region_ref
     op.subtractRegionRefs = []
     op.decoratorMask = mask
-    op.density = 128  # baseline
+    op.density = 128
     op.seed = seed
     return op
 
 
+def _dungeon_region_ref(ctx: Any) -> str:
+    poly = getattr(ctx, "dungeon_poly", None)
+    if poly is not None and not poly.is_empty:
+        return "dungeon"
+    return ""
+
+
+def emit_stamps(builder: Any) -> list[V5OpEntryT]:
+    """Walk builder.ctx + level to produce V5StampOp entries.
+
+    Returns one stamp per layer that has work to do (GridLines,
+    Cracks|Scratches, Ripples|LavaCracks). Defensive on synthetic
+    fixture builders: skips entirely when the level lacks ``tiles``.
+    """
+    from nhc.dungeon.model import SurfaceType, Terrain
+    from nhc.rendering._floor_layers import _floor_detail_candidates
+    from nhc.rendering._svg_helpers import _is_door
+
+    ctx = builder.ctx
+    level = ctx.level
+    tiles_grid = getattr(level, "tiles", None)
+    if tiles_grid is None:
+        return []
+
+    result: list[V5OpEntryT] = []
+    region_ref = _dungeon_region_ref(ctx)
+
+    # GridLines — emitted whenever any non-VOID tile exists.
+    has_grid_tile = False
+    for y in range(level.height):
+        for x in range(level.width):
+            if level.tiles[y][x].terrain != Terrain.VOID:
+                has_grid_tile = True
+                break
+        if has_grid_tile:
+            break
+    if has_grid_tile:
+        result.append(_wrap(_make_stamp_op(
+            region_ref=region_ref,
+            mask=BIT_GRID_LINES,
+            seed=41,
+        )))
+
+    # Cracks | Scratches — emitted when the floor-detail candidate
+    # set is non-empty (non-wood path) or when the wood-floor short-
+    # circuit fires.
+    interior_finish = getattr(ctx, "interior_finish", "")
+    if interior_finish == "wood":
+        building_polygon = getattr(ctx, "building_polygon", None)
+        wood_floor_tiles_present = False
+        if building_polygon is None:
+            for y in range(level.height):
+                for x in range(level.width):
+                    if level.tiles[y][x].terrain is Terrain.FLOOR:
+                        wood_floor_tiles_present = True
+                        break
+                if wood_floor_tiles_present:
+                    break
+        emit_detail_stamp = (
+            wood_floor_tiles_present or building_polygon is not None
+        )
+    else:
+        emit_detail_stamp = bool(_floor_detail_candidates(level))
+    if emit_detail_stamp:
+        result.append(_wrap(_make_stamp_op(
+            region_ref=region_ref,
+            mask=BIT_CRACKS | BIT_SCRATCHES,
+            seed=ctx.seed + 99,
+        )))
+
+    # Ripples | LavaCracks — emitted whenever any WATER / LAVA /
+    # CHASM tile exists.
+    has_terrain_detail = False
+    for y in range(level.height):
+        for x in range(level.width):
+            t = level.tiles[y][x].terrain
+            if t == Terrain.WATER or t == Terrain.LAVA or t == Terrain.CHASM:
+                has_terrain_detail = True
+                break
+        if has_terrain_detail:
+            break
+    if has_terrain_detail:
+        result.append(_wrap(_make_stamp_op(
+            region_ref=region_ref,
+            mask=BIT_RIPPLES | BIT_LAVA_CRACKS,
+            seed=ctx.seed + 200,
+        )))
+
+    return result
+
+
 def translate_stamp_ops(ops: list[Any]) -> list[V5OpEntryT]:
-    """Translate texture-overlay v4 ops into ``V5StampOp`` entries."""
+    """Translate texture-overlay v4 ops into ``V5StampOp`` entries.
+
+    Retained for back-compat with :func:`translate_all`.
+    """
     result: list[V5OpEntryT] = []
     for entry in ops:
         op_type = getattr(entry, "opType", None)
@@ -86,11 +175,6 @@ def translate_stamp_ops(ops: list[Any]) -> list[V5OpEntryT]:
             result.append(_wrap(stamp))
         elif op_type == Op.TerrainDetailOp:
             terrain = entry.op
-            # The v4 op walks per-tile terrain kinds (water / lava
-            # / chasm). The v5 scaffold ships a single op carrying
-            # both ripples (water) and lava-cracks (lava); the
-            # painter resolves the right bit per tile from the
-            # underlying Material at paint time.
             stamp = _make_stamp_op(
                 region_ref=terrain.regionRef or "",
                 mask=BIT_RIPPLES | BIT_LAVA_CRACKS,
