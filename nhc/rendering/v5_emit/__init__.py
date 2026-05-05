@@ -32,10 +32,12 @@ from __future__ import annotations
 from typing import Any
 
 from nhc.rendering.v5_emit.fixture import translate_fixtures
+from nhc.rendering.v5_emit.hatch import translate_hatch_ops
 from nhc.rendering.v5_emit.paint import translate_paint_ops
 from nhc.rendering.v5_emit.path import translate_path_ops
 from nhc.rendering.v5_emit.regions import translate_region
 from nhc.rendering.v5_emit.roof import translate_roof_ops
+from nhc.rendering.v5_emit.shadow import translate_shadow_ops
 from nhc.rendering.v5_emit.stamp import translate_stamp_ops
 from nhc.rendering.v5_emit.stroke import translate_stroke_ops
 
@@ -46,6 +48,8 @@ __all__ = [
     "translate_path_ops",
     "translate_stroke_ops",
     "translate_roof_ops",
+    "translate_shadow_ops",
+    "translate_hatch_ops",
     "translate_stamp_ops",
     "translate_fixtures",
 ]
@@ -62,10 +66,12 @@ def translate_all(
     """
     v5_regions = [translate_region(r) for r in regions]
     v5_ops: list[Any] = []
+    v5_ops.extend(translate_shadow_ops(ops))
     v5_ops.extend(translate_paint_ops(ops))
     v5_ops.extend(translate_stroke_ops(ops))
     v5_ops.extend(translate_roof_ops(ops))
     v5_ops.extend(translate_stamp_ops(ops))
     v5_ops.extend(translate_path_ops(ops))
     v5_ops.extend(translate_fixtures(ops))
+    v5_ops.extend(translate_hatch_ops(ops))
     return v5_regions, v5_ops

@@ -75,12 +75,12 @@ V5_PSNR_THRESHOLD_DB: float = 10.0
 # fixture's measured PSNR — bump the override here at the same
 # time to pin the new floor.
 #
-# Current floors (measured at Phase 2.9 complete — all 9
-# decorator bits implemented):
+# Current floors (measured at Phase 2.9 + V5HatchOp dispatch +
+# v5_emit shadow / hatch translators):
 V5_PSNR_OVERRIDES: dict[str, float] = {
-    "seed42_rect_dungeon_dungeon": 14.4,
-    "seed7_octagon_crypt_dungeon": 14.0,
-    "seed99_cave_cave_cave": 17.3,
+    "seed42_rect_dungeon_dungeon": 17.1,
+    "seed7_octagon_crypt_dungeon": 16.5,
+    "seed99_cave_cave_cave": 19.0,
 }
 
 

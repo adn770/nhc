@@ -13,6 +13,7 @@
 //! the v4 op handlers' shape (see `transform/png/floor_op.rs`).
 
 pub mod fixture_op;
+pub mod hatch_op;
 pub mod paint_op;
 pub mod path_op;
 pub mod region_path;
