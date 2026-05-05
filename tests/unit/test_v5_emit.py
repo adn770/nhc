@@ -397,3 +397,52 @@ def test_build_floor_ir_populates_v5_regions_and_v5_ops() -> None:
     # since the level emits FloorOps + wall ops.
     assert fir.V5RegionsLength() == fir.RegionsLength()
     assert fir.V5OpsLength() > 0
+
+
+# ── emit_all(builder) — Phase 4.3a entry point ─────────────────
+
+
+def test_emit_all_takes_builder_and_returns_same_output_as_translate_all() -> None:
+    """Phase 4.3a entry point: ``emit_all(builder)`` is the canonical
+    way to populate v5 regions + ops from a FloorIRBuilder. It walks
+    the builder's ctx / regions / site directly (no v4-op input).
+
+    For this scaffolding commit, ``emit_all`` produces output structurally
+    identical to ``translate_all(regions=builder.regions, ops=builder.ops)``
+    — subsequent module-level commits replace each translator with a
+    direct ctx-walk while keeping output invariant.
+    """
+    from nhc.dungeon.generator import GenerationParams
+    from nhc.dungeon.pipeline import generate_level
+    from nhc.rendering._render_context import build_render_context
+    from nhc.rendering._cave_geometry import _build_cave_wall_geometry
+    from nhc.rendering._dungeon_polygon import _build_dungeon_polygon
+    from nhc.rendering.ir_emitter import FloorIRBuilder, IR_STAGES
+    from nhc.rendering.v5_emit import emit_all, translate_all
+
+    params = GenerationParams(
+        width=24, height=16, depth=1, seed=42, theme="dungeon",
+        shape_variety=0.0,
+    )
+    level = generate_level(params)
+    ctx = build_render_context(
+        level,
+        seed=42,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+    )
+    builder = FloorIRBuilder(ctx)
+    for stage in IR_STAGES:
+        stage(builder)
+
+    via_emit_all = emit_all(builder)
+    via_translate_all = translate_all(
+        regions=builder.regions, ops=builder.ops,
+    )
+
+    assert len(via_emit_all[0]) == len(via_translate_all[0])
+    assert len(via_emit_all[1]) == len(via_translate_all[1])
+    # Each pair lines up by op-type tag; exact field equality is
+    # asserted by downstream parity gates.
+    for a, b in zip(via_emit_all[1], via_translate_all[1]):
+        assert a.opType == b.opType

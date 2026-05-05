@@ -46,6 +46,7 @@ from nhc.rendering.v5_emit.thematic_detail import (
 )
 
 __all__ = [
+    "emit_all",
     "translate_all",
     "translate_region",
     "translate_paint_ops",
@@ -61,14 +62,27 @@ __all__ = [
 ]
 
 
+def emit_all(builder: Any) -> tuple[list[Any], list[Any]]:
+    """Build the v5 regions + ops list directly from a builder.
+
+    Phase 4.3a entry point. Takes a :class:`FloorIRBuilder` and walks
+    its ``ctx`` / ``regions`` / ``site`` to produce
+    ``(v5_regions, v5_ops)``. Subsequent per-module commits replace
+    each ``translate_*_ops`` call with a direct ctx-walk; for this
+    scaffolding commit the function delegates to the existing
+    translators so output is structurally invariant.
+    """
+    return translate_all(regions=builder.regions, ops=builder.ops)
+
+
 def translate_all(
     *, regions: list[Any], ops: list[Any]
 ) -> tuple[list[Any], list[Any]]:
     """Translate v4 regions + ops into v5 regions + ``V5OpEntry`` list.
 
-    Pure function; does not mutate inputs. Used by
-    :class:`FloorIRBuilder.finish` to populate the
-    ``v5_regions`` / ``v5_ops`` scaffold fields on ``FloorIR``.
+    Pure function; does not mutate inputs. Retained for the 4.3a →
+    4.3c window so individual translators can be migrated module by
+    module behind :func:`emit_all`.
     """
     v5_regions = [translate_region(r) for r in regions]
     v5_ops: list[Any] = []
