@@ -443,7 +443,10 @@ def _build_synthetic_buf(fx: SyntheticRoofFixture) -> bytes:
         base_rect: Rect
 
     width, height = fx.canvas_tiles
-    ctx = _Ctx(level=_Level(width=width, height=height))
+    # ctx.seed mirrors fx.seed so the v5 emit_roofs path (which reads
+    # builder.ctx.seed) computes the same rng_seed / tint as the v4
+    # emit_building_roofs(base_seed=fx.seed) call below.
+    ctx = _Ctx(level=_Level(width=width, height=height), seed=fx.seed)
     builder = FloorIRBuilder(ctx)  # type: ignore[arg-type]
 
     shape_map = {

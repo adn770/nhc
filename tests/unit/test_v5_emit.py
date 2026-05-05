@@ -463,6 +463,94 @@ def test_emit_shadows_returns_empty_when_shadows_disabled() -> None:
     assert emit_shadows(_StubBuilder()) == []
 
 
+# ── emit_roofs(builder) — Phase 4.3a per-module migration ──────
+
+
+def test_emit_roofs_walks_building_regions_with_canonical_seeds() -> None:
+    """``emit_roofs(builder)`` walks Building regions and emits one
+    V5RoofOp each, with the same seed / tint algorithm as
+    :func:`ir_emitter.emit_building_roofs`."""
+    from nhc.rendering.ir_emitter import (
+        FloorIRBuilder, _ROOF_TINTS, _SM64_MASK, _splitmix64_first,
+        emit_building_regions,
+    )
+    from nhc.rendering.v5_emit import emit_roofs
+    from nhc.dungeon.model import RectShape, Rect
+
+    class _StubLevel:
+        width = 32
+        height = 24
+
+    class _StubCtx:
+        level = _StubLevel()
+        seed = 0x42
+        theme = "dungeon"
+        floor_kind = "surface"
+        shadows_enabled = False
+        hatching_enabled = False
+        atmospherics_enabled = False
+        macabre_detail = False
+        vegetation_enabled = False
+        interior_finish = ""
+
+    class _Building:
+        def __init__(self) -> None:
+            self.base_shape = RectShape()
+            self.base_rect = Rect(2, 2, 4, 4)
+
+    builder = FloorIRBuilder(_StubCtx())
+    emit_building_regions(builder, [_Building(), _Building()])
+
+    roofs = emit_roofs(builder)
+    assert len(roofs) == 2
+    for i, entry in enumerate(roofs):
+        assert entry.opType == V5Op.V5RoofOp
+        op = entry.op
+        assert op.regionRef == f"building.{i}"
+        assert op.style == V5RoofStyle.Simple
+        rng_seed = (0x42 + 0xCAFE + i) & _SM64_MASK
+        assert op.seed == rng_seed
+        tint_seed = (rng_seed ^ 0xC0FFEE) & _SM64_MASK
+        assert op.tint == _ROOF_TINTS[
+            _splitmix64_first(tint_seed) % len(_ROOF_TINTS)
+        ]
+
+
+def test_emit_roofs_skips_non_surface_irs() -> None:
+    """Roofs only fire on surface IRs (``ctx.floor_kind == "surface"``).
+    Dungeon / cave / building-floor IRs skip the layer even if their
+    builder happens to carry a Building region."""
+    from nhc.rendering.ir_emitter import FloorIRBuilder, emit_building_regions
+    from nhc.rendering.v5_emit import emit_roofs
+    from nhc.dungeon.model import RectShape, Rect
+
+    class _StubLevel:
+        width = 16
+        height = 16
+
+    class _StubCtx:
+        level = _StubLevel()
+        seed = 0
+        shadows_enabled = False
+        hatching_enabled = False
+        atmospherics_enabled = False
+        macabre_detail = False
+        vegetation_enabled = False
+        theme = ""
+        floor_kind = "building"
+        interior_finish = ""
+
+    class _Building:
+        def __init__(self) -> None:
+            self.base_shape = RectShape()
+            self.base_rect = Rect(0, 0, 4, 4)
+
+    builder = FloorIRBuilder(_StubCtx())
+    emit_building_regions(builder, [_Building()])
+
+    assert emit_roofs(builder) == []
+
+
 # ── emit_all(builder) — Phase 4.3a entry point ─────────────────
 
 
