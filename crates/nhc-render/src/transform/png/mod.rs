@@ -363,7 +363,7 @@ pub fn floor_ir_to_png_v5(
 /// - `hatching`   → V5HatchOp (not yet handled — silently skipped)
 /// - other layers → empty mapping (the v5 op union doesn't split
 ///   by v4 layer)
-fn dispatch_v5_ops(
+pub(crate) fn dispatch_v5_ops(
     fir: &FloorIR<'_>,
     layer_filter: Option<&'static [Op]>,
     painter: &mut dyn Painter,

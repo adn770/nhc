@@ -126,6 +126,26 @@ fn ir_to_svg(
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// IR → SVG document, v5 op-stream variant. Phase 4.2a of
+/// `plans/nhc_pure_ir_v5_migration_plan.md`.
+///
+/// Mirrors `ir_to_svg` argument shape minus the `bare` parameter
+/// (the v5 op union doesn't carry the v4 layer split that
+/// `BARE_SKIP_OPS` keys off; bare-mode v5 semantics land as polish
+/// post-cut). Fed by the cross-rasteriser PSNR gate in
+/// `tests/unit/test_ir_png_parity.py` once the gate flips to v5 ahead
+/// of the atomic schema cut at Phase 4.3.
+#[pyfunction]
+#[pyo3(signature = (ir_bytes, scale = 1.0, layer = None))]
+fn ir_to_svg_v5(
+    ir_bytes: &[u8],
+    scale: f32,
+    layer: Option<&str>,
+) -> PyResult<String> {
+    transform_svg::floor_ir_to_svg_v5(ir_bytes, scale, layer)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 /// Run the v4 thematic-detail probability gate at emit time so
 /// the v5 emit pipeline can land explicit V5FixtureOp anchors at
 /// the same tiles where the v4 painter would render webs / bones
@@ -174,6 +194,7 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ir_to_png_v5, m)?)?;
     m.add_function(wrap_pyfunction!(svg_to_png, m)?)?;
     m.add_function(wrap_pyfunction!(ir_to_svg, m)?)?;
+    m.add_function(wrap_pyfunction!(ir_to_svg_v5, m)?)?;
     m.add_function(wrap_pyfunction!(thematic_detail_anchors, m)?)?;
     m.add_function(wrap_pyfunction!(floor_detail_loose_stone_anchors, m)?)?;
     Ok(())

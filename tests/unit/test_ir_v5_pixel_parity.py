@@ -133,6 +133,34 @@ def test_v5_render_path_succeeds(emitted) -> None:
     )
 
 
+def test_v5_svg_render_path_succeeds(emitted) -> None:
+    """``ir_to_svg_v5`` returns a well-formed SVG document.
+
+    Phase 4.2a smoke gate for the new SVG entry point: catches
+    binding regressions, panics inside the v5 dispatch, and SvgError
+    surface failures separately from PSNR drift. The downstream
+    cross-rasteriser PSNR gate (``svg_to_png(ir_to_svg_v5(buf))`` vs
+    ``ir_to_png_v5(buf)``) lands at Phase 4.2c when
+    ``test_ir_png_parity.py`` flips to v5; until then, this catches
+    "totally broken" v5 SVG (empty string, missing envelope, parse
+    error) at the binding boundary.
+    """
+    _inputs, buf = emitted
+    svg = nhc_render.ir_to_svg_v5(buf, 1.0, None)
+    assert svg.startswith("<?xml") or svg.startswith("<svg"), (
+        f"v5 SVG did not emit valid envelope (first 32 bytes: {svg[:32]!r})"
+    )
+    assert svg.endswith("</svg>"), (
+        f"v5 SVG missing closing tag (last 32 bytes: {svg[-32:]!r})"
+    )
+    # Real fixtures must paint at least one geometry element through
+    # the SvgPainter — catches a silently-skipped op kind or a broken
+    # Painter wiring inside dispatch_v5_ops.
+    assert any(tag in svg for tag in (
+        "<rect", "<path", "<polygon", "<polyline", "<circle", "<ellipse",
+    )), "v5 SVG body has no geometry elements"
+
+
 def test_v5_render_matches_v4_at_pixel_psnr(emitted) -> None:
     """``ir_to_png_v5(buf)`` ≈ ``ir_to_png(buf)`` at PSNR threshold.
 
