@@ -243,6 +243,20 @@ fn paint_cracks(
     paint_floor_detail_bucket(painter, outline, region_path, seed, FloorDetailBucket::Cracks);
 }
 
+/// Scratches bit — same per-tile generator as Cracks, with the
+/// scratches bucket selected. The Y-shaped scratch shape (three
+/// Perlin-wobbled branches meeting at a fork) and its
+/// ``SCRATCHES_OPACITY`` group envelope are painted by the lifted
+/// `paint_floor_detail_side` dispatcher.
+fn paint_scratches(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    paint_floor_detail_bucket(painter, outline, region_path, seed, FloorDetailBucket::Scratches);
+}
+
 /// Bucket selector for `paint_floor_detail_bucket` — picks which
 /// of the three buckets `floor_detail_shapes` returns to paint.
 /// Cracks (Phase 2.9b) and Scratches (Phase 2.9c) share the same
@@ -310,6 +324,9 @@ fn dispatch_bit(
         }
         bit::CRACKS => {
             paint_cracks(painter, outline, region_path, seed);
+        }
+        bit::SCRATCHES => {
+            paint_scratches(painter, outline, region_path, seed);
         }
         // Not-yet-lifted bits — emit a single translucent fill of
         // the region in the bit's sentinel hue so the dispatcher
@@ -480,7 +497,7 @@ mod tests {
     #[test]
     fn unlifted_bits_emit_single_fill_path_each() {
         for bit_value in [
-            bit::SCRATCHES, bit::RIPPLES, bit::LAVA_CRACKS,
+            bit::RIPPLES, bit::LAVA_CRACKS,
             bit::MOSS, bit::BLOOD, bit::ASH, bit::PUDDLES,
         ] {
             let painter = run(&build_stamp_op(bit_value));
