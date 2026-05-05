@@ -1505,6 +1505,510 @@ impl<'a> ::flatbuffers::Verifiable for TerrainKind {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for TerrainKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_V_5_MATERIAL_FAMILY: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_V_5_MATERIAL_FAMILY: u8 = 6;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_V_5_MATERIAL_FAMILY: [V5MaterialFamily; 7] = [
+  V5MaterialFamily::Plain,
+  V5MaterialFamily::Cave,
+  V5MaterialFamily::Wood,
+  V5MaterialFamily::Stone,
+  V5MaterialFamily::Earth,
+  V5MaterialFamily::Liquid,
+  V5MaterialFamily::Special,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct V5MaterialFamily(pub u8);
+#[allow(non_upper_case_globals)]
+impl V5MaterialFamily {
+  pub const Plain: Self = Self(0);
+  pub const Cave: Self = Self(1);
+  pub const Wood: Self = Self(2);
+  pub const Stone: Self = Self(3);
+  pub const Earth: Self = Self(4);
+  pub const Liquid: Self = Self(5);
+  pub const Special: Self = Self(6);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 6;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Plain,
+    Self::Cave,
+    Self::Wood,
+    Self::Stone,
+    Self::Earth,
+    Self::Liquid,
+    Self::Special,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Plain => Some("Plain"),
+      Self::Cave => Some("Cave"),
+      Self::Wood => Some("Wood"),
+      Self::Stone => Some("Stone"),
+      Self::Earth => Some("Earth"),
+      Self::Liquid => Some("Liquid"),
+      Self::Special => Some("Special"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for V5MaterialFamily {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for V5MaterialFamily {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for V5MaterialFamily {
+    type Output = V5MaterialFamily;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for V5MaterialFamily {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for V5MaterialFamily {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for V5MaterialFamily {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_V_5_WALL_TREATMENT: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_V_5_WALL_TREATMENT: u8 = 4;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_V_5_WALL_TREATMENT: [V5WallTreatment; 5] = [
+  V5WallTreatment::PlainStroke,
+  V5WallTreatment::Masonry,
+  V5WallTreatment::Partition,
+  V5WallTreatment::Palisade,
+  V5WallTreatment::Fortification,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct V5WallTreatment(pub u8);
+#[allow(non_upper_case_globals)]
+impl V5WallTreatment {
+  pub const PlainStroke: Self = Self(0);
+  pub const Masonry: Self = Self(1);
+  pub const Partition: Self = Self(2);
+  pub const Palisade: Self = Self(3);
+  pub const Fortification: Self = Self(4);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 4;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::PlainStroke,
+    Self::Masonry,
+    Self::Partition,
+    Self::Palisade,
+    Self::Fortification,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::PlainStroke => Some("PlainStroke"),
+      Self::Masonry => Some("Masonry"),
+      Self::Partition => Some("Partition"),
+      Self::Palisade => Some("Palisade"),
+      Self::Fortification => Some("Fortification"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for V5WallTreatment {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for V5WallTreatment {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for V5WallTreatment {
+    type Output = V5WallTreatment;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for V5WallTreatment {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for V5WallTreatment {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for V5WallTreatment {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_V_5_PATH_STYLE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_V_5_PATH_STYLE: u8 = 1;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_V_5_PATH_STYLE: [V5PathStyle; 2] = [
+  V5PathStyle::CartTracks,
+  V5PathStyle::OreVein,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct V5PathStyle(pub u8);
+#[allow(non_upper_case_globals)]
+impl V5PathStyle {
+  pub const CartTracks: Self = Self(0);
+  pub const OreVein: Self = Self(1);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 1;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::CartTracks,
+    Self::OreVein,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::CartTracks => Some("CartTracks"),
+      Self::OreVein => Some("OreVein"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for V5PathStyle {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for V5PathStyle {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for V5PathStyle {
+    type Output = V5PathStyle;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for V5PathStyle {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for V5PathStyle {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for V5PathStyle {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_V_5_FIXTURE_KIND: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_V_5_FIXTURE_KIND: u8 = 11;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_V_5_FIXTURE_KIND: [V5FixtureKind; 12] = [
+  V5FixtureKind::Web,
+  V5FixtureKind::Skull,
+  V5FixtureKind::Bone,
+  V5FixtureKind::LooseStone,
+  V5FixtureKind::Tree,
+  V5FixtureKind::Bush,
+  V5FixtureKind::Well,
+  V5FixtureKind::Fountain,
+  V5FixtureKind::Stair,
+  V5FixtureKind::Gravestone,
+  V5FixtureKind::Sign,
+  V5FixtureKind::Mushroom,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct V5FixtureKind(pub u8);
+#[allow(non_upper_case_globals)]
+impl V5FixtureKind {
+  pub const Web: Self = Self(0);
+  pub const Skull: Self = Self(1);
+  pub const Bone: Self = Self(2);
+  pub const LooseStone: Self = Self(3);
+  pub const Tree: Self = Self(4);
+  pub const Bush: Self = Self(5);
+  pub const Well: Self = Self(6);
+  pub const Fountain: Self = Self(7);
+  pub const Stair: Self = Self(8);
+  pub const Gravestone: Self = Self(9);
+  pub const Sign: Self = Self(10);
+  pub const Mushroom: Self = Self(11);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 11;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Web,
+    Self::Skull,
+    Self::Bone,
+    Self::LooseStone,
+    Self::Tree,
+    Self::Bush,
+    Self::Well,
+    Self::Fountain,
+    Self::Stair,
+    Self::Gravestone,
+    Self::Sign,
+    Self::Mushroom,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Web => Some("Web"),
+      Self::Skull => Some("Skull"),
+      Self::Bone => Some("Bone"),
+      Self::LooseStone => Some("LooseStone"),
+      Self::Tree => Some("Tree"),
+      Self::Bush => Some("Bush"),
+      Self::Well => Some("Well"),
+      Self::Fountain => Some("Fountain"),
+      Self::Stair => Some("Stair"),
+      Self::Gravestone => Some("Gravestone"),
+      Self::Sign => Some("Sign"),
+      Self::Mushroom => Some("Mushroom"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for V5FixtureKind {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for V5FixtureKind {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for V5FixtureKind {
+    type Output = V5FixtureKind;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for V5FixtureKind {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for V5FixtureKind {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for V5FixtureKind {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_V_5_ROOF_STYLE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_V_5_ROOF_STYLE: u8 = 4;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_V_5_ROOF_STYLE: [V5RoofStyle; 5] = [
+  V5RoofStyle::Simple,
+  V5RoofStyle::Pyramid,
+  V5RoofStyle::Gable,
+  V5RoofStyle::Dome,
+  V5RoofStyle::WitchHat,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct V5RoofStyle(pub u8);
+#[allow(non_upper_case_globals)]
+impl V5RoofStyle {
+  pub const Simple: Self = Self(0);
+  pub const Pyramid: Self = Self(1);
+  pub const Gable: Self = Self(2);
+  pub const Dome: Self = Self(3);
+  pub const WitchHat: Self = Self(4);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 4;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Simple,
+    Self::Pyramid,
+    Self::Gable,
+    Self::Dome,
+    Self::WitchHat,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Simple => Some("Simple"),
+      Self::Pyramid => Some("Pyramid"),
+      Self::Gable => Some("Gable"),
+      Self::Dome => Some("Dome"),
+      Self::WitchHat => Some("WitchHat"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for V5RoofStyle {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for V5RoofStyle {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for V5RoofStyle {
+    type Output = V5RoofStyle;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for V5RoofStyle {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for V5RoofStyle {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for V5RoofStyle {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_OP: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_OP: u8 = 18;
@@ -3085,6 +3589,293 @@ impl<'a> FloorGridTile {
         &x_le as *const _ as *const u8,
         self.0[11..].as_mut_ptr(),
         ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct V5Anchor, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct V5Anchor(pub [u8; 16]);
+impl Default for V5Anchor { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for V5Anchor {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("V5Anchor")
+      .field("x", &self.x())
+      .field("y", &self.y())
+      .field("variant", &self.variant())
+      .field("orientation", &self.orientation())
+      .field("scale", &self.scale())
+      .field("pad0", &self.pad0())
+      .field("group_id", &self.group_id())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for V5Anchor {}
+impl<'a> ::flatbuffers::Follow<'a> for V5Anchor {
+  type Inner = &'a V5Anchor;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a V5Anchor>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a V5Anchor {
+  type Inner = &'a V5Anchor;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<V5Anchor>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for V5Anchor {
+    type Output = V5Anchor;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const V5Anchor as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for V5Anchor {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> V5Anchor {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    x: i32,
+    y: i32,
+    variant: u8,
+    orientation: u8,
+    scale: u8,
+    pad0: u8,
+    group_id: u32,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_x(x);
+    s.set_y(y);
+    s.set_variant(variant);
+    s.set_orientation(orientation);
+    s.set_scale(scale);
+    s.set_pad0(pad0);
+    s.set_group_id(group_id);
+    s
+  }
+
+  pub fn x(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_x(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn y(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_y(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn variant(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_variant(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn orientation(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[9..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_orientation(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[9..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn scale(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[10..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_scale(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[10..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn pad0(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[11..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_pad0(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[11..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn group_id(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[12..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_group_id(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[12..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
       );
     }
   }
@@ -7820,6 +8611,1640 @@ impl ::core::fmt::Debug for CorridorWallOp<'_> {
     let mut ds = f.debug_struct("CorridorWallOp");
       ds.field("tiles", &self.tiles());
       ds.field("style", &self.style());
+      ds.finish()
+  }
+}
+pub enum V5MaterialOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct V5Material<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for V5Material<'a> {
+  type Inner = V5Material<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> V5Material<'a> {
+  pub const VT_FAMILY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SUB_PATTERN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TONE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    V5Material { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args V5MaterialArgs
+  ) -> ::flatbuffers::WIPOffset<V5Material<'bldr>> {
+    let mut builder = V5MaterialBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    builder.add_tone(args.tone);
+    builder.add_sub_pattern(args.sub_pattern);
+    builder.add_style(args.style);
+    builder.add_family(args.family);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn family(&self) -> V5MaterialFamily {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<V5MaterialFamily>(V5Material::VT_FAMILY, Some(V5MaterialFamily::Plain)).unwrap()}
+  }
+  #[inline]
+  pub fn style(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(V5Material::VT_STYLE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sub_pattern(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(V5Material::VT_SUB_PATTERN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn tone(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(V5Material::VT_TONE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(V5Material::VT_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for V5Material<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<V5MaterialFamily>("family", Self::VT_FAMILY, false)?
+     .visit_field::<u8>("style", Self::VT_STYLE, false)?
+     .visit_field::<u8>("sub_pattern", Self::VT_SUB_PATTERN, false)?
+     .visit_field::<u8>("tone", Self::VT_TONE, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct V5MaterialArgs {
+    pub family: V5MaterialFamily,
+    pub style: u8,
+    pub sub_pattern: u8,
+    pub tone: u8,
+    pub seed: u64,
+}
+impl<'a> Default for V5MaterialArgs {
+  #[inline]
+  fn default() -> Self {
+    V5MaterialArgs {
+      family: V5MaterialFamily::Plain,
+      style: 0,
+      sub_pattern: 0,
+      tone: 0,
+      seed: 0,
+    }
+  }
+}
+
+pub struct V5MaterialBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5MaterialBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_family(&mut self, family: V5MaterialFamily) {
+    self.fbb_.push_slot::<V5MaterialFamily>(V5Material::VT_FAMILY, family, V5MaterialFamily::Plain);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: u8) {
+    self.fbb_.push_slot::<u8>(V5Material::VT_STYLE, style, 0);
+  }
+  #[inline]
+  pub fn add_sub_pattern(&mut self, sub_pattern: u8) {
+    self.fbb_.push_slot::<u8>(V5Material::VT_SUB_PATTERN, sub_pattern, 0);
+  }
+  #[inline]
+  pub fn add_tone(&mut self, tone: u8) {
+    self.fbb_.push_slot::<u8>(V5Material::VT_TONE, tone, 0);
+  }
+  #[inline]
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(V5Material::VT_SEED, seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5MaterialBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    V5MaterialBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5Material<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for V5Material<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("V5Material");
+      ds.field("family", &self.family());
+      ds.field("style", &self.style());
+      ds.field("sub_pattern", &self.sub_pattern());
+      ds.field("tone", &self.tone());
+      ds.field("seed", &self.seed());
+      ds.finish()
+  }
+}
+pub enum V5WallMaterialOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct V5WallMaterial<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for V5WallMaterial<'a> {
+  type Inner = V5WallMaterial<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> V5WallMaterial<'a> {
+  pub const VT_FAMILY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TREATMENT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_CORNER_STYLE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TONE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    V5WallMaterial { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args V5WallMaterialArgs
+  ) -> ::flatbuffers::WIPOffset<V5WallMaterial<'bldr>> {
+    let mut builder = V5WallMaterialBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    builder.add_tone(args.tone);
+    builder.add_corner_style(args.corner_style);
+    builder.add_treatment(args.treatment);
+    builder.add_style(args.style);
+    builder.add_family(args.family);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn family(&self) -> V5MaterialFamily {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<V5MaterialFamily>(V5WallMaterial::VT_FAMILY, Some(V5MaterialFamily::Plain)).unwrap()}
+  }
+  #[inline]
+  pub fn style(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(V5WallMaterial::VT_STYLE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn treatment(&self) -> V5WallTreatment {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<V5WallTreatment>(V5WallMaterial::VT_TREATMENT, Some(V5WallTreatment::PlainStroke)).unwrap()}
+  }
+  #[inline]
+  pub fn corner_style(&self) -> CornerStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<CornerStyle>(V5WallMaterial::VT_CORNER_STYLE, Some(CornerStyle::Merlon)).unwrap()}
+  }
+  #[inline]
+  pub fn tone(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(V5WallMaterial::VT_TONE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(V5WallMaterial::VT_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for V5WallMaterial<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<V5MaterialFamily>("family", Self::VT_FAMILY, false)?
+     .visit_field::<u8>("style", Self::VT_STYLE, false)?
+     .visit_field::<V5WallTreatment>("treatment", Self::VT_TREATMENT, false)?
+     .visit_field::<CornerStyle>("corner_style", Self::VT_CORNER_STYLE, false)?
+     .visit_field::<u8>("tone", Self::VT_TONE, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct V5WallMaterialArgs {
+    pub family: V5MaterialFamily,
+    pub style: u8,
+    pub treatment: V5WallTreatment,
+    pub corner_style: CornerStyle,
+    pub tone: u8,
+    pub seed: u64,
+}
+impl<'a> Default for V5WallMaterialArgs {
+  #[inline]
+  fn default() -> Self {
+    V5WallMaterialArgs {
+      family: V5MaterialFamily::Plain,
+      style: 0,
+      treatment: V5WallTreatment::PlainStroke,
+      corner_style: CornerStyle::Merlon,
+      tone: 0,
+      seed: 0,
+    }
+  }
+}
+
+pub struct V5WallMaterialBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5WallMaterialBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_family(&mut self, family: V5MaterialFamily) {
+    self.fbb_.push_slot::<V5MaterialFamily>(V5WallMaterial::VT_FAMILY, family, V5MaterialFamily::Plain);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: u8) {
+    self.fbb_.push_slot::<u8>(V5WallMaterial::VT_STYLE, style, 0);
+  }
+  #[inline]
+  pub fn add_treatment(&mut self, treatment: V5WallTreatment) {
+    self.fbb_.push_slot::<V5WallTreatment>(V5WallMaterial::VT_TREATMENT, treatment, V5WallTreatment::PlainStroke);
+  }
+  #[inline]
+  pub fn add_corner_style(&mut self, corner_style: CornerStyle) {
+    self.fbb_.push_slot::<CornerStyle>(V5WallMaterial::VT_CORNER_STYLE, corner_style, CornerStyle::Merlon);
+  }
+  #[inline]
+  pub fn add_tone(&mut self, tone: u8) {
+    self.fbb_.push_slot::<u8>(V5WallMaterial::VT_TONE, tone, 0);
+  }
+  #[inline]
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(V5WallMaterial::VT_SEED, seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5WallMaterialBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    V5WallMaterialBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5WallMaterial<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for V5WallMaterial<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("V5WallMaterial");
+      ds.field("family", &self.family());
+      ds.field("style", &self.style());
+      ds.field("treatment", &self.treatment());
+      ds.field("corner_style", &self.corner_style());
+      ds.field("tone", &self.tone());
+      ds.field("seed", &self.seed());
+      ds.finish()
+  }
+}
+pub enum V5RegionOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct V5Region<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for V5Region<'a> {
+  type Inner = V5Region<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> V5Region<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PARENT_ID: ::flatbuffers::VOffsetT = 8;
+  pub const VT_CUTS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SHAPE_TAG: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    V5Region { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args V5RegionArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<V5Region<'bldr>> {
+    let mut builder = V5RegionBuilder::new(_fbb);
+    if let Some(x) = args.shape_tag { builder.add_shape_tag(x); }
+    if let Some(x) = args.cuts { builder.add_cuts(x); }
+    if let Some(x) = args.parent_id { builder.add_parent_id(x); }
+    if let Some(x) = args.outline { builder.add_outline(x); }
+    if let Some(x) = args.id { builder.add_id(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> &'a str {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5Region::VT_ID, None).unwrap()}
+  }
+  #[inline]
+  pub fn key_compare_less_than(&self, o: &V5Region) -> bool {
+    self.id() < o.id()
+  }
+
+  #[inline]
+  pub fn key_compare_with_value(&self, val: & str) -> ::core::cmp::Ordering {
+    let key = self.id();
+    key.cmp(val)
+  }
+  #[inline]
+  pub fn outline(&self) -> Option<Outline<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(V5Region::VT_OUTLINE, None)}
+  }
+  #[inline]
+  pub fn parent_id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5Region::VT_PARENT_ID, None)}
+  }
+  #[inline]
+  pub fn cuts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut>>>>(V5Region::VT_CUTS, None)}
+  }
+  #[inline]
+  pub fn shape_tag(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5Region::VT_SHAPE_TAG, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for V5Region<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("id", Self::VT_ID, true)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("parent_id", Self::VT_PARENT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Cut>>>>("cuts", Self::VT_CUTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("shape_tag", Self::VT_SHAPE_TAG, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct V5RegionArgs<'a> {
+    pub id: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
+    pub parent_id: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub cuts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>>>,
+    pub shape_tag: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for V5RegionArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    V5RegionArgs {
+      id: None, // required field
+      outline: None,
+      parent_id: None,
+      cuts: None,
+      shape_tag: None,
+    }
+  }
+}
+
+pub struct V5RegionBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5RegionBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5Region::VT_ID, id);
+  }
+  #[inline]
+  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(V5Region::VT_OUTLINE, outline);
+  }
+  #[inline]
+  pub fn add_parent_id(&mut self, parent_id: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5Region::VT_PARENT_ID, parent_id);
+  }
+  #[inline]
+  pub fn add_cuts(&mut self, cuts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Cut<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5Region::VT_CUTS, cuts);
+  }
+  #[inline]
+  pub fn add_shape_tag(&mut self, shape_tag: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5Region::VT_SHAPE_TAG, shape_tag);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5RegionBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    V5RegionBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5Region<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    self.fbb_.required(o, V5Region::VT_ID,"id");
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for V5Region<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("V5Region");
+      ds.field("id", &self.id());
+      ds.field("outline", &self.outline());
+      ds.field("parent_id", &self.parent_id());
+      ds.field("cuts", &self.cuts());
+      ds.field("shape_tag", &self.shape_tag());
+      ds.finish()
+  }
+}
+pub enum V5PaintOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct V5PaintOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for V5PaintOp<'a> {
+  type Inner = V5PaintOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> V5PaintOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SUBTRACT_REGION_REFS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_MATERIAL: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    V5PaintOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args V5PaintOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<V5PaintOp<'bldr>> {
+    let mut builder = V5PaintOpBuilder::new(_fbb);
+    if let Some(x) = args.material { builder.add_material(x); }
+    if let Some(x) = args.subtract_region_refs { builder.add_subtract_region_refs(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5PaintOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn subtract_region_refs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(V5PaintOp::VT_SUBTRACT_REGION_REFS, None)}
+  }
+  #[inline]
+  pub fn material(&self) -> Option<V5Material<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<V5Material>>(V5PaintOp::VT_MATERIAL, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for V5PaintOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("subtract_region_refs", Self::VT_SUBTRACT_REGION_REFS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<V5Material>>("material", Self::VT_MATERIAL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct V5PaintOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub subtract_region_refs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub material: Option<::flatbuffers::WIPOffset<V5Material<'a>>>,
+}
+impl<'a> Default for V5PaintOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    V5PaintOpArgs {
+      region_ref: None,
+      subtract_region_refs: None,
+      material: None,
+    }
+  }
+}
+
+pub struct V5PaintOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5PaintOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5PaintOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_subtract_region_refs(&mut self, subtract_region_refs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5PaintOp::VT_SUBTRACT_REGION_REFS, subtract_region_refs);
+  }
+  #[inline]
+  pub fn add_material(&mut self, material: ::flatbuffers::WIPOffset<V5Material<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<V5Material>>(V5PaintOp::VT_MATERIAL, material);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5PaintOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    V5PaintOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5PaintOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for V5PaintOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("V5PaintOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("subtract_region_refs", &self.subtract_region_refs());
+      ds.field("material", &self.material());
+      ds.finish()
+  }
+}
+pub enum V5StampOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct V5StampOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for V5StampOp<'a> {
+  type Inner = V5StampOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> V5StampOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SUBTRACT_REGION_REFS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DECORATOR_MASK: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DENSITY: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    V5StampOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args V5StampOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<V5StampOp<'bldr>> {
+    let mut builder = V5StampOpBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    builder.add_decorator_mask(args.decorator_mask);
+    if let Some(x) = args.subtract_region_refs { builder.add_subtract_region_refs(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_density(args.density);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5StampOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn subtract_region_refs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(V5StampOp::VT_SUBTRACT_REGION_REFS, None)}
+  }
+  #[inline]
+  pub fn decorator_mask(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(V5StampOp::VT_DECORATOR_MASK, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn density(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(V5StampOp::VT_DENSITY, Some(128)).unwrap()}
+  }
+  #[inline]
+  pub fn seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(V5StampOp::VT_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for V5StampOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("subtract_region_refs", Self::VT_SUBTRACT_REGION_REFS, false)?
+     .visit_field::<u32>("decorator_mask", Self::VT_DECORATOR_MASK, false)?
+     .visit_field::<u8>("density", Self::VT_DENSITY, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct V5StampOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub subtract_region_refs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub decorator_mask: u32,
+    pub density: u8,
+    pub seed: u64,
+}
+impl<'a> Default for V5StampOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    V5StampOpArgs {
+      region_ref: None,
+      subtract_region_refs: None,
+      decorator_mask: 0,
+      density: 128,
+      seed: 0,
+    }
+  }
+}
+
+pub struct V5StampOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5StampOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5StampOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_subtract_region_refs(&mut self, subtract_region_refs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5StampOp::VT_SUBTRACT_REGION_REFS, subtract_region_refs);
+  }
+  #[inline]
+  pub fn add_decorator_mask(&mut self, decorator_mask: u32) {
+    self.fbb_.push_slot::<u32>(V5StampOp::VT_DECORATOR_MASK, decorator_mask, 0);
+  }
+  #[inline]
+  pub fn add_density(&mut self, density: u8) {
+    self.fbb_.push_slot::<u8>(V5StampOp::VT_DENSITY, density, 128);
+  }
+  #[inline]
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(V5StampOp::VT_SEED, seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5StampOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    V5StampOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5StampOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for V5StampOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("V5StampOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("subtract_region_refs", &self.subtract_region_refs());
+      ds.field("decorator_mask", &self.decorator_mask());
+      ds.field("density", &self.density());
+      ds.field("seed", &self.seed());
+      ds.finish()
+  }
+}
+pub enum V5PathOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct V5PathOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for V5PathOp<'a> {
+  type Inner = V5PathOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> V5PathOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 6;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    V5PathOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args V5PathOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<V5PathOp<'bldr>> {
+    let mut builder = V5PathOpBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_style(args.style);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5PathOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(V5PathOp::VT_TILES, None)}
+  }
+  #[inline]
+  pub fn style(&self) -> V5PathStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<V5PathStyle>(V5PathOp::VT_STYLE, Some(V5PathStyle::CartTracks)).unwrap()}
+  }
+  #[inline]
+  pub fn seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(V5PathOp::VT_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for V5PathOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .visit_field::<V5PathStyle>("style", Self::VT_STYLE, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct V5PathOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+    pub style: V5PathStyle,
+    pub seed: u64,
+}
+impl<'a> Default for V5PathOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    V5PathOpArgs {
+      region_ref: None,
+      tiles: None,
+      style: V5PathStyle::CartTracks,
+      seed: 0,
+    }
+  }
+}
+
+pub struct V5PathOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5PathOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5PathOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5PathOp::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: V5PathStyle) {
+    self.fbb_.push_slot::<V5PathStyle>(V5PathOp::VT_STYLE, style, V5PathStyle::CartTracks);
+  }
+  #[inline]
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(V5PathOp::VT_SEED, seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5PathOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    V5PathOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5PathOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for V5PathOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("V5PathOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("tiles", &self.tiles());
+      ds.field("style", &self.style());
+      ds.field("seed", &self.seed());
+      ds.finish()
+  }
+}
+pub enum V5FixtureOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct V5FixtureOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for V5FixtureOp<'a> {
+  type Inner = V5FixtureOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> V5FixtureOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
+  pub const VT_ANCHORS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    V5FixtureOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args V5FixtureOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<V5FixtureOp<'bldr>> {
+    let mut builder = V5FixtureOpBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    if let Some(x) = args.anchors { builder.add_anchors(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5FixtureOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn kind(&self) -> V5FixtureKind {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<V5FixtureKind>(V5FixtureOp::VT_KIND, Some(V5FixtureKind::Web)).unwrap()}
+  }
+  #[inline]
+  pub fn anchors(&self) -> Option<::flatbuffers::Vector<'a, V5Anchor>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, V5Anchor>>>(V5FixtureOp::VT_ANCHORS, None)}
+  }
+  #[inline]
+  pub fn seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(V5FixtureOp::VT_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for V5FixtureOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<V5FixtureKind>("kind", Self::VT_KIND, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, V5Anchor>>>("anchors", Self::VT_ANCHORS, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct V5FixtureOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub kind: V5FixtureKind,
+    pub anchors: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, V5Anchor>>>,
+    pub seed: u64,
+}
+impl<'a> Default for V5FixtureOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    V5FixtureOpArgs {
+      region_ref: None,
+      kind: V5FixtureKind::Web,
+      anchors: None,
+      seed: 0,
+    }
+  }
+}
+
+pub struct V5FixtureOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5FixtureOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5FixtureOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_kind(&mut self, kind: V5FixtureKind) {
+    self.fbb_.push_slot::<V5FixtureKind>(V5FixtureOp::VT_KIND, kind, V5FixtureKind::Web);
+  }
+  #[inline]
+  pub fn add_anchors(&mut self, anchors: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , V5Anchor>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5FixtureOp::VT_ANCHORS, anchors);
+  }
+  #[inline]
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(V5FixtureOp::VT_SEED, seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5FixtureOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    V5FixtureOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5FixtureOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for V5FixtureOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("V5FixtureOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("kind", &self.kind());
+      ds.field("anchors", &self.anchors());
+      ds.field("seed", &self.seed());
+      ds.finish()
+  }
+}
+pub enum V5StrokeOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct V5StrokeOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for V5StrokeOp<'a> {
+  type Inner = V5StrokeOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> V5StrokeOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_WALL_MATERIAL: ::flatbuffers::VOffsetT = 8;
+  pub const VT_CUTS: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    V5StrokeOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args V5StrokeOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<V5StrokeOp<'bldr>> {
+    let mut builder = V5StrokeOpBuilder::new(_fbb);
+    if let Some(x) = args.cuts { builder.add_cuts(x); }
+    if let Some(x) = args.wall_material { builder.add_wall_material(x); }
+    if let Some(x) = args.outline { builder.add_outline(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5StrokeOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn outline(&self) -> Option<Outline<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(V5StrokeOp::VT_OUTLINE, None)}
+  }
+  #[inline]
+  pub fn wall_material(&self) -> Option<V5WallMaterial<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<V5WallMaterial>>(V5StrokeOp::VT_WALL_MATERIAL, None)}
+  }
+  #[inline]
+  pub fn cuts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut>>>>(V5StrokeOp::VT_CUTS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for V5StrokeOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<V5WallMaterial>>("wall_material", Self::VT_WALL_MATERIAL, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Cut>>>>("cuts", Self::VT_CUTS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct V5StrokeOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
+    pub wall_material: Option<::flatbuffers::WIPOffset<V5WallMaterial<'a>>>,
+    pub cuts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>>>,
+}
+impl<'a> Default for V5StrokeOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    V5StrokeOpArgs {
+      region_ref: None,
+      outline: None,
+      wall_material: None,
+      cuts: None,
+    }
+  }
+}
+
+pub struct V5StrokeOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5StrokeOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5StrokeOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(V5StrokeOp::VT_OUTLINE, outline);
+  }
+  #[inline]
+  pub fn add_wall_material(&mut self, wall_material: ::flatbuffers::WIPOffset<V5WallMaterial<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<V5WallMaterial>>(V5StrokeOp::VT_WALL_MATERIAL, wall_material);
+  }
+  #[inline]
+  pub fn add_cuts(&mut self, cuts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Cut<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5StrokeOp::VT_CUTS, cuts);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5StrokeOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    V5StrokeOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5StrokeOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for V5StrokeOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("V5StrokeOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("outline", &self.outline());
+      ds.field("wall_material", &self.wall_material());
+      ds.field("cuts", &self.cuts());
+      ds.finish()
+  }
+}
+pub enum V5HatchOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct V5HatchOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for V5HatchOp<'a> {
+  type Inner = V5HatchOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> V5HatchOp<'a> {
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SUBTRACT_REGION_REFS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_IS_OUTER: ::flatbuffers::VOffsetT = 12;
+  pub const VT_EXTENT_TILES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 16;
+  pub const VT_HATCH_UNDERLAY_COLOR: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    V5HatchOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args V5HatchOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<V5HatchOp<'bldr>> {
+    let mut builder = V5HatchOpBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    if let Some(x) = args.hatch_underlay_color { builder.add_hatch_underlay_color(x); }
+    builder.add_extent_tiles(args.extent_tiles);
+    if let Some(x) = args.is_outer { builder.add_is_outer(x); }
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    if let Some(x) = args.subtract_region_refs { builder.add_subtract_region_refs(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn kind(&self) -> HatchKind {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<HatchKind>(V5HatchOp::VT_KIND, Some(HatchKind::Room)).unwrap()}
+  }
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5HatchOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn subtract_region_refs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(V5HatchOp::VT_SUBTRACT_REGION_REFS, None)}
+  }
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(V5HatchOp::VT_TILES, None)}
+  }
+  #[inline]
+  pub fn is_outer(&self) -> Option<::flatbuffers::Vector<'a, bool>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, bool>>>(V5HatchOp::VT_IS_OUTER, None)}
+  }
+  #[inline]
+  pub fn extent_tiles(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(V5HatchOp::VT_EXTENT_TILES, Some(2.0)).unwrap()}
+  }
+  #[inline]
+  pub fn seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(V5HatchOp::VT_SEED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn hatch_underlay_color(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5HatchOp::VT_HATCH_UNDERLAY_COLOR, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for V5HatchOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<HatchKind>("kind", Self::VT_KIND, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("subtract_region_refs", Self::VT_SUBTRACT_REGION_REFS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, bool>>>("is_outer", Self::VT_IS_OUTER, false)?
+     .visit_field::<f32>("extent_tiles", Self::VT_EXTENT_TILES, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("hatch_underlay_color", Self::VT_HATCH_UNDERLAY_COLOR, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct V5HatchOpArgs<'a> {
+    pub kind: HatchKind,
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub subtract_region_refs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+    pub is_outer: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, bool>>>,
+    pub extent_tiles: f32,
+    pub seed: u64,
+    pub hatch_underlay_color: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for V5HatchOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    V5HatchOpArgs {
+      kind: HatchKind::Room,
+      region_ref: None,
+      subtract_region_refs: None,
+      tiles: None,
+      is_outer: None,
+      extent_tiles: 2.0,
+      seed: 0,
+      hatch_underlay_color: None,
+    }
+  }
+}
+
+pub struct V5HatchOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5HatchOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_kind(&mut self, kind: HatchKind) {
+    self.fbb_.push_slot::<HatchKind>(V5HatchOp::VT_KIND, kind, HatchKind::Room);
+  }
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5HatchOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_subtract_region_refs(&mut self, subtract_region_refs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5HatchOp::VT_SUBTRACT_REGION_REFS, subtract_region_refs);
+  }
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5HatchOp::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn add_is_outer(&mut self, is_outer: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , bool>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5HatchOp::VT_IS_OUTER, is_outer);
+  }
+  #[inline]
+  pub fn add_extent_tiles(&mut self, extent_tiles: f32) {
+    self.fbb_.push_slot::<f32>(V5HatchOp::VT_EXTENT_TILES, extent_tiles, 2.0);
+  }
+  #[inline]
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(V5HatchOp::VT_SEED, seed, 0);
+  }
+  #[inline]
+  pub fn add_hatch_underlay_color(&mut self, hatch_underlay_color: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5HatchOp::VT_HATCH_UNDERLAY_COLOR, hatch_underlay_color);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5HatchOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    V5HatchOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5HatchOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for V5HatchOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("V5HatchOp");
+      ds.field("kind", &self.kind());
+      ds.field("region_ref", &self.region_ref());
+      ds.field("subtract_region_refs", &self.subtract_region_refs());
+      ds.field("tiles", &self.tiles());
+      ds.field("is_outer", &self.is_outer());
+      ds.field("extent_tiles", &self.extent_tiles());
+      ds.field("seed", &self.seed());
+      ds.field("hatch_underlay_color", &self.hatch_underlay_color());
+      ds.finish()
+  }
+}
+pub enum V5RoofOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct V5RoofOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for V5RoofOp<'a> {
+  type Inner = V5RoofOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> V5RoofOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TONE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TINT: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    V5RoofOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args V5RoofOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<V5RoofOp<'bldr>> {
+    let mut builder = V5RoofOpBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    if let Some(x) = args.tint { builder.add_tint(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_tone(args.tone);
+    builder.add_style(args.style);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5RoofOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn style(&self) -> V5RoofStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<V5RoofStyle>(V5RoofOp::VT_STYLE, Some(V5RoofStyle::Simple)).unwrap()}
+  }
+  #[inline]
+  pub fn tone(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(V5RoofOp::VT_TONE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn tint(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5RoofOp::VT_TINT, None)}
+  }
+  #[inline]
+  pub fn seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(V5RoofOp::VT_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for V5RoofOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<V5RoofStyle>("style", Self::VT_STYLE, false)?
+     .visit_field::<u8>("tone", Self::VT_TONE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("tint", Self::VT_TINT, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct V5RoofOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub style: V5RoofStyle,
+    pub tone: u8,
+    pub tint: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub seed: u64,
+}
+impl<'a> Default for V5RoofOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    V5RoofOpArgs {
+      region_ref: None,
+      style: V5RoofStyle::Simple,
+      tone: 0,
+      tint: None,
+      seed: 0,
+    }
+  }
+}
+
+pub struct V5RoofOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5RoofOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5RoofOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: V5RoofStyle) {
+    self.fbb_.push_slot::<V5RoofStyle>(V5RoofOp::VT_STYLE, style, V5RoofStyle::Simple);
+  }
+  #[inline]
+  pub fn add_tone(&mut self, tone: u8) {
+    self.fbb_.push_slot::<u8>(V5RoofOp::VT_TONE, tone, 0);
+  }
+  #[inline]
+  pub fn add_tint(&mut self, tint: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5RoofOp::VT_TINT, tint);
+  }
+  #[inline]
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(V5RoofOp::VT_SEED, seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5RoofOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    V5RoofOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5RoofOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for V5RoofOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("V5RoofOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("style", &self.style());
+      ds.field("tone", &self.tone());
+      ds.field("tint", &self.tint());
+      ds.field("seed", &self.seed());
       ds.finish()
   }
 }

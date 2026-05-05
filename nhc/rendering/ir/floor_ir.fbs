@@ -677,6 +677,182 @@ table CorridorWallOp {
   style: WallStyle = DungeonInk;  // future: cave-themed corridor walls
 }
 
+// ── v5 scaffold (Phase 1.1 of plans/nhc_pure_ir_v5_migration_plan.md) ──
+//
+// v5 generalises v4e along three axes (per design/map_ir_v5.md):
+//
+// 1. Materials are first-class. ``V5Material`` carries
+//    ``(family, style, sub_pattern, tone, seed)``. Floors, walls,
+//    doors and roofs draw from the same family taxonomy.
+// 2. The op union shrinks from 18 to 8. Generic ops
+//    (``V5PaintOp`` / ``V5StampOp`` / ``V5PathOp`` / ``V5FixtureOp``
+//    / ``V5StrokeOp``) replace today's variant-typed ops; the
+//    painter dispatches on op data, never on op type.
+// 3. The painter is the deterministic source of truth. The IR
+//    ships fully resolved intent — pre-decided per-region species,
+//    pre-decided decorator bits — and the painter renders without
+//    theme strings, kind enums, or palette late-binding.
+//
+// At Phase 1.1 the v5 tables sit alongside v4 ones with a
+// ``V5_`` prefix. The ``Op`` union does NOT yet include the v5
+// variants; the schema major stays at 4.0. The atomic cut at
+// Phase 1.8 drops the v4 op tables, renames the v5 tables to
+// canonical names (V5Material → Material, etc.), and bumps
+// major to 5 with file_identifier "NIR5".
+
+enum V5MaterialFamily : ubyte {
+  Plain   = 0,
+  Cave    = 1,
+  Wood    = 2,
+  Stone   = 3,
+  Earth   = 4,
+  Liquid  = 5,
+  Special = 6,
+}
+
+enum V5WallTreatment : ubyte {
+  PlainStroke   = 0,
+  Masonry       = 1,
+  Partition     = 2,
+  Palisade      = 3,
+  Fortification = 4,
+}
+
+enum V5PathStyle : ubyte {
+  CartTracks = 0,
+  OreVein    = 1,
+}
+
+enum V5FixtureKind : ubyte {
+  Web         = 0,
+  Skull       = 1,
+  Bone        = 2,
+  LooseStone  = 3,
+  Tree        = 4,
+  Bush        = 5,
+  Well        = 6,
+  Fountain    = 7,
+  Stair       = 8,
+  Gravestone  = 9,
+  Sign        = 10,
+  Mushroom    = 11,
+}
+
+// v4 RoofStyle exposes only Simple / Dome / WitchHat. v5 extends
+// the enum with Pyramid / Gable so RoofOp can dispatch geometry
+// directly off ``style`` (today's pyramid-vs-gable choice falls
+// out of the building region's ``shape_tag``; v5 makes it
+// explicit). The cut renames V5RoofStyle → RoofStyle.
+enum V5RoofStyle : ubyte {
+  Simple   = 0,
+  Pyramid  = 1,
+  Gable    = 2,
+  Dome     = 3,
+  WitchHat = 4,
+}
+
+table V5Material {
+  family       : V5MaterialFamily;
+  style        : uint8;
+  sub_pattern  : uint8;
+  tone         : uint8;
+  seed         : uint64;
+}
+
+table V5WallMaterial {
+  family       : V5MaterialFamily;
+  style        : uint8;
+  treatment    : V5WallTreatment;
+  corner_style : CornerStyle = Merlon;
+  tone         : uint8;
+  seed         : uint64;
+}
+
+// Per-fixture anchor placement. Field semantics are kind-specific
+// (see design/map_ir_v5.md §7). ``pad0`` aligns ``group_id`` to a
+// 4-byte boundary; FlatBuffers struct alignment matches the
+// largest field (``group_id``: uint32).
+struct V5Anchor {
+  x:           int32;
+  y:           int32;
+  variant:     uint8;
+  orientation: uint8;
+  scale:       uint8;
+  pad0:        uint8 = 0;
+  group_id:    uint32;
+}
+
+// v5 Region carries parent_id and cuts directly. ``kind`` is
+// eliminated; tooling reads ``id`` to infer role
+// (see design/map_ir_v5.md §10.1 for the naming convention).
+table V5Region {
+  id: string (key);
+  outline: Outline;
+  parent_id: string;
+  cuts: [Cut];
+  shape_tag: string;
+}
+
+table V5PaintOp {
+  region_ref: string;
+  subtract_region_refs: [string];
+  material: V5Material;
+}
+
+table V5StampOp {
+  region_ref: string;
+  subtract_region_refs: [string];
+  decorator_mask: uint32;
+  density: uint8 = 128;
+  seed: uint64;
+}
+
+table V5PathOp {
+  region_ref: string;
+  tiles: [TileCoord];
+  style: V5PathStyle;
+  seed: uint64;
+}
+
+table V5FixtureOp {
+  region_ref: string;
+  kind: V5FixtureKind;
+  anchors: [V5Anchor];
+  seed: uint64;
+}
+
+table V5StrokeOp {
+  region_ref: string;
+  outline: Outline;
+  wall_material: V5WallMaterial;
+  cuts: [Cut];
+}
+
+// v5 HatchOp adopts the anti-geometry convention: a positive
+// ``region_ref`` and an exclusion list ``subtract_region_refs[]``
+// instead of v4's ``region_in`` / ``region_out``.
+table V5HatchOp {
+  kind: HatchKind;
+  region_ref: string;
+  subtract_region_refs: [string];
+  tiles: [TileCoord];
+  is_outer: [bool];
+  extent_tiles: float = 2.0;
+  seed: uint64;
+  hatch_underlay_color: string;
+}
+
+// v5 RoofOp carries an explicit tone axis and a per-op seed
+// (replacing v4's ``rng_seed``). Style enum extended with
+// Pyramid / Gable to make geometry explicit.
+table V5RoofOp {
+  region_ref: string;
+  style: V5RoofStyle = Simple;
+  tone: uint8;
+  tint: string;
+  seed: uint64;
+}
+
 // ── Op union ────────────────────────────────────────────────
 //
 // Order of variants is part of the schema major version — adding
