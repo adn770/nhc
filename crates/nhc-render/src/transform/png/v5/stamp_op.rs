@@ -19,10 +19,12 @@
 //! densities targeting the same region.
 
 use flatbuffers::{ForwardsUOffset, Vector};
+use rand::{Rng, SeedableRng};
+use rand_pcg::Pcg64Mcg;
 
 use super::region_path::outline_to_path;
 use crate::ir::{FloorIR, Outline, V5Region, V5StampOp};
-use crate::painter::{Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Stroke};
+use crate::painter::{Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Stroke, Vec2};
 use crate::primitives::floor_detail::{
     floor_detail_shapes, paint_floor_detail_side, FloorDetailShape,
 };
@@ -308,6 +310,83 @@ fn paint_floor_detail_bucket(
     painter.pop_clip();
 }
 
+/// Per-tile stamp scaffold — shared by Moss / Blood / Ash /
+/// Puddles / Ripples / LavaCracks. Walks every region tile,
+/// gates each through the bit's baseline probability against a
+/// seed-salted ``Pcg64Mcg`` stream, and dispatches the per-hit
+/// painting closure inside a single ``begin_group`` envelope.
+///
+/// The seed_salt argument keeps each bit's RNG independent — two
+/// bits in the same StampOp run on the same base seed but diverge
+/// on the salt so their per-tile placement doesn't correlate.
+fn paint_per_tile_decorator<F>(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+    seed_salt: u64,
+    base_prob: f64,
+    group_opacity: f32,
+    mut paint_one: F,
+) where
+    F: FnMut(&mut dyn Painter, &mut Pcg64Mcg, f64, f64),
+{
+    let tiles = enumerate_region_tiles(outline);
+    if tiles.is_empty() {
+        return;
+    }
+    let mut rng = Pcg64Mcg::seed_from_u64(seed ^ seed_salt);
+    painter.push_clip(region_path, FillRule::EvenOdd);
+    painter.begin_group(group_opacity);
+    for (tx, ty) in tiles {
+        if rng.gen::<f64>() < base_prob {
+            let px = tx as f64 * CELL;
+            let py = ty as f64 * CELL;
+            paint_one(painter, &mut rng, px, py);
+        }
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
+/// Moss bit — green tufts at low density. Per hit, paint 2-3
+/// small filled green ellipses at sub-tile positions; the cluster
+/// reads as a moss patch on the floor.
+fn paint_moss(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const MOSS_BASE: Color = Color::rgba(0x4A, 0x7A, 0x35, 1.0);
+    const MOSS_DARK: Color = Color::rgba(0x32, 0x5A, 0x22, 1.0);
+    const MOSS_PROB: f64 = 0.10;
+    const MOSS_OPACITY: f32 = 0.55;
+    const MOSS_SEED_SALT: u64 = 0x_0055_C0FF_EE00_0001;
+
+    paint_per_tile_decorator(
+        painter,
+        outline,
+        region_path,
+        seed,
+        MOSS_SEED_SALT,
+        MOSS_PROB,
+        MOSS_OPACITY,
+        |painter, rng, px, py| {
+            let n_tufts = rng.gen_range(2..=3);
+            for _ in 0..n_tufts {
+                let cx = px + rng.gen_range((CELL * 0.15)..(CELL * 0.85));
+                let cy = py + rng.gen_range((CELL * 0.15)..(CELL * 0.85));
+                let rx = rng.gen_range((CELL * 0.05)..(CELL * 0.10));
+                let ry = rng.gen_range((CELL * 0.04)..(CELL * 0.08));
+                let dark = rng.gen::<f64>() < 0.35;
+                let paint = Paint::solid(if dark { MOSS_DARK } else { MOSS_BASE });
+                painter.fill_ellipse(cx as f32, cy as f32, rx as f32, ry as f32, &paint);
+            }
+        },
+    );
+}
+
 /// Per-bit dispatcher. Phase 2.9 commits replace each not-yet-
 /// lifted arm with the bit's real painter.
 fn dispatch_bit(
@@ -327,6 +406,9 @@ fn dispatch_bit(
         }
         bit::SCRATCHES => {
             paint_scratches(painter, outline, region_path, seed);
+        }
+        bit::MOSS => {
+            paint_moss(painter, outline, region_path, seed);
         }
         // Not-yet-lifted bits — emit a single translucent fill of
         // the region in the bit's sentinel hue so the dispatcher
@@ -498,7 +580,7 @@ mod tests {
     fn unlifted_bits_emit_single_fill_path_each() {
         for bit_value in [
             bit::RIPPLES, bit::LAVA_CRACKS,
-            bit::MOSS, bit::BLOOD, bit::ASH, bit::PUDDLES,
+            bit::BLOOD, bit::ASH, bit::PUDDLES,
         ] {
             let painter = run(&build_stamp_op(bit_value));
             let fill_paths = painter
