@@ -65,6 +65,26 @@ fn ir_to_png(
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// IR → PNG raster, v5 op-stream variant. Phase 3.1 of
+/// `plans/nhc_pure_ir_v5_migration_plan.md`.
+///
+/// Mirrors `ir_to_png` argument shape, but walks the IR's
+/// `v5_ops` / `v5_regions` scaffold fields through the v5 op
+/// handlers under `transform::png::v5::` instead of the v4 op
+/// dispatch loop. Fed by the v5-vs-v4 PSNR cross-rasteriser gate
+/// in `tests/unit/test_ir_v5_pixel_parity.py` to surface where the
+/// v5 emit + render path diverges from the v4 reference.
+#[pyfunction]
+#[pyo3(signature = (ir_bytes, scale = 1.0, layer = None))]
+fn ir_to_png_v5(
+    ir_bytes: &[u8],
+    scale: f32,
+    layer: Option<&str>,
+) -> PyResult<Vec<u8>> {
+    transform_png::floor_ir_to_png_v5(ir_bytes, scale, layer)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 /// SVG → PNG rasteriser — Phase 10.4 cross-rasteriser parity
 /// gate. The parity harness in `tests/unit/test_ir_png_parity.py`
 /// pipes `ir_to_svg(buf)` through this function and compares the
@@ -112,6 +132,7 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(splitmix64_next, m)?)?;
     m.add_function(wrap_pyfunction!(perlin2, m)?)?;
     m.add_function(wrap_pyfunction!(ir_to_png, m)?)?;
+    m.add_function(wrap_pyfunction!(ir_to_png_v5, m)?)?;
     m.add_function(wrap_pyfunction!(svg_to_png, m)?)?;
     m.add_function(wrap_pyfunction!(ir_to_svg, m)?)?;
     Ok(())

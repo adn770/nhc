@@ -27,9 +27,21 @@ pub(super) fn draw(
         Some(o) => o,
         None => return,
     };
+    draw_shadow_op(&op, fir, painter);
+}
+
+/// ShadowOp-direct dispatch — usable from both the v4 OpEntry path
+/// (above) and the v5 V5OpEntry path (`super::dispatch_v5_ops`).
+/// ShadowOp shape is identical between v4 and v5; both unions reach
+/// the same FlatBuffer struct.
+pub(super) fn draw_shadow_op(
+    op: &ShadowOp<'_>,
+    fir: &FloorIR<'_>,
+    painter: &mut dyn Painter,
+) {
     match op.kind() {
-        ShadowKind::Corridor => paint_corridor(&op, painter),
-        ShadowKind::Room => paint_room(&op, fir, painter),
+        ShadowKind::Corridor => paint_corridor(op, painter),
+        ShadowKind::Room => paint_room(op, fir, painter),
         _ => {}
     }
 }

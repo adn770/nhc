@@ -20,6 +20,7 @@ use tiny_skia::{Color, Pixmap, Transform};
 
 use crate::ir::{
     floor_ir_buffer_has_identifier, root_as_floor_ir, FloorIR, Op, OpEntry,
+    V5Op,
 };
 use crate::painter::{Painter, SkiaPainter};
 
@@ -283,6 +284,158 @@ pub(crate) const BARE_SKIP_OPS: &[Op] = &[
     Op::TreeFeatureOp,
     Op::BushFeatureOp,
 ];
+
+/// Render a `FloorIR` buffer to a PNG byte stream by walking the
+/// v5 op array (`v5_ops` / `v5_regions`) instead of the canonical
+/// v4 op array. Phase 3.1 of
+/// `plans/nhc_pure_ir_v5_migration_plan.md` — the dual entry point
+/// lets both paths render the same IR for the v5-vs-v4 PSNR gate
+/// in `tests/unit/test_ir_v5_pixel_parity.py`.
+///
+/// Op coverage at this commit (v5 op kinds emitted by
+/// `nhc.rendering.v5_emit`):
+///
+/// - `V5PaintOp` → `v5::paint_op::draw` (per-family Material fill)
+/// - `V5StampOp` → `v5::stamp_op::draw` (decorator-bit overlays)
+/// - `V5PathOp` → `v5::path_op::draw` (CartTracks / OreVein)
+/// - `V5FixtureOp` → `v5::fixture_op::draw` (Tree / Bush / Well /
+///   Fountain / Stair lifted; remaining 7 fall through to a
+///   placeholder marker stub)
+/// - `V5StrokeOp` → `v5::stroke_op::draw` (substance-aware stroke
+///   palette + per-treatment width)
+/// - `ShadowOp` → `shadow::draw_shadow_op` (carries over from v4)
+/// - `V5HatchOp` / `V5RoofOp` → not yet handled; pixels in those
+///   regions diverge from the v4 reference. The PSNR gate surfaces
+///   the gap so follow-on commits can target the work.
+///
+/// `layer` is honoured for op-kinds whose v4 layer mapping shares
+/// the v5 op (e.g. `structural` → V5PaintOp / V5StrokeOp,
+/// `shadows` → ShadowOp). The mapping is intentionally narrow —
+/// Phase 4.1 of the v5 migration plan retires the v4 layer enum.
+pub fn floor_ir_to_png_v5(
+    buf: &[u8],
+    scale: f32,
+    layer: Option<&str>,
+) -> Result<Vec<u8>, PngError> {
+    if buf.len() < 8 || !floor_ir_buffer_has_identifier(buf) {
+        return Err(PngError::InvalidBuffer(
+            "buffer does not carry the NIR3 file_identifier".to_string(),
+        ));
+    }
+    let layer_filter =
+        resolve_layer_filter(layer).map_err(PngError::UnknownLayer)?;
+
+    let fir = root_as_floor_ir(buf)
+        .map_err(|e| PngError::InvalidBuffer(e.to_string()))?;
+
+    let cell = fir.cell() as f32;
+    let padding = fir.padding() as f32;
+    let svg_w = fir.width_tiles() as f32 * cell + 2.0 * padding;
+    let svg_h = fir.height_tiles() as f32 * cell + 2.0 * padding;
+    let pw = (svg_w * scale).round().max(0.0) as u32;
+    let ph = (svg_h * scale).round().max(0.0) as u32;
+    let mut pixmap = Pixmap::new(pw, ph)
+        .ok_or(PngError::InvalidCanvas { width: pw, height: ph })?;
+
+    pixmap.fill(Color::from_rgba8(BG_R, BG_G, BG_B, 0xFF));
+
+    let transform = Transform::from_translate(padding, padding)
+        .post_scale(scale, scale);
+    let mut painter = SkiaPainter::with_transform(&mut pixmap, transform);
+
+    dispatch_v5_ops(&fir, layer_filter, &mut painter);
+
+    drop(painter);
+    pixmap
+        .encode_png()
+        .map_err(|e| PngError::EncodeFailed(e.to_string()))
+}
+
+/// Walk the IR's `v5_ops[]` array and dispatch each entry through
+/// the v5 op handlers under `transform::png::v5::`. Mirrors
+/// [`dispatch_ops`] in shape but reads the v5 scaffold fields.
+///
+/// `layer_filter` is interpreted against the v4 `Op` enum and
+/// translated to the matching v5 ops here:
+///
+/// - `structural` → V5PaintOp + V5StrokeOp + V5RoofOp
+/// - `shadows`    → ShadowOp
+/// - `hatching`   → V5HatchOp (not yet handled — silently skipped)
+/// - other layers → empty mapping (the v5 op union doesn't split
+///   by v4 layer)
+fn dispatch_v5_ops(
+    fir: &FloorIR<'_>,
+    layer_filter: Option<&'static [Op]>,
+    painter: &mut dyn Painter,
+) {
+    let regions = match fir.v5_regions() {
+        Some(r) => r,
+        None => return,
+    };
+    let ops = match fir.v5_ops() {
+        Some(o) => o,
+        None => return,
+    };
+    let want = |v5_op: V5Op| -> bool {
+        let Some(filter) = layer_filter else { return true };
+        // Map v5 op → v4 layer ops the harness uses for filtering.
+        let proxy = match v5_op {
+            V5Op::V5PaintOp => Op::FloorOp,
+            V5Op::V5StrokeOp => Op::ExteriorWallOp,
+            V5Op::V5RoofOp => Op::RoofOp,
+            V5Op::ShadowOp => Op::ShadowOp,
+            V5Op::V5HatchOp => Op::HatchOp,
+            V5Op::V5StampOp => Op::FloorGridOp,
+            V5Op::V5FixtureOp => Op::WellFeatureOp,
+            V5Op::V5PathOp => Op::DecoratorOp,
+            _ => return false,
+        };
+        filter.contains(&proxy)
+    };
+    for entry in ops.iter() {
+        let op_type = entry.op_type();
+        if !want(op_type) {
+            continue;
+        }
+        match op_type {
+            V5Op::V5PaintOp => {
+                if let Some(op) = entry.op_as_v5_paint_op() {
+                    v5::paint_op::draw(op, regions, painter);
+                }
+            }
+            V5Op::V5StampOp => {
+                if let Some(op) = entry.op_as_v5_stamp_op() {
+                    v5::stamp_op::draw(op, regions, painter);
+                }
+            }
+            V5Op::V5PathOp => {
+                if let Some(op) = entry.op_as_v5_path_op() {
+                    v5::path_op::draw(op, regions, painter);
+                }
+            }
+            V5Op::V5FixtureOp => {
+                if let Some(op) = entry.op_as_v5_fixture_op() {
+                    v5::fixture_op::draw(op, regions, painter);
+                }
+            }
+            V5Op::V5StrokeOp => {
+                if let Some(op) = entry.op_as_v5_stroke_op() {
+                    v5::stroke_op::draw(op, regions, painter);
+                }
+            }
+            V5Op::ShadowOp => {
+                if let Some(op) = entry.op_as_shadow_op() {
+                    shadow::draw_shadow_op(&op, fir, painter);
+                }
+            }
+            // V5HatchOp + V5RoofOp not yet handled — Phase 3.1's
+            // PSNR gate surfaces fixtures that need them so follow-
+            // on commits can target the work.
+            V5Op::V5HatchOp | V5Op::V5RoofOp => {}
+            _ => {}
+        }
+    }
+}
 
 /// Resolve a layer name through [`layer_ops`] for the SVG /
 /// PNG entry points. Public to the crate so the SVG entry point
