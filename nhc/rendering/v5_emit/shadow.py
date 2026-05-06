@@ -1,16 +1,12 @@
 """Builder / ctx walk → ``V5OpEntry(ShadowOp)``.
 
-Phase 4.3a entry point. :func:`emit_shadows` walks the
-:class:`FloorIRBuilder`'s ``ctx`` and ``level`` directly to produce
-the v5 shadow op stream — no v4-op input. Mirrors the source logic
-of :func:`nhc.rendering._floor_layers._emit_shadows_ir`. ShadowOp's
-payload shape is identical between v4 and v5 per design/map_ir_v5.md
-§3.5; only the union tag flips on the wrapping ``V5OpEntry``.
-
-:func:`translate_shadow_ops` is retained for back-compat with the
-legacy :func:`translate_all` entry point and walks ``builder.ops``
-to wrap any pre-emitted v4 ``ShadowOp`` in a ``V5OpEntry``. The
-4.3c cleanup retires it together with ``translate_all``.
+:func:`emit_shadows` walks the :class:`FloorIRBuilder`'s ``ctx``
+and ``level`` directly to produce the v5 shadow op stream — no
+v4-op input. Mirrors the source logic of
+:func:`nhc.rendering._floor_layers._emit_shadows_ir`. ShadowOp's
+payload shape is identical between v4 and v5 per
+``design/map_ir_v5.md`` §3.5; only the union tag flips on the
+wrapping ``V5OpEntry``.
 """
 
 from __future__ import annotations
@@ -18,7 +14,6 @@ from __future__ import annotations
 from typing import Any
 
 from nhc.rendering.ir._fb import ShadowKind
-from nhc.rendering.ir._fb.Op import Op
 from nhc.rendering.ir._fb.ShadowOp import ShadowOpT
 from nhc.rendering.ir._fb.TileCoord import TileCoordT
 from nhc.rendering.ir._fb.V5Op import V5Op
@@ -89,22 +84,4 @@ def emit_shadows(builder: Any) -> list[V5OpEntryT]:
         op.tiles = tiles
         result.append(_wrap(op))
 
-    return result
-
-
-def translate_shadow_ops(ops: list[Any]) -> list[V5OpEntryT]:
-    """Wrap each v4 ``ShadowOp`` in a ``V5OpEntry``.
-
-    Retained for back-compat with :func:`translate_all`. The op
-    payload carries over byte-for-byte; only the wrapping union tag
-    flips from v4 ``Op.ShadowOp`` to v5 ``V5Op.ShadowOp``.
-    """
-    result: list[V5OpEntryT] = []
-    for entry in ops:
-        if getattr(entry, "opType", None) != Op.ShadowOp:
-            continue
-        wrapped = V5OpEntryT()
-        wrapped.opType = V5Op.ShadowOp
-        wrapped.op = entry.op
-        result.append(wrapped)
     return result

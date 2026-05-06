@@ -1,11 +1,10 @@
 """Builder / level walk → ``V5OpEntry(V5FixtureOp)`` for thematic +
 loose-stone fixtures.
 
-Phase 4.3a entry point. :func:`emit_thematic_details` walks the
-floor-detail candidate set + the per-tile wall-corner bitmap and
-runs the v4 probability gate via the
-``nhc_render.thematic_detail_anchors`` PyO3 binding to produce
-per-kind ``V5FixtureOp(Web | Skull | Bone)`` entries.
+:func:`emit_thematic_details` walks the floor-detail candidate set
++ the per-tile wall-corner bitmap and runs the v4 probability
+gate via the ``nhc_render.thematic_detail_anchors`` PyO3 binding
+to produce per-kind ``V5FixtureOp(Web | Skull | Bone)`` entries.
 :func:`emit_loose_stones` runs the analogous gate via
 ``nhc_render.floor_detail_loose_stone_anchors`` to produce a
 single ``V5FixtureOp(LooseStone)``.
@@ -14,17 +13,12 @@ Both translators share the (theme, macabre) defaults from the v4
 emit pipeline; macabre defaults to True (the v4 emit path enables
 macabre detail unless the dungeon flags explicitly turn it off —
 see ``ctx.macabre_detail``).
-
-:func:`translate_thematic_detail_ops` and
-:func:`translate_floor_detail_loose_stones` are retained as
-back-compat shims for :func:`translate_all`.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from nhc.rendering.ir._fb.Op import Op
 from nhc.rendering.ir._fb.V5Anchor import V5AnchorT
 from nhc.rendering.ir._fb.V5FixtureKind import V5FixtureKind
 from nhc.rendering.ir._fb.V5FixtureOp import V5FixtureOpT
@@ -194,95 +188,3 @@ def emit_loose_stones(builder: Any) -> list[V5OpEntryT]:
         seed=seed,
     ))]
 
-
-# ── Back-compat shims for translate_all ────────────────────────
-
-
-def translate_thematic_detail_ops(ops: list[Any]) -> list[V5OpEntryT]:
-    """Walk every v4 ``ThematicDetailOp`` and emit per-kind fixtures.
-
-    Retained for back-compat with :func:`translate_all`.
-    """
-    try:
-        from nhc_render import thematic_detail_anchors
-    except (ImportError, AttributeError):
-        return []
-
-    result: list[V5OpEntryT] = []
-    for entry in ops:
-        if getattr(entry, "opType", None) != Op.ThematicDetailOp:
-            continue
-        op = entry.op
-        tiles_payload: list[tuple[int, int, bool, int]] = []
-        is_corridor = list(op.isCorridor or [])
-        wall_corners = list(op.wallCorners or [])
-        for i, t in enumerate(op.tiles or []):
-            ic = bool(is_corridor[i]) if i < len(is_corridor) else False
-            wc = int(wall_corners[i]) if i < len(wall_corners) else 0
-            tiles_payload.append((int(t.x), int(t.y), ic, wc))
-        seed = int(getattr(op, "seed", 0) or 0)
-        theme_raw = getattr(op, "theme", "") or "dungeon"
-        theme = theme_raw.decode("utf-8") if isinstance(
-            theme_raw, bytes
-        ) else theme_raw
-        macabre = True
-        placements = thematic_detail_anchors(
-            tiles_payload, seed, theme, macabre,
-        )
-
-        per_kind: dict[int, list[V5AnchorT]] = {}
-        for kind_u8, x, y, orientation in placements:
-            v5_kind = _THEM_KIND_TO_V5.get(int(kind_u8))
-            if v5_kind is None:
-                continue
-            per_kind.setdefault(v5_kind, []).append(
-                _make_anchor(int(x), int(y), orientation=int(orientation))
-            )
-
-        for v5_kind, anchors in per_kind.items():
-            if not anchors:
-                continue
-            result.append(_wrap(_make_fixture_op(
-                kind=v5_kind, anchors=anchors, seed=seed,
-            )))
-    return result
-
-
-def translate_floor_detail_loose_stones(ops: list[Any]) -> list[V5OpEntryT]:
-    """Walk every v4 ``FloorDetailOp`` and emit a LooseStone fixture.
-
-    Retained for back-compat with :func:`translate_all`.
-    """
-    try:
-        from nhc_render import floor_detail_loose_stone_anchors
-    except (ImportError, AttributeError):
-        return []
-
-    result: list[V5OpEntryT] = []
-    for entry in ops:
-        if getattr(entry, "opType", None) != Op.FloorDetailOp:
-            continue
-        op = entry.op
-        tiles_payload: list[tuple[int, int, bool]] = []
-        is_corridor = list(getattr(op, "isCorridor", []) or [])
-        for i, t in enumerate(op.tiles or []):
-            ic = bool(is_corridor[i]) if i < len(is_corridor) else False
-            tiles_payload.append((int(t.x), int(t.y), ic))
-        seed = int(getattr(op, "seed", 0) or 0)
-        theme_raw = getattr(op, "theme", "") or "dungeon"
-        theme = theme_raw.decode("utf-8") if isinstance(
-            theme_raw, bytes
-        ) else theme_raw
-        macabre = True
-        coords = floor_detail_loose_stone_anchors(
-            tiles_payload, seed, theme, macabre,
-        )
-        if not coords:
-            continue
-        anchors = [_make_anchor(int(x), int(y)) for (x, y) in coords]
-        result.append(_wrap(_make_fixture_op(
-            kind=V5FixtureKind.LooseStone,
-            anchors=anchors,
-            seed=seed,
-        )))
-    return result

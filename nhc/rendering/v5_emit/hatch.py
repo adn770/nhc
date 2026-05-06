@@ -1,23 +1,17 @@
 """Builder / ctx walk → ``V5OpEntry(V5HatchOp)``.
 
-Phase 4.3a entry point. :func:`emit_hatches` walks
-``builder.ctx`` + ``level`` directly to produce v5 hatch ops —
-mirrors the source logic of
+:func:`emit_hatches` walks ``builder.ctx`` + ``level`` directly
+to produce v5 hatch ops — mirrors the source logic of
 :func:`nhc.rendering._floor_layers._emit_hatch_ir` and adopts the
 v5 anti-geometry convention (``region_in`` / ``region_out`` →
 ``region_ref`` + ``subtract_region_refs[]``) per
 ``design/map_ir_v5.md`` §2.4.
-
-:func:`translate_hatch_ops` is retained as a back-compat shim for
-:func:`translate_all` and walks ``builder.ops`` for v4 ``HatchOp``
-entries.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from nhc.rendering.ir._fb.Op import Op
 from nhc.rendering.ir._fb.V5HatchOp import V5HatchOpT
 from nhc.rendering.ir._fb.V5Op import V5Op
 from nhc.rendering.ir._fb.V5OpEntry import V5OpEntryT
@@ -175,30 +169,4 @@ def emit_hatches(builder: Any) -> list[V5OpEntryT]:
     op.hatchUnderlayColor = ""
     result.append(_wrap(op))
 
-    return result
-
-
-def translate_hatch_ops(ops: list[Any]) -> list[V5OpEntryT]:
-    """Walk v4 ``HatchOp`` entries and emit ``V5OpEntry`` wrappers.
-
-    Retained for back-compat with :func:`translate_all`. Mirrors the
-    pre-Phase-4.3a translator.
-    """
-    result: list[V5OpEntryT] = []
-    for entry in ops:
-        if getattr(entry, "opType", None) != Op.HatchOp:
-            continue
-        h = entry.op
-        v5 = V5HatchOpT()
-        v5.kind = h.kind
-        v5.regionRef = h.regionIn or ""
-        v5.subtractRegionRefs = (
-            [h.regionOut] if h.regionOut else []
-        )
-        v5.tiles = list(h.tiles or [])
-        v5.isOuter = list(h.isOuter or [])
-        v5.extentTiles = h.extentTiles
-        v5.seed = h.seed
-        v5.hatchUnderlayColor = h.hatchUnderlayColor or ""
-        result.append(_wrap(v5))
     return result

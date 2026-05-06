@@ -1,9 +1,8 @@
 """Builder / level walk → ``V5OpEntry(V5PaintOp)``.
 
-Phase 4.3a entry point. :func:`emit_paints` walks
-``builder.ctx`` + ``level`` + per-tile decorator predicates to
-produce the v5 PaintOp stream — mirrors the source logic of the
-FloorOp + DecoratorOp emission branches in
+:func:`emit_paints` walks ``builder.ctx`` + ``level`` + per-tile
+decorator predicates to produce the v5 PaintOp stream — mirrors
+the source logic of the FloorOp + DecoratorOp emission branches in
 :func:`nhc.rendering._floor_layers._emit_walls_and_floors_ir` /
 :func:`_emit_floor_detail_ir`.
 
@@ -17,30 +16,24 @@ existing translator stays tight:
 5. Per-tile wood floor (Wood family) when ``is_wood`` and no
    building polygon is set.
 6. Stone-variant decorators (per-style V5PaintOp(Stone)).
-
-:func:`translate_paint_ops` is retained as a back-compat shim for
-:func:`translate_all`.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from nhc.rendering.ir._fb.CobblePattern import CobblePattern
-from nhc.rendering.ir._fb.Op import Op
 from nhc.rendering.ir._fb.V5Op import V5Op
 from nhc.rendering.ir._fb.V5OpEntry import V5OpEntryT
 from nhc.rendering.ir._fb.V5PaintOp import V5PaintOpT
 from nhc.rendering.v5_emit.materials import (
     STONE_BRICK,
     STONE_BRICK_RUNNING_BOND,
-    STONE_COBBLESTONE,
     STONE_COBBLE_HERRINGBONE,
+    STONE_COBBLESTONE,
     STONE_FIELDSTONE,
     STONE_FLAGSTONE,
     STONE_OPUS_ROMANO,
     material_cave,
-    material_from_cobble_pattern,
     material_plain,
     material_stone,
     material_wood,
@@ -210,8 +203,10 @@ def emit_paints(builder: Any) -> list[V5OpEntryT]:
         if cobble_hits:
             result.append(_wrap(_make_paint_op(
                 region_ref="",
-                material=material_from_cobble_pattern(
-                    CobblePattern.Cobble, seed=deco_seed,
+                material=material_stone(
+                    style=STONE_COBBLESTONE,
+                    sub_pattern=STONE_COBBLE_HERRINGBONE,
+                    seed=deco_seed,
                 ),
             )))
         if brick_hits:
@@ -247,71 +242,3 @@ def emit_paints(builder: Any) -> list[V5OpEntryT]:
 
     return result
 
-
-def translate_paint_ops(ops: list[Any]) -> list[V5OpEntryT]:
-    """Translate every paint-shaped v4 op into ``V5PaintOp`` entries.
-
-    Retained for back-compat with :func:`translate_all`.
-    """
-    from nhc.rendering.v5_emit.materials import material_from_floor_style
-
-    result: list[V5OpEntryT] = []
-    for entry in ops:
-        op_type = getattr(entry, "opType", None)
-        if op_type == Op.FloorOp:
-            floor_op = entry.op
-            material = material_from_floor_style(
-                floor_op.style, seed=getattr(entry, "_seed", 0)
-            )
-            paint_op = _make_paint_op(
-                region_ref=floor_op.regionRef or "",
-                material=material,
-            )
-            result.append(_wrap(paint_op))
-        elif op_type == Op.DecoratorOp:
-            result.extend(_translate_decorator_op(entry.op))
-    return result
-
-
-def _translate_decorator_op(deco) -> list[V5OpEntryT]:
-    """Walk DecoratorOp's parallel variant lists and emit one
-    ``V5PaintOp`` per non-empty stone-pattern variant."""
-    rr = deco.regionRef or ""
-    seed = int(getattr(deco, "seed", 0))
-    out: list[V5OpEntryT] = []
-
-    for variant in deco.cobblestone or []:
-        if not variant.tiles:
-            continue
-        material = material_from_cobble_pattern(variant.pattern, seed=seed)
-        out.append(_wrap(_make_paint_op(region_ref=rr, material=material)))
-
-    for variant in deco.brick or []:
-        if not variant.tiles:
-            continue
-        material = material_stone(
-            style=STONE_BRICK,
-            sub_pattern=STONE_BRICK_RUNNING_BOND,
-            seed=seed,
-        )
-        out.append(_wrap(_make_paint_op(region_ref=rr, material=material)))
-
-    for variant in deco.flagstone or []:
-        if not variant.tiles:
-            continue
-        material = material_stone(style=STONE_FLAGSTONE, seed=seed)
-        out.append(_wrap(_make_paint_op(region_ref=rr, material=material)))
-
-    for variant in deco.opusRomano or []:
-        if not variant.tiles:
-            continue
-        material = material_stone(style=STONE_OPUS_ROMANO, seed=seed)
-        out.append(_wrap(_make_paint_op(region_ref=rr, material=material)))
-
-    for variant in deco.fieldStone or []:
-        if not variant.tiles:
-            continue
-        material = material_stone(style=STONE_FIELDSTONE, seed=seed)
-        out.append(_wrap(_make_paint_op(region_ref=rr, material=material)))
-
-    return out

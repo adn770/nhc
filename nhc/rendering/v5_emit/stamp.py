@@ -1,8 +1,7 @@
 """Builder / level walk → ``V5OpEntry(V5StampOp)``.
 
-Phase 4.3a entry point. :func:`emit_stamps` walks the level
-directly to derive the three texture-overlay stamp ops the v4
-emit pipeline produces:
+:func:`emit_stamps` walks the level directly to derive the three
+texture-overlay stamp ops the v4 emit pipeline produces:
 
 - ``GridLines`` (mirrors :func:`_emit_floor_grid_ir` — emitted
   whenever the level has any non-VOID tile).
@@ -11,17 +10,12 @@ emit pipeline produces:
   or when the wood-floor short-circuit fires).
 - ``Ripples | LavaCracks`` (mirrors :func:`_emit_terrain_detail_ir`
   — emitted whenever the level has any WATER / LAVA / CHASM tile).
-
-:func:`translate_stamp_ops` is retained as a back-compat shim for
-:func:`translate_all` and walks ``builder.ops`` for v4
-``FloorGridOp`` / ``FloorDetailOp`` / ``TerrainDetailOp`` entries.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from nhc.rendering.ir._fb.Op import Op
 from nhc.rendering.ir._fb.V5Op import V5Op
 from nhc.rendering.ir._fb.V5OpEntry import V5OpEntryT
 from nhc.rendering.ir._fb.V5StampOp import V5StampOpT
@@ -146,39 +140,4 @@ def emit_stamps(builder: Any) -> list[V5OpEntryT]:
             seed=ctx.seed + 200,
         )))
 
-    return result
-
-
-def translate_stamp_ops(ops: list[Any]) -> list[V5OpEntryT]:
-    """Translate texture-overlay v4 ops into ``V5StampOp`` entries.
-
-    Retained for back-compat with :func:`translate_all`.
-    """
-    result: list[V5OpEntryT] = []
-    for entry in ops:
-        op_type = getattr(entry, "opType", None)
-        if op_type == Op.FloorGridOp:
-            grid = entry.op
-            stamp = _make_stamp_op(
-                region_ref=grid.regionRef or "",
-                mask=BIT_GRID_LINES,
-                seed=int(getattr(grid, "seed", 0) or 0),
-            )
-            result.append(_wrap(stamp))
-        elif op_type == Op.FloorDetailOp:
-            detail = entry.op
-            stamp = _make_stamp_op(
-                region_ref=detail.regionRef or "",
-                mask=BIT_CRACKS | BIT_SCRATCHES,
-                seed=int(getattr(detail, "seed", 0) or 0),
-            )
-            result.append(_wrap(stamp))
-        elif op_type == Op.TerrainDetailOp:
-            terrain = entry.op
-            stamp = _make_stamp_op(
-                region_ref=terrain.regionRef or "",
-                mask=BIT_RIPPLES | BIT_LAVA_CRACKS,
-                seed=int(getattr(terrain, "seed", 0) or 0),
-            )
-            result.append(_wrap(stamp))
     return result

@@ -1,24 +1,17 @@
 """Builder / regions walk → ``V5OpEntry(V5RoofOp)``.
 
-Phase 4.3a entry point. :func:`emit_roofs` walks ``builder.regions``
-for Building regions and synthesises a ``V5RoofOp`` per building
-using the same seed / tint algorithm as
-:func:`nhc.rendering.ir_emitter.emit_building_roofs`. Building-floor
-IRs (where ``builder.site`` is set but ``level is not site.surface``)
-are gated out so they don't pick up a spurious roof from their own
-Building region.
-
-:func:`translate_roof_ops` is retained as a back-compat shim for
-:func:`translate_all` and walks ``builder.ops`` for v4 ``RoofOp``
-entries.
+:func:`emit_roofs` walks ``builder.regions`` for Building regions
+and synthesises a ``V5RoofOp`` per building using the same seed /
+tint algorithm as
+:func:`nhc.rendering.ir_emitter.emit_building_roofs`. Gated on
+``ctx.floor_kind == "surface"`` so building-floor / dungeon / cave
+IRs skip the layer entirely.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from nhc.rendering.ir._fb.Op import Op
-from nhc.rendering.ir._fb.RoofStyle import RoofStyle
 from nhc.rendering.ir._fb.V5Op import V5Op
 from nhc.rendering.ir._fb.V5OpEntry import V5OpEntryT
 from nhc.rendering.ir._fb.V5RoofOp import V5RoofOpT
@@ -96,29 +89,3 @@ def emit_roofs(builder: Any) -> list[V5OpEntryT]:
     return result
 
 
-def _v4_to_v5_roof_style(v4_style: int) -> int:
-    if v4_style == RoofStyle.Dome:
-        return V5RoofStyle.Dome
-    if v4_style == RoofStyle.WitchHat:
-        return V5RoofStyle.WitchHat
-    return V5RoofStyle.Simple
-
-
-def translate_roof_ops(ops: list[Any]) -> list[V5OpEntryT]:
-    """Walk v4 ``RoofOp`` entries and wrap them as ``V5OpEntry``.
-
-    Retained for back-compat with :func:`translate_all`.
-    """
-    result: list[V5OpEntryT] = []
-    for entry in ops:
-        if getattr(entry, "opType", None) != Op.RoofOp:
-            continue
-        roof = entry.op
-        v5 = V5RoofOpT()
-        v5.regionRef = roof.regionRef or ""
-        v5.style = _v4_to_v5_roof_style(roof.style)
-        v5.tone = 1
-        v5.tint = roof.tint or ""
-        v5.seed = int(getattr(roof, "rngSeed", 0) or 0)
-        result.append(_wrap(v5))
-    return result

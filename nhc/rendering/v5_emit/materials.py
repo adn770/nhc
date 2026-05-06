@@ -1,23 +1,18 @@
 """Material / WallMaterial factories for v5 emit.
 
-Maps the v4 ``FloorStyle`` / ``WallStyle`` / ``CobblePattern``
-enums onto the v5 ``Material`` taxonomy
-(``design/map_ir_v5.md`` §4). Each helper returns a ``V5MaterialT``
-(or ``V5WallMaterialT``) populated with the canonical
-``(family, style, sub_pattern, tone, seed)`` tuple.
-
-The mappings here are best-effort: they preserve enough
-information that the v5 painter dispatcher resolves to the right
-family pipeline. Phase 1.5's parity gate validates the resulting
-visual output against the v4 baseline; Phase 2 commits replace
-each per-family stub painter with the real algorithm.
+Returns ``V5MaterialT`` / ``V5WallMaterialT`` populated with the
+canonical ``(family, style, sub_pattern, tone, seed)`` tuple per
+``design/map_ir_v5.md`` §4. The
+:func:`wall_material_from_wall_style` helper still maps from a v4
+``WallStyle`` enum value because :mod:`stroke` consumes one for
+the deferred site / building-floor branches; the floor-style and
+cobble-pattern v4 → v5 helpers retired with the per-module emit
+refactor.
 """
 
 from __future__ import annotations
 
-from nhc.rendering.ir._fb.CobblePattern import CobblePattern
 from nhc.rendering.ir._fb.CornerStyle import CornerStyle
-from nhc.rendering.ir._fb.FloorStyle import FloorStyle
 from nhc.rendering.ir._fb.V5Material import V5MaterialT
 from nhc.rendering.ir._fb.V5MaterialFamily import V5MaterialFamily
 from nhc.rendering.ir._fb.V5WallMaterial import V5WallMaterialT
@@ -142,59 +137,6 @@ def material_liquid(*, style: int = LIQUID_WATER, seed: int = 0) -> V5MaterialT:
 
 def material_special(*, style: int = SPECIAL_CHASM, seed: int = 0) -> V5MaterialT:
     return _make_material(V5MaterialFamily.Special, style, 0, 0, seed)
-
-
-# ── v4 → v5 mapping ────────────────────────────────────────────
-
-
-def material_from_floor_style(
-    style: int, *, seed: int = 0
-) -> V5MaterialT:
-    """Translate a v4 ``FloorStyle`` enum value into a ``V5Material``.
-
-    - ``DungeonFloor`` → Plain parchment fill.
-    - ``CaveFloor``   → Cave family, Limestone style (default cave).
-    - ``WoodFloor``   → Wood family, Oak species, Plank layout, Medium tone.
-    """
-    if style == FloorStyle.WoodFloor:
-        return material_wood(seed=seed)
-    if style == FloorStyle.CaveFloor:
-        return material_cave(seed=seed)
-    return material_plain(seed=seed)
-
-
-def material_from_cobble_pattern(
-    pattern: int, *, seed: int = 0
-) -> V5MaterialT:
-    """Translate a v4 ``CobblePattern`` (DecoratorOp variant) into a v5
-    Material under the Stone family."""
-    if pattern == CobblePattern.Brick:
-        return material_stone(
-            style=STONE_BRICK,
-            sub_pattern=STONE_BRICK_RUNNING_BOND,
-            seed=seed,
-        )
-    if pattern == CobblePattern.Flagstone:
-        return material_stone(style=STONE_FLAGSTONE, seed=seed)
-    if pattern == CobblePattern.OpusReticulatum:
-        # OpusReticulatum is a forward-compat slot in v4; the
-        # closest v5 style is OpusRomano.
-        return material_stone(style=STONE_OPUS_ROMANO, seed=seed)
-    if pattern == CobblePattern.Herringbone:
-        return material_stone(
-            style=STONE_COBBLESTONE,
-            sub_pattern=STONE_COBBLE_HERRINGBONE,
-            seed=seed,
-        )
-    if pattern == CobblePattern.Versailles4:
-        # Versailles → Pinwheel (closest v5 layout family)
-        return material_stone(style=STONE_PINWHEEL, seed=seed)
-    # CobblePattern.Cobble (default) → Cobblestone × Herringbone
-    return material_stone(
-        style=STONE_COBBLESTONE,
-        sub_pattern=STONE_COBBLE_HERRINGBONE,
-        seed=seed,
-    )
 
 
 # ── WallMaterial factories ─────────────────────────────────────
