@@ -546,7 +546,12 @@ def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
         interior_finish: str = ""
 
     width, height = fx.canvas_tiles
-    builder = FloorIRBuilder(_Ctx(level=_Level(width=width, height=height)))  # type: ignore[arg-type]
+    level = _Level(width=width, height=height)
+    # ctx.seed mirrors fx.seed so the v5 emit_strokes' enclosure
+    # branch (which reads builder.ctx.seed for the rng_seed)
+    # produces the same rng_seed as emit_site_enclosure(
+    # base_seed=fx.seed) below.
+    builder = FloorIRBuilder(_Ctx(level=level, seed=fx.seed))  # type: ignore[arg-type]
 
     style_map = {
         "palisade": WallStyle.Palisade,
@@ -557,6 +562,36 @@ def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
         "diamond": CornerStyle.Diamond,
         "tower": CornerStyle.Tower,
     }
+
+    # Phase 4.3a-tail: stub a Site so the v5 emit_strokes' enclosure
+    # branch sees the (kind, polygon, gates, corner_style) needed to
+    # synthesise the V5StrokeOp. The synthetic fixture's gates ride
+    # in pre-projected (edge_idx, t_center, half_px) format —
+    # emit_strokes detects them via the float-typed slots and bypasses
+    # the (x, y, length_tiles) projection step.
+    @dataclasses.dataclass
+    class _StubEnclosure:
+        kind: str
+        polygon: list[tuple[int, int]]
+        gates: list[tuple[int, float, float]]
+        corner_style: int
+
+    @dataclasses.dataclass
+    class _StubSite:
+        surface: object
+        enclosure: object
+        buildings: list = dataclasses.field(default_factory=list)
+
+    builder.site = _StubSite(
+        surface=level,
+        enclosure=_StubEnclosure(
+            kind=fx.style,
+            polygon=list(fx.polygon_tiles),
+            gates=list(fx.gates),
+            corner_style=corner_map[fx.corner_style],
+        ),
+    )
+
     emit_site_region(builder, (0, 0, width, height))
     # ``emit_site_enclosure`` registers the Region(kind=Enclosure)
     # internally before emitting the ExteriorWallOp.
@@ -790,6 +825,7 @@ def _build_synthetic_building_wall_buf(
         width: int
         height: int
         interior_edges: list[tuple[int, int, str]]
+        building_id: str = "b0"
 
         def tile_at(self, x, y):
             return None  # no door-suppression in synthetic fixtures
@@ -809,17 +845,28 @@ def _build_synthetic_building_wall_buf(
 
     @dataclasses.dataclass
     class _Building:
+        id: str
         base_shape: object
         base_rect: Rect
         wall_material: str
         interior_wall_material: str
+
+    @dataclasses.dataclass
+    class _StubSite:
+        surface: object
+        buildings: list
+        enclosure: object = None
 
     width, height = fx.canvas_tiles
     level = _Level(
         width=width, height=height,
         interior_edges=list(fx.interior_edges),
     )
-    builder = FloorIRBuilder(_Ctx(level=level))  # type: ignore[arg-type]
+    # ctx.seed mirrors fx.seed so the v5 emit_strokes' building-
+    # floor branch (which reads builder.ctx.seed for the rng_seed)
+    # produces the same rng_seed as emit_building_walls(
+    # base_seed=fx.seed) below.
+    builder = FloorIRBuilder(_Ctx(level=level, seed=fx.seed))  # type: ignore[arg-type]
     shape_map = {
         "rect": RectShape(),
         "octagon": OctagonShape(),
@@ -827,11 +874,17 @@ def _build_synthetic_building_wall_buf(
     }
     rx, ry, rw, rh = fx.rect
     b = _Building(
+        id="b0",
         base_shape=shape_map[fx.shape],
         base_rect=Rect(rx, ry, rw, rh),
         wall_material=fx.wall_material,
         interior_wall_material=fx.interior_wall_material,
     )
+    # Phase 4.3a-tail: stub a Site so the v5 emit_strokes' building-
+    # floor branch resolves level.building_id → site.buildings[0]
+    # and ships the V5StrokeOps. surface is set to a separate
+    # sentinel so the enclosure branch is skipped.
+    builder.site = _StubSite(surface=object(), buildings=[b])
     emit_building_regions(builder, [b])
     emit_building_walls(
         builder, b, level, base_seed=fx.seed, building_index=0,
