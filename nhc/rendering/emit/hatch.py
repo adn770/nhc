@@ -60,6 +60,32 @@ def emit_hatches(builder: Any) -> list[OpEntryT]:
     cave_wall_poly = getattr(ctx, "cave_wall_poly", None)
     hatch_distance = getattr(ctx, "hatch_distance", 2.0)
 
+    # Pre-compute the corridor halo tile set so the room halo can
+    # exclude tiles the corridor halo will own. Without this exclusion
+    # both passes paint the same VOID-adjacent-to-corridor wall tiles
+    # with different stamp distributions (Room vs Corridor); the
+    # visual artifact is overlapping hatch noise around corridors.
+    corridor_hatch_tiles: set[tuple[int, int]] = set()
+    if tiles_grid is not None:
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tiles[y][x]
+                if not (
+                    tile.surface_type == SurfaceType.CORRIDOR
+                    or _is_door(level, x, y)
+                ):
+                    continue
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = x + dx, y + dy
+                    if not level.in_bounds(nx, ny):
+                        continue
+                    nb = level.tiles[ny][nx]
+                    if (
+                        nb.terrain == Terrain.VOID
+                        and nb.surface_type != SurfaceType.CORRIDOR
+                    ):
+                        corridor_hatch_tiles.add((nx, ny))
+
     # Room (perimeter) halo — gated on dungeon_poly + per-tile grid.
     if (
         dungeon_poly is not None
@@ -81,6 +107,11 @@ def emit_hatches(builder: Any) -> list[OpEntryT]:
         for gy in range(-1, level.height + 1):
             for gx in range(-1, level.width + 1):
                 if (gx, gy) in floor_set:
+                    continue
+                if (gx, gy) in corridor_hatch_tiles:
+                    # Owned by the corridor halo (denser
+                    # CORRIDOR_STONE_DIST stamp distribution); skip
+                    # to avoid double-coverage.
                     continue
                 min_dist = float("inf")
                 for ddx in range(-2, 3):
@@ -125,29 +156,12 @@ def emit_hatches(builder: Any) -> list[OpEntryT]:
         op.hatchUnderlayColor = ""
         result.append(_wrap(op))
 
-    # Corridor halo — gated on per-tile grid.
+    # Corridor halo — gated on per-tile grid + the pre-computed
+    # corridor_hatch_tiles set.
     if tiles_grid is None:
         return result
 
-    hatch_tiles: set[tuple[int, int]] = set()
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if not (
-                tile.surface_type == SurfaceType.CORRIDOR
-                or _is_door(level, x, y)
-            ):
-                continue
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nx, ny = x + dx, y + dy
-                if not level.in_bounds(nx, ny):
-                    continue
-                nb = level.tiles[ny][nx]
-                if (
-                    nb.terrain == Terrain.VOID
-                    and nb.surface_type != SurfaceType.CORRIDOR
-                ):
-                    hatch_tiles.add((nx, ny))
+    hatch_tiles = corridor_hatch_tiles
     if not hatch_tiles:
         return result
 

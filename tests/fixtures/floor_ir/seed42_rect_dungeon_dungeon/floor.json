@@ -4977,11 +4977,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 39,
-            "y": 3
-          },
-          {
-            "__type": "TileCoordT",
             "x": 40,
             "y": 3
           },
@@ -5077,11 +5072,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 40,
-            "y": 4
-          },
-          {
-            "__type": "TileCoordT",
             "x": 41,
             "y": 4
           },
@@ -5098,11 +5088,6 @@
           {
             "__type": "TileCoordT",
             "x": 49,
-            "y": 4
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 50,
             "y": 4
           },
           {
@@ -5172,11 +5157,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 39,
-            "y": 5
-          },
-          {
-            "__type": "TileCoordT",
             "x": 40,
             "y": 5
           },
@@ -5193,11 +5173,6 @@
           {
             "__type": "TileCoordT",
             "x": 48,
-            "y": 5
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 49,
             "y": 5
           },
           {
@@ -5252,62 +5227,12 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 24,
-            "y": 6
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 25,
-            "y": 6
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 26,
-            "y": 6
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 27,
-            "y": 6
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 28,
-            "y": 6
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 29,
-            "y": 6
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 30,
-            "y": 6
-          },
-          {
-            "__type": "TileCoordT",
             "x": 31,
             "y": 6
           },
           {
             "__type": "TileCoordT",
             "x": 38,
-            "y": 6
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 39,
-            "y": 6
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 40,
-            "y": 6
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 41,
             "y": 6
           },
           {
@@ -5323,11 +5248,6 @@
           {
             "__type": "TileCoordT",
             "x": 49,
-            "y": 6
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 50,
             "y": 6
           },
           {
@@ -5462,26 +5382,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 14,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 15,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 16,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 17,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
             "x": 18,
             "y": 8
           },
@@ -5492,62 +5392,12 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 24,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 25,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 26,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 27,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 28,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 29,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 30,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
             "x": 31,
             "y": 8
           },
           {
             "__type": "TileCoordT",
             "x": 38,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 39,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 40,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 41,
             "y": 8
           },
           {
@@ -5567,23 +5417,8 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 53,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 55,
-            "y": 8
-          },
-          {
-            "__type": "TileCoordT",
             "x": 56,
             "y": 8
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 4,
-            "y": 9
           },
           {
             "__type": "TileCoordT",
@@ -5592,17 +5427,7 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 24,
-            "y": 9
-          },
-          {
-            "__type": "TileCoordT",
             "x": 38,
-            "y": 9
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 40,
             "y": 9
           },
           {
@@ -5617,58 +5442,8 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 53,
-            "y": 9
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 55,
-            "y": 9
-          },
-          {
-            "__type": "TileCoordT",
             "x": 56,
             "y": 9
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 4,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 10,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 11,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 13,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 14,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 15,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 16,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 17,
-            "y": 10
           },
           {
             "__type": "TileCoordT",
@@ -5678,36 +5453,6 @@
           {
             "__type": "TileCoordT",
             "x": 23,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 24,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 26,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 27,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 28,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 29,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 30,
             "y": 10
           },
           {
@@ -5727,11 +5472,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 41,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
             "x": 42,
             "y": 10
           },
@@ -5743,16 +5483,6 @@
           {
             "__type": "TileCoordT",
             "x": 49,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 53,
-            "y": 10
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 55,
             "y": 10
           },
           {
@@ -5812,11 +5542,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 13,
-            "y": 11
-          },
-          {
-            "__type": "TileCoordT",
             "x": 14,
             "y": 11
           },
@@ -5853,16 +5578,6 @@
           {
             "__type": "TileCoordT",
             "x": 23,
-            "y": 11
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 24,
-            "y": 11
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 26,
             "y": 11
           },
           {
@@ -6002,37 +5717,12 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 13,
-            "y": 12
-          },
-          {
-            "__type": "TileCoordT",
             "x": 14,
             "y": 12
           },
           {
             "__type": "TileCoordT",
             "x": 19,
-            "y": 12
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 20,
-            "y": 12
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 22,
-            "y": 12
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 24,
-            "y": 12
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 26,
             "y": 12
           },
           {
@@ -6057,16 +5747,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 44,
-            "y": 12
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 46,
-            "y": 12
-          },
-          {
-            "__type": "TileCoordT",
             "x": 51,
             "y": 12
           },
@@ -6087,37 +5767,12 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 13,
-            "y": 13
-          },
-          {
-            "__type": "TileCoordT",
             "x": 19,
             "y": 13
           },
           {
             "__type": "TileCoordT",
-            "x": 20,
-            "y": 13
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 22,
-            "y": 13
-          },
-          {
-            "__type": "TileCoordT",
             "x": 23,
-            "y": 13
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 24,
-            "y": 13
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 26,
             "y": 13
           },
           {
@@ -6152,16 +5807,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 44,
-            "y": 13
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 46,
-            "y": 13
-          },
-          {
-            "__type": "TileCoordT",
             "x": 51,
             "y": 13
           },
@@ -6178,11 +5823,6 @@
           {
             "__type": "TileCoordT",
             "x": 11,
-            "y": 14
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 12,
             "y": 14
           },
           {
@@ -6218,11 +5858,6 @@
           {
             "__type": "TileCoordT",
             "x": 24,
-            "y": 14
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 26,
             "y": 14
           },
           {
@@ -6307,22 +5942,7 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 44,
-            "y": 14
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 46,
-            "y": 14
-          },
-          {
-            "__type": "TileCoordT",
             "x": 49,
-            "y": 14
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 50,
             "y": 14
           },
           {
@@ -6362,11 +5982,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 26,
-            "y": 15
-          },
-          {
-            "__type": "TileCoordT",
             "x": 27,
             "y": 15
           },
@@ -6378,21 +5993,6 @@
           {
             "__type": "TileCoordT",
             "x": 37,
-            "y": 15
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 38,
-            "y": 15
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 39,
-            "y": 15
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 40,
             "y": 15
           },
           {
@@ -6432,11 +6032,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 49,
-            "y": 15
-          },
-          {
-            "__type": "TileCoordT",
             "x": 57,
             "y": 15
           },
@@ -6462,16 +6057,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 26,
-            "y": 16
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 27,
-            "y": 16
-          },
-          {
-            "__type": "TileCoordT",
             "x": 28,
             "y": 16
           },
@@ -6483,11 +6068,6 @@
           {
             "__type": "TileCoordT",
             "x": 48,
-            "y": 16
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 49,
             "y": 16
           },
           {
@@ -6607,22 +6187,7 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 6,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
             "x": 7,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 8,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 10,
             "y": 18
           },
           {
@@ -6647,42 +6212,12 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 25,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 26,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 27,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
             "x": 28,
             "y": 18
           },
           {
             "__type": "TileCoordT",
             "x": 37,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 38,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 39,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 40,
             "y": 18
           },
           {
@@ -6697,27 +6232,7 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 49,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 50,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
             "x": 51,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 53,
-            "y": 18
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 55,
             "y": 18
           },
           {
@@ -6737,22 +6252,7 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 5,
-            "y": 19
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 7,
-            "y": 19
-          },
-          {
-            "__type": "TileCoordT",
             "x": 8,
-            "y": 19
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 9,
             "y": 19
           },
           {
@@ -6868,16 +6368,6 @@
           {
             "__type": "TileCoordT",
             "x": 52,
-            "y": 19
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 53,
-            "y": 19
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 55,
             "y": 19
           },
           {
@@ -7118,16 +6608,6 @@
           {
             "__type": "TileCoordT",
             "x": 20,
-            "y": 22
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 21,
-            "y": 22
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 23,
             "y": 22
           },
           {
@@ -7202,16 +6682,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 21,
-            "y": 23
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 23,
-            "y": 23
-          },
-          {
-            "__type": "TileCoordT",
             "x": 24,
             "y": 23
           },
@@ -7287,16 +6757,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 21,
-            "y": 24
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 23,
-            "y": 24
-          },
-          {
-            "__type": "TileCoordT",
             "x": 24,
             "y": 24
           },
@@ -7313,16 +6773,6 @@
           {
             "__type": "TileCoordT",
             "x": 32,
-            "y": 24
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 42,
-            "y": 24
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 44,
             "y": 24
           },
           {
@@ -7452,16 +6902,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 42,
-            "y": 25
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 44,
-            "y": 25
-          },
-          {
-            "__type": "TileCoordT",
             "x": 45,
             "y": 25
           },
@@ -7567,27 +7007,7 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 42,
-            "y": 26
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 44,
-            "y": 26
-          },
-          {
-            "__type": "TileCoordT",
             "x": 45,
-            "y": 26
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 53,
-            "y": 26
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 55,
             "y": 26
           },
           {
@@ -7672,27 +7092,7 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 42,
-            "y": 27
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 44,
-            "y": 27
-          },
-          {
-            "__type": "TileCoordT",
             "x": 45,
-            "y": 27
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 53,
-            "y": 27
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 55,
             "y": 27
           },
           {
@@ -7757,11 +7157,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 17,
-            "y": 28
-          },
-          {
-            "__type": "TileCoordT",
             "x": 18,
             "y": 28
           },
@@ -7807,27 +7202,7 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 42,
-            "y": 28
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 44,
-            "y": 28
-          },
-          {
-            "__type": "TileCoordT",
             "x": 45,
-            "y": 28
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 53,
-            "y": 28
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 55,
             "y": 28
           },
           {
@@ -7853,31 +7228,6 @@
           {
             "__type": "TileCoordT",
             "x": 8,
-            "y": 29
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 9,
-            "y": 29
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 10,
-            "y": 29
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 11,
-            "y": 29
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 13,
-            "y": 29
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 16,
             "y": 29
           },
           {
@@ -7927,21 +7277,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 42,
-            "y": 29
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 44,
-            "y": 29
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 45,
-            "y": 29
-          },
-          {
-            "__type": "TileCoordT",
             "x": 46,
             "y": 29
           },
@@ -7952,32 +7287,7 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 53,
-            "y": 29
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 55,
-            "y": 29
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 8,
-            "y": 30
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 13,
-            "y": 30
-          },
-          {
-            "__type": "TileCoordT",
             "x": 15,
-            "y": 30
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 16,
             "y": 30
           },
           {
@@ -8033,16 +7343,6 @@
           {
             "__type": "TileCoordT",
             "x": 41,
-            "y": 30
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 42,
-            "y": 30
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 46,
             "y": 30
           },
           {
@@ -8113,11 +7413,6 @@
           {
             "__type": "TileCoordT",
             "x": 15,
-            "y": 31
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 16,
             "y": 31
           },
           {
@@ -8267,26 +7562,6 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 14,
-            "y": 32
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 15,
-            "y": 32
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 16,
-            "y": 32
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 18,
-            "y": 32
-          },
-          {
-            "__type": "TileCoordT",
             "x": 19,
             "y": 32
           },
@@ -8328,31 +7603,6 @@
           {
             "__type": "TileCoordT",
             "x": 34,
-            "y": 32
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 35,
-            "y": 32
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 36,
-            "y": 32
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 37,
-            "y": 32
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 38,
-            "y": 32
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 39,
             "y": 32
           },
           {
@@ -8403,56 +7653,6 @@
           {
             "__type": "TileCoordT",
             "x": 7,
-            "y": 33
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 18,
-            "y": 33
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 19,
-            "y": 33
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 20,
-            "y": 33
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 21,
-            "y": 33
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 22,
-            "y": 33
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 23,
-            "y": 33
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 24,
-            "y": 33
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 25,
-            "y": 33
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 26,
-            "y": 33
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 27,
             "y": 33
           },
           {
@@ -8513,26 +7713,6 @@
           {
             "__type": "TileCoordT",
             "x": 13,
-            "y": 34
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 36,
-            "y": 34
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 37,
-            "y": 34
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 38,
-            "y": 34
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 39,
             "y": 34
           },
           {
@@ -8592,87 +7772,12 @@
           },
           {
             "__type": "TileCoordT",
-            "x": 14,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 15,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 16,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 17,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 18,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 19,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 20,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 21,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 22,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 23,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 24,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 25,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 26,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 27,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
             "x": 28,
             "y": 35
           },
           {
             "__type": "TileCoordT",
             "x": 34,
-            "y": 35
-          },
-          {
-            "__type": "TileCoordT",
-            "x": 35,
             "y": 35
           },
           {
@@ -8961,7 +8066,7 @@
             "y": 38
           }
         ],
-        "isOuter": "array([ True,  True,  True,  True,  True,  True,  True,  True,  True,\n        True,  True,  True,  True,  True,  True,  True,  True,  True,\n        True,  True, False, False,  True, False, False, False, False,\n       False, False,  True,  True,  True,  True, False, False, False,\n       False, False, False,  True,  True, False, False, False, False,\n       False,  True,  True, False, False, False, False,  True,  True,\n        True, False, False,  True,  True, False, False, False, False,\n        True,  True, False, False, False,  True,  True, False, False,\n        True,  True, False, False,  True,  True, False,  True, False,\n       False,  True, False, False,  True, False, False,  True, False,\n       False,  True, False, False, False,  True, False, False,  True,\n       False, False, False, False,  True, False, False, False,  True,\n        True, False, False, False, False,  True, False, False,  True,\n        True, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False,  True, False, False, False,  True, False, False, False,\n       False,  True,  True, False, False,  True,  True, False, False,\n       False,  True,  True, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False,  True, False, False,  True, False,\n       False, False, False, False, False,  True, False, False,  True,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n        True, False, False, False,  True, False, False,  True,  True,\n        True, False, False, False, False, False, False, False, False,\n       False,  True,  True,  True,  True, False, False, False,  True,\n       False, False,  True,  True,  True,  True, False, False, False,\n       False, False, False,  True,  True,  True, False, False, False,\n       False,  True,  True, False, False, False, False,  True,  True,\n       False, False, False,  True,  True, False, False, False, False,\n        True,  True,  True,  True, False, False, False, False,  True,\n       False, False,  True, False, False,  True, False, False,  True,\n        True,  True,  True,  True,  True, False, False, False, False,\n       False, False, False,  True,  True,  True, False, False, False,\n       False, False,  True,  True, False, False, False, False, False,\n       False, False, False,  True,  True,  True,  True,  True,  True,\n       False, False,  True, False, False, False, False, False,  True,\n       False, False, False,  True, False, False, False, False, False,\n        True, False, False, False, False, False,  True, False, False,\n       False, False,  True, False, False, False, False, False, False,\n       False, False, False,  True, False, False, False, False, False,\n       False, False,  True,  True, False, False, False, False, False,\n       False, False,  True,  True,  True,  True, False,  True, False,\n       False,  True,  True, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False,  True,\n       False, False,  True,  True,  True, False, False,  True, False,\n        True,  True,  True,  True,  True, False, False,  True,  True,\n       False, False, False, False, False, False, False, False,  True,\n       False, False,  True,  True,  True, False, False,  True,  True,\n        True, False, False, False, False, False, False, False, False,\n        True,  True, False, False,  True,  True,  True,  True, False,\n       False,  True,  True, False, False, False, False,  True, False,\n       False,  True,  True,  True, False, False, False,  True,  True,\n       False, False,  True, False, False,  True, False, False,  True,\n        True, False, False,  True,  True, False, False,  True,  True,\n       False, False,  True,  True, False, False,  True,  True, False,\n       False,  True,  True, False, False, False, False, False,  True,\n        True, False, False,  True,  True, False, False, False, False,\n        True,  True,  True,  True, False, False,  True,  True, False,\n       False,  True,  True, False, False, False,  True, False, False,\n       False, False, False,  True,  True,  True, False, False, False,\n       False,  True,  True,  True, False, False,  True,  True, False,\n       False, False, False,  True, False, False,  True, False, False,\n        True,  True, False, False,  True, False, False, False,  True,\n       False, False,  True, False, False,  True,  True, False, False,\n        True,  True, False, False,  True,  True, False, False,  True,\n        True, False, False, False, False,  True, False, False,  True,\n        True, False, False, False, False, False, False, False, False,\n        True,  True, False, False, False,  True, False, False,  True,\n        True, False, False, False, False,  True, False, False,  True,\n        True,  True,  True,  True, False, False, False, False, False,\n       False,  True, False, False,  True, False, False, False,  True,\n       False, False, False,  True,  True, False, False, False, False,\n        True, False, False, False, False, False,  True, False, False,\n        True,  True,  True,  True, False, False,  True, False, False,\n       False, False,  True,  True, False, False, False, False,  True,\n        True,  True, False, False, False, False,  True,  True, False,\n       False,  True,  True, False, False,  True,  True,  True,  True,\n       False, False, False, False, False,  True,  True, False, False,\n       False,  True,  True, False, False, False, False, False, False,\n        True,  True,  True,  True,  True,  True,  True, False, False,\n       False, False, False, False, False, False, False,  True,  True,\n        True, False, False, False,  True, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False,  True,  True, False, False, False, False,  True, False,\n       False, False, False, False, False, False, False,  True,  True,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False,  True,  True, False,\n       False,  True,  True, False, False,  True, False, False, False,\n       False, False,  True,  True,  True,  True,  True,  True,  True,\n        True,  True, False, False, False, False, False,  True,  True,\n       False, False,  True, False, False, False, False, False,  True,\n        True,  True,  True,  True,  True, False, False, False, False,\n       False, False,  True,  True,  True,  True,  True,  True,  True])",
+        "isOuter": "array([ True,  True,  True,  True,  True,  True,  True,  True,  True,\n        True,  True,  True,  True,  True,  True,  True,  True,  True,\n        True,  True, False, False,  True, False, False, False, False,\n       False, False,  True,  True,  True,  True, False, False, False,\n       False, False, False,  True,  True, False, False, False, False,\n       False,  True,  True, False, False, False, False,  True,  True,\n        True, False, False,  True,  True, False, False, False, False,\n        True,  True, False, False,  True,  True, False, False,  True,\n        True, False, False,  True,  True, False,  True, False, False,\n        True, False, False,  True, False,  True, False, False,  True,\n       False, False,  True, False, False,  True, False, False, False,\n       False,  True, False, False,  True,  True, False, False, False,\n        True, False, False,  True,  True, False, False, False, False,\n       False, False, False, False,  True, False, False,  True, False,\n       False, False, False,  True,  True, False, False,  True,  True,\n       False, False, False,  True,  True, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False,  True,  True, False, False, False,  True,  True, False,\n       False, False, False,  True, False, False,  True,  True,  True,\n        True, False, False, False, False, False, False, False, False,\n        True,  True,  True,  True, False, False, False,  True,  True,\n        True,  True,  True, False, False, False, False, False, False,\n        True,  True,  True, False, False, False, False,  True,  True,\n       False, False, False, False,  True,  True, False, False,  True,\n        True,  True,  True,  True,  True, False, False,  True, False,\n        True,  True,  True,  True,  True,  True,  True,  True, False,\n       False, False, False,  True,  True,  True, False, False, False,\n       False,  True,  True, False, False, False, False, False, False,\n       False, False,  True,  True,  True,  True,  True,  True,  True,\n       False, False, False, False,  True, False, False,  True, False,\n       False,  True, False, False, False, False, False,  True, False,\n       False, False,  True, False, False, False, False, False, False,\n        True, False, False, False, False, False, False, False,  True,\n        True, False, False, False, False, False, False, False,  True,\n        True,  True,  True,  True,  True,  True, False, False, False,\n       False, False, False,  True,  True,  True,  True,  True,  True,\n        True,  True,  True,  True, False, False,  True,  True, False,\n       False, False, False, False, False, False, False,  True, False,\n       False,  True,  True,  True,  True,  True,  True, False, False,\n       False, False, False, False, False, False,  True,  True, False,\n       False,  True,  True,  True,  True, False, False,  True,  True,\n       False, False, False, False,  True, False, False,  True,  True,\n        True, False, False, False,  True,  True, False, False,  True,\n       False, False,  True, False, False,  True,  True,  True,  True,\n       False, False,  True,  True, False, False,  True,  True, False,\n       False,  True,  True,  True,  True, False, False, False, False,\n       False,  True,  True, False, False,  True,  True, False, False,\n        True,  True,  True,  True,  True,  True, False, False,  True,\n        True, False, False, False,  True, False, False, False, False,\n       False,  True,  True,  True, False, False, False, False,  True,\n        True,  True,  True,  True, False, False, False, False,  True,\n       False, False,  True, False, False,  True,  True, False, False,\n        True, False, False, False,  True,  True,  True,  True, False,\n       False,  True,  True, False, False,  True,  True, False, False,\n        True,  True, False, False,  True,  True,  True, False, False,\n       False, False, False, False, False, False,  True,  True, False,\n       False,  True, False, False,  True,  True, False, False,  True,\n        True,  True,  True,  True,  True, False,  True, False, False,\n        True, False, False, False,  True,  True,  True,  True, False,\n       False, False, False,  True, False, False,  True,  True,  True,\n        True,  True, False, False, False, False,  True,  True, False,\n       False, False, False,  True,  True,  True, False, False, False,\n        True,  True, False, False,  True,  True, False, False,  True,\n        True,  True,  True, False, False, False, False, False,  True,\n        True, False, False, False,  True,  True, False, False,  True,\n        True,  True,  True,  True,  True,  True, False, False, False,\n       False,  True,  True,  True, False, False, False,  True, False,\n       False, False, False,  True,  True, False, False, False, False,\n        True, False, False, False, False,  True,  True, False, False,\n       False, False, False, False, False, False, False,  True,  True,\n       False, False,  True,  True, False, False,  True, False, False,\n       False, False, False,  True,  True,  True,  True,  True,  True,\n        True,  True,  True, False, False, False, False, False,  True,\n        True, False, False,  True, False, False, False, False, False,\n        True,  True,  True,  True,  True,  True, False, False, False,\n       False, False, False,  True,  True,  True,  True,  True,  True,\n        True])",
         "extentTiles": 2.0,
         "seed": 42,
         "hatchUnderlayColor": ""
