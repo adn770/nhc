@@ -31,10 +31,15 @@
 //! - `FlemishBond (2)` — each row alternates stretcher + header
 //!   pairs; rows offset by half a (stretcher + header) unit.
 //!
-//! The remaining seven Stone styles (Flagstone, OpusRomano,
-//! FieldStone, Pinwheel, Hopscotch, CrazyPaving, Ashlar) keep
-//! their flat-fill behaviour; per-style sub-pattern lifts ride
-//! Phase 2.4c–2.4i follow-on commits.
+//! Flagstone (style = 2, Phase 2.4c, no sub-patterns):
+//! - Each 32 px tile splits into a 2×2 grid of pentagonal plates
+//!   with seed-jittered corners; the joint between plates is the
+//!   deep palette.shadow stroke.
+//!
+//! The remaining six Stone styles (OpusRomano, FieldStone,
+//! Pinwheel, Hopscotch, CrazyPaving, Ashlar) keep their flat-fill
+//! behaviour; per-style lifts ride Phase 2.4d–2.4i follow-on
+//! commits.
 
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
@@ -145,8 +150,10 @@ pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, materi
             2 => paint_brick_flemish_bond(painter, region_path, pal, material.seed),
             _ => fill_region(painter, region_path, pal.base),
         },
+        // Flagstone — single layout, no sub-patterns (Phase 2.4c).
+        2 => paint_flagstone(painter, region_path, pal, material.seed),
         // Forward-compat sub-pattern values for unknown styles
-        // and the remaining 7 styles (Phase 2.4c–2.4i) fall back
+        // and the remaining 6 styles (Phase 2.4d–2.4i) fall back
         // to flat fill so silent loss-of-pattern is still a visible
         // floor rather than a magenta sentinel block.
         _ => fill_region(painter, region_path, pal.base),
@@ -603,6 +610,91 @@ fn paint_brick_flemish_bond<P: Painter + ?Sized>(
     painter.pop_clip();
 }
 
+// ── Flagstone (no sub-patterns) ────────────────────────────────
+
+const FLAGSTONE_GROUP_OPACITY: f32 = 0.85;
+const FLAGSTONE_TILE: f64 = 32.0;
+
+/// Flagstone — large irregular pentagonal stones with deep mortar
+/// joints. Each 32 px tile splits into a 2×2 grid of pentagonal
+/// plates with seed-jittered corners; the joint between plates is
+/// the deep palette.shadow stroke. Algorithm spirit lifted from
+/// the v4 ``primitives/flagstone.rs`` decorator (which strokes
+/// only over a transparent floor); v5 substrate emit ships the
+/// palette.base flagstone fill underneath so the whole region
+/// reads as flagstone rather than dungeon white.
+fn paint_flagstone<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.base);
+    painter.begin_group(FLAGSTONE_GROUP_OPACITY);
+    let mut rng = Pcg64Mcg::seed_from_u64(seed ^ 0xF1A6_5701_F1A6_5701_u64);
+    let half = FLAGSTONE_TILE * 0.5;
+    let inset = half * 0.08;
+    let stroke_paint = Paint::solid(pal.shadow);
+    let stroke = Stroke {
+        width: 0.6,
+        line_cap: LineCap::Butt,
+        line_join: LineJoin::Miter,
+    };
+    let tile_x0 = (f64::from(x0) / FLAGSTONE_TILE).floor() * FLAGSTONE_TILE;
+    let tile_y0 = (f64::from(y0) / FLAGSTONE_TILE).floor() * FLAGSTONE_TILE;
+    let mut ty = tile_y0;
+    while ty < f64::from(y1) {
+        let mut tx = tile_x0;
+        while tx < f64::from(x1) {
+            for qy in 0..2 {
+                for qx in 0..2 {
+                    let cx = tx + f64::from(qx) * half;
+                    let cy = ty + f64::from(qy) * half;
+                    let mut j = || rng.gen_range(-half * 0.07..half * 0.07);
+                    let p0 = Vec2::new(
+                        (cx + inset + j()) as f32,
+                        (cy + inset + j()) as f32,
+                    );
+                    let p1 = Vec2::new(
+                        (cx + half * 0.5 + j()) as f32,
+                        (cy + inset * 0.5 + j()) as f32,
+                    );
+                    let p2 = Vec2::new(
+                        (cx + half - inset + j()) as f32,
+                        (cy + inset + j()) as f32,
+                    );
+                    let p3 = Vec2::new(
+                        (cx + half - inset + j()) as f32,
+                        (cy + half - inset + j()) as f32,
+                    );
+                    let p4 = Vec2::new(
+                        (cx + inset + j()) as f32,
+                        (cy + half - inset + j()) as f32,
+                    );
+                    let mut path = PathOps::with_capacity(6);
+                    path.move_to(p0)
+                        .line_to(p1)
+                        .line_to(p2)
+                        .line_to(p3)
+                        .line_to(p4)
+                        .close();
+                    painter.stroke_path(&path, &stroke_paint, &stroke);
+                }
+            }
+            tx += FLAGSTONE_TILE;
+        }
+        ty += FLAGSTONE_TILE;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -668,15 +760,15 @@ mod tests {
         }
     }
 
-    /// Styles without sub-pattern lifts (Phase 2.4c–2.4i: Flagstone,
-    /// OpusRomano, FieldStone, Pinwheel, Hopscotch, CrazyPaving,
-    /// Ashlar) still emit the flat-fill — single fill_path per
-    /// call. Cobblestone (0) + Brick (1) lifted in 2.4a / 2.4b are
-    /// excluded from this gate.
+    /// Styles without lifted layouts (Phase 2.4d–2.4i: OpusRomano,
+    /// FieldStone, Pinwheel, Hopscotch, CrazyPaving, Ashlar) still
+    /// emit the flat-fill — single fill_path per call. Cobblestone
+    /// (0) + Brick (1) + Flagstone (2) lifted in 2.4a / 2.4b / 2.4c
+    /// are excluded from this gate.
     #[test]
     fn non_lifted_styles_keep_flat_fill() {
         let path = one_tile_path();
-        for style in 2..9u8 {
+        for style in 3..9u8 {
             let expected = palette(style).base;
             let mut p = MockPainter::default();
             let m = Material::new(Family::Stone, style, 0, 0, 0xCAFE);
@@ -689,6 +781,45 @@ mod tests {
                 other => panic!("expected FillPath, got {other:?}"),
             }
         }
+    }
+
+    /// Flagstone (style=2, no sub-patterns) wraps decoration in a
+    /// push_clip / pop_clip pair plus a balanced begin_group /
+    /// end_group envelope, and emits stroked pentagonal plates
+    /// (no fill_rect / fill_polygon stamps; the plate interiors
+    /// stay transparent so palette.base shows through).
+    #[test]
+    fn flagstone_emits_stroked_plates_with_clip_envelope() {
+        let path = four_tile_path();
+        let mut p = MockPainter::default();
+        let m = Material::new(Family::Stone, 2, 0, 0, 0xCAFE);
+        paint(&mut p, &path, &m);
+        assert_eq!(count_pushed_clips(&p.calls), 1, "expected 1 push_clip");
+        assert_eq!(count_begin_groups(&p.calls), 1, "expected 1 begin_group");
+        let strokes = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::StrokePath(_, _, _)))
+            .count();
+        assert!(strokes > 4, "expected many stroked plates, got {strokes}");
+        let rects = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+            .count();
+        assert_eq!(rects, 0, "expected no fill_rect (plates use stroke_path)");
+    }
+
+    /// Flagstone is seed-aware: jitter on every plate corner driven
+    /// by the seed RNG. Different seeds must diverge.
+    #[test]
+    fn flagstone_diverges_across_seeds() {
+        let path = four_tile_path();
+        let mut a = MockPainter::default();
+        let mut b = MockPainter::default();
+        paint(&mut a, &path, &Material::new(Family::Stone, 2, 0, 0, 333));
+        paint(&mut b, &path, &Material::new(Family::Stone, 2, 0, 0, 7));
+        assert_ne!(a.calls, b.calls, "seeds must diverge");
     }
 
     /// Forward-compat sub-pattern values for lifted styles
