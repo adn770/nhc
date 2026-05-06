@@ -33,4 +33,5 @@ from . import floors_stone  # noqa: F401
 from . import floors_wood  # noqa: F401
 from . import paths  # noqa: F401
 from . import roofs  # noqa: F401
+from . import stage_layers  # noqa: F401
 from . import walls  # noqa: F401

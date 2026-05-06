@@ -109,66 +109,6 @@ def _single_shape_result(
     return BuildResult(buf=buf, level=level)
 
 
-# ── Group-opacity overlap stress ───────────────────────────────────
-#
-# Group-opacity (begin_group / end_group) is the load-bearing
-# Phase 5.10 mechanism: overlapping translucent stamps inside a
-# group composite at the group's opacity, not by per-element alpha
-# multiplication. The pre-Phase-5.10 behaviour over-darkened
-# overlap regions; the v4e Painter trait fixes this. These samples
-# render dense overlap configurations so any regression surfaces
-# as visibly darker overlap in the same folder.
-#
-# The simplest way to surface this is to render rooms tightly
-# packed so corridor halos (hatch) overlap and shadow rects align
-# along shared edges.
-
-
-def _twin_rooms_level(theme: str = "dungeon") -> Level:
-    """Two adjacent rect rooms sharing a wall; the hatch halo
-    overlaps along the shared edge."""
-    level = Level.create_empty(
-        id="synthetic", name="synthetic", depth=1,
-        width=24, height=12,
-    )
-    level.metadata = LevelMetadata(theme=theme)
-    rooms = [
-        Room(id="room.1", rect=Rect(x=2, y=2, width=8, height=8),
-             shape=RectShape()),
-        Room(id="room.2", rect=Rect(x=12, y=2, width=8, height=8),
-             shape=RectShape()),
-    ]
-    for r in rooms:
-        level.rooms.append(r)
-        _stamp_room_floor(level, r)
-    return level
-
-
-def _twin_rooms_result(seed: int, *, theme: str = "dungeon") -> BuildResult:
-    level = _twin_rooms_level(theme=theme)
-    buf = build_floor_ir(level, seed=seed)
-    return BuildResult(buf=buf, level=level)
-
-
-CATALOG.extend([
-    SampleSpec(
-        name="twin_rooms_hatch_halo",
-        category="synthetic/group_opacity",
-        description=(
-            "Two adjacent rect rooms — the hatch halo and shadow "
-            "envelope overlap between them. Verifies that the "
-            "Painter's begin_group/end_group offscreen-buffer "
-            "compositing keeps overlap pixels at the group's "
-            "opacity (≈128 for 0.5) rather than the per-element "
-            "double-darkened (~64) value."
-        ),
-        params={"layout": "twin_rect_adjacent"},
-        build=lambda s: _twin_rooms_result(s),
-        seeds=(7,),
-    ),
-])
-
-
 # ── Region kind sampler ────────────────────────────────────────────
 #
 # v4e introduces five region kinds: Dungeon, Building, Cave, Site,

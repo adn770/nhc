@@ -30,12 +30,16 @@ from nhc.rendering.ir._fb.Cut import CutT
 from nhc.rendering.ir._fb.CutStyle import CutStyle
 from nhc.rendering.ir._fb.FixtureOp import FixtureOpT
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
+from nhc.rendering.ir._fb.HatchKind import HatchKind
+from nhc.rendering.ir._fb.HatchOp import HatchOpT
 from nhc.rendering.ir._fb.Op import Op
 from nhc.rendering.ir._fb.OpEntry import OpEntryT
 from nhc.rendering.ir._fb.PaintOp import PaintOpT
 from nhc.rendering.ir._fb.PathOp import PathOpT
 from nhc.rendering.ir._fb.Region import RegionT
 from nhc.rendering.ir._fb.RoofOp import RoofOpT
+from nhc.rendering.ir._fb.ShadowKind import ShadowKind
+from nhc.rendering.ir._fb.ShadowOp import ShadowOpT
 from nhc.rendering.ir._fb.StampOp import StampOpT
 from nhc.rendering.ir._fb.StrokeOp import StrokeOpT
 from nhc.rendering.ir._fb.TileCoord import TileCoordT
@@ -223,7 +227,17 @@ def build_catalog_buffer(spec: CatalogPageSpec) -> bytes:
             op_result = column.op_factory(
                 region_id, spec.seed, col_idx, row_idx,
             )
-            if isinstance(op_result, list):
+            # Multi-region cells return ``(extra_regions, ops)``;
+            # the cell's main region is already in ``regions``.
+            # Single-op or list-of-op returns just contribute ops.
+            if (
+                isinstance(op_result, tuple) and len(op_result) == 2
+                and isinstance(op_result[0], list)
+            ):
+                extra_regions, extra_ops = op_result
+                regions.extend(extra_regions)
+                ops.extend(extra_ops)
+            elif isinstance(op_result, list):
                 ops.extend(op_result)
             else:
                 ops.append(op_result)
@@ -677,6 +691,104 @@ def path_factory(
     return factory
 
 
+# ── Shadow / Hatch factory helpers ──────────────────────────────
+
+
+def _wrap_shadow(op: ShadowOpT) -> OpEntryT:
+    e = OpEntryT()
+    e.opType = Op.ShadowOp
+    e.op = op
+    return e
+
+
+def _wrap_hatch(op: HatchOpT) -> OpEntryT:
+    e = OpEntryT()
+    e.opType = Op.HatchOp
+    e.op = op
+    return e
+
+
+def shadow_factory(
+    *,
+    dx: float = 3.0, dy: float = 3.0, opacity: float = 0.08,
+    base: "Callable[[], Any] | None" = None,
+):
+    """Column op_factory emitting a base PaintOp + ShadowOp.
+
+    The ShadowOp anchors to the cell region; the painter offsets
+    a translucent silhouette behind the cell to read as a drop
+    shadow.
+    """
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(page_seed, col_idx, row_idx)
+        sop = ShadowOpT()
+        sop.kind = ShadowKind.Room
+        sop.regionRef = region_id
+        sop.tiles = []
+        sop.dx = dx
+        sop.dy = dy
+        sop.opacity = opacity
+
+        base_material = (
+            base() if base is not None else material_plain(seed=seed)
+        )
+        # ShadowOp first so it composites BEHIND the floor fill.
+        return [
+            _wrap_shadow(sop),
+            _make_paint_op(region_id, base_material),
+        ]
+    return factory
+
+
+def hatch_factory(
+    *,
+    extent_tiles: float = 2.0,
+    is_outer: bool = True,
+    base: "Callable[[], Any] | None" = None,
+):
+    """Column op_factory emitting a base PaintOp + HatchOp.
+
+    Hatching draws around the region's outer perimeter (when
+    ``is_outer=True``) at the given extent. The painter wraps the
+    hatch lines in a group-opacity envelope so adjacent hatched
+    regions composite correctly without double-darkening.
+
+    The Rust hatch painter requires ``tiles[]`` to be populated
+    even for Room kind (it treats them as the region's interior
+    tile cluster); the catalog's per-cell tile list is the cell's
+    full 4×4 tile block.
+    """
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(
+            page_seed, col_idx, row_idx,
+            int(extent_tiles * 100),
+        )
+        tx0, ty0, tx1, ty1 = cell_tile_bounds(col_idx, row_idx)
+        tiles = [
+            make_tile_coord(tx, ty)
+            for ty in range(ty0, ty1)
+            for tx in range(tx0, tx1)
+        ]
+        hop = HatchOpT()
+        hop.kind = HatchKind.Room
+        hop.regionRef = region_id
+        hop.subtractRegionRefs = []
+        hop.tiles = tiles
+        hop.isOuter = [is_outer] * len(tiles)
+        hop.extentTiles = extent_tiles
+        hop.seed = seed
+        hop.hatchUnderlayColor = ""
+
+        base_material = (
+            base() if base is not None else material_plain(seed=seed)
+        )
+        return [
+            _make_paint_op(region_id, base_material),
+            _wrap_hatch(hop),
+        ]
+    return factory
+
+
 # ── Sample-spec registration helper ──────────────────────────────
 
 
@@ -724,6 +836,7 @@ __all__ = [
     "wall_factory", "make_cut",
     "roof_factory", "fixture_factory",
     "stamp_factory", "path_factory",
+    "shadow_factory", "hatch_factory",
     "make_anchor", "make_tile_coord",
     "cell_tile_bounds", "cell_center_tile",
     "register_catalog_page",
