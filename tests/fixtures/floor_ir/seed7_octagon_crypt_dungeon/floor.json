@@ -13460,7 +13460,31 @@
       "opType": "StampOp",
       "op": {
         "__type": "StampOpT",
+        "regionRef": "corridor",
+        "subtractRegionRefs": [],
+        "decoratorMask": 1,
+        "density": 128,
+        "seed": 41
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
         "regionRef": "dungeon",
+        "subtractRegionRefs": [],
+        "decoratorMask": 6,
+        "density": 128,
+        "seed": 106
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "corridor",
         "subtractRegionRefs": [],
         "decoratorMask": 6,
         "density": 128,

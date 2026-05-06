@@ -59,6 +59,22 @@ def _dungeon_region_ref(ctx: Any) -> str:
     return ""
 
 
+def _corridor_region_exists(builder: Any) -> bool:
+    """True iff ``emit_regions`` registered a ``corridor`` region.
+
+    The corridor region is built per-level when at least one floor
+    tile is on a corridor / door (see ``ir_emitter._corridor_*``
+    helpers). Synthetic / room-only fixtures don't have one.
+    """
+    for region in builder.regions:
+        rid = region.id
+        if isinstance(rid, bytes):
+            rid = rid.decode()
+        if rid == "corridor":
+            return True
+    return False
+
+
 def emit_stamps(builder: Any) -> list[OpEntryT]:
     """Walk builder.ctx + level to produce V5StampOp entries.
 
@@ -78,8 +94,14 @@ def emit_stamps(builder: Any) -> list[OpEntryT]:
 
     result: list[OpEntryT] = []
     region_ref = _dungeon_region_ref(ctx)
+    has_corridor = _corridor_region_exists(builder)
 
-    # GridLines — emitted whenever any non-VOID tile exists.
+    # GridLines — emitted whenever any non-VOID tile exists. The
+    # ``dungeon`` region polygon covers room interiors only;
+    # corridors are a separate multi-ring region (see
+    # ``_dungeon_polygon._build_dungeon_polygon`` docstring), so we
+    # need a SECOND stamp targeting ``corridor`` for the corridor
+    # grid + decoration coverage to land.
     has_grid_tile = False
     for y in range(level.height):
         for x in range(level.width):
@@ -89,15 +111,23 @@ def emit_stamps(builder: Any) -> list[OpEntryT]:
         if has_grid_tile:
             break
     if has_grid_tile:
-        result.append(_wrap(_make_stamp_op(
-            region_ref=region_ref,
-            mask=BIT_GRID_LINES,
-            seed=41,
-        )))
+        if region_ref:
+            result.append(_wrap(_make_stamp_op(
+                region_ref=region_ref,
+                mask=BIT_GRID_LINES,
+                seed=41,
+            )))
+        if has_corridor:
+            result.append(_wrap(_make_stamp_op(
+                region_ref="corridor",
+                mask=BIT_GRID_LINES,
+                seed=41,
+            )))
 
     # Cracks | Scratches — emitted when the floor-detail candidate
     # set is non-empty (non-wood path) or when the wood-floor short-
-    # circuit fires.
+    # circuit fires. Same dungeon / corridor split as GridLines so
+    # corridor floors carry the same scratches + cracks decoration.
     interior_finish = getattr(ctx, "interior_finish", "")
     if interior_finish == "wood":
         building_polygon = getattr(ctx, "building_polygon", None)
@@ -116,11 +146,18 @@ def emit_stamps(builder: Any) -> list[OpEntryT]:
     else:
         emit_detail_stamp = bool(_floor_detail_candidates(level))
     if emit_detail_stamp:
-        result.append(_wrap(_make_stamp_op(
-            region_ref=region_ref,
-            mask=BIT_CRACKS | BIT_SCRATCHES,
-            seed=ctx.seed + 99,
-        )))
+        if region_ref:
+            result.append(_wrap(_make_stamp_op(
+                region_ref=region_ref,
+                mask=BIT_CRACKS | BIT_SCRATCHES,
+                seed=ctx.seed + 99,
+            )))
+        if has_corridor:
+            result.append(_wrap(_make_stamp_op(
+                region_ref="corridor",
+                mask=BIT_CRACKS | BIT_SCRATCHES,
+                seed=ctx.seed + 99,
+            )))
 
     # Ripples | LavaCracks — emitted whenever any WATER / LAVA /
     # CHASM tile exists.

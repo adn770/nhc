@@ -4,7 +4,7 @@
     "HatchOp": 2,
     "PaintOp": 31,
     "ShadowOp": 19,
-    "StampOp": 3,
+    "StampOp": 5,
     "StrokeOp": 19
   },
   "region_count": 32,
