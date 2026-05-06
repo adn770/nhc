@@ -8,17 +8,23 @@ two source families:
   generators (BSP variety sweep, structural templates, underworld
   biomes, settlements, sites). Surfaces full-pipeline integration
   bugs.
-* ``synthetic/`` — hand-built minimum-viable IR. The matrix covers
-  each painting style on each room shape and (where relevant) in
-  each consumer context (site / dungeon-room / building floor) so
-  per-shape bleeding, cross-context portability, and group-opacity
-  overlap surface one sample at a time.
+* ``_catalog/`` — composite catalog pages. Each page is one
+  ``FloorIR`` carrying a grid of cell regions (rect / octagon /
+  circle) with one paint / stroke / fixture op per cell. Surfaces
+  per-shape bleeding, cross-material differences, and decorator
+  / fixture / wall behaviours at a glance. Topics:
+  ``synthetic/floors/{stone,wood,earth,liquid,special,cave,plain}``,
+  ``synthetic/walls``, ``synthetic/enclosures``, ``synthetic/roofs``,
+  ``synthetic/fixtures``, ``synthetic/decorators``,
+  ``synthetic/paths``, ``synthetic/stage-layers``.
 
 Each sample writes four files under
 ``<outdir>/<category>/<name>_seed<S>.{svg,png,nir,json}``:
 
-* ``.svg`` / ``.png`` — rendered output via
-  ``nhc_render.ir_to_svg`` / ``nhc_render.ir_to_png``.
+* ``.svg`` — rendered output via ``nhc_render.ir_to_svg`` plus
+  injected row / column ``<text>`` labels (catalog pages only).
+* ``.png`` — rendered output via ``nhc_render.ir_to_png`` (raw,
+  no labels — clean rasteriser artifact).
 * ``.nir`` — the canonical FloorIR FlatBuffer.
 * ``.json`` — parametric recipe (seed + ``params`` dict from the
   ``SampleSpec``) so the operator can re-derive what was rendered.
@@ -31,8 +37,8 @@ Usage::
 
     python -m tests.samples.generate_samples
     python -m tests.samples.generate_samples --outdir /tmp/samples
-    python -m tests.samples.generate_samples --category 'synthetic/decorators/*'
-    python -m tests.samples.generate_samples --name 'on_octagon'
+    python -m tests.samples.generate_samples --category 'synthetic/floors/*'
+    python -m tests.samples.generate_samples --name 'cobblestone'
     python -m tests.samples.generate_samples --list
 """
 
@@ -50,7 +56,6 @@ from pathlib import Path
 # load. The order doesn't matter — each module appends its
 # entries to the shared list.
 from tests.samples._samples import generators  # noqa: F401
-from tests.samples._samples import synthetic  # noqa: F401
 from tests.samples._samples import _catalog  # noqa: F401
 from tests.samples._samples._core import (
     CATALOG, SampleSpec, write_sample,

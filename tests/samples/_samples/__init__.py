@@ -13,12 +13,11 @@ Two source families:
   generators (BSP variety sweep, structural templates, underworld
   biomes, settlements, sites). Use these to surface integration
   bugs across the full pipeline.
-* ``synthetic`` + ``references`` — hand-built minimal IR for
-  surgical isolation. The matrix covers each painting style on
-  each room shape and (where relevant) in each consumer context
-  (site / dungeon-room / building floor) so per-shape bleeding,
-  per-context portability, and group-opacity overlap surface
-  one sample at a time.
+* ``_catalog`` — composite catalog pages. Each page is one
+  ``FloorIR`` carrying a grid of cell regions (one column = one
+  material / treatment / decorator, one row = one shape) with
+  one paint / stroke / fixture op per cell. Reduces the per-room
+  per-style sample explosion to ~30 reviewable pages.
 """
 
 from __future__ import annotations
