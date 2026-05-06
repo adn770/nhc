@@ -21,7 +21,10 @@ from nhc.sites._site import assemble_site
 from nhc.rendering.svg import render_floor_svg
 
 
-SITE_KINDS = ("town", "keep", "ruin", "cottage", "temple")
+SITE_KINDS = (
+    "town", "keep", "ruin", "cottage", "temple",
+    "mansion", "tower", "mage_residence",
+)
 
 
 class TestLevelMetadataField:
@@ -41,6 +44,18 @@ class TestSiteSurfacePrerevealedFlag:
         assert site.surface.metadata is not None
         assert site.surface.metadata.prerevealed is True, (
             f"{kind} surface must carry prerevealed=True"
+        )
+
+    @pytest.mark.parametrize("kind", SITE_KINDS)
+    def test_site_surface_theme_is_not_dungeon(self, kind: str) -> None:
+        """Surface metadata must carry a site-specific theme so the
+        v5 emit pipeline routes through the surface code paths
+        (palette + ``floor_kind == 'surface'``) instead of falling
+        back to the dungeon defaults."""
+        site = assemble_site(kind, f"{kind}_th", random.Random(7))
+        assert site.surface.metadata is not None
+        assert site.surface.metadata.theme != "dungeon", (
+            f"{kind} surface theme must not fall back to 'dungeon'"
         )
 
     def test_tower_interior_is_not_prerevealed(self) -> None:

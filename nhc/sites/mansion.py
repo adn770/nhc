@@ -152,6 +152,8 @@ def assemble_mansion(
     surface = _build_mansion_surface(
         f"{site_id}_surface", buildings,
     )
+    surface.metadata.theme = "mansion"
+    surface.metadata.prerevealed = True
 
     site = Site(
         id=site_id,

@@ -161,6 +161,8 @@ def assemble_tower(
         base_rect.x + base_rect.width + 2,
         base_rect.y + base_rect.height + 2,
     )
+    surface.metadata.theme = "tower"
+    surface.metadata.prerevealed = True
 
     site = Site(
         id=site_id,
