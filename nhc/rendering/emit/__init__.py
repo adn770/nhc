@@ -60,14 +60,25 @@ __all__ = [
 def emit_all(builder: Any) -> tuple[list[Any], list[Any]]:
     """Build the v5 regions + ops list directly from a builder.
 
-    Op order matches the v4 IR_STAGES sequence so the v5 stream
-    stays positionally identical to the legacy translator output
-    (modulo the deferred site / building branches in
-    :mod:`nhc.rendering.v5_emit.stroke`).
+    Op order: shadow + hatch envelopes are emitted *before* paint
+    ops so the room floor PaintOp clips them to the room outline
+    on top. This fixes the v4-era diagonal bleed on octagon /
+    circle rooms — the hatch painter doesn't intersect with the
+    region polygon (it just stamps every tile in its list), so
+    chamfer-tile coverage that lay inside the room polygon used
+    to leak through. Drawing the floor *after* the envelope
+    covers any leak inside the room outline; only the
+    outside-the-outline portion of the envelope remains visible.
+
+    Subsequent ops (strokes / roofs / stamps / paths / fixtures /
+    thematic details / loose stones) draw on top of the floor as
+    before — they're in-room features, so their z-order stays
+    above the floor PaintOp.
     """
     v5_regions = emit_regions(builder)
     v5_ops: list[Any] = []
     v5_ops.extend(emit_shadows(builder))
+    v5_ops.extend(emit_hatches(builder))
     v5_ops.extend(emit_paints(builder))
     v5_ops.extend(emit_strokes(builder))
     v5_ops.extend(emit_roofs(builder))
@@ -76,5 +87,4 @@ def emit_all(builder: Any) -> tuple[list[Any], list[Any]]:
     v5_ops.extend(emit_fixtures(builder))
     v5_ops.extend(emit_thematic_details(builder))
     v5_ops.extend(emit_loose_stones(builder))
-    v5_ops.extend(emit_hatches(builder))
     return v5_regions, v5_ops

@@ -4631,3180 +4631,6 @@
     },
     {
       "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_1",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_2",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_3",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_4",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_5",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_6",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_7",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_8",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_9",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_10",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_11",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_12",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_13",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_14",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_15",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_16",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "room_17",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "vault_1",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "water.0",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Liquid",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "water.1",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Liquid",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "water.2",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Liquid",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "water.3",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Liquid",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "water.4",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Liquid",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "PaintOp",
-      "op": {
-        "__type": "PaintOpT",
-        "regionRef": "corridor",
-        "subtractRegionRefs": [],
-        "material": {
-          "__type": "MaterialT",
-          "family": "Plain",
-          "style": 0,
-          "subPattern": 0,
-          "tone": 0,
-          "seed": 0
-        }
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_1",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 160.0,
-              "y": 256.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 192.0,
-              "y": 256.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 352.0,
-              "y": 256.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 384.0,
-              "y": 256.0
-            },
-            "style": 6
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_2",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 288.0,
-              "y": 544.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 320.0,
-              "y": 544.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 288.0,
-              "y": 384.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 320.0,
-              "y": 384.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 352.0,
-              "y": 416.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 352.0,
-              "y": 448.0
-            },
-            "style": 6
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_3",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 192.0,
-              "y": 672.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 224.0,
-              "y": 672.0
-            },
-            "style": 6
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 384.0,
-              "y": 896.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 416.0,
-              "y": 896.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_4",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 288.0,
-              "y": 1024.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 320.0,
-              "y": 1024.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 416.0,
-              "y": 1056.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 416.0,
-              "y": 1088.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_5",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 672.0,
-              "y": 352.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 704.0,
-              "y": 352.0
-            },
-            "style": 6
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 608.0,
-              "y": 288.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 608.0,
-              "y": 320.0
-            },
-            "style": 6
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 736.0,
-              "y": 224.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 736.0,
-              "y": 256.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_6",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1024.0,
-              "y": 288.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1024.0,
-              "y": 320.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1216.0,
-              "y": 128.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1216.0,
-              "y": 160.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1216.0,
-              "y": 224.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1216.0,
-              "y": 256.0
-            },
-            "style": 6
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1024.0,
-              "y": 224.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1024.0,
-              "y": 256.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_7",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1440.0,
-              "y": 352.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1472.0,
-              "y": 352.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1376.0,
-              "y": 288.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1376.0,
-              "y": 320.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1376.0,
-              "y": 224.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1376.0,
-              "y": 256.0
-            },
-            "style": 6
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_8",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 768.0,
-              "y": 512.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 768.0,
-              "y": 544.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 704.0,
-              "y": 672.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 736.0,
-              "y": 672.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 672.0,
-              "y": 480.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 704.0,
-              "y": 480.0
-            },
-            "style": 6
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_9",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 928.0,
-              "y": 544.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 928.0,
-              "y": 576.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1184.0,
-              "y": 512.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1184.0,
-              "y": 544.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1184.0,
-              "y": 544.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1184.0,
-              "y": 576.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_10",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 704.0,
-              "y": 832.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 736.0,
-              "y": 832.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 608.0,
-              "y": 928.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 608.0,
-              "y": 960.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_11",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 928.0,
-              "y": 1088.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 928.0,
-              "y": 1120.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1088.0,
-              "y": 1088.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1088.0,
-              "y": 1120.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_12",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1440.0,
-              "y": 512.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1472.0,
-              "y": 512.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1344.0,
-              "y": 544.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1344.0,
-              "y": 576.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1536.0,
-              "y": 544.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1536.0,
-              "y": 576.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1376.0,
-              "y": 736.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1408.0,
-              "y": 736.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_13",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1312.0,
-              "y": 1056.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1312.0,
-              "y": 1088.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1440.0,
-              "y": 1024.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1472.0,
-              "y": 1024.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_14",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1728.0,
-              "y": 224.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1760.0,
-              "y": 224.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1664.0,
-              "y": 160.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1664.0,
-              "y": 192.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_15",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1728.0,
-              "y": 544.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1760.0,
-              "y": 544.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1664.0,
-              "y": 480.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1664.0,
-              "y": 512.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1728.0,
-              "y": 384.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1760.0,
-              "y": 384.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_16",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1728.0,
-              "y": 672.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1760.0,
-              "y": 672.0
-            },
-            "style": 3
-          },
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1728.0,
-              "y": 800.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1760.0,
-              "y": 800.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "room_17",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": [
-          {
-            "__type": "CutT",
-            "start": {
-              "__type": "Vec2T",
-              "x": 1728.0,
-              "y": 992.0
-            },
-            "end": {
-              "__type": "Vec2T",
-              "x": 1760.0,
-              "y": 992.0
-            },
-            "style": 3
-          }
-        ]
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "vault_1",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": []
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StrokeOp",
-      "op": {
-        "__type": "StrokeOpT",
-        "regionRef": "corridor",
-        "outline": null,
-        "wallMaterial": {
-          "__type": "WallMaterialT",
-          "family": "Stone",
-          "style": 8,
-          "treatment": "PlainStroke",
-          "cornerStyle": "Merlon",
-          "tone": 0,
-          "seed": 0
-        },
-        "cuts": []
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StampOp",
-      "op": {
-        "__type": "StampOpT",
-        "regionRef": "dungeon",
-        "subtractRegionRefs": [],
-        "decoratorMask": 1,
-        "density": 128,
-        "seed": 41
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StampOp",
-      "op": {
-        "__type": "StampOpT",
-        "regionRef": "dungeon",
-        "subtractRegionRefs": [],
-        "decoratorMask": 6,
-        "density": 128,
-        "seed": 141
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "StampOp",
-      "op": {
-        "__type": "StampOpT",
-        "regionRef": "dungeon",
-        "subtractRegionRefs": [],
-        "decoratorMask": 24,
-        "density": 128,
-        "seed": 242
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "FixtureOp",
-      "op": {
-        "__type": "FixtureOpT",
-        "regionRef": "",
-        "kind": "Stair",
-        "anchors": [
-          {
-            "__type": "AnchorT",
-            "x": 54,
-            "y": 14,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 31,
-            "y": 31,
-            "variant": 0,
-            "orientation": 1,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          }
-        ],
-        "seed": 0
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "FixtureOp",
-      "op": {
-        "__type": "FixtureOpT",
-        "regionRef": "",
-        "kind": "Bone",
-        "anchors": [
-          {
-            "__type": "AnchorT",
-            "x": 8,
-            "y": 3,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 23,
-            "y": 7,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 3,
-            "y": 15,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 29,
-            "y": 15,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 4,
-            "y": 16,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 34,
-            "y": 18,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 54,
-            "y": 19,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 54,
-            "y": 21,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 22,
-            "y": 23,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 54,
-            "y": 23,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 6,
-            "y": 24,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 11,
-            "y": 25,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 31,
-            "y": 28,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 32,
-            "y": 31,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 12,
-            "y": 34,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          }
-        ],
-        "seed": 241
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "FixtureOp",
-      "op": {
-        "__type": "FixtureOpT",
-        "regionRef": "",
-        "kind": "Skull",
-        "anchors": [
-          {
-            "__type": "AnchorT",
-            "x": 46,
-            "y": 7,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 25,
-            "y": 14,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 45,
-            "y": 19,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 47,
-            "y": 21,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 40,
-            "y": 33,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 9,
-            "y": 34,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          }
-        ],
-        "seed": 241
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "FixtureOp",
-      "op": {
-        "__type": "FixtureOpT",
-        "regionRef": "",
-        "kind": "Web",
-        "anchors": [
-          {
-            "__type": "AnchorT",
-            "x": 56,
-            "y": 16,
-            "variant": 0,
-            "orientation": 3,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 46,
-            "y": 32,
-            "variant": 0,
-            "orientation": 1,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          }
-        ],
-        "seed": 241
-      }
-    },
-    {
-      "__type": "OpEntryT",
-      "opType": "FixtureOp",
-      "op": {
-        "__type": "FixtureOpT",
-        "regionRef": "",
-        "kind": "LooseStone",
-        "anchors": [
-          {
-            "__type": "AnchorT",
-            "x": 7,
-            "y": 3,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 7,
-            "y": 3,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 7,
-            "y": 3,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 35,
-            "y": 3,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 44,
-            "y": 3,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 10,
-            "y": 4,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 22,
-            "y": 4,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 22,
-            "y": 4,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 22,
-            "y": 4,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 32,
-            "y": 4,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 55,
-            "y": 4,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 4,
-            "y": 5,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 33,
-            "y": 5,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 33,
-            "y": 5,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 33,
-            "y": 5,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 43,
-            "y": 6,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 43,
-            "y": 6,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 43,
-            "y": 6,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 46,
-            "y": 7,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 11,
-            "y": 8,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 19,
-            "y": 8,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 43,
-            "y": 8,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 43,
-            "y": 8,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 43,
-            "y": 8,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 21,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 21,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 21,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 37,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 37,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 37,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 37,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 22,
-            "y": 10,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 22,
-            "y": 10,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 22,
-            "y": 10,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 43,
-            "y": 10,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 53,
-            "y": 12,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 6,
-            "y": 13,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 6,
-            "y": 13,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 6,
-            "y": 13,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 55,
-            "y": 14,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 55,
-            "y": 14,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 55,
-            "y": 14,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 3,
-            "y": 15,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 8,
-            "y": 15,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 8,
-            "y": 15,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 8,
-            "y": 15,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 55,
-            "y": 15,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 55,
-            "y": 15,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 55,
-            "y": 15,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 29,
-            "y": 16,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 43,
-            "y": 16,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 52,
-            "y": 16,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 52,
-            "y": 16,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 52,
-            "y": 16,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 21,
-            "y": 18,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 21,
-            "y": 18,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 21,
-            "y": 18,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 31,
-            "y": 18,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 33,
-            "y": 18,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 22,
-            "y": 19,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 6,
-            "y": 20,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 6,
-            "y": 20,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 6,
-            "y": 20,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 56,
-            "y": 22,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 56,
-            "y": 22,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 56,
-            "y": 22,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 52,
-            "y": 23,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 8,
-            "y": 24,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 10,
-            "y": 24,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 10,
-            "y": 24,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 10,
-            "y": 24,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 7,
-            "y": 26,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 12,
-            "y": 26,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 12,
-            "y": 26,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 12,
-            "y": 26,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 13,
-            "y": 26,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 33,
-            "y": 26,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 13,
-            "y": 27,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 13,
-            "y": 27,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 13,
-            "y": 27,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 24,
-            "y": 27,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 40,
-            "y": 27,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 40,
-            "y": 27,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 40,
-            "y": 27,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 33,
-            "y": 28,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 33,
-            "y": 28,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 33,
-            "y": 28,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 40,
-            "y": 28,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 32,
-            "y": 29,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 32,
-            "y": 29,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 32,
-            "y": 29,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 29,
-            "y": 30,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 29,
-            "y": 30,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 29,
-            "y": 30,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 30,
-            "y": 30,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 32,
-            "y": 31,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 8,
-            "y": 32,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 10,
-            "y": 32,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 29,
-            "y": 32,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 42,
-            "y": 32,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 42,
-            "y": 32,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 42,
-            "y": 32,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 44,
-            "y": 32,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 8,
-            "y": 33,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 10,
-            "y": 33,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 11,
-            "y": 35,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 11,
-            "y": 35,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 11,
-            "y": 35,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 31,
-            "y": 35,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 31,
-            "y": 35,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 31,
-            "y": 35,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 50,
-            "y": 5,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 25,
-            "y": 7,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 31,
-            "y": 7,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 31,
-            "y": 7,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 31,
-            "y": 7,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 5,
-            "y": 8,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 5,
-            "y": 8,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 5,
-            "y": 8,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 8,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 42,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 42,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 42,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 54,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 54,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 54,
-            "y": 9,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 5,
-            "y": 10,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 8,
-            "y": 10,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 8,
-            "y": 10,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 8,
-            "y": 10,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 39,
-            "y": 16,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 22,
-            "y": 21,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 43,
-            "y": 26,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 43,
-            "y": 26,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 43,
-            "y": 26,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 10,
-            "y": 30,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 10,
-            "y": 30,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 10,
-            "y": 30,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 13,
-            "y": 33,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 37,
-            "y": 33,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 38,
-            "y": 33,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 38,
-            "y": 33,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 38,
-            "y": 33,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          },
-          {
-            "__type": "AnchorT",
-            "x": 27,
-            "y": 34,
-            "variant": 0,
-            "orientation": 0,
-            "scale": 0,
-            "pad0": 0,
-            "groupId": 0
-          }
-        ],
-        "seed": 141
-      }
-    },
-    {
-      "__type": "OpEntryT",
       "opType": "HatchOp",
       "op": {
         "__type": "HatchOpT",
@@ -13050,6 +9876,3180 @@
         "extentTiles": 2.0,
         "seed": 49,
         "hatchUnderlayColor": ""
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_1",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_2",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_3",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_4",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_5",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_6",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_7",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_8",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_9",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_10",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_11",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_12",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_13",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_14",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_15",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_16",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "room_17",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "vault_1",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.0",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.1",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.2",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.3",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.4",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "corridor",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_1",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 160.0,
+              "y": 256.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 192.0,
+              "y": 256.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 352.0,
+              "y": 256.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 384.0,
+              "y": 256.0
+            },
+            "style": 6
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_2",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 288.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 320.0,
+              "y": 544.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 288.0,
+              "y": 384.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 320.0,
+              "y": 384.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 352.0,
+              "y": 416.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 352.0,
+              "y": 448.0
+            },
+            "style": 6
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_3",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 192.0,
+              "y": 672.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 224.0,
+              "y": 672.0
+            },
+            "style": 6
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 384.0,
+              "y": 896.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 896.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_4",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 288.0,
+              "y": 1024.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 320.0,
+              "y": 1024.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 1056.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 1088.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_5",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 672.0,
+              "y": 352.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 704.0,
+              "y": 352.0
+            },
+            "style": 6
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 288.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 320.0
+            },
+            "style": 6
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 224.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 256.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_6",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 288.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 320.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 128.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 160.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 224.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 256.0
+            },
+            "style": 6
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 224.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 256.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_7",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1440.0,
+              "y": 352.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1472.0,
+              "y": 352.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 288.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 320.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 224.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 256.0
+            },
+            "style": 6
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_8",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 768.0,
+              "y": 512.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 768.0,
+              "y": 544.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 704.0,
+              "y": 672.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 672.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 672.0,
+              "y": 480.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 704.0,
+              "y": 480.0
+            },
+            "style": 6
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_9",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 576.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 512.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 544.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 576.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_10",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 704.0,
+              "y": 832.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 832.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 928.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 960.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_11",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 1088.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 1120.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1088.0,
+              "y": 1088.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1088.0,
+              "y": 1120.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_12",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1440.0,
+              "y": 512.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1472.0,
+              "y": 512.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1344.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1344.0,
+              "y": 576.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1536.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1536.0,
+              "y": 576.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 736.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1408.0,
+              "y": 736.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_13",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1312.0,
+              "y": 1056.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1312.0,
+              "y": 1088.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1440.0,
+              "y": 1024.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1472.0,
+              "y": 1024.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_14",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 224.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 224.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 160.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 192.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_15",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 544.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 480.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 512.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 384.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 384.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_16",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 672.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 672.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 800.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 800.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "room_17",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 992.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 992.0
+            },
+            "style": 3
+          }
+        ]
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "vault_1",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": []
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StrokeOp",
+      "op": {
+        "__type": "StrokeOpT",
+        "regionRef": "corridor",
+        "outline": null,
+        "wallMaterial": {
+          "__type": "WallMaterialT",
+          "family": "Stone",
+          "style": 8,
+          "treatment": "PlainStroke",
+          "cornerStyle": "Merlon",
+          "tone": 0,
+          "seed": 0
+        },
+        "cuts": []
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "dungeon",
+        "subtractRegionRefs": [],
+        "decoratorMask": 1,
+        "density": 128,
+        "seed": 41
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "dungeon",
+        "subtractRegionRefs": [],
+        "decoratorMask": 6,
+        "density": 128,
+        "seed": 141
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "dungeon",
+        "subtractRegionRefs": [],
+        "decoratorMask": 24,
+        "density": 128,
+        "seed": 242
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FixtureOp",
+      "op": {
+        "__type": "FixtureOpT",
+        "regionRef": "",
+        "kind": "Stair",
+        "anchors": [
+          {
+            "__type": "AnchorT",
+            "x": 54,
+            "y": 14,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 31,
+            "y": 31,
+            "variant": 0,
+            "orientation": 1,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          }
+        ],
+        "seed": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FixtureOp",
+      "op": {
+        "__type": "FixtureOpT",
+        "regionRef": "",
+        "kind": "Bone",
+        "anchors": [
+          {
+            "__type": "AnchorT",
+            "x": 8,
+            "y": 3,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 23,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 3,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 29,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 4,
+            "y": 16,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 34,
+            "y": 18,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 54,
+            "y": 19,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 54,
+            "y": 21,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 22,
+            "y": 23,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 54,
+            "y": 23,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 6,
+            "y": 24,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 11,
+            "y": 25,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 31,
+            "y": 28,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 32,
+            "y": 31,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 12,
+            "y": 34,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          }
+        ],
+        "seed": 241
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FixtureOp",
+      "op": {
+        "__type": "FixtureOpT",
+        "regionRef": "",
+        "kind": "Skull",
+        "anchors": [
+          {
+            "__type": "AnchorT",
+            "x": 46,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 25,
+            "y": 14,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 45,
+            "y": 19,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 47,
+            "y": 21,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 40,
+            "y": 33,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 9,
+            "y": 34,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          }
+        ],
+        "seed": 241
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FixtureOp",
+      "op": {
+        "__type": "FixtureOpT",
+        "regionRef": "",
+        "kind": "Web",
+        "anchors": [
+          {
+            "__type": "AnchorT",
+            "x": 56,
+            "y": 16,
+            "variant": 0,
+            "orientation": 3,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 46,
+            "y": 32,
+            "variant": 0,
+            "orientation": 1,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          }
+        ],
+        "seed": 241
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FixtureOp",
+      "op": {
+        "__type": "FixtureOpT",
+        "regionRef": "",
+        "kind": "LooseStone",
+        "anchors": [
+          {
+            "__type": "AnchorT",
+            "x": 7,
+            "y": 3,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 7,
+            "y": 3,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 7,
+            "y": 3,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 35,
+            "y": 3,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 44,
+            "y": 3,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 10,
+            "y": 4,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 22,
+            "y": 4,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 22,
+            "y": 4,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 22,
+            "y": 4,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 32,
+            "y": 4,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 55,
+            "y": 4,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 4,
+            "y": 5,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 33,
+            "y": 5,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 33,
+            "y": 5,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 33,
+            "y": 5,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 43,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 43,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 43,
+            "y": 6,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 46,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 11,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 19,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 43,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 43,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 43,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 21,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 21,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 21,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 37,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 37,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 37,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 37,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 22,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 22,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 22,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 43,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 53,
+            "y": 12,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 6,
+            "y": 13,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 6,
+            "y": 13,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 6,
+            "y": 13,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 55,
+            "y": 14,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 55,
+            "y": 14,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 55,
+            "y": 14,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 3,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 8,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 8,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 8,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 55,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 55,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 55,
+            "y": 15,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 29,
+            "y": 16,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 43,
+            "y": 16,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 52,
+            "y": 16,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 52,
+            "y": 16,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 52,
+            "y": 16,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 21,
+            "y": 18,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 21,
+            "y": 18,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 21,
+            "y": 18,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 31,
+            "y": 18,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 33,
+            "y": 18,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 22,
+            "y": 19,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 6,
+            "y": 20,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 6,
+            "y": 20,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 6,
+            "y": 20,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 56,
+            "y": 22,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 56,
+            "y": 22,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 56,
+            "y": 22,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 52,
+            "y": 23,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 8,
+            "y": 24,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 10,
+            "y": 24,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 10,
+            "y": 24,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 10,
+            "y": 24,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 7,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 12,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 12,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 12,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 13,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 33,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 13,
+            "y": 27,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 13,
+            "y": 27,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 13,
+            "y": 27,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 24,
+            "y": 27,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 40,
+            "y": 27,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 40,
+            "y": 27,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 40,
+            "y": 27,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 33,
+            "y": 28,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 33,
+            "y": 28,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 33,
+            "y": 28,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 40,
+            "y": 28,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 32,
+            "y": 29,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 32,
+            "y": 29,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 32,
+            "y": 29,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 29,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 29,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 29,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 30,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 32,
+            "y": 31,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 8,
+            "y": 32,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 10,
+            "y": 32,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 29,
+            "y": 32,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 42,
+            "y": 32,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 42,
+            "y": 32,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 42,
+            "y": 32,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 44,
+            "y": 32,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 8,
+            "y": 33,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 10,
+            "y": 33,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 11,
+            "y": 35,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 11,
+            "y": 35,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 11,
+            "y": 35,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 31,
+            "y": 35,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 31,
+            "y": 35,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 31,
+            "y": 35,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 50,
+            "y": 5,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 25,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 31,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 31,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 31,
+            "y": 7,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 5,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 5,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 5,
+            "y": 8,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 8,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 42,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 42,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 42,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 54,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 54,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 54,
+            "y": 9,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 5,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 8,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 8,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 8,
+            "y": 10,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 39,
+            "y": 16,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 22,
+            "y": 21,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 43,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 43,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 43,
+            "y": 26,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 10,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 10,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 10,
+            "y": 30,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 13,
+            "y": 33,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 37,
+            "y": 33,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 38,
+            "y": 33,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 38,
+            "y": 33,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 38,
+            "y": 33,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          },
+          {
+            "__type": "AnchorT",
+            "x": 27,
+            "y": 34,
+            "variant": 0,
+            "orientation": 0,
+            "scale": 0,
+            "pad0": 0,
+            "groupId": 0
+          }
+        ],
+        "seed": 141
       }
     }
   ]
