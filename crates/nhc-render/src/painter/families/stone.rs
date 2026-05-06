@@ -42,9 +42,14 @@
 //!   + 4×2 trio); tile rotation is derived from tile coords so
 //!   the pattern reads as a coherent tessellation across tiles.
 //!
-//! The remaining five Stone styles (FieldStone, Pinwheel,
-//! Hopscotch, CrazyPaving, Ashlar) keep their flat-fill behaviour;
-//! per-style lifts ride Phase 2.4e–2.4i follow-on commits.
+//! FieldStone (style = 4, Phase 2.4e, no sub-patterns):
+//! - Irregular polygonal hewn stones tessellating the region; each
+//!   ~16 px cell hosts a 5-7-sided polygon with seed-jittered radii
+//!   so the stones read as fitted natural fieldstone.
+//!
+//! The remaining four Stone styles (Pinwheel, Hopscotch,
+//! CrazyPaving, Ashlar) keep their flat-fill behaviour; per-style
+//! lifts ride Phase 2.4f–2.4i follow-on commits.
 
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
@@ -160,8 +165,11 @@ pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, materi
         // OpusRomano — Versailles pattern, no sub-patterns
         // (Phase 2.4d).
         3 => paint_opus_romano(painter, region_path, pal, material.seed),
+        // FieldStone — irregular polygonal hewn stones, no
+        // sub-patterns (Phase 2.4e).
+        4 => paint_field_stone(painter, region_path, pal, material.seed),
         // Forward-compat sub-pattern values for unknown styles
-        // and the remaining 5 styles (Phase 2.4e–2.4i) fall back
+        // and the remaining 4 styles (Phase 2.4f–2.4i) fall back
         // to flat fill so silent loss-of-pattern is still a visible
         // floor rather than a magenta sentinel block.
         _ => fill_region(painter, region_path, pal.base),
@@ -784,6 +792,78 @@ fn paint_opus_romano<P: Painter + ?Sized>(
     painter.pop_clip();
 }
 
+// ── FieldStone (no sub-patterns) ───────────────────────────────
+
+const FIELD_STONE_GROUP_OPACITY: f32 = 0.85;
+const FIELD_STONE_CELL: f64 = 16.0;
+
+/// FieldStone — irregular polygonal hewn stones tessellating the
+/// region. Each ~16 px cell hosts one polygon stone with 5-7 sides
+/// and seed-jittered radii; cells overlap slightly so the stones
+/// read as fitted natural fieldstone rather than a regular grid.
+/// Algorithm spirit lifted from the v4 ``primitives/field_stone.rs``
+/// decorator (which used 10% probability ellipses); v5 substrate
+/// emit needs every cell painted, so density is increased and the
+/// shape shifts from ellipse to irregular polygon for visual
+/// differentiation from Cobblestone Rubble.
+fn paint_field_stone<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(FIELD_STONE_GROUP_OPACITY);
+    let mut rng = Pcg64Mcg::seed_from_u64(seed ^ 0xF1E1_D570_F1E1_D570_u64);
+    let base_paint = Paint::solid(pal.base);
+    let stroke_paint = Paint::solid(pal.shadow);
+    let stroke = Stroke {
+        width: 0.5,
+        line_cap: LineCap::Butt,
+        line_join: LineJoin::Miter,
+    };
+    let cell_x0 = (f64::from(x0) / FIELD_STONE_CELL).floor() * FIELD_STONE_CELL;
+    let cell_y0 = (f64::from(y0) / FIELD_STONE_CELL).floor() * FIELD_STONE_CELL;
+    let mut ty = cell_y0;
+    while ty < f64::from(y1) {
+        let mut tx = cell_x0;
+        while tx < f64::from(x1) {
+            let cx = tx + FIELD_STONE_CELL * 0.5
+                + rng.gen_range(-FIELD_STONE_CELL * 0.20..FIELD_STONE_CELL * 0.20);
+            let cy = ty + FIELD_STONE_CELL * 0.5
+                + rng.gen_range(-FIELD_STONE_CELL * 0.20..FIELD_STONE_CELL * 0.20);
+            let n_sides = rng.gen_range(5..=7);
+            let radius = FIELD_STONE_CELL * rng.gen_range(0.42..0.58);
+            let mut path = PathOps::new();
+            for i in 0..n_sides {
+                let theta = f64::from(i) * std::f64::consts::TAU / f64::from(n_sides);
+                let r = radius * rng.gen_range(0.80..1.15);
+                let px = cx + r * theta.cos();
+                let py = cy + r * theta.sin();
+                let pt = Vec2::new(px as f32, py as f32);
+                if i == 0 {
+                    path.move_to(pt);
+                } else {
+                    path.line_to(pt);
+                }
+            }
+            path.close();
+            painter.fill_path(&path, &base_paint, FillRule::Winding);
+            painter.stroke_path(&path, &stroke_paint, &stroke);
+            tx += FIELD_STONE_CELL;
+        }
+        ty += FIELD_STONE_CELL;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -849,15 +929,15 @@ mod tests {
         }
     }
 
-    /// Styles without lifted layouts (Phase 2.4e–2.4i: FieldStone,
-    /// Pinwheel, Hopscotch, CrazyPaving, Ashlar) still emit the
-    /// flat-fill — single fill_path per call. Cobblestone (0) +
-    /// Brick (1) + Flagstone (2) + OpusRomano (3) lifted in
-    /// 2.4a / 2.4b / 2.4c / 2.4d are excluded from this gate.
+    /// Styles without lifted layouts (Phase 2.4f–2.4i: Pinwheel,
+    /// Hopscotch, CrazyPaving, Ashlar) still emit the flat-fill —
+    /// single fill_path per call. Cobblestone (0) + Brick (1) +
+    /// Flagstone (2) + OpusRomano (3) + FieldStone (4) lifted in
+    /// 2.4a–2.4e are excluded from this gate.
     #[test]
     fn non_lifted_styles_keep_flat_fill() {
         let path = one_tile_path();
-        for style in 4..9u8 {
+        for style in 5..9u8 {
             let expected = palette(style).base;
             let mut p = MockPainter::default();
             let m = Material::new(Family::Stone, style, 0, 0, 0xCAFE);
@@ -955,6 +1035,59 @@ mod tests {
             a.calls, b.calls,
             "OpusRomano is RNG-free — different seeds must produce identical output",
         );
+    }
+
+    /// FieldStone (style=4, no sub-patterns) wraps decoration in a
+    /// push_clip / pop_clip pair plus a balanced begin_group /
+    /// end_group envelope, and emits each polygon stone as a
+    /// fill_path + stroke_path pair (irregular polygons rather than
+    /// axis-aligned rects).
+    #[test]
+    fn field_stone_emits_polygon_stones_with_clip_envelope() {
+        let path = four_tile_path();
+        let mut p = MockPainter::default();
+        paint(
+            &mut p, &path,
+            &Material::new(Family::Stone, 4, 0, 0, 0xCAFE),
+        );
+        assert_eq!(count_pushed_clips(&p.calls), 1);
+        assert_eq!(count_begin_groups(&p.calls), 1);
+        let fill_paths = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillPath(_, _, _)))
+            .count();
+        let stroke_paths = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::StrokePath(_, _, _)))
+            .count();
+        // Each FieldStone polygon emits a fill_path + stroke_path
+        // pair. Plus the mortar bed fill_path (1). Pin pairs balance.
+        assert!(fill_paths > 1, "expected mortar + polygon fill_paths");
+        assert_eq!(
+            fill_paths - 1,
+            stroke_paths,
+            "polygon fill / stroke counts must match (excluding mortar)",
+        );
+        let rects = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+            .count();
+        assert_eq!(rects, 0, "FieldStone uses polygons, not rects");
+    }
+
+    /// FieldStone is seed-aware: stone radii + jitter driven by the
+    /// seed RNG. Different seeds must diverge.
+    #[test]
+    fn field_stone_diverges_across_seeds() {
+        let path = four_tile_path();
+        let mut a = MockPainter::default();
+        let mut b = MockPainter::default();
+        paint(&mut a, &path, &Material::new(Family::Stone, 4, 0, 0, 333));
+        paint(&mut b, &path, &Material::new(Family::Stone, 4, 0, 0, 7));
+        assert_ne!(a.calls, b.calls, "seeds must diverge");
     }
 
     /// Forward-compat sub-pattern values for lifted styles
