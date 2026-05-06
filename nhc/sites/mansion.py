@@ -22,8 +22,8 @@ from nhc.dungeon.model import (
     SurfaceType, Terrain, Tile,
 )
 from nhc.sites._site import (
-    InteriorDoorLink, Site, outside_neighbour, paint_surface_doors,
-    stamp_building_door,
+    InteriorDoorLink, Site, combined_building_bboxes,
+    outside_neighbour, paint_surface_doors, stamp_building_door,
 )
 from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import DungeonRef
@@ -108,16 +108,13 @@ def assemble_mansion(
         buildings.append(mage_tower)
 
     # Each building gets at least one exterior entry door.
-    combined_footprints: set[tuple[int, int]] = set()
-    for b in buildings:
-        combined_footprints |= b.base_shape.floor_tiles(b.base_rect)
     entry_doors: dict[
         tuple[int, int], tuple[str, int, int]
     ] = {}
     for b in buildings:
-        own = b.base_shape.floor_tiles(b.base_rect)
+        others = [o for o in buildings if o.id != b.id]
         door_xy = _place_entry_door(
-            b, rng, blocked=combined_footprints - own,
+            b, rng, blocked=combined_building_bboxes(others),
         )
         if door_xy is not None:
             neighbour = outside_neighbour(b, *door_xy)

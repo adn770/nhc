@@ -23,7 +23,10 @@ from nhc.dungeon.model import (
 )
 from nhc.rendering.building import render_building_floor_svg
 from nhc.rendering.svg import render_floor_svg
-from nhc.sites._site import is_clipped_corner_tile
+from nhc.sites._site import (
+    combined_building_bboxes,
+    is_clipped_corner_tile,
+)
 
 
 def _make_octagon_floor() -> tuple[Building, Level]:
@@ -231,3 +234,85 @@ class TestDoorPlacementOnDiagonal:
                             f"seed={seed} {building.id}: door at "
                             f"({x},{y}) sits on a clipped corner"
                         )
+
+
+# ── 4. Door surface tile must not land in another building's bbox ─
+
+
+class TestCombinedBuildingBboxes:
+    def test_rect_building_bbox_equals_footprint(self):
+        rect = Rect(2, 3, 4, 5)
+        b = Building(
+            id="r", base_shape=RectShape(), base_rect=rect, floors=[],
+            wall_material="stone", interior_floor="stone",
+            interior_wall_material="stone",
+        )
+        bboxes = combined_building_bboxes([b])
+        footprint = b.base_shape.floor_tiles(rect)
+        assert bboxes == footprint, (
+            "rect bbox tile set must equal floor footprint "
+            "(no chamfer voids)"
+        )
+        assert len(bboxes) == 4 * 5
+
+    def test_octagon_bbox_includes_chamfer_voids(self):
+        rect = Rect(0, 0, 9, 9)
+        b = Building(
+            id="o", base_shape=OctagonShape(), base_rect=rect, floors=[],
+            wall_material="stone", interior_floor="stone",
+            interior_wall_material="stone",
+        )
+        bboxes = combined_building_bboxes([b])
+        footprint = b.base_shape.floor_tiles(rect)
+        assert bboxes == {
+            (x, y)
+            for x in range(rect.x, rect.x2)
+            for y in range(rect.y, rect.y2)
+        }
+        assert bboxes > footprint, (
+            "octagon bbox must strictly include chamfer-void cells "
+            "the floor footprint excludes"
+        )
+
+
+class TestDoorSurfaceAvoidsOtherBuildingBbox:
+    """Generalised invariant: a door's outside-neighbour tile must
+    not fall inside any *other* building's bounding box. The narrow
+    ``floor_tiles()`` check used to allow doors to land in the
+    chamfer-void corridor between an octagon and an adjacent rect
+    (cf. keep_seed42 -- the SE-chamfer-pinch door)."""
+
+    @pytest.mark.parametrize("seed", list(range(10)))
+    def test_keep_door_surfaces_avoid_other_bboxes(self, seed: int):
+        from nhc.sites.keep import assemble_keep
+        site = assemble_keep("k", random.Random(seed))
+        self._assert_no_door_in_other_bbox(site, seed=seed)
+
+    @pytest.mark.parametrize("seed", list(range(10)))
+    def test_mansion_door_surfaces_avoid_other_bboxes(self, seed: int):
+        from nhc.sites.mansion import assemble_mansion
+        site = assemble_mansion("m", random.Random(seed))
+        self._assert_no_door_in_other_bbox(site, seed=seed)
+
+    @pytest.mark.parametrize("seed", list(range(10)))
+    def test_farm_door_surfaces_avoid_other_bboxes(self, seed: int):
+        from nhc.sites.farm import assemble_farm
+        site = assemble_farm("f", random.Random(seed))
+        self._assert_no_door_in_other_bbox(site, seed=seed)
+
+    @pytest.mark.parametrize("seed", list(range(10)))
+    def test_cottage_door_surfaces_avoid_other_bboxes(self, seed: int):
+        from nhc.sites.cottage import assemble_cottage
+        site = assemble_cottage("c", random.Random(seed))
+        self._assert_no_door_in_other_bbox(site, seed=seed)
+
+    @staticmethod
+    def _assert_no_door_in_other_bbox(site, *, seed: int) -> None:
+        for surf_xy, (b_id, _ix, _iy) in site.building_doors.items():
+            others = [b for b in site.buildings if b.id != b_id]
+            other_bbox = combined_building_bboxes(others)
+            assert surf_xy not in other_bbox, (
+                f"seed={seed} {b_id}: door surface tile {surf_xy} "
+                f"falls inside another building's bbox (would land "
+                f"in another building's chamfer / notch)"
+            )

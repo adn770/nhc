@@ -147,6 +147,33 @@ def outside_neighbour(
     return None
 
 
+def combined_building_bboxes(
+    buildings: list[Building],
+) -> set[tuple[int, int]]:
+    """Return the union of every building's full bounding-rect tile set.
+
+    For axis-aligned rect buildings, the bbox tile set equals the
+    floor footprint. For octagon / circle / L-shape buildings, the
+    bbox additionally covers the chamfer-void / notch cells that
+    sit inside ``base_rect`` but outside ``floor_tiles()``.
+
+    Multi-building site assemblers feed this into ``_pick_door_location``
+    via the ``blocked`` arg so a door's outside-neighbour can never
+    land inside another building's bbox -- the chamfer-void corridor
+    between an octagon and an adjacent rect is masonry-adjacent and
+    would render the surface door pinched against the diagonal wall.
+    Compare with :func:`is_clipped_corner_tile`, which rejects tiles
+    on the *building's own* clipped corners.
+    """
+    cells: set[tuple[int, int]] = set()
+    for b in buildings:
+        rect = b.base_rect
+        for x in range(rect.x, rect.x2):
+            for y in range(rect.y, rect.y2):
+                cells.add((x, y))
+    return cells
+
+
 def is_clipped_corner_tile(
     building: Building, bx: int, by: int,
 ) -> bool:

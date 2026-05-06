@@ -28,7 +28,8 @@ from nhc.dungeon.model import (
     RoomShape, SurfaceType, Terrain, Tile,
 )
 from nhc.sites._site import (
-    Enclosure, Site, is_clipped_corner_tile, outside_neighbour,
+    Enclosure, Site, combined_building_bboxes,
+    is_clipped_corner_tile, outside_neighbour,
     paint_surface_doors, stamp_building_door,
 )
 from nhc.sites._types import SiteTier
@@ -148,14 +149,11 @@ def assemble_keep(
         sx_cursor += sw + 2
 
     buildings = main_buildings + sparse_buildings
-    combined_footprints: set[tuple[int, int]] = set()
-    for b in buildings:
-        combined_footprints |= b.base_shape.floor_tiles(b.base_rect)
     door_map: dict[tuple[int, int], tuple[str, int, int]] = {}
     for b in buildings:
-        own = b.base_shape.floor_tiles(b.base_rect)
+        others = [o for o in buildings if o.id != b.id]
         door_xy = _place_entry_door(
-            b, rng, blocked=combined_footprints - own,
+            b, rng, blocked=combined_building_bboxes(others),
         )
         if door_xy is not None:
             neighbour = outside_neighbour(b, *door_xy)
