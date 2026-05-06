@@ -21,10 +21,12 @@
 //!
 //! Anchor.variant / orientation feed per-kind sub-style dispatch
 //! (Well shape, Fountain shape, Stair direction, Web corner). The
-//! group_id fusion (Tree groves, Mushroom clusters, Gravestone
-//! clusters) lifts via the shared ``split_by_group`` helper for
-//! Tree only at this commit; Mushroom + Gravestone clustering
-//! rides additive future work — each anchor renders standalone.
+//! group_id fusion lifts via the shared ``split_by_group`` helper
+//! for all three clustering kinds: Tree groves union canopy /
+//! shadow lobes; Mushroom clusters share a low-opacity mycelium
+//! patch underlay; Gravestone clusters share a darker dirt-plot
+//! underlay. Standalone anchors (group_id = 0) render without a
+//! cluster envelope.
 
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
@@ -66,6 +68,10 @@ const SIGN_INK: Color = Color::rgba(0x3A, 0x2A, 0x18, 1.0);
 const MUSHROOM_STEM: Color = Color::rgba(0xE8, 0xDC, 0xC0, 1.0);
 const MUSHROOM_CAP: Color = Color::rgba(0xB8, 0x44, 0x44, 1.0);
 const MUSHROOM_DOT: Color = Color::rgba(0xF5, 0xEC, 0xC8, 1.0);
+const MUSHROOM_PATCH_FILL: Color = Color::rgba(0x4A, 0x32, 0x1E, 1.0);
+const MUSHROOM_PATCH_OPACITY: f32 = 0.25;
+const GRAVE_PLOT_FILL: Color = Color::rgba(0x44, 0x36, 0x2A, 1.0);
+const GRAVE_PLOT_OPACITY: f32 = 0.30;
 
 /// Per-anchor RNG — keeps each anchor's sub-style variation
 /// deterministic. Combines the FixtureOp's seed with the anchor's
@@ -441,6 +447,66 @@ fn paint_mushroom_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
     }
 }
 
+/// Mushroom cluster — shared mycelium patch under cluster members.
+/// One soft elliptical halo per member tile, all wrapped in a
+/// `begin_group(0.25)` envelope so the patch composites as a unified
+/// dark mat without per-member darken stacking. The patch sits
+/// slightly below the stem base of each member.
+fn paint_mushroom_cluster_patch(
+    painter: &mut dyn Painter, cluster: &[(i32, i32)],
+) {
+    if cluster.is_empty() {
+        return;
+    }
+    painter.begin_group(MUSHROOM_PATCH_OPACITY);
+    let paint = Paint::solid(MUSHROOM_PATCH_FILL);
+    for &(tx, ty) in cluster {
+        let cx = (f64::from(tx) + 0.5) * CELL;
+        let cy = (f64::from(ty) + 0.5) * CELL + CELL * 0.30;
+        painter.fill_ellipse(
+            cx as f32, cy as f32,
+            (CELL * 0.32) as f32, (CELL * 0.10) as f32,
+            &paint,
+        );
+    }
+    painter.end_group();
+}
+
+/// Gravestone cluster — shared dirt-plot under cluster members.
+/// Bounding rect over the cluster's tile footprint with small inner
+/// padding, painted under a `begin_group(0.30)` envelope so the
+/// plot reads as one darker patch of disturbed earth. The plot
+/// starts mid-tile (where the gravestone slab anchors) so it
+/// doesn't bleed into adjacent tiles above the cluster.
+fn paint_gravestone_cluster_plot(
+    painter: &mut dyn Painter, cluster: &[(i32, i32)],
+) {
+    if cluster.is_empty() {
+        return;
+    }
+    let min_x = cluster.iter().map(|&(x, _)| x).min().unwrap();
+    let max_x = cluster.iter().map(|&(x, _)| x).max().unwrap();
+    let min_y = cluster.iter().map(|&(_, y)| y).min().unwrap();
+    let max_y = cluster.iter().map(|&(_, y)| y).max().unwrap();
+    let pad = CELL * 0.10;
+    let x0 = f64::from(min_x) * CELL - pad;
+    let y0 = f64::from(min_y) * CELL + CELL * 0.40;
+    let x1 = f64::from(max_x + 1) * CELL + pad;
+    let y1 = f64::from(max_y + 1) * CELL - pad;
+
+    painter.begin_group(GRAVE_PLOT_OPACITY);
+    let mut path = PathOps::new();
+    path.move_to(Vec2::new(x0 as f32, y0 as f32));
+    path.line_to(Vec2::new(x1 as f32, y0 as f32));
+    path.line_to(Vec2::new(x1 as f32, y1 as f32));
+    path.line_to(Vec2::new(x0 as f32, y1 as f32));
+    path.close();
+    painter.fill_path(
+        &path, &Paint::solid(GRAVE_PLOT_FILL), FillRule::Winding,
+    );
+    painter.end_group();
+}
+
 fn collect_tiles(anchors: &Vector<'_, Anchor>) -> Vec<(i32, i32)> {
     (0..anchors.len())
         .map(|i| {
@@ -545,6 +611,10 @@ pub fn draw<'a>(
             }
         }
         FixtureKind::Gravestone => {
+            let (_free, clusters) = split_by_group(&anchors);
+            for cluster in &clusters {
+                paint_gravestone_cluster_plot(painter, cluster);
+            }
             for i in 0..anchors.len() {
                 paint_gravestone_anchor(painter, &anchors.get(i), op.seed());
             }
@@ -555,6 +625,10 @@ pub fn draw<'a>(
             }
         }
         FixtureKind::Mushroom => {
+            let (_free, clusters) = split_by_group(&anchors);
+            for cluster in &clusters {
+                paint_mushroom_cluster_patch(painter, cluster);
+            }
             for i in 0..anchors.len() {
                 paint_mushroom_anchor(painter, &anchors.get(i), op.seed());
             }
@@ -779,6 +853,81 @@ mod tests {
         assert!(
             count_a != count_b || coords_a != coords_b,
             "per-anchor RNG didn't diverge across tiles (a: {count_a}, b: {count_b})"
+        );
+    }
+
+    /// Mushroom anchors with the same non-zero `group_id` fuse via a
+    /// shared mycelium-patch underlay wrapped in a `begin_group` /
+    /// `end_group` envelope. Pin that fusion took effect by checking
+    /// the cluster envelope reaches the painter — `Anchor::new`'s
+    /// 7th arg is the `group_id` (5th = scale, 6th = pad0).
+    #[test]
+    fn mushroom_anchors_with_same_group_id_emit_cluster_patch() {
+        let anchors = [
+            Anchor::new(2, 3, 0, 0, 0, 0, 5),
+            Anchor::new(3, 3, 0, 0, 0, 0, 5),
+            Anchor::new(4, 3, 0, 0, 0, 0, 5),
+        ];
+        let painter = run(&build_fixture_op(FixtureKind::Mushroom, &anchors));
+        let has_begin_group = painter
+            .calls
+            .iter()
+            .any(|c| matches!(c, PainterCall::BeginGroup(_)));
+        assert!(
+            has_begin_group,
+            "expected mushroom cluster patch begin_group envelope"
+        );
+    }
+
+    /// Standalone mushrooms (group_id = 0) skip the cluster patch
+    /// — only per-anchor stamps emit, with no group envelope.
+    #[test]
+    fn standalone_mushroom_emits_no_cluster_envelope() {
+        let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0)];
+        let painter = run(&build_fixture_op(FixtureKind::Mushroom, &anchors));
+        let has_begin_group = painter
+            .calls
+            .iter()
+            .any(|c| matches!(c, PainterCall::BeginGroup(_)));
+        assert!(
+            !has_begin_group,
+            "free mushroom must not emit cluster envelope"
+        );
+    }
+
+    /// Gravestone anchors with the same non-zero `group_id` fuse
+    /// via a shared dirt-plot underlay wrapped in a `begin_group` /
+    /// `end_group` envelope.
+    #[test]
+    fn gravestone_anchors_with_same_group_id_emit_cluster_plot() {
+        let anchors = [
+            Anchor::new(2, 3, 0, 0, 0, 0, 8),
+            Anchor::new(3, 3, 0, 0, 0, 0, 8),
+        ];
+        let painter = run(&build_fixture_op(FixtureKind::Gravestone, &anchors));
+        let has_begin_group = painter
+            .calls
+            .iter()
+            .any(|c| matches!(c, PainterCall::BeginGroup(_)));
+        assert!(
+            has_begin_group,
+            "expected gravestone cluster plot begin_group envelope"
+        );
+    }
+
+    /// Standalone gravestones (group_id = 0) skip the cluster plot
+    /// — only per-anchor stamps emit, with no group envelope.
+    #[test]
+    fn standalone_gravestone_emits_no_cluster_envelope() {
+        let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0)];
+        let painter = run(&build_fixture_op(FixtureKind::Gravestone, &anchors));
+        let has_begin_group = painter
+            .calls
+            .iter()
+            .any(|c| matches!(c, PainterCall::BeginGroup(_)));
+        assert!(
+            !has_begin_group,
+            "free gravestone must not emit cluster envelope"
         );
     }
 
