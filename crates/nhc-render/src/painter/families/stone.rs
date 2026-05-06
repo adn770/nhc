@@ -57,9 +57,14 @@
 //!   rectangle pair, rotated per-unit (`(ix*7 + iy*13) % 4`) so
 //!   adjacent units read as a hopscotch pattern.
 //!
-//! The remaining two Stone styles (CrazyPaving, Ashlar) keep
-//! their flat-fill behaviour; per-style lifts ride Phase 2.4h–
-//! 2.4i follow-on commits.
+//! CrazyPaving (style = 7, Phase 2.4h, no sub-patterns):
+//! - Variable-size jittered slab tessellation. Walks rows with
+//!   seed-driven row heights (12-22 px) and cell widths (12-22
+//!   px); each cell becomes one quadrilateral with seed-jittered
+//!   corners.
+//!
+//! The remaining one Stone style (Ashlar with 2 sub-patterns)
+//! keeps its flat-fill behaviour; lifts ride Phase 2.4i follow-on.
 
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
@@ -184,10 +189,12 @@ pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, materi
         // Hopscotch — 3-stone square+rectangle unit tiling with
         // per-unit rotation (Phase 2.4g).
         6 => paint_hopscotch(painter, region_path, pal, material.seed),
+        // CrazyPaving — irregular variable-size slab tessellation,
+        // no sub-patterns (Phase 2.4h).
+        7 => paint_crazy_paving(painter, region_path, pal, material.seed),
         // Forward-compat sub-pattern values for unknown styles
-        // and the remaining 2 styles (Phase 2.4h–2.4i) fall back
-        // to flat fill so silent loss-of-pattern is still a visible
-        // floor rather than a magenta sentinel block.
+        // and the remaining 1 style (Phase 2.4i Ashlar with 2 sub-
+        // patterns) fall back to flat fill.
         _ => fill_region(painter, region_path, pal.base),
     }
 }
@@ -1063,6 +1070,79 @@ fn paint_hopscotch<P: Painter + ?Sized>(
     painter.pop_clip();
 }
 
+// ── CrazyPaving (no sub-patterns) ──────────────────────────────
+
+const CRAZY_PAVING_GROUP_OPACITY: f32 = 0.9;
+
+/// CrazyPaving — irregular variable-size slab tessellation. Walks
+/// the region in rows of seed-driven variable heights; within each
+/// row, walks variable-width cells. Each cell becomes one
+/// quadrilateral with seed-jittered corners, alternating base /
+/// highlight by the seed so the mosaic reads as randomised paving.
+/// Distinct from FieldStone (uniform 16 px cells, polygons) and
+/// Cobblestone Mosaic (uniform 8 px cells, jittered quads) by its
+/// non-uniform cell sizing — visually closer to crazy-paving.
+fn paint_crazy_paving<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(CRAZY_PAVING_GROUP_OPACITY);
+    let mut rng = Pcg64Mcg::seed_from_u64(seed ^ 0xC4A2_5DAB_C4A2_5DAB_u64);
+    let base_paint = Paint::solid(pal.base);
+    let highlight_paint = Paint::solid(pal.highlight);
+    let pad = 1.0_f64;
+    let jit = 1.5_f64;
+    let mut y = f64::from(y0);
+    while y < f64::from(y1) {
+        let row_h = rng.gen_range(12.0..22.0);
+        let mut x = f64::from(x0);
+        while x < f64::from(x1) {
+            let cell_w = rng.gen_range(12.0..22.0);
+            let jx0 = rng.gen_range(-jit..jit);
+            let jy0 = rng.gen_range(-jit..jit);
+            let jx1 = rng.gen_range(-jit..jit);
+            let jy1 = rng.gen_range(-jit..jit);
+            let jx2 = rng.gen_range(-jit..jit);
+            let jy2 = rng.gen_range(-jit..jit);
+            let jx3 = rng.gen_range(-jit..jit);
+            let jy3 = rng.gen_range(-jit..jit);
+            let p0 = Vec2::new((x + pad + jx0) as f32, (y + pad + jy0) as f32);
+            let p1 = Vec2::new(
+                (x + cell_w - pad + jx1) as f32,
+                (y + pad + jy1) as f32,
+            );
+            let p2 = Vec2::new(
+                (x + cell_w - pad + jx2) as f32,
+                (y + row_h - pad + jy2) as f32,
+            );
+            let p3 = Vec2::new(
+                (x + pad + jx3) as f32,
+                (y + row_h - pad + jy3) as f32,
+            );
+            let path = quad_path(p0, p1, p2, p3);
+            let pick = if rng.gen::<f64>() < 0.5 {
+                &base_paint
+            } else {
+                &highlight_paint
+            };
+            painter.fill_path(&path, pick, FillRule::Winding);
+            x += cell_w;
+        }
+        y += row_h;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1128,14 +1208,13 @@ mod tests {
         }
     }
 
-    /// Styles without lifted layouts (Phase 2.4h–2.4i: CrazyPaving,
-    /// Ashlar) still emit the flat-fill — single fill_path per
-    /// call. Styles 0–6 (Cobblestone through Hopscotch) lifted in
-    /// 2.4a–2.4g are excluded from this gate.
+    /// The only style without a lifted layout is Ashlar (style=8,
+    /// Phase 2.4i). Styles 0–7 lifted in 2.4a–2.4h are excluded
+    /// from this gate.
     #[test]
     fn non_lifted_styles_keep_flat_fill() {
         let path = one_tile_path();
-        for style in 7..9u8 {
+        for style in 8..9u8 {
             let expected = palette(style).base;
             let mut p = MockPainter::default();
             let m = Material::new(Family::Stone, style, 0, 0, 0xCAFE);
@@ -1365,6 +1444,50 @@ mod tests {
         paint(&mut a, &path, &Material::new(Family::Stone, 6, 0, 0, 333));
         paint(&mut b, &path, &Material::new(Family::Stone, 6, 0, 0, 7));
         assert_eq!(a.calls, b.calls, "Hopscotch is RNG-free");
+    }
+
+    /// CrazyPaving (style=7, no sub-patterns) wraps decoration in
+    /// a push_clip / pop_clip pair plus a balanced begin_group /
+    /// end_group envelope, and emits jittered quad slabs as
+    /// fill_path stamps (no fill_rect / stroke).
+    #[test]
+    fn crazy_paving_emits_quad_slabs_with_clip_envelope() {
+        let path = four_tile_path();
+        let mut p = MockPainter::default();
+        paint(
+            &mut p, &path,
+            &Material::new(Family::Stone, 7, 0, 0, 0xCAFE),
+        );
+        assert_eq!(count_pushed_clips(&p.calls), 1);
+        assert_eq!(count_begin_groups(&p.calls), 1);
+        let fill_paths = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillPath(_, _, _)))
+            .count();
+        assert!(
+            fill_paths > 10,
+            "expected many fill_path slabs, got {fill_paths}",
+        );
+        let strokes = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::StrokePath(_, _, _)))
+            .count();
+        assert_eq!(strokes, 0, "CrazyPaving must not stroke its slabs");
+    }
+
+    /// CrazyPaving is seed-aware: row heights, cell widths, and
+    /// per-corner jitter all derive from the seed RNG. Different
+    /// seeds must diverge.
+    #[test]
+    fn crazy_paving_diverges_across_seeds() {
+        let path = four_tile_path();
+        let mut a = MockPainter::default();
+        let mut b = MockPainter::default();
+        paint(&mut a, &path, &Material::new(Family::Stone, 7, 0, 0, 333));
+        paint(&mut b, &path, &Material::new(Family::Stone, 7, 0, 0, 7));
+        assert_ne!(a.calls, b.calls, "seeds must diverge");
     }
 
     /// Forward-compat sub-pattern values for lifted styles
