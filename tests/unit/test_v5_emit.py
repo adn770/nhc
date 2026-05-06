@@ -680,6 +680,49 @@ def test_emit_stamps_walks_level_and_matches_translate_stamp_ops() -> None:
         assert a.op.seed == b.op.seed
 
 
+# ── emit_fixtures(builder) — Phase 4.3a per-module migration ───
+
+
+def test_emit_fixtures_walks_level_and_matches_translate_fixtures() -> None:
+    """``emit_fixtures(builder)`` walks level features (stairs, wells,
+    fountains, trees, bushes) directly to produce V5FixtureOp entries.
+    Asserts parity with ``translate_fixtures(builder.ops)`` when v4
+    emit also ran on the same builder."""
+    from nhc.dungeon.generator import GenerationParams
+    from nhc.dungeon.pipeline import generate_level
+    from nhc.rendering._render_context import build_render_context
+    from nhc.rendering._cave_geometry import _build_cave_wall_geometry
+    from nhc.rendering._dungeon_polygon import _build_dungeon_polygon
+    from nhc.rendering.ir_emitter import FloorIRBuilder, IR_STAGES
+    from nhc.rendering.v5_emit import emit_fixtures, translate_fixtures
+
+    params = GenerationParams(
+        width=24, height=16, depth=1, seed=42, theme="dungeon",
+        shape_variety=0.0,
+    )
+    level = generate_level(params)
+    ctx = build_render_context(
+        level,
+        seed=42,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+    )
+    builder = FloorIRBuilder(ctx)
+    for stage in IR_STAGES:
+        stage(builder)
+
+    via_emit = emit_fixtures(builder)
+    via_translate = translate_fixtures(builder.ops)
+
+    assert len(via_emit) == len(via_translate)
+    for a, b in zip(via_emit, via_translate):
+        assert a.opType == V5Op.V5FixtureOp
+        assert b.opType == V5Op.V5FixtureOp
+        assert a.op.kind == b.op.kind
+        assert len(a.op.anchors or []) == len(b.op.anchors or [])
+        assert a.op.seed == b.op.seed
+
+
 # ── emit_all(builder) — Phase 4.3a entry point ─────────────────
 
 
