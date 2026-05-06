@@ -26,6 +26,10 @@ from nhc.rendering.ir._fb.Op import Op
 from nhc.rendering.ir._fb.OpEntry import OpEntryT
 from nhc.rendering.ir._fb.PaintOp import PaintOpT
 from nhc.rendering.emit.materials import (
+    EARTH_GRASS,
+    LIQUID_LAVA,
+    LIQUID_WATER,
+    SPECIAL_CHASM,
     STONE_BRICK,
     STONE_BRICK_RUNNING_BOND,
     STONE_COBBLE_HERRINGBONE,
@@ -34,7 +38,10 @@ from nhc.rendering.emit.materials import (
     STONE_FLAGSTONE,
     STONE_OPUS_ROMANO,
     material_cave,
+    material_earth,
+    material_liquid,
     material_plain,
+    material_special,
     material_stone,
     material_wood,
 )
@@ -96,6 +103,22 @@ def emit_paints(builder: Any) -> list[OpEntryT]:
             if isinstance(room.shape, CaveShape):
                 cave_region_rooms.add(idx)
 
+    # Pre-collect terrain region ids registered by emit_regions.
+    # Each "<kind>.<i>" in builder.regions corresponds to one
+    # disjoint cluster of WATER / LAVA / CHASM / GRASS tiles, and
+    # gets one PaintOp(Material(<family>:<style>)) here.
+    terrain_region_ids: dict[str, list[str]] = {
+        "water": [], "lava": [], "chasm": [], "grass": [],
+    }
+    for region in builder.regions:
+        rid = region.id
+        if isinstance(rid, bytes):
+            rid = rid.decode()
+        for prefix in terrain_region_ids:
+            if rid.startswith(f"{prefix}."):
+                terrain_region_ids[prefix].append(rid)
+                break
+
     result: list[OpEntryT] = []
 
     # 1. Cave systems.
@@ -129,7 +152,34 @@ def emit_paints(builder: Any) -> list[OpEntryT]:
             material=material_plain(seed=0),
         )))
 
-    # 3. Corridor (merged) — gated identically to emit_regions and
+    # 3. Terrain regions — water / lava / chasm / grass clusters
+    # picked up by emit_regions land here as PaintOps with the
+    # canonical v5 family material. Mirrors the v4 TerrainTintOp's
+    # translucent tint over the white floor; the v5 painter's
+    # Liquid / Earth / Special families are responsible for the
+    # actual color.
+    for rid in terrain_region_ids["water"]:
+        result.append(_wrap(_make_paint_op(
+            region_ref=rid,
+            material=material_liquid(style=LIQUID_WATER, seed=0),
+        )))
+    for rid in terrain_region_ids["lava"]:
+        result.append(_wrap(_make_paint_op(
+            region_ref=rid,
+            material=material_liquid(style=LIQUID_LAVA, seed=0),
+        )))
+    for rid in terrain_region_ids["chasm"]:
+        result.append(_wrap(_make_paint_op(
+            region_ref=rid,
+            material=material_special(style=SPECIAL_CHASM, seed=0),
+        )))
+    for rid in terrain_region_ids["grass"]:
+        result.append(_wrap(_make_paint_op(
+            region_ref=rid,
+            material=material_earth(style=EARTH_GRASS, seed=0),
+        )))
+
+    # 4. Corridor (merged) — gated identically to emit_regions and
     # _emit_walls_and_floors_ir's corridor block.
     corridor_tiles = _collect_corridor_tiles(level, cave_tiles)
     if corridor_tiles:

@@ -9,10 +9,10 @@ to produce per-kind ``V5FixtureOp(Web | Skull | Bone)`` entries.
 ``nhc_render.floor_detail_loose_stone_anchors`` to produce a
 single ``V5FixtureOp(LooseStone)``.
 
-Both translators share the (theme, macabre) defaults from the v4
-emit pipeline; macabre defaults to True (the v4 emit path enables
-macabre detail unless the dungeon flags explicitly turn it off —
-see ``ctx.macabre_detail``).
+Both translators read ``(theme, macabre)`` from the
+:class:`RenderContext`; ``macabre`` falls through to ``True`` only
+when the ctx attribute is missing (defensive — synthetic fixture
+contexts may not set it).
 """
 
 from __future__ import annotations
@@ -126,7 +126,7 @@ def emit_thematic_details(builder: Any) -> list[OpEntryT]:
     theme = getattr(ctx, "theme", "") or "dungeon"
     if isinstance(theme, bytes):
         theme = theme.decode("utf-8")
-    macabre = True
+    macabre = bool(getattr(ctx, "macabre_detail", True))
 
     placements = thematic_detail_anchors(
         thematic_payload, seed, theme, macabre,
@@ -174,7 +174,7 @@ def emit_loose_stones(builder: Any) -> list[OpEntryT]:
     theme = getattr(ctx, "theme", "") or "dungeon"
     if isinstance(theme, bytes):
         theme = theme.decode("utf-8")
-    macabre = True
+    macabre = bool(getattr(ctx, "macabre_detail", True))
 
     coords = floor_detail_loose_stone_anchors(
         detail_payload, seed, theme, macabre,

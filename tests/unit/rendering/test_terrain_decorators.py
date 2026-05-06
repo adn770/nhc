@@ -104,3 +104,219 @@ class TestTerrainDecoratorPortability:
             f"adding a chasm tile must add at least one V5StampOp "
             f"(baseline {baseline}, with chasm {with_chasm})"
         )
+
+
+# ── Terrain → PaintOp(Material) translator ─────────────────────
+
+
+def _ops_referencing_region(level: Level, region_id_prefix: str) -> list[dict]:
+    """Return all ops whose region_ref starts with ``region_id_prefix``."""
+    buf = bytes(build_floor_ir(level, seed=0))
+    d = json.loads(dump(buf))
+    out: list[dict] = []
+    for entry in (d.get("ops") or []):
+        op = entry.get("op") or {}
+        rr = op.get("regionRef") or ""
+        if rr.startswith(region_id_prefix):
+            out.append(entry)
+    return out
+
+
+def _regions(level: Level) -> list[dict]:
+    buf = bytes(build_floor_ir(level, seed=0))
+    d = json.loads(dump(buf))
+    return d.get("regions") or []
+
+
+def _region_ids(level: Level) -> set[str]:
+    return {r.get("id", "") for r in _regions(level)}
+
+
+class TestTerrainPaintOpTranslator:
+    """Water / lava / chasm / grass tiles emit a PaintOp with the
+    canonical v5 family material on a per-cluster region. Mirrors
+    the v4 TerrainTintOp translucent-tint behaviour."""
+
+    def test_water_tile_registers_water_region(self) -> None:
+        ids = _region_ids(_level_with_one_tile(Terrain.WATER))
+        assert "water.0" in ids, f"water region missing: {ids}"
+
+    def test_water_tile_emits_paint_op_liquid_water(self) -> None:
+        ops = _ops_referencing_region(
+            _level_with_one_tile(Terrain.WATER), "water.",
+        )
+        paint_ops = [e for e in ops if e.get("opType") == "PaintOp"]
+        assert len(paint_ops) >= 1, "no PaintOp on water region"
+        material = paint_ops[0]["op"]["material"]
+        assert material["family"] == "Liquid"
+        assert material["style"] == 0  # LIQUID_WATER
+
+    def test_lava_tile_registers_lava_region(self) -> None:
+        ids = _region_ids(_level_with_one_tile(Terrain.LAVA))
+        assert "lava.0" in ids
+
+    def test_lava_tile_emits_paint_op_liquid_lava(self) -> None:
+        ops = _ops_referencing_region(
+            _level_with_one_tile(Terrain.LAVA), "lava.",
+        )
+        paint_ops = [e for e in ops if e.get("opType") == "PaintOp"]
+        assert len(paint_ops) >= 1
+        material = paint_ops[0]["op"]["material"]
+        assert material["family"] == "Liquid"
+        assert material["style"] == 1  # LIQUID_LAVA
+
+    def test_chasm_tile_registers_chasm_region(self) -> None:
+        ids = _region_ids(_level_with_one_tile(Terrain.CHASM))
+        assert "chasm.0" in ids
+
+    def test_chasm_tile_emits_paint_op_special_chasm(self) -> None:
+        ops = _ops_referencing_region(
+            _level_with_one_tile(Terrain.CHASM), "chasm.",
+        )
+        paint_ops = [e for e in ops if e.get("opType") == "PaintOp"]
+        assert len(paint_ops) >= 1
+        material = paint_ops[0]["op"]["material"]
+        assert material["family"] == "Special"
+        assert material["style"] == 0  # SPECIAL_CHASM
+
+    def test_grass_tile_registers_grass_region(self) -> None:
+        ids = _region_ids(_level_with_one_tile(Terrain.GRASS))
+        assert "grass.0" in ids
+
+    def test_grass_tile_emits_paint_op_earth_grass(self) -> None:
+        ops = _ops_referencing_region(
+            _level_with_one_tile(Terrain.GRASS), "grass.",
+        )
+        paint_ops = [e for e in ops if e.get("opType") == "PaintOp"]
+        assert len(paint_ops) >= 1
+        material = paint_ops[0]["op"]["material"]
+        assert material["family"] == "Earth"
+        assert material["style"] == 1  # EARTH_GRASS
+
+    def test_pure_floor_emits_no_terrain_paint_ops(self) -> None:
+        """Floor-only level registers no terrain regions and emits
+        no terrain PaintOps. Ensures the translator only fires when
+        terrain tiles exist."""
+        level = _level_with_one_tile(Terrain.FLOOR)
+        ids = _region_ids(level)
+        for prefix in ("water.", "lava.", "chasm.", "grass."):
+            assert not any(rid.startswith(prefix) for rid in ids), (
+                f"floor-only level registered terrain region {prefix}*"
+            )
+
+    def test_two_disjoint_water_clusters_register_two_regions(self) -> None:
+        """Two non-adjacent water tiles produce two regions.
+        Mirrors the cave-system per-cluster pattern."""
+        level = Level.create_empty("L", "L", 1, 10, 10)
+        for y in range(10):
+            for x in range(10):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        level.tiles[2][2] = Tile(terrain=Terrain.WATER)
+        level.tiles[7][7] = Tile(terrain=Terrain.WATER)
+        level.rooms = [Room(id="r1", rect=Rect(0, 0, 10, 10))]
+        ids = _region_ids(level)
+        assert "water.0" in ids and "water.1" in ids, (
+            f"expected two water regions, got {sorted(ids)}"
+        )
+
+
+# ── ctx.macabre_detail flag plumbing ──────────────────────────
+
+
+def _emit_thematic_with_macabre(
+    macabre: bool,
+) -> set[str]:
+    """Emit thematic-detail FixtureOps with ``ctx.macabre_detail``
+    forced to ``macabre``; return the set of FixtureKind names that
+    appear."""
+    import dataclasses
+    from nhc.rendering._render_context import build_render_context
+    from nhc.rendering._cave_geometry import _build_cave_wall_geometry
+    from nhc.rendering._dungeon_polygon import _build_dungeon_polygon
+    from nhc.rendering.ir_emitter import FloorIRBuilder
+    from nhc.rendering.emit.thematic_detail import emit_thematic_details
+
+    # 30×30 floor-only room — large enough for the per-tile
+    # Pcg64Mcg gate to land at least one bone / skull when
+    # macabre=True.
+    level = Level.create_empty("L", "L", 1, 30, 30)
+    for y in range(30):
+        for x in range(30):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+    level.rooms = [Room(id="r1", rect=Rect(0, 0, 30, 30))]
+    ctx = build_render_context(
+        level,
+        seed=42,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+    )
+    ctx = dataclasses.replace(ctx, macabre_detail=macabre)
+    builder = FloorIRBuilder(ctx)
+    ops = emit_thematic_details(builder)
+
+    # FixtureKind values: Web=0, Skull=1, Bone=2.
+    kinds_present: set[str] = set()
+    for entry in ops:
+        op = entry.op
+        kind = op.kind
+        if kind == 0:
+            kinds_present.add("Web")
+        elif kind == 1:
+            kinds_present.add("Skull")
+        elif kind == 2:
+            kinds_present.add("Bone")
+    return kinds_present
+
+
+class TestMacabreDetailFlag:
+    """``ctx.macabre_detail`` gates Skull / Bone fixture emission.
+
+    Mirrors the v4 ``if not macabre_detail: bones, skulls = [], []``
+    post-pass on the Rust thematic_detail painter.
+    """
+
+    def test_macabre_true_emits_skulls_and_bones(self) -> None:
+        kinds = _emit_thematic_with_macabre(True)
+        # At least one of skull / bone fires on a 30×30 floor at
+        # seed=42; Web is independent of macabre.
+        assert "Skull" in kinds or "Bone" in kinds, (
+            f"macabre=True should emit Skull or Bone; got {sorted(kinds)}"
+        )
+
+    def test_macabre_false_drops_skulls_and_bones(self) -> None:
+        kinds = _emit_thematic_with_macabre(False)
+        assert "Skull" not in kinds, (
+            f"macabre=False must not emit Skull; got {sorted(kinds)}"
+        )
+        assert "Bone" not in kinds, (
+            f"macabre=False must not emit Bone; got {sorted(kinds)}"
+        )
+
+    def test_macabre_false_drops_loose_stones(self) -> None:
+        """``emit_loose_stones`` mirrors the macabre gate: when
+        ``ctx.macabre_detail`` is False, the v5 emit produces no
+        LooseStone FixtureOps (the Rust helper returns an empty
+        list for ``macabre=False``)."""
+        import dataclasses
+        from nhc.rendering._render_context import build_render_context
+        from nhc.rendering._cave_geometry import _build_cave_wall_geometry
+        from nhc.rendering._dungeon_polygon import _build_dungeon_polygon
+        from nhc.rendering.ir_emitter import FloorIRBuilder
+        from nhc.rendering.emit.thematic_detail import emit_loose_stones
+
+        level = Level.create_empty("L", "L", 1, 30, 30)
+        for y in range(30):
+            for x in range(30):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        level.rooms = [Room(id="r1", rect=Rect(0, 0, 30, 30))]
+        ctx = build_render_context(
+            level, seed=42,
+            cave_geometry_builder=_build_cave_wall_geometry,
+            dungeon_polygon_builder=_build_dungeon_polygon,
+        )
+        ctx_off = dataclasses.replace(ctx, macabre_detail=False)
+        builder = FloorIRBuilder(ctx_off)
+        ops = emit_loose_stones(builder)
+        assert ops == [], (
+            f"macabre=False must not emit LooseStone; got {len(ops)} ops"
+        )

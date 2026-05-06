@@ -170,6 +170,108 @@ def _collect_cave_systems(
     return groups
 
 
+def _collect_terrain_systems(
+    level: Any, terrain: Terrain,
+    *,
+    exclude: set[tuple[int, int]] | None = None,
+) -> list[set[tuple[int, int]]]:
+    """Partition level tiles of ``terrain`` into disjoint connected
+    components.
+
+    Used by ``emit_regions`` to register one ``Region(id="<kind>.<i>")``
+    per disjoint cluster (water / lava / chasm / grass), and by
+    ``emit_paints`` to emit a corresponding ``PaintOp`` per cluster.
+    Mirrors :func:`_collect_cave_systems`'s pattern: build a 32-pixel
+    tile box per matching tile, union via Shapely, walk the resulting
+    geoms.
+
+    ``exclude`` (typically the cave-tile set) skips tiles already
+    owned by another region — water tiles inside a cave system stay
+    on the cave region.
+    """
+    excluded = exclude or set()
+    tiles: set[tuple[int, int]] = set()
+    for y in range(level.height):
+        for x in range(level.width):
+            if (x, y) in excluded:
+                continue
+            if level.tiles[y][x].terrain == terrain:
+                tiles.add((x, y))
+    if not tiles:
+        return []
+    from shapely.geometry import Polygon as _ShapelyPolygon
+    from shapely.ops import unary_union as _unary_union
+    from nhc.rendering._svg_helpers import CELL
+
+    tile_boxes = [
+        _ShapelyPolygon([
+            (tx * CELL, ty * CELL),
+            ((tx + 1) * CELL, ty * CELL),
+            ((tx + 1) * CELL, (ty + 1) * CELL),
+            (tx * CELL, (ty + 1) * CELL),
+        ])
+        for tx, ty in tiles
+    ]
+    merged_geom = _unary_union(tile_boxes)
+    if not hasattr(merged_geom, "geoms"):
+        return [tiles]
+
+    groups: list[set[tuple[int, int]]] = []
+    for component in merged_geom.geoms:
+        if component.is_empty:
+            continue
+        comp_tiles: set[tuple[int, int]] = {
+            (tx, ty)
+            for tx, ty in tiles
+            if component.contains(
+                _ShapelyPolygon([
+                    (tx * CELL, ty * CELL),
+                    ((tx + 1) * CELL, ty * CELL),
+                    ((tx + 1) * CELL, (ty + 1) * CELL),
+                    (tx * CELL, (ty + 1) * CELL),
+                ])
+            )
+        }
+        if comp_tiles:
+            groups.append(comp_tiles)
+    return groups
+
+
+def _terrain_cluster_coords(
+    cluster: set[tuple[int, int]],
+) -> list[tuple[float, float]]:
+    """Return the exterior pixel-coord ring of a terrain tile cluster.
+
+    Builds a 32-pixel tile box per ``(tx, ty)``, unions them via
+    Shapely, and returns the exterior ring of the resulting polygon
+    in CCW order (Shapely's ``Polygon.exterior``). Multi-component
+    clusters (which shouldn't reach this helper — :func:`_collect_terrain_systems`
+    already partitions by component) fall back to the bounding box.
+    """
+    if not cluster:
+        return []
+    from shapely.geometry import Polygon as _ShapelyPolygon
+    from shapely.ops import unary_union as _unary_union
+    from nhc.rendering._svg_helpers import CELL
+
+    tile_boxes = [
+        _ShapelyPolygon([
+            (tx * CELL, ty * CELL),
+            ((tx + 1) * CELL, ty * CELL),
+            ((tx + 1) * CELL, (ty + 1) * CELL),
+            (tx * CELL, (ty + 1) * CELL),
+        ])
+        for tx, ty in cluster
+    ]
+    merged = _unary_union(tile_boxes)
+    if hasattr(merged, "geoms"):
+        # Multi-polygon — pick the largest. Shouldn't happen if the
+        # caller partitioned via _collect_terrain_systems.
+        merged = max(merged.geoms, key=lambda p: p.area)
+    coords = list(merged.exterior.coords)
+    return [(float(x), float(y)) for x, y in coords]
+
+
 def _floor_detail_candidates(
     level,
 ) -> list[tuple[int, int, bool]]:

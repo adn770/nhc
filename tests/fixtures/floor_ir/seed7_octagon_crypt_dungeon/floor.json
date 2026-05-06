@@ -4029,6 +4029,804 @@
       "parentId": "",
       "cuts": [],
       "shapeTag": "rect"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.0",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 352.0,
+            "y": 192.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 320.0,
+            "y": 192.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 320.0,
+            "y": 224.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 352.0,
+            "y": 224.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 352.0,
+            "y": 256.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 384.0,
+            "y": 256.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 416.0,
+            "y": 256.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 416.0,
+            "y": 224.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 416.0,
+            "y": 192.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 416.0,
+            "y": 160.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 384.0,
+            "y": 160.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 352.0,
+            "y": 160.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 352.0,
+            "y": 192.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.1",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 608.0,
+            "y": 256.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 640.0,
+            "y": 256.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 640.0,
+            "y": 288.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 608.0,
+            "y": 288.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 608.0,
+            "y": 256.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.2",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 160.0,
+            "y": 512.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 160.0,
+            "y": 544.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 160.0,
+            "y": 576.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 192.0,
+            "y": 576.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 192.0,
+            "y": 544.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 224.0,
+            "y": 544.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 224.0,
+            "y": 512.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 192.0,
+            "y": 512.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 160.0,
+            "y": 512.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.3",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 448.0,
+            "y": 768.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 480.0,
+            "y": 768.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 480.0,
+            "y": 800.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 448.0,
+            "y": 800.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 448.0,
+            "y": 768.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.4",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 448.0,
+            "y": 1088.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 448.0,
+            "y": 1120.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 480.0,
+            "y": 1120.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 512.0,
+            "y": 1120.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 544.0,
+            "y": 1120.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 544.0,
+            "y": 1088.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 544.0,
+            "y": 1056.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 544.0,
+            "y": 1024.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 512.0,
+            "y": 1024.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 480.0,
+            "y": 1024.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 448.0,
+            "y": 1024.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 448.0,
+            "y": 1056.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 448.0,
+            "y": 1088.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.5",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 704.0,
+            "y": 160.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 704.0,
+            "y": 192.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 736.0,
+            "y": 192.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 736.0,
+            "y": 224.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 768.0,
+            "y": 224.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 768.0,
+            "y": 192.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 800.0,
+            "y": 192.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 832.0,
+            "y": 192.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 832.0,
+            "y": 160.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 832.0,
+            "y": 128.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 800.0,
+            "y": 128.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 800.0,
+            "y": 96.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 768.0,
+            "y": 96.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 736.0,
+            "y": 96.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 704.0,
+            "y": 96.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 704.0,
+            "y": 128.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 704.0,
+            "y": 160.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.6",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 1408.0,
+            "y": 128.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1376.0,
+            "y": 128.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1376.0,
+            "y": 160.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1376.0,
+            "y": 192.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1408.0,
+            "y": 192.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1408.0,
+            "y": 224.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1408.0,
+            "y": 256.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1440.0,
+            "y": 256.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1472.0,
+            "y": 256.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1504.0,
+            "y": 256.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1504.0,
+            "y": 224.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1504.0,
+            "y": 192.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1504.0,
+            "y": 160.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1504.0,
+            "y": 128.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1472.0,
+            "y": 128.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1472.0,
+            "y": 96.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1440.0,
+            "y": 96.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1408.0,
+            "y": 96.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1408.0,
+            "y": 128.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.7",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 1088.0,
+            "y": 480.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1120.0,
+            "y": 480.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1120.0,
+            "y": 512.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1088.0,
+            "y": 512.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1088.0,
+            "y": 480.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.8",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 864.0,
+            "y": 736.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 896.0,
+            "y": 736.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 896.0,
+            "y": 768.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 864.0,
+            "y": 768.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 864.0,
+            "y": 736.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.9",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 832.0,
+            "y": 1088.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 832.0,
+            "y": 1120.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 864.0,
+            "y": 1120.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 864.0,
+            "y": 1152.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 896.0,
+            "y": 1152.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 896.0,
+            "y": 1120.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 896.0,
+            "y": 1088.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 896.0,
+            "y": 1056.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 864.0,
+            "y": 1056.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 832.0,
+            "y": 1056.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 832.0,
+            "y": 1088.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.10",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 1696.0,
+            "y": 832.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1728.0,
+            "y": 832.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1728.0,
+            "y": 864.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1696.0,
+            "y": 864.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1696.0,
+            "y": 832.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
+    },
+    {
+      "__type": "RegionT",
+      "id": "water.11",
+      "outline": {
+        "__type": "OutlineT",
+        "vertices": [
+          {
+            "__type": "Vec2T",
+            "x": 1472.0,
+            "y": 1120.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1440.0,
+            "y": 1120.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1440.0,
+            "y": 1152.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1440.0,
+            "y": 1184.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1472.0,
+            "y": 1184.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1472.0,
+            "y": 1152.0
+          },
+          {
+            "__type": "Vec2T",
+            "x": 1472.0,
+            "y": 1120.0
+          }
+        ],
+        "closed": true,
+        "descriptorKind": 0,
+        "cx": 0.0,
+        "cy": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rings": []
+      },
+      "parentId": "",
+      "cuts": [],
+      "shapeTag": "water"
     }
   ],
   "ops": [
@@ -5704,6 +6502,210 @@
         "material": {
           "__type": "MaterialT",
           "family": "Plain",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.0",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.1",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.2",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.3",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.4",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.5",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.6",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.7",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.8",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.9",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.10",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
+          "style": 0,
+          "subPattern": 0,
+          "tone": 0,
+          "seed": 0
+        }
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "PaintOp",
+      "op": {
+        "__type": "PaintOpT",
+        "regionRef": "water.11",
+        "subtractRegionRefs": [],
+        "material": {
+          "__type": "MaterialT",
+          "family": "Liquid",
           "style": 0,
           "subPattern": 0,
           "tone": 0,

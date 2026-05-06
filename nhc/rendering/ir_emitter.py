@@ -987,6 +987,34 @@ def emit_regions(builder: FloorIRBuilder) -> None:
             shape_tag=shape_tag,
             outline=outline_override,
         )
+    # Terrain regions — one per disjoint cluster of WATER / LAVA /
+    # CHASM / GRASS tiles. The v5 emit_paints pipeline references
+    # these by id ("water.<i>", "lava.<i>", ...) when it produces
+    # PaintOp(Liquid:Water) / PaintOp(Special:Chasm) / etc. Cave
+    # tiles stay on the cave region so the exclusion list keeps the
+    # tile-set partitioning disjoint.
+    from nhc.dungeon.model import Terrain
+    from nhc.rendering._floor_layers import (
+        _collect_terrain_systems, _terrain_cluster_coords,
+    )
+    for terrain_kind, region_prefix in (
+        (Terrain.WATER, "water"),
+        (Terrain.LAVA, "lava"),
+        (Terrain.CHASM, "chasm"),
+        (Terrain.GRASS, "grass"),
+    ):
+        systems = _collect_terrain_systems(
+            ctx.level, terrain_kind, exclude=cave_tiles,
+        )
+        for i, cluster in enumerate(systems):
+            coords = _terrain_cluster_coords(cluster)
+            if not coords or len(coords) < 4:
+                continue
+            builder.add_region(
+                id=f"{region_prefix}.{i}",
+                polygon=_coords_to_polygon(coords),
+                shape_tag=region_prefix,
+            )
 
 
 def emit_building_overlays(builder: FloorIRBuilder) -> None:
