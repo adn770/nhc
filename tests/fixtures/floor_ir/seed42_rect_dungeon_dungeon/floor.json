@@ -10424,9 +10424,57 @@
       "opType": "StampOp",
       "op": {
         "__type": "StampOpT",
-        "regionRef": "dungeon",
+        "regionRef": "water.0",
         "subtractRegionRefs": [],
-        "decoratorMask": 24,
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 242
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.1",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 242
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.2",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 242
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.3",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 242
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.4",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
         "density": 128,
         "seed": 242
       }

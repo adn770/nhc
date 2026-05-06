@@ -12331,9 +12331,141 @@
       "opType": "StampOp",
       "op": {
         "__type": "StampOpT",
-        "regionRef": "dungeon",
+        "regionRef": "water.0",
         "subtractRegionRefs": [],
-        "decoratorMask": 24,
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 207
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.1",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 207
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.2",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 207
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.3",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 207
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.4",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 207
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.5",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 207
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.6",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 207
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.7",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 207
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.8",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 207
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.9",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 207
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.10",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
+        "density": 128,
+        "seed": 207
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "StampOp",
+      "op": {
+        "__type": "StampOpT",
+        "regionRef": "water.11",
+        "subtractRegionRefs": [],
+        "decoratorMask": 8,
         "density": 128,
         "seed": 207
       }

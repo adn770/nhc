@@ -159,22 +159,28 @@ def emit_stamps(builder: Any) -> list[OpEntryT]:
                 seed=ctx.seed + 99,
             )))
 
-    # Ripples | LavaCracks — emitted whenever any WATER / LAVA /
-    # CHASM tile exists.
-    has_terrain_detail = False
-    for y in range(level.height):
-        for x in range(level.width):
-            t = level.tiles[y][x].terrain
-            if t == Terrain.WATER or t == Terrain.LAVA or t == Terrain.CHASM:
-                has_terrain_detail = True
-                break
-        if has_terrain_detail:
-            break
-    if has_terrain_detail:
-        result.append(_wrap(_make_stamp_op(
-            region_ref=region_ref,
-            mask=BIT_RIPPLES | BIT_LAVA_CRACKS,
-            seed=ctx.seed + 200,
-        )))
+    # Ripples — emitted per WATER region (Liquid:Water substrate
+    # decoration). LavaCracks — emitted per LAVA region (Liquid:Lava
+    # substrate decoration). Chasm regions get neither — the Special
+    # family's substrate painter renders depth without a decorator
+    # bit. Pre-fix this was one StampOp targeting the ``dungeon``
+    # polygon with both bits unioned, so every dry stone floor tile
+    # got water ripples + lava cracks stamped on top.
+    for region in builder.regions:
+        rid = region.id
+        if isinstance(rid, bytes):
+            rid = rid.decode()
+        if rid.startswith("water."):
+            result.append(_wrap(_make_stamp_op(
+                region_ref=rid,
+                mask=BIT_RIPPLES,
+                seed=ctx.seed + 200,
+            )))
+        elif rid.startswith("lava."):
+            result.append(_wrap(_make_stamp_op(
+                region_ref=rid,
+                mask=BIT_LAVA_CRACKS,
+                seed=ctx.seed + 200,
+            )))
 
     return result

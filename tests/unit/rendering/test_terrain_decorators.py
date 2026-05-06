@@ -88,20 +88,27 @@ class TestTerrainDecoratorPortability:
             _V5_BIT_LAVA_CRACKS,
         )
 
-    def test_chasm_tile_renders_at_least_one_stamp_op(self) -> None:
-        """Chasm tiles emit a V5StampOp (chasm doesn't have a
-        dedicated v5 decorator bit; the v5_emit's TerrainDetailOp
-        translator ships the same Ripples | LavaCracks mask for
-        every TerrainDetailOp regardless of terrain kind, so the
-        portability invariant ``chasm tile → at least one V5StampOp``
-        holds even though no chasm-specific bit fires)."""
-        # Baseline (no chasm tile): floor grid still emits stamps
-        # for the rest of the floor. Subtract that baseline to
-        # isolate the chasm tile's contribution.
+    def test_chasm_tile_emits_no_extra_stamp_op(self) -> None:
+        """Chasm tiles do NOT emit any decorator-bit StampOp.
+
+        Per ``design/map_ir_v5.md`` §4.7, the Special family handles
+        chasm / pit / abyss / void as substrate fills (PaintOp with
+        Material(Special:Chasm)) — depth / parallax / dark-vignette
+        renders inside the substrate painter without any decorator
+        bit. The Ripples / LavaCracks bits are Liquid-substrate
+        decorations only.
+
+        Pre-fix, ``emit_stamps`` emitted one StampOp with
+        ``Ripples | LavaCracks`` unioned on the dungeon polygon
+        whenever ANY water / lava / chasm tile existed — so a chasm
+        tile would (incorrectly) trigger Ripples + LavaCracks
+        stamps on every dry stone-floor tile. This test now pins
+        the corrected semantics.
+        """
         baseline = _v5_stamp_op_count(_level_with_one_tile(Terrain.FLOOR))
         with_chasm = _v5_stamp_op_count(_level_with_one_tile(Terrain.CHASM))
-        assert with_chasm > baseline, (
-            f"adding a chasm tile must add at least one V5StampOp "
+        assert with_chasm == baseline, (
+            f"chasm tile must NOT add a StampOp "
             f"(baseline {baseline}, with chasm {with_chasm})"
         )
 
