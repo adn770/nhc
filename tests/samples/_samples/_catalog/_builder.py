@@ -107,10 +107,18 @@ class CatalogPageSpec:
         description: One-line summary echoed into the JSON sidecar.
         columns: 1 .. ``MAX_COLS`` ``ColumnSpec``s. Page width
             scales with column count.
-        rows: Row labels — one per shape. Default
-            ``("rect", "octagon", "circle")``.
+        rows: Row labels — one entry per row. Default
+            ``("rect", "octagon", "circle")`` doubles as the
+            cell shape; pages with a non-shape row axis (e.g.
+            corner styles) set ``cell_shape`` to override the
+            per-row shape lookup.
         seed: Page seed — propagated to every op factory's
             ``page_seed`` argument.
+        cell_shape: Optional per-page shape override. ``None``
+            (default) ⇒ the row label IS the shape key
+            (``rect``/``octagon``/``circle``). When set, every
+            cell uses this shape and the row labels become free
+            text annotations.
     """
 
     name: str
@@ -121,6 +129,7 @@ class CatalogPageSpec:
     seed: int = 7
     # Static recipe echoed into the .json sidecar.
     params: dict[str, Any] = field(default_factory=dict)
+    cell_shape: str | None = None
 
 
 # ── Page geometry ────────────────────────────────────────────────
@@ -185,10 +194,14 @@ def build_catalog_buffer(spec: CatalogPageSpec) -> bytes:
     ops: list[OpEntryT] = []
 
     for col_idx, column in enumerate(spec.columns):
-        for row_idx, row_shape in enumerate(spec.rows):
-            shape_builder = SHAPE_BUILDERS.get(row_shape)
+        for row_idx, row_label in enumerate(spec.rows):
+            shape_key = spec.cell_shape if spec.cell_shape else row_label
+            shape_builder = SHAPE_BUILDERS.get(shape_key)
             if shape_builder is None:
-                raise ValueError(f"unknown row shape: {row_shape!r}")
+                raise ValueError(
+                    f"unknown shape {shape_key!r} "
+                    f"(row label {row_label!r}, cell_shape {spec.cell_shape!r})"
+                )
             x0, y0, x1, y1 = cell_bbox(col_idx, row_idx)
             outline = shape_builder(x0, y0, x1, y1)
             region_id = f"cell.{col_idx}.{row_idx}"
@@ -198,7 +211,7 @@ def build_catalog_buffer(spec: CatalogPageSpec) -> bytes:
             region.outline = outline
             region.parentId = ""
             region.cuts = []
-            region.shapeTag = row_shape
+            region.shapeTag = row_label
             regions.append(region)
 
             op_result = column.op_factory(

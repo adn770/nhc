@@ -21,6 +21,7 @@ from __future__ import annotations
 # Importing each page module appends entries to CATALOG. Order is
 # irrelevant; the CLI iterates the catalog and filters via
 # --category / --name.
+from . import enclosures  # noqa: F401
 from . import floors_cave  # noqa: F401
 from . import floors_earth  # noqa: F401
 from . import floors_liquid  # noqa: F401
