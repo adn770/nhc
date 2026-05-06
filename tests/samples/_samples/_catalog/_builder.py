@@ -18,8 +18,14 @@ from typing import Any, Callable
 import flatbuffers
 
 from nhc.rendering._svg_helpers import CELL, PADDING
+from nhc.rendering.emit.materials import (
+    material_cave, material_earth, material_liquid, material_plain,
+    material_special, material_stone, material_wood,
+)
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
+from nhc.rendering.ir._fb.Op import Op
 from nhc.rendering.ir._fb.OpEntry import OpEntryT
+from nhc.rendering.ir._fb.PaintOp import PaintOpT
 from nhc.rendering.ir._fb.Region import RegionT
 from nhc.rendering.ir_emitter import (
     _FILE_IDENTIFIER, _SCHEMA_MAJOR, _SCHEMA_MINOR,
@@ -205,6 +211,154 @@ def build_catalog_buffer(spec: CatalogPageSpec) -> bytes:
     return bytes(fbb.Output())
 
 
+# ── Paint-op factory helpers ─────────────────────────────────────
+
+
+_SEED_MIX_COL = 0x9E37_79B9
+_SEED_MIX_ROW = 0xBF58_476D
+_SEED_MIX_AXIS = (0x94D0_49BB, 0x4F1B_BCDC, 0x2545_F491, 0x1B87_3593)
+
+
+def derive_cell_seed(
+    page_seed: int, col_idx: int, row_idx: int,
+    *axis_keys: int,
+) -> int:
+    """Mix the page seed with the cell coords + arbitrary axis keys.
+
+    Used by paint-op factories to give each cell its own RNG stream
+    while keeping the page output deterministic for the page seed.
+    Axis keys (style / sub_pattern / tone / etc.) make sub-patterns
+    that share (col, row) but differ in axis diverge in the output.
+    """
+    seed = page_seed
+    seed ^= (col_idx * _SEED_MIX_COL) & 0xFFFF_FFFF_FFFF_FFFF
+    seed ^= (row_idx * _SEED_MIX_ROW) & 0xFFFF_FFFF_FFFF_FFFF
+    for i, key in enumerate(axis_keys):
+        mix = _SEED_MIX_AXIS[i % len(_SEED_MIX_AXIS)]
+        seed ^= (key * mix) & 0xFFFF_FFFF_FFFF_FFFF
+    return seed & 0xFFFF_FFFF_FFFF_FFFF
+
+
+def _wrap_paint(paint_op: PaintOpT) -> OpEntryT:
+    entry = OpEntryT()
+    entry.opType = Op.PaintOp
+    entry.op = paint_op
+    return entry
+
+
+def _make_paint_op(region_id: str, material) -> OpEntryT:
+    op = PaintOpT()
+    op.regionRef = region_id
+    op.subtractRegionRefs = []
+    op.material = material
+    return _wrap_paint(op)
+
+
+def stone_factory(*, style: int, sub_pattern: int = 0, tone: int = 0):
+    """Column op_factory emitting Stone PaintOps with the given axes."""
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(
+            page_seed, col_idx, row_idx, style, sub_pattern, tone,
+        )
+        return _make_paint_op(
+            region_id,
+            material_stone(
+                style=style, sub_pattern=sub_pattern, tone=tone, seed=seed,
+            ),
+        )
+    return factory
+
+
+def wood_factory(*, species: int, layout: int = 0, tone: int = 1):
+    """Column op_factory emitting Wood PaintOps. Default tone = Medium."""
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(
+            page_seed, col_idx, row_idx, species, layout, tone,
+        )
+        return _make_paint_op(
+            region_id,
+            material_wood(
+                species=species, layout=layout, tone=tone, seed=seed,
+            ),
+        )
+    return factory
+
+
+def earth_factory(*, style: int):
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(page_seed, col_idx, row_idx, style)
+        return _make_paint_op(
+            region_id, material_earth(style=style, seed=seed),
+        )
+    return factory
+
+
+def liquid_factory(*, style: int):
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(page_seed, col_idx, row_idx, style)
+        return _make_paint_op(
+            region_id, material_liquid(style=style, seed=seed),
+        )
+    return factory
+
+
+def special_factory(*, style: int):
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(page_seed, col_idx, row_idx, style)
+        return _make_paint_op(
+            region_id, material_special(style=style, seed=seed),
+        )
+    return factory
+
+
+def cave_factory(*, style: int):
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(page_seed, col_idx, row_idx, style)
+        return _make_paint_op(
+            region_id, material_cave(style=style, seed=seed),
+        )
+    return factory
+
+
+def plain_factory():
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(page_seed, col_idx, row_idx)
+        return _make_paint_op(region_id, material_plain(seed=seed))
+    return factory
+
+
+# ── Sample-spec registration helper ──────────────────────────────
+
+
+def register_catalog_page(spec: "CatalogPageSpec") -> None:
+    """Wrap a CatalogPageSpec in a SampleSpec and append to CATALOG.
+
+    The build callable returns a ``BuildResult`` carrying the IR
+    bytes plus an ``svg_post_process`` hook that injects the page's
+    row / column labels into the SVG. Catalog pages own their seed
+    via ``spec.seed`` (the CLI's global seed list is ignored).
+    """
+    # Local imports to break circulars: _core ↔ _catalog.
+    from .._core import BuildResult, CATALOG, SampleSpec
+    from ._labels import inject_catalog_labels
+
+    def build(_seed: int) -> BuildResult:
+        buf = build_catalog_buffer(spec)
+        return BuildResult(
+            buf=buf,
+            svg_post_process=lambda svg: inject_catalog_labels(svg, spec),
+        )
+
+    CATALOG.append(SampleSpec(
+        name=spec.name,
+        category=spec.category,
+        description=spec.description,
+        params={**spec.params, "page": spec.name, "seed": spec.seed},
+        build=build,
+        seeds=(spec.seed,),
+    ))
+
+
 __all__ = [
     "CELL_PX", "CELL_TILES", "GUTTER_PX",
     "LEFT_MARGIN_PX", "TOP_MARGIN_PX",
@@ -213,4 +367,9 @@ __all__ = [
     "ColumnSpec", "CatalogPageSpec", "DEFAULT_ROWS",
     "build_catalog_buffer",
     "cell_bbox", "page_pixel_dimensions",
+    "derive_cell_seed",
+    "stone_factory", "wood_factory",
+    "earth_factory", "liquid_factory", "special_factory",
+    "cave_factory", "plain_factory",
+    "register_catalog_page",
 ]

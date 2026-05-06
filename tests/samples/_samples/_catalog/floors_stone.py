@@ -1,106 +1,52 @@
 """Stone floor catalog pages.
 
-One catalog page per Stone style group. Cobblestone (4 sub-patterns),
-Brick (3 bonds), Ashlar (2 sub-patterns) get one page each that
-sweeps every sub-pattern across rect / octagon / circle shape rows.
-The remaining six single-layout styles (Flagstone, OpusRomano,
-FieldStone, Pinwheel, Hopscotch, CrazyPaving) are split across one
-or two "singles" pages.
+One catalog page per Stone style group:
+
+- ``cobblestone`` — 4 sub-patterns (Herringbone, Stack, Rubble,
+  Mosaic) × 3 shapes.
+- ``brick`` — 3 bonds (RunningBond, EnglishBond, FlemishBond) × 3
+  shapes.
+- ``ashlar-and-singles-1`` — Ashlar (×2 sub-patterns) + Flagstone +
+  OpusRomano = 4 cols × 3 shapes.
+- ``singles-2`` — FieldStone, Pinwheel, Hopscotch, CrazyPaving = 4
+  cols × 3 shapes.
+
+Surfaces per-shape bleed at room corners + curves alongside the
+sub-pattern divergence pinned by ``crates/nhc-render/src/painter/
+families/stone.rs``'s test suite.
 """
 
 from __future__ import annotations
 
 from nhc.rendering.emit.materials import (
-    STONE_COBBLESTONE,
+    STONE_ASHLAR,
+    STONE_BRICK,
+    STONE_BRICK_ENGLISH_BOND,
+    STONE_BRICK_FLEMISH_BOND,
+    STONE_BRICK_RUNNING_BOND,
     STONE_COBBLE_HERRINGBONE,
-    STONE_COBBLE_STACK,
-    STONE_COBBLE_RUBBLE,
     STONE_COBBLE_MOSAIC,
-    material_stone,
+    STONE_COBBLE_RUBBLE,
+    STONE_COBBLE_STACK,
+    STONE_COBBLESTONE,
+    STONE_CRAZY_PAVING,
+    STONE_FIELDSTONE,
+    STONE_FLAGSTONE,
+    STONE_HOPSCOTCH,
+    STONE_OPUS_ROMANO,
+    STONE_PINWHEEL,
 )
-from nhc.rendering.ir._fb.Op import Op
-from nhc.rendering.ir._fb.OpEntry import OpEntryT
-from nhc.rendering.ir._fb.PaintOp import PaintOpT
 
-from .._core import BuildResult, CATALOG, SampleSpec
 from ._builder import (
-    CatalogPageSpec, ColumnSpec, build_catalog_buffer,
+    CatalogPageSpec, ColumnSpec,
+    register_catalog_page, stone_factory,
 )
-from ._labels import inject_catalog_labels
 
 
-# ── PaintOp factory helpers ─────────────────────────────────────
+# ── Cobblestone (4 sub-patterns × 3 shapes) ──────────────────────
 
 
-def _wrap_paint(paint_op: PaintOpT) -> OpEntryT:
-    entry = OpEntryT()
-    entry.opType = Op.PaintOp
-    entry.op = paint_op
-    return entry
-
-
-def _stone_paint_op_factory(*, style: int, sub_pattern: int):
-    """Return a column op_factory that emits a Stone paint op
-    anchored to the cell's region.
-
-    The page seed is XOR'd with ``(col, row, style, sub_pattern)``
-    so seed-aware sub-patterns (Cobblestone Rubble / Mosaic, etc.)
-    diverge across cells visibly without sharing identical RNG
-    streams. Deterministic for a given (page_seed, col, row).
-    """
-    def factory(region_id: str, page_seed: int, col_idx: int, row_idx: int) -> OpEntryT:
-        cell_seed = (
-            page_seed
-            ^ (col_idx * 0x9E37_79B9)
-            ^ (row_idx * 0xBF58_476D)
-            ^ (style * 0x94D0_49BB)
-            ^ (sub_pattern * 0x4F1B_BCDC)
-        ) & 0xFFFF_FFFF_FFFF_FFFF
-        material = material_stone(
-            style=style, sub_pattern=sub_pattern, seed=cell_seed,
-        )
-        op = PaintOpT()
-        op.regionRef = region_id
-        op.subtractRegionRefs = []
-        op.material = material
-        return _wrap_paint(op)
-    return factory
-
-
-# ── Sample-spec factory ─────────────────────────────────────────
-
-
-def _register_catalog_page(spec: CatalogPageSpec) -> None:
-    """Wrap a CatalogPageSpec in a SampleSpec and append to CATALOG.
-
-    The build callable returns a ``BuildResult`` carrying the IR
-    bytes plus an ``svg_post_process`` hook that injects the page's
-    row / column labels into the SVG (PNG stays clean).
-    """
-    def build(_seed: int) -> BuildResult:
-        # Catalog pages own their seed via ``spec.seed`` — the CLI's
-        # global seed list is ignored (per-spec ``seeds=(spec.seed,)``
-        # below pins it to one render).
-        buf = build_catalog_buffer(spec)
-        return BuildResult(
-            buf=buf,
-            svg_post_process=lambda svg: inject_catalog_labels(svg, spec),
-        )
-
-    CATALOG.append(SampleSpec(
-        name=spec.name,
-        category=spec.category,
-        description=spec.description,
-        params={**spec.params, "page": spec.name, "seed": spec.seed},
-        build=build,
-        seeds=(spec.seed,),
-    ))
-
-
-# ── Cobblestone page (4 sub-patterns × 3 shapes) ────────────────
-
-
-_register_catalog_page(CatalogPageSpec(
+register_catalog_page(CatalogPageSpec(
     name="cobblestone",
     category="synthetic/floors/stone",
     description=(
@@ -109,37 +55,95 @@ _register_catalog_page(CatalogPageSpec(
         "shape rows. Surfaces per-shape bleed at corners + curves."
     ),
     columns=[
-        ColumnSpec(
-            label="Herringbone",
-            op_factory=_stone_paint_op_factory(
-                style=STONE_COBBLESTONE,
-                sub_pattern=STONE_COBBLE_HERRINGBONE,
-            ),
-        ),
-        ColumnSpec(
-            label="Stack",
-            op_factory=_stone_paint_op_factory(
-                style=STONE_COBBLESTONE,
-                sub_pattern=STONE_COBBLE_STACK,
-            ),
-        ),
-        ColumnSpec(
-            label="Rubble",
-            op_factory=_stone_paint_op_factory(
-                style=STONE_COBBLESTONE,
-                sub_pattern=STONE_COBBLE_RUBBLE,
-            ),
-        ),
-        ColumnSpec(
-            label="Mosaic",
-            op_factory=_stone_paint_op_factory(
-                style=STONE_COBBLESTONE,
-                sub_pattern=STONE_COBBLE_MOSAIC,
-            ),
-        ),
+        ColumnSpec("Herringbone", stone_factory(
+            style=STONE_COBBLESTONE, sub_pattern=STONE_COBBLE_HERRINGBONE,
+        )),
+        ColumnSpec("Stack", stone_factory(
+            style=STONE_COBBLESTONE, sub_pattern=STONE_COBBLE_STACK,
+        )),
+        ColumnSpec("Rubble", stone_factory(
+            style=STONE_COBBLESTONE, sub_pattern=STONE_COBBLE_RUBBLE,
+        )),
+        ColumnSpec("Mosaic", stone_factory(
+            style=STONE_COBBLESTONE, sub_pattern=STONE_COBBLE_MOSAIC,
+        )),
     ],
     seed=7,
     params={"family": "Stone", "style": "Cobblestone"},
+))
+
+
+# ── Brick (3 bonds × 3 shapes) ───────────────────────────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="brick",
+    category="synthetic/floors/stone",
+    description=(
+        "Stone Brick — three bond patterns (RunningBond, EnglishBond, "
+        "FlemishBond) swept across rect / octagon / circle shape rows."
+    ),
+    columns=[
+        ColumnSpec("RunningBond", stone_factory(
+            style=STONE_BRICK, sub_pattern=STONE_BRICK_RUNNING_BOND,
+        )),
+        ColumnSpec("EnglishBond", stone_factory(
+            style=STONE_BRICK, sub_pattern=STONE_BRICK_ENGLISH_BOND,
+        )),
+        ColumnSpec("FlemishBond", stone_factory(
+            style=STONE_BRICK, sub_pattern=STONE_BRICK_FLEMISH_BOND,
+        )),
+    ],
+    seed=7,
+    params={"family": "Stone", "style": "Brick"},
+))
+
+
+# ── Ashlar (× 2 sub-patterns) + Flagstone + OpusRomano ──────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="ashlar-and-singles-1",
+    category="synthetic/floors/stone",
+    description=(
+        "Stone Ashlar (EvenJoint, StaggeredJoint) + Flagstone + "
+        "OpusRomano. Mixed sub-pattern + single-layout styles "
+        "across rect / octagon / circle shape rows."
+    ),
+    columns=[
+        ColumnSpec("Ashlar Even", stone_factory(
+            style=STONE_ASHLAR, sub_pattern=0,
+        )),
+        ColumnSpec("Ashlar Staggered", stone_factory(
+            style=STONE_ASHLAR, sub_pattern=1,
+        )),
+        ColumnSpec("Flagstone", stone_factory(style=STONE_FLAGSTONE)),
+        ColumnSpec("OpusRomano", stone_factory(style=STONE_OPUS_ROMANO)),
+    ],
+    seed=7,
+    params={"family": "Stone"},
+))
+
+
+# ── FieldStone, Pinwheel, Hopscotch, CrazyPaving ────────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="singles-2",
+    category="synthetic/floors/stone",
+    description=(
+        "Stone single-layout styles: FieldStone, Pinwheel, Hopscotch, "
+        "CrazyPaving. Four no-sub-pattern styles across rect / "
+        "octagon / circle shape rows."
+    ),
+    columns=[
+        ColumnSpec("FieldStone", stone_factory(style=STONE_FIELDSTONE)),
+        ColumnSpec("Pinwheel", stone_factory(style=STONE_PINWHEEL)),
+        ColumnSpec("Hopscotch", stone_factory(style=STONE_HOPSCOTCH)),
+        ColumnSpec("CrazyPaving", stone_factory(style=STONE_CRAZY_PAVING)),
+    ],
+    seed=7,
+    params={"family": "Stone"},
 ))
 
 
