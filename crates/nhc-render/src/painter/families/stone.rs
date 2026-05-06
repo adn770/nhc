@@ -5,11 +5,12 @@
 //! axes (Cobblestone × 4, Brick × 3, Ashlar × 2; the rest none).
 //! Per-style optional tone axis (typically Light / Medium / Dark).
 //!
-//! Phase 2.4a–b of `plans/nhc_pure_ir_v5_migration_plan.md`. The
+//! Phase 2.4a–i of `plans/nhc_pure_ir_v5_migration_plan.md`. The
 //! per-style palette is already locked (lifted from the v4 stone
 //! primitives); these commits add the (style, sub_pattern)
 //! dispatch surface and ship the per-sub-pattern layout algorithms
-//! for the two styles with sub-pattern axes:
+//! for the three styles with sub-pattern axes (Cobblestone, Brick,
+//! Ashlar) plus the six single-layout styles:
 //!
 //! Cobblestone (style = 0, Phase 2.4a):
 //! - `Herringbone (0)` — thin rotated bricks alternating ±45° in
@@ -63,8 +64,14 @@
 //!   px); each cell becomes one quadrilateral with seed-jittered
 //!   corners.
 //!
-//! The remaining one Stone style (Ashlar with 2 sub-patterns)
-//! keeps its flat-fill behaviour; lifts ride Phase 2.4i follow-on.
+//! Ashlar (style = 8, Phase 2.4i):
+//! - `EvenJoint (0)` — uniform 18×8 dressed blocks in a regular
+//!   aligned grid; vertical joints all line up.
+//! - `StaggeredJoint (1)` — same blocks but with rows alternating
+//!   offset by half a block-width so vertical joints stagger.
+//!
+//! All nine Stone styles now have lifted layouts; Phase 2.4 is
+//! complete.
 
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
@@ -192,9 +199,14 @@ pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, materi
         // CrazyPaving — irregular variable-size slab tessellation,
         // no sub-patterns (Phase 2.4h).
         7 => paint_crazy_paving(painter, region_path, pal, material.seed),
-        // Forward-compat sub-pattern values for unknown styles
-        // and the remaining 1 style (Phase 2.4i Ashlar with 2 sub-
-        // patterns) fall back to flat fill.
+        // Ashlar — dressed cut-stone blocks with two joint patterns
+        // (Phase 2.4i).
+        8 => match material.sub_pattern {
+            0 => paint_ashlar_even(painter, region_path, pal, material.seed),
+            1 => paint_ashlar_staggered(painter, region_path, pal, material.seed),
+            _ => fill_region(painter, region_path, pal.base),
+        },
+        // Forward-compat for unknown styles falls back to flat fill.
         _ => fill_region(painter, region_path, pal.base),
     }
 }
@@ -1143,6 +1155,82 @@ fn paint_crazy_paving<P: Painter + ?Sized>(
     painter.pop_clip();
 }
 
+// ── Ashlar (2 sub-patterns: EvenJoint, StaggeredJoint) ─────────
+
+const ASHLAR_GROUP_OPACITY: f32 = 0.95;
+const ASHLAR_W: f64 = 18.0;
+const ASHLAR_H: f64 = 8.0;
+const ASHLAR_GAP: f64 = 0.3;
+
+/// Ashlar EvenJoint — dressed cut stones in a uniform aligned
+/// grid; vertical joints all line up. Thin mortar joints
+/// (0.3 px) read as the precise hand-cut idiom.
+fn paint_ashlar_even<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    paint_ashlar_inner(painter, region_path, pal, false)
+}
+
+/// Ashlar StaggeredJoint — same dressed blocks but with rows
+/// alternating offset by half a block-width, so vertical joints
+/// stagger row-by-row rather than aligning vertically.
+fn paint_ashlar_staggered<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    paint_ashlar_inner(painter, region_path, pal, true)
+}
+
+fn paint_ashlar_inner<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    stagger: bool,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(ASHLAR_GROUP_OPACITY);
+    let base_paint = Paint::solid(pal.base);
+    let unit_x0 = (f64::from(x0) / ASHLAR_W).floor() * ASHLAR_W;
+    let unit_y0 = (f64::from(y0) / ASHLAR_H).floor() * ASHLAR_H;
+    let mut row = 0_i32;
+    let mut ty = unit_y0;
+    while ty < f64::from(y1) {
+        let row_offset = if stagger && (row & 1) == 1 {
+            -ASHLAR_W * 0.5
+        } else {
+            0.0
+        };
+        let mut tx = unit_x0 + row_offset - ASHLAR_W;
+        while tx < f64::from(x1) {
+            painter.fill_rect(
+                Rect::new(
+                    (tx + ASHLAR_GAP) as f32,
+                    (ty + ASHLAR_GAP) as f32,
+                    (ASHLAR_W - 2.0 * ASHLAR_GAP) as f32,
+                    (ASHLAR_H - 2.0 * ASHLAR_GAP) as f32,
+                ),
+                &base_paint,
+            );
+            tx += ASHLAR_W;
+        }
+        ty += ASHLAR_H;
+        row += 1;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1208,25 +1296,17 @@ mod tests {
         }
     }
 
-    /// The only style without a lifted layout is Ashlar (style=8,
-    /// Phase 2.4i). Styles 0–7 lifted in 2.4a–2.4h are excluded
-    /// from this gate.
+    /// Out-of-range Stone style values fall back to flat fill
+    /// rather than emitting a magenta sentinel block. Every Stone
+    /// style 0–8 has a lifted layout per Phase 2.4a–2.4i.
     #[test]
-    fn non_lifted_styles_keep_flat_fill() {
+    fn out_of_range_style_falls_back_to_flat_fill() {
         let path = one_tile_path();
-        for style in 8..9u8 {
-            let expected = palette(style).base;
-            let mut p = MockPainter::default();
-            let m = Material::new(Family::Stone, style, 0, 0, 0xCAFE);
-            paint(&mut p, &path, &m);
-            assert_eq!(p.calls.len(), 1, "style {style}: expected 1 call");
-            match &p.calls[0] {
-                PainterCall::FillPath(_, paint, _) => {
-                    assert_eq!(paint.color, expected, "style {style}");
-                }
-                other => panic!("expected FillPath, got {other:?}"),
-            }
-        }
+        let mut p = MockPainter::default();
+        let m = Material::new(Family::Stone, 99, 0, 0, 0xCAFE);
+        paint(&mut p, &path, &m);
+        assert_eq!(p.calls.len(), 1);
+        assert!(matches!(p.calls[0], PainterCall::FillPath(_, _, _)));
     }
 
     /// Flagstone (style=2, no sub-patterns) wraps decoration in a
@@ -1490,13 +1570,92 @@ mod tests {
         assert_ne!(a.calls, b.calls, "seeds must diverge");
     }
 
-    /// Forward-compat sub-pattern values for lifted styles
-    /// (Cobblestone, Brick) fall back to flat fill rather than
-    /// emitting a magenta sentinel.
+    /// Both Ashlar sub-patterns (style=8) wrap decoration in a
+    /// push_clip / pop_clip pair plus a balanced begin_group /
+    /// end_group envelope, and emit dressed blocks as fill_rect
+    /// stamps. RNG-free — geometry is purely tile-derived.
     #[test]
-    fn lifted_styles_unknown_sub_pattern_falls_back_to_flat_fill() {
+    fn every_ashlar_sub_pattern_emits_fill_rect_blocks_with_clip_envelope() {
+        let path = four_tile_path();
+        for sub in 0..2u8 {
+            let mut p = MockPainter::default();
+            paint(
+                &mut p, &path,
+                &Material::new(Family::Stone, 8, sub, 0, 0xCAFE),
+            );
+            assert_eq!(
+                count_pushed_clips(&p.calls),
+                1,
+                "ashlar sub_pattern {sub}: expected 1 push_clip",
+            );
+            assert_eq!(
+                count_begin_groups(&p.calls),
+                1,
+                "ashlar sub_pattern {sub}: expected 1 begin_group",
+            );
+            let rects = p
+                .calls
+                .iter()
+                .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+                .count();
+            assert!(
+                rects > 30,
+                "ashlar sub_pattern {sub}: expected many fill_rect blocks, got {rects}",
+            );
+        }
+    }
+
+    /// Ashlar EvenJoint and StaggeredJoint produce different
+    /// painter call sequences — pin that the staggered offset
+    /// branch isn't a no-op duplicating EvenJoint.
+    #[test]
+    fn ashlar_sub_patterns_diverge_between_even_and_staggered() {
+        let path = four_tile_path();
+        let mut even_p = MockPainter::default();
+        let mut stag_p = MockPainter::default();
+        paint(
+            &mut even_p, &path,
+            &Material::new(Family::Stone, 8, 0, 0, 0xCAFE),
+        );
+        paint(
+            &mut stag_p, &path,
+            &Material::new(Family::Stone, 8, 1, 0, 0xCAFE),
+        );
+        assert_ne!(
+            even_p.calls, stag_p.calls,
+            "Ashlar EvenJoint vs StaggeredJoint must differ",
+        );
+    }
+
+    /// Ashlar is RNG-free — block geometry is purely tile-derived.
+    #[test]
+    fn ashlar_is_seed_independent() {
+        let path = four_tile_path();
+        for sub in 0..2u8 {
+            let mut a = MockPainter::default();
+            let mut b = MockPainter::default();
+            paint(
+                &mut a, &path,
+                &Material::new(Family::Stone, 8, sub, 0, 333),
+            );
+            paint(
+                &mut b, &path,
+                &Material::new(Family::Stone, 8, sub, 0, 7),
+            );
+            assert_eq!(
+                a.calls, b.calls,
+                "Ashlar sub_pattern {sub} is RNG-free",
+            );
+        }
+    }
+
+    /// Forward-compat sub-pattern values for sub-pattern-aware
+    /// styles (Cobblestone, Brick, Ashlar) fall back to flat fill
+    /// rather than emitting a magenta sentinel.
+    #[test]
+    fn sub_pattern_aware_styles_unknown_sub_pattern_falls_back_to_flat_fill() {
         let path = one_tile_path();
-        for style in [0u8, 1u8] {
+        for style in [0u8, 1u8, 8u8] {
             let mut p = MockPainter::default();
             let m = Material::new(Family::Stone, style, 99, 0, 0xCAFE);
             paint(&mut p, &path, &m);
