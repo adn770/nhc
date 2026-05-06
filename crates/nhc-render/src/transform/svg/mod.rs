@@ -29,8 +29,7 @@ use crate::ir::{floor_ir_buffer_has_identifier, root_as_floor_ir};
 use crate::painter::SvgPainter;
 
 use super::png::{
-    dispatch_ops, dispatch_v5_ops, resolve_layer_filter, BARE_SKIP_OPS, BG_B,
-    BG_G, BG_R,
+    dispatch_ops, resolve_layer_filter, BARE_SKIP_OPS, BG_B, BG_G, BG_R,
 };
 
 // Cross-rasteriser parity helper — used by the test harness
@@ -87,7 +86,7 @@ pub fn floor_ir_to_svg(
 ) -> Result<String, SvgError> {
     if buf.len() < 8 || !floor_ir_buffer_has_identifier(buf) {
         return Err(SvgError::InvalidBuffer(
-            "buffer does not carry the NIR3 file_identifier".to_string(),
+            "buffer does not carry the NIR5 file_identifier".to_string(),
         ));
     }
     let layer_filter =
@@ -111,52 +110,6 @@ pub fn floor_ir_to_svg(
     Ok(assemble_envelope(pw, ph, padding, scale, &defs, &body))
 }
 
-/// Render a `FloorIR` buffer to an SVG document by walking the v5
-/// op array (`v5_ops` / `v5_regions`) instead of the canonical v4
-/// op array. Phase 4.2a of `plans/nhc_pure_ir_v5_migration_plan.md`
-/// — the dual SVG entry point lets the cross-rasteriser parity gate
-/// in `tests/unit/test_ir_png_parity.py` switch to v5 ahead of the
-/// atomic schema cut at Phase 4.3.
-///
-/// Op coverage matches [`super::png::floor_ir_to_png_v5`]; both
-/// entry points share [`dispatch_v5_ops`] internally and only the
-/// concrete `Painter` differs ([`SvgPainter`] here vs. `SkiaPainter`
-/// there). See the PNG entry's documentation for the per-op-kind
-/// dispatch arms and layer-filter mapping.
-///
-/// `bare` is currently reserved: the v5 op union doesn't carry the
-/// v4 layer split that `BARE_SKIP_OPS` keys off, so the flag is
-/// accepted for API parity with [`floor_ir_to_svg`] but no decoration
-/// elision happens. Bare-mode v5 semantics land as polish post-cut.
-pub fn floor_ir_to_svg_v5(
-    buf: &[u8],
-    scale: f32,
-    layer: Option<&str>,
-) -> Result<String, SvgError> {
-    if buf.len() < 8 || !floor_ir_buffer_has_identifier(buf) {
-        return Err(SvgError::InvalidBuffer(
-            "buffer does not carry the NIR3 file_identifier".to_string(),
-        ));
-    }
-    let layer_filter =
-        resolve_layer_filter(layer).map_err(SvgError::UnknownLayer)?;
-
-    let fir = root_as_floor_ir(buf)
-        .map_err(|e| SvgError::InvalidBuffer(e.to_string()))?;
-
-    let cell = fir.cell() as f32;
-    let padding = fir.padding() as f32;
-    let svg_w = fir.width_tiles() as f32 * cell + 2.0 * padding;
-    let svg_h = fir.height_tiles() as f32 * cell + 2.0 * padding;
-    let pw = (svg_w * scale).max(0.0);
-    let ph = (svg_h * scale).max(0.0);
-
-    let mut painter = SvgPainter::new();
-    dispatch_v5_ops(&fir, layer_filter, &mut painter);
-    let (defs, body) = painter.into_parts();
-
-    Ok(assemble_envelope(pw, ph, padding, scale, &defs, &body))
-}
 
 /// Wrap the painter's accumulated body + defs into the canonical
 /// `<svg>` envelope. Body coordinates are in raw IR pixel space;
@@ -231,17 +184,15 @@ mod tests {
     /// Minimal valid FloorIR buffer for shape-level smoke tests.
     fn build_minimal_buf(width_tiles: u32, height_tiles: u32) -> Vec<u8> {
         let mut fbb = FlatBufferBuilder::new();
-        let theme = fbb.create_string("dungeon");
         let fir = FloorIR::create(
             &mut fbb,
             &FloorIRArgs {
-                major: 2,
+                major: 5,
                 minor: 0,
                 width_tiles,
                 height_tiles,
                 cell: 32,
                 padding: 32,
-                theme: Some(theme),
                 ..Default::default()
             },
         );
@@ -313,16 +264,7 @@ mod tests {
     fn known_layer_names_are_accepted() {
         let buf = build_minimal_buf(2, 2);
         for layer in [
-            "shadows",
-            "hatching",
-            "structural",
-            "terrain_tints",
-            "floor_grid",
-            "floor_detail",
-            "thematic_detail",
-            "terrain_detail",
-            "stairs",
-            "surface_features",
+            "shadows", "hatching", "structural", "decorators", "fixtures",
         ] {
             floor_ir_to_svg(&buf, 1.0, Some(layer), false)
                 .unwrap_or_else(|e| panic!("layer {layer:?}: {e}"));
@@ -438,110 +380,4 @@ mod tests {
         assert!(bare.ends_with("</svg>"));
     }
 
-    // ── v5 SVG entry point (Phase 4.2a) ─────────────────────────
-
-    /// Empty buffer round-trips through `floor_ir_to_svg_v5`,
-    /// emitting the same canonical envelope the v4 path does
-    /// (xml prolog, single `<svg>` root, viewBox, background rect,
-    /// outer `<g>` with translate+scale, body, closing `</svg>`).
-    /// Catches binding regressions independent of any v5 op
-    /// dispatch.
-    #[test]
-    fn v5_empty_buffer_emits_well_formed_envelope() {
-        let buf = build_minimal_buf(2, 2);
-        let svg =
-            floor_ir_to_svg_v5(&buf, 1.0, None).expect("v5 encode succeeds");
-        assert!(svg.starts_with("<?xml version=\"1.0\""));
-        assert!(svg.contains("<svg "));
-        assert!(svg.contains("viewBox=\"0 0 128 128\""));
-        assert!(svg.ends_with("</svg>"));
-    }
-
-    /// `floor_ir_to_svg_v5` rejects a buffer that doesn't carry the
-    /// FloorIR file_identifier — same defensive check `floor_ir_to_svg`
-    /// uses. Catches accidental zero-byte inputs from the FFI layer.
-    #[test]
-    fn v5_rejects_buffer_without_identifier() {
-        let err = floor_ir_to_svg_v5(&[0u8; 16], 1.0, None).unwrap_err();
-        assert!(matches!(err, SvgError::InvalidBuffer(_)));
-    }
-
-    /// Real fixtures round-trip through `floor_ir_to_svg_v5` and
-    /// emit at least one geometry element. Mirrors the v4 smoke
-    /// test above so a v5 dispatcher regression (silently skipped
-    /// op kind, broken Painter wiring) surfaces here rather than
-    /// only in the parity gate.
-    #[test]
-    fn v5_fixture_smoke_emits_expected_element_types() {
-        let fixtures: &[(&str, &[u8])] = &[
-            (
-                "synthetic_roof_octagon",
-                include_bytes!(
-                    "../../../../../tests/fixtures/floor_ir/\
-                     synthetic_roof_octagon/floor.nir"
-                ),
-            ),
-            (
-                "seed7_brick_building_floor0",
-                include_bytes!(
-                    "../../../../../tests/fixtures/floor_ir/\
-                     seed7_brick_building_floor0/floor.nir"
-                ),
-            ),
-            (
-                "seed42_rect_dungeon_dungeon",
-                include_bytes!(
-                    "../../../../../tests/fixtures/floor_ir/\
-                     seed42_rect_dungeon_dungeon/floor.nir"
-                ),
-            ),
-        ];
-
-        for (name, buf) in fixtures {
-            let svg = floor_ir_to_svg_v5(buf, 1.0, None)
-                .unwrap_or_else(|e| panic!("fixture {name}: {e}"));
-            assert!(
-                svg.starts_with("<?xml"),
-                "fixture {name}: missing xml prolog"
-            );
-            assert!(
-                svg.ends_with("</svg>"),
-                "fixture {name}: missing svg close"
-            );
-            let has_geometry = svg.contains("<rect")
-                || svg.contains("<path")
-                || svg.contains("<polygon")
-                || svg.contains("<polyline")
-                || svg.contains("<circle")
-                || svg.contains("<ellipse");
-            assert!(
-                has_geometry,
-                "fixture {name}: no geometry elements emitted"
-            );
-        }
-    }
-
-    /// Layer-filter gating mirrors the v5 PNG entry point: a
-    /// `Some("structural")` filter still produces a well-formed SVG
-    /// (envelope + outer `<g>`) even though it narrows the dispatch
-    /// to V5PaintOp/V5StrokeOp/V5RoofOp.
-    #[test]
-    fn v5_known_layer_names_are_accepted() {
-        let buf = build_minimal_buf(2, 2);
-        for layer in [
-            "shadows", "hatching", "structural", "floor_detail",
-            "thematic_detail", "terrain_detail", "surface_features",
-        ] {
-            floor_ir_to_svg_v5(&buf, 1.0, Some(layer))
-                .unwrap_or_else(|e| panic!("layer {layer:?}: {e}"));
-        }
-    }
-
-    #[test]
-    fn v5_unknown_layer_is_rejected() {
-        let buf = build_minimal_buf(2, 2);
-        let err = floor_ir_to_svg_v5(&buf, 1.0, Some("not-a-layer"))
-            .unwrap_err();
-        assert!(matches!(err, SvgError::UnknownLayer(_)));
-    }
 }

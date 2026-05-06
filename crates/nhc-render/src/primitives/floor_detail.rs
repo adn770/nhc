@@ -202,7 +202,7 @@ pub fn floor_detail_shapes(
 }
 /// Run the v4 floor-detail probability gate and return the tile
 /// coordinates where the stones bucket would have placed shapes.
-/// Used by the v5 emit path to land explicit V5FixtureOp(LooseStone)
+/// Used by the v5 emit path to land explicit FixtureOp(LooseStone)
 /// anchors at the same tiles where the v4 painter would render the
 /// stone-cluster shapes.
 ///

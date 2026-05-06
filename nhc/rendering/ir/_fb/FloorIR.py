@@ -22,7 +22,7 @@ class FloorIR(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def FloorIRBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x35", size_prefixed=size_prefixed)
 
     # FloorIR
     def Init(self, buf, pos):
@@ -71,40 +71,15 @@ class FloorIR(object):
         return 32
 
     # FloorIR
-    def FloorKind(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
-        return 0
-
-    # FloorIR
-    def Theme(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
-        if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
-
-    # FloorIR
     def BaseSeed(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return 0
 
     # FloorIR
-    def Flags(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
-        if o != 0:
-            x = self._tab.Indirect(o + self._tab.Pos)
-            from nhc.rendering.ir._fb.FeatureFlags import FeatureFlags
-            obj = FeatureFlags()
-            obj.Init(self._tab.Bytes, x)
-            return obj
-        return None
-
-    # FloorIR
     def Regions(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         if o != 0:
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
@@ -117,19 +92,19 @@ class FloorIR(object):
 
     # FloorIR
     def RegionsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # FloorIR
     def RegionsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         return o == 0
 
     # FloorIR
     def Ops(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(26))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
         if o != 0:
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
@@ -142,68 +117,18 @@ class FloorIR(object):
 
     # FloorIR
     def OpsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(26))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # FloorIR
     def OpsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(26))
-        return o == 0
-
-    # FloorIR
-    def V5Regions(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(28))
-        if o != 0:
-            x = self._tab.Vector(o)
-            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
-            x = self._tab.Indirect(x)
-            from nhc.rendering.ir._fb.V5Region import V5Region
-            obj = V5Region()
-            obj.Init(self._tab.Bytes, x)
-            return obj
-        return None
-
-    # FloorIR
-    def V5RegionsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(28))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
-
-    # FloorIR
-    def V5RegionsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(28))
-        return o == 0
-
-    # FloorIR
-    def V5Ops(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(30))
-        if o != 0:
-            x = self._tab.Vector(o)
-            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
-            x = self._tab.Indirect(x)
-            from nhc.rendering.ir._fb.V5OpEntry import V5OpEntry
-            obj = V5OpEntry()
-            obj.Init(self._tab.Bytes, x)
-            return obj
-        return None
-
-    # FloorIR
-    def V5OpsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(30))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
-
-    # FloorIR
-    def V5OpsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(30))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
         return o == 0
 
 def FloorIRStart(builder):
-    builder.StartObject(14)
+    builder.StartObject(9)
 
 def Start(builder):
     FloorIRStart(builder)
@@ -244,32 +169,14 @@ def FloorIRAddPadding(builder, padding):
 def AddPadding(builder, padding):
     FloorIRAddPadding(builder, padding)
 
-def FloorIRAddFloorKind(builder, floorKind):
-    builder.PrependInt8Slot(6, floorKind, 0)
-
-def AddFloorKind(builder, floorKind):
-    FloorIRAddFloorKind(builder, floorKind)
-
-def FloorIRAddTheme(builder, theme):
-    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(theme), 0)
-
-def AddTheme(builder, theme):
-    FloorIRAddTheme(builder, theme)
-
 def FloorIRAddBaseSeed(builder, baseSeed):
-    builder.PrependUint64Slot(8, baseSeed, 0)
+    builder.PrependUint64Slot(6, baseSeed, 0)
 
 def AddBaseSeed(builder, baseSeed):
     FloorIRAddBaseSeed(builder, baseSeed)
 
-def FloorIRAddFlags(builder, flags):
-    builder.PrependUOffsetTRelativeSlot(9, flatbuffers.number_types.UOffsetTFlags.py_type(flags), 0)
-
-def AddFlags(builder, flags):
-    FloorIRAddFlags(builder, flags)
-
 def FloorIRAddRegions(builder, regions):
-    builder.PrependUOffsetTRelativeSlot(10, flatbuffers.number_types.UOffsetTFlags.py_type(regions), 0)
+    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(regions), 0)
 
 def AddRegions(builder, regions):
     FloorIRAddRegions(builder, regions)
@@ -281,7 +188,7 @@ def StartRegionsVector(builder, numElems):
     return FloorIRStartRegionsVector(builder, numElems)
 
 def FloorIRAddOps(builder, ops):
-    builder.PrependUOffsetTRelativeSlot(11, flatbuffers.number_types.UOffsetTFlags.py_type(ops), 0)
+    builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(ops), 0)
 
 def AddOps(builder, ops):
     FloorIRAddOps(builder, ops)
@@ -292,43 +199,16 @@ def FloorIRStartOpsVector(builder, numElems):
 def StartOpsVector(builder, numElems):
     return FloorIRStartOpsVector(builder, numElems)
 
-def FloorIRAddV5Regions(builder, v5Regions):
-    builder.PrependUOffsetTRelativeSlot(12, flatbuffers.number_types.UOffsetTFlags.py_type(v5Regions), 0)
-
-def AddV5Regions(builder, v5Regions):
-    FloorIRAddV5Regions(builder, v5Regions)
-
-def FloorIRStartV5RegionsVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
-def StartV5RegionsVector(builder, numElems):
-    return FloorIRStartV5RegionsVector(builder, numElems)
-
-def FloorIRAddV5Ops(builder, v5Ops):
-    builder.PrependUOffsetTRelativeSlot(13, flatbuffers.number_types.UOffsetTFlags.py_type(v5Ops), 0)
-
-def AddV5Ops(builder, v5Ops):
-    FloorIRAddV5Ops(builder, v5Ops)
-
-def FloorIRStartV5OpsVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
-def StartV5OpsVector(builder, numElems):
-    return FloorIRStartV5OpsVector(builder, numElems)
-
 def FloorIREnd(builder):
     return builder.EndObject()
 
 def End(builder):
     return FloorIREnd(builder)
 
-import nhc.rendering.ir._fb.FeatureFlags
 import nhc.rendering.ir._fb.OpEntry
 import nhc.rendering.ir._fb.Region
-import nhc.rendering.ir._fb.V5OpEntry
-import nhc.rendering.ir._fb.V5Region
 try:
-    from typing import List, Optional
+    from typing import List
 except:
     pass
 
@@ -343,14 +223,9 @@ class FloorIRT(object):
         heightTiles = 0,
         cell = 32,
         padding = 32,
-        floorKind = 0,
-        theme = None,
         baseSeed = 0,
-        flags = None,
         regions = None,
         ops = None,
-        v5Regions = None,
-        v5Ops = None,
     ):
         self.major = major  # type: int
         self.minor = minor  # type: int
@@ -358,14 +233,9 @@ class FloorIRT(object):
         self.heightTiles = heightTiles  # type: int
         self.cell = cell  # type: int
         self.padding = padding  # type: int
-        self.floorKind = floorKind  # type: int
-        self.theme = theme  # type: Optional[str]
         self.baseSeed = baseSeed  # type: int
-        self.flags = flags  # type: Optional[nhc.rendering.ir._fb.FeatureFlags.FeatureFlagsT]
         self.regions = regions  # type: Optional[List[nhc.rendering.ir._fb.Region.RegionT]]
         self.ops = ops  # type: Optional[List[nhc.rendering.ir._fb.OpEntry.OpEntryT]]
-        self.v5Regions = v5Regions  # type: Optional[List[nhc.rendering.ir._fb.V5Region.V5RegionT]]
-        self.v5Ops = v5Ops  # type: Optional[List[nhc.rendering.ir._fb.V5OpEntry.V5OpEntryT]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -394,11 +264,7 @@ class FloorIRT(object):
         self.heightTiles = floorIr.HeightTiles()
         self.cell = floorIr.Cell()
         self.padding = floorIr.Padding()
-        self.floorKind = floorIr.FloorKind()
-        self.theme = floorIr.Theme()
         self.baseSeed = floorIr.BaseSeed()
-        if floorIr.Flags() is not None:
-            self.flags = nhc.rendering.ir._fb.FeatureFlags.FeatureFlagsT.InitFromObj(floorIr.Flags())
         if not floorIr.RegionsIsNone():
             self.regions = []
             for i in range(floorIr.RegionsLength()):
@@ -415,29 +281,9 @@ class FloorIRT(object):
                 else:
                     opEntry_ = nhc.rendering.ir._fb.OpEntry.OpEntryT.InitFromObj(floorIr.Ops(i))
                     self.ops.append(opEntry_)
-        if not floorIr.V5RegionsIsNone():
-            self.v5Regions = []
-            for i in range(floorIr.V5RegionsLength()):
-                if floorIr.V5Regions(i) is None:
-                    self.v5Regions.append(None)
-                else:
-                    v5Region_ = nhc.rendering.ir._fb.V5Region.V5RegionT.InitFromObj(floorIr.V5Regions(i))
-                    self.v5Regions.append(v5Region_)
-        if not floorIr.V5OpsIsNone():
-            self.v5Ops = []
-            for i in range(floorIr.V5OpsLength()):
-                if floorIr.V5Ops(i) is None:
-                    self.v5Ops.append(None)
-                else:
-                    v5OpEntry_ = nhc.rendering.ir._fb.V5OpEntry.V5OpEntryT.InitFromObj(floorIr.V5Ops(i))
-                    self.v5Ops.append(v5OpEntry_)
 
     # FloorIRT
     def Pack(self, builder):
-        if self.theme is not None:
-            theme = builder.CreateString(self.theme)
-        if self.flags is not None:
-            flags = self.flags.Pack(builder)
         if self.regions is not None:
             regionslist = []
             for i in range(len(self.regions)):
@@ -454,22 +300,6 @@ class FloorIRT(object):
             for i in reversed(range(len(self.ops))):
                 builder.PrependUOffsetTRelative(opslist[i])
             ops = builder.EndVector()
-        if self.v5Regions is not None:
-            v5Regionslist = []
-            for i in range(len(self.v5Regions)):
-                v5Regionslist.append(self.v5Regions[i].Pack(builder))
-            FloorIRStartV5RegionsVector(builder, len(self.v5Regions))
-            for i in reversed(range(len(self.v5Regions))):
-                builder.PrependUOffsetTRelative(v5Regionslist[i])
-            v5Regions = builder.EndVector()
-        if self.v5Ops is not None:
-            v5Opslist = []
-            for i in range(len(self.v5Ops)):
-                v5Opslist.append(self.v5Ops[i].Pack(builder))
-            FloorIRStartV5OpsVector(builder, len(self.v5Ops))
-            for i in reversed(range(len(self.v5Ops))):
-                builder.PrependUOffsetTRelative(v5Opslist[i])
-            v5Ops = builder.EndVector()
         FloorIRStart(builder)
         FloorIRAddMajor(builder, self.major)
         FloorIRAddMinor(builder, self.minor)
@@ -477,19 +307,10 @@ class FloorIRT(object):
         FloorIRAddHeightTiles(builder, self.heightTiles)
         FloorIRAddCell(builder, self.cell)
         FloorIRAddPadding(builder, self.padding)
-        FloorIRAddFloorKind(builder, self.floorKind)
-        if self.theme is not None:
-            FloorIRAddTheme(builder, theme)
         FloorIRAddBaseSeed(builder, self.baseSeed)
-        if self.flags is not None:
-            FloorIRAddFlags(builder, flags)
         if self.regions is not None:
             FloorIRAddRegions(builder, regions)
         if self.ops is not None:
             FloorIRAddOps(builder, ops)
-        if self.v5Regions is not None:
-            FloorIRAddV5Regions(builder, v5Regions)
-        if self.v5Ops is not None:
-            FloorIRAddV5Ops(builder, v5Ops)
         floorIr = FloorIREnd(builder)
         return floorIr

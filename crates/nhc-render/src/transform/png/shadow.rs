@@ -31,7 +31,7 @@ pub(super) fn draw(
 }
 
 /// ShadowOp-direct dispatch — usable from both the v4 OpEntry path
-/// (above) and the v5 V5OpEntry path (`super::dispatch_v5_ops`).
+/// (above) and the v5 OpEntry path (`super::dispatch_v5_ops`).
 /// ShadowOp shape is identical between v4 and v5; both unions reach
 /// the same FlatBuffer struct.
 pub(super) fn draw_shadow_op(

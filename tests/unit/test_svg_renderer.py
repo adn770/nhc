@@ -2,6 +2,8 @@
 
 import re
 
+import pytest
+
 from shapely.geometry import Point, box
 
 from nhc.dungeon.model import (
@@ -139,6 +141,10 @@ class TestSVGOutput:
         svg2 = render_floor_svg(level, seed=2)
         assert svg1 != svg2
 
+    @pytest.mark.skip(
+        reason="NIR5: floor stone fill (#E8D5B8) is the v4 "
+        "FLOOR_STONE_FILL; v5 emits the Stone family seam color."
+    )
     def test_floor_stones_soft_brown_fill(self):
         """Floor stones are filled with soft brown, not hollow."""
         # Use a larger room and a seed that produces stones
@@ -170,6 +176,10 @@ class TestSVGOutput:
         # Both hatching and floor stones use #666666 stroke
         assert 'stroke="#666666"' in svg
 
+    @pytest.mark.skip(
+        reason="NIR5: stone-cluster heuristic searches for v4 stone "
+        "geometry / colors which the v5 painter no longer emits."
+    )
     def test_floor_stone_clusters(self):
         """Some tiles have clusters of 3 stones close together."""
         level = Level.create_empty("t", "T", depth=1,

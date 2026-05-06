@@ -10,7 +10,7 @@
 //! palettes land family-by-family in Phase 2.
 //!
 //! `Material` and `Family` here are backend-agnostic Rust mirrors
-//! of the `V5Material` / `V5MaterialFamily` FlatBuffers types.
+//! of the `V5Material` / `MaterialFamily` FlatBuffers types.
 //! Op handlers (Phase 1.3) bridge from the FB reader types into
 //! these PODs before calling `paint_material`. Keeping the painter
 //! input as POD lets per-backend tests construct fixtures without
@@ -19,7 +19,7 @@
 use crate::painter::{Color, FillRule, Paint, Painter, PathOps};
 
 /// Per-family stable identifier. Mirrors
-/// `nhc.rendering.ir._fb.V5MaterialFamily` value-for-value
+/// `nhc.rendering.ir._fb.MaterialFamily` value-for-value
 /// (Plain=0, Cave=1, Wood=2, Stone=3, Earth=4, Liquid=5,
 /// Special=6). The atomic cut at Phase 1.8 renames the FB enum
 /// to `MaterialFamily`; this Rust mirror's name stays as `Family`

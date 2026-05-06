@@ -1,6 +1,6 @@
 {
   "op_counts": {
-    "V5StrokeOp": 3
+    "StrokeOp": 3
   },
   "region_count": 1,
   "region_polygon_rings": 0,

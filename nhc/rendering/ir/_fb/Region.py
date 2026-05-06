@@ -22,7 +22,7 @@ class Region(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def RegionBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x35", size_prefixed=size_prefixed)
 
     # Region
     def Init(self, buf, pos):
@@ -36,22 +36,8 @@ class Region(object):
         return None
 
     # Region
-    def Kind(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
-        return 0
-
-    # Region
-    def ShapeTag(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
-        if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
-
-    # Region
     def Outline(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
             from nhc.rendering.ir._fb.Outline import Outline
@@ -60,8 +46,47 @@ class Region(object):
             return obj
         return None
 
+    # Region
+    def ParentId(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # Region
+    def Cuts(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            x = self._tab.Vector(o)
+            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
+            x = self._tab.Indirect(x)
+            from nhc.rendering.ir._fb.Cut import Cut
+            obj = Cut()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # Region
+    def CutsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # Region
+    def CutsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        return o == 0
+
+    # Region
+    def ShapeTag(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
 def RegionStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(5)
 
 def Start(builder):
     RegionStart(builder)
@@ -72,23 +97,35 @@ def RegionAddId(builder, id):
 def AddId(builder, id):
     RegionAddId(builder, id)
 
-def RegionAddKind(builder, kind):
-    builder.PrependInt8Slot(1, kind, 0)
-
-def AddKind(builder, kind):
-    RegionAddKind(builder, kind)
-
-def RegionAddShapeTag(builder, shapeTag):
-    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(shapeTag), 0)
-
-def AddShapeTag(builder, shapeTag):
-    RegionAddShapeTag(builder, shapeTag)
-
 def RegionAddOutline(builder, outline):
-    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(outline), 0)
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(outline), 0)
 
 def AddOutline(builder, outline):
     RegionAddOutline(builder, outline)
+
+def RegionAddParentId(builder, parentId):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(parentId), 0)
+
+def AddParentId(builder, parentId):
+    RegionAddParentId(builder, parentId)
+
+def RegionAddCuts(builder, cuts):
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(cuts), 0)
+
+def AddCuts(builder, cuts):
+    RegionAddCuts(builder, cuts)
+
+def RegionStartCutsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartCutsVector(builder, numElems):
+    return RegionStartCutsVector(builder, numElems)
+
+def RegionAddShapeTag(builder, shapeTag):
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(shapeTag), 0)
+
+def AddShapeTag(builder, shapeTag):
+    RegionAddShapeTag(builder, shapeTag)
 
 def RegionEnd(builder):
     return builder.EndObject()
@@ -96,9 +133,10 @@ def RegionEnd(builder):
 def End(builder):
     return RegionEnd(builder)
 
+import nhc.rendering.ir._fb.Cut
 import nhc.rendering.ir._fb.Outline
 try:
-    from typing import Optional
+    from typing import List, Optional
 except:
     pass
 
@@ -108,14 +146,16 @@ class RegionT(object):
     def __init__(
         self,
         id = None,
-        kind = 0,
-        shapeTag = None,
         outline = None,
+        parentId = None,
+        cuts = None,
+        shapeTag = None,
     ):
         self.id = id  # type: Optional[str]
-        self.kind = kind  # type: int
-        self.shapeTag = shapeTag  # type: Optional[str]
         self.outline = outline  # type: Optional[nhc.rendering.ir._fb.Outline.OutlineT]
+        self.parentId = parentId  # type: Optional[str]
+        self.cuts = cuts  # type: Optional[List[nhc.rendering.ir._fb.Cut.CutT]]
+        self.shapeTag = shapeTag  # type: Optional[str]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -139,26 +179,47 @@ class RegionT(object):
         if region is None:
             return
         self.id = region.Id()
-        self.kind = region.Kind()
-        self.shapeTag = region.ShapeTag()
         if region.Outline() is not None:
             self.outline = nhc.rendering.ir._fb.Outline.OutlineT.InitFromObj(region.Outline())
+        self.parentId = region.ParentId()
+        if not region.CutsIsNone():
+            self.cuts = []
+            for i in range(region.CutsLength()):
+                if region.Cuts(i) is None:
+                    self.cuts.append(None)
+                else:
+                    cut_ = nhc.rendering.ir._fb.Cut.CutT.InitFromObj(region.Cuts(i))
+                    self.cuts.append(cut_)
+        self.shapeTag = region.ShapeTag()
 
     # RegionT
     def Pack(self, builder):
         if self.id is not None:
             id = builder.CreateString(self.id)
-        if self.shapeTag is not None:
-            shapeTag = builder.CreateString(self.shapeTag)
         if self.outline is not None:
             outline = self.outline.Pack(builder)
+        if self.parentId is not None:
+            parentId = builder.CreateString(self.parentId)
+        if self.cuts is not None:
+            cutslist = []
+            for i in range(len(self.cuts)):
+                cutslist.append(self.cuts[i].Pack(builder))
+            RegionStartCutsVector(builder, len(self.cuts))
+            for i in reversed(range(len(self.cuts))):
+                builder.PrependUOffsetTRelative(cutslist[i])
+            cuts = builder.EndVector()
+        if self.shapeTag is not None:
+            shapeTag = builder.CreateString(self.shapeTag)
         RegionStart(builder)
         if self.id is not None:
             RegionAddId(builder, id)
-        RegionAddKind(builder, self.kind)
-        if self.shapeTag is not None:
-            RegionAddShapeTag(builder, shapeTag)
         if self.outline is not None:
             RegionAddOutline(builder, outline)
+        if self.parentId is not None:
+            RegionAddParentId(builder, parentId)
+        if self.cuts is not None:
+            RegionAddCuts(builder, cuts)
+        if self.shapeTag is not None:
+            RegionAddShapeTag(builder, shapeTag)
         region = RegionEnd(builder)
         return region

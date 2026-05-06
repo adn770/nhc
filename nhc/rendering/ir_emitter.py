@@ -40,46 +40,42 @@ from nhc.rendering._render_context import (
 )
 from nhc.rendering._room_outlines import _hybrid_vertices, _polygon_vertices
 from nhc.rendering._svg_helpers import CELL, PADDING
-from nhc.rendering.ir._fb import FloorKind, RegionKind
-from nhc.rendering.ir._fb.FeatureFlags import FeatureFlagsT
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
 from nhc.rendering.ir._fb.CornerStyle import CornerStyle
 from nhc.rendering.ir._fb.CutStyle import CutStyle
-from nhc.rendering.ir._fb.ExteriorWallOp import ExteriorWallOpT
-from nhc.rendering.ir._fb.InteriorWallOp import InteriorWallOpT
 from nhc.rendering.ir._fb.OpEntry import OpEntryT
 from nhc.rendering.ir._fb.Outline import OutlineT
 from nhc.rendering.ir._fb.OutlineKind import OutlineKind
 from nhc.rendering.ir._fb.PathRange import PathRangeT
 from nhc.rendering.ir._fb.Polygon import PolygonT
 from nhc.rendering.ir._fb.Region import RegionT
-from nhc.rendering.ir._fb.RoofOp import RoofOpT
-from nhc.rendering.ir._fb.RoofStyle import RoofStyle
-from nhc.rendering.ir._fb.TileCorner import TileCorner
 from nhc.rendering.ir._fb.Vec2 import Vec2T
-from nhc.rendering.ir._fb.WallStyle import WallStyle
 
 
 # Schema version stamped on every emitted buffer. Bumped per the
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
-SCHEMA_MAJOR = 4
+SCHEMA_MAJOR = 5
 SCHEMA_MINOR = 0
-# Legacy aliases — Phase 2.3 promoted the constants to public names so
-# the floor-artefact cache can validate disk-loaded IR against the
-# running build's schema. Kept until the next IR refactor sweep.
+# Legacy aliases — kept for back-compat with the floor-artefact cache,
+# which validates disk-loaded IR against the running build's schema.
 _SCHEMA_MAJOR = SCHEMA_MAJOR
 _SCHEMA_MINOR = SCHEMA_MINOR
 
-_FILE_IDENTIFIER = b"NIR4"
+_FILE_IDENTIFIER = b"NIR5"
 
 
-_FLOOR_KIND_MAP: dict[str, int] = {
-    "dungeon": FloorKind.FloorKind.Dungeon,
-    "cave": FloorKind.FloorKind.Cave,
-    "building": FloorKind.FloorKind.Building,
-    "surface": FloorKind.FloorKind.Surface,
-}
+# Tile-corner integer codes — kept here as a local helper now that
+# the schema cut dropped the FB ``TileCorner`` enum (corners no
+# longer ride on the wire; partition endpoints carry pixel coords).
+class _TileCorner:
+    NW = 0
+    NE = 1
+    SE = 2
+    SW = 3
+
+
+TileCorner = _TileCorner
 
 
 class FloorIRBuilder:
@@ -109,14 +105,15 @@ class FloorIRBuilder:
         self,
         *,
         id: str,
-        kind: int,
+        kind: int = 0,
         polygon: PolygonT,
         shape_tag: str = "",
         outline: OutlineT | None = None,
     ) -> None:
         region = RegionT()
         region.id = id
-        region.kind = kind
+        region.parentId = ""
+        region.cuts = []
         region.shapeTag = shape_tag
         # When the caller hasn't supplied an explicit outline (e.g. a
         # Circle / Pill descriptor variant), derive one from the
@@ -159,37 +156,19 @@ class FloorIRBuilder:
         fir.heightTiles = ctx.level.height
         fir.cell = CELL
         fir.padding = PADDING
-        fir.floorKind = _FLOOR_KIND_MAP[ctx.floor_kind]
-        fir.theme = ctx.theme
         fir.baseSeed = ctx.seed
-        fir.flags = _build_flags(ctx)
-        fir.regions = list(self.regions)
-        fir.ops = list(self.ops)
 
-        # Phase 4.3a entry point: ``emit_all(builder)`` walks the
-        # builder's ctx / regions / site directly to populate the
-        # v5 scaffold fields. Per-module sub-commits migrate each
-        # translator under this umbrella; output stays invariant.
-        from nhc.rendering.v5_emit import emit_all
+        # ``emit_all(builder)`` walks the builder's ctx / regions /
+        # site directly to populate the canonical v5 op stream.
+        from nhc.rendering.emit import emit_all
 
-        v5_regions, v5_ops = emit_all(self)
-        fir.v5Regions = v5_regions
-        fir.v5Ops = v5_ops
+        regions, ops = emit_all(self)
+        fir.regions = regions
+        fir.ops = ops
 
         builder = flatbuffers.Builder(1024)
         builder.Finish(fir.Pack(builder), _FILE_IDENTIFIER)
         return bytes(builder.Output())
-
-
-def _build_flags(ctx: RenderContext) -> FeatureFlagsT:
-    flags = FeatureFlagsT()
-    flags.shadowsEnabled = ctx.shadows_enabled
-    flags.hatchingEnabled = ctx.hatching_enabled
-    flags.atmosphericsEnabled = ctx.atmospherics_enabled
-    flags.macabreDetail = ctx.macabre_detail
-    flags.vegetationEnabled = ctx.vegetation_enabled
-    flags.interiorFinish = ctx.interior_finish
-    return flags
 
 
 def _shapely_to_polygon(geom: Any) -> PolygonT:
@@ -708,7 +687,6 @@ def emit_site_region(
     ]
     builder.add_region(
         id="site",
-        kind=RegionKind.RegionKind.Site,
         polygon=_coords_to_polygon(coords),
         shape_tag="rect",
     )
@@ -860,22 +838,11 @@ _DOOR_SUPPRESSING_FEATURES = frozenset({
     "door_open", "door_closed", "door_locked",
 })
 
-# Building exterior wall material → ExteriorWallOp WallStyle.
-# Buildings with ``wall_material == "dungeon"`` skip exterior emit
-# (the dungeon perimeter walks through the standard ExteriorWallOp /
-# CorridorWallOp passes instead). Adobe / wood are forward-compat;
-# they fall through unmapped and skip exterior emit.
-_MASONRY_STYLE_MAP: dict[str, int] = {
-    "brick": WallStyle.MasonryBrick,
-    "stone": WallStyle.MasonryStone,
-}
-
-# Building interior partition material → InteriorWallOp WallStyle.
-_PARTITION_STYLE_MAP: dict[str, int] = {
-    "stone": WallStyle.PartitionStone,
-    "brick": WallStyle.PartitionBrick,
-    "wood": WallStyle.PartitionWood,
-}
+# Building exterior wall material → ExteriorWallOp WallStyle (v4).
+# Dead at the schema-5 cut; the v5 emitter resolves wall material
+# directly via ``nhc.rendering.emit.materials``. 4.3c retires.
+_MASONRY_STYLE_MAP: dict[str, int] = {}
+_PARTITION_STYLE_MAP: dict[str, int] = {}
 
 
 def _coalesce_north_edges(
@@ -1086,7 +1053,6 @@ def emit_building_regions(
         coords = [(float(x), float(y)) for x, y in polygon]
         builder.add_region(
             id=f"building.{i}",
-            kind=RegionKind.RegionKind.Building,
             polygon=_coords_to_polygon(coords),
             shape_tag=b.base_shape.type_name,
         )
@@ -1172,7 +1138,6 @@ def emit_regions(builder: FloorIRBuilder) -> None:
     if ctx.dungeon_poly is not None:
         builder.add_region(
             id="dungeon",
-            kind=RegionKind.RegionKind.Dungeon,
             polygon=_shapely_to_polygon(ctx.dungeon_poly),
             shape_tag="dungeon",
         )
@@ -1196,7 +1161,6 @@ def emit_regions(builder: FloorIRBuilder) -> None:
                 continue
             builder.add_region(
                 id=f"cave.{i}",
-                kind=RegionKind.RegionKind.Cave,
                 polygon=_coords_to_polygon(coords),
                 shape_tag="cave",
             )
@@ -1238,7 +1202,6 @@ def emit_regions(builder: FloorIRBuilder) -> None:
             outline = _multiring_outline(rings_per_component)
             builder.add_region(
                 id="corridor",
-                kind=RegionKind.RegionKind.Corridor,
                 polygon=polygon,
                 shape_tag="corridor",
                 outline=outline,
@@ -1250,7 +1213,6 @@ def emit_regions(builder: FloorIRBuilder) -> None:
         coords, shape_tag, outline_override = data
         builder.add_region(
             id=room.id,
-            kind=RegionKind.RegionKind.Room,
             polygon=_coords_to_polygon(coords),
             shape_tag=shape_tag,
             outline=outline_override,
@@ -1307,16 +1269,15 @@ def emit_building_overlays(builder: FloorIRBuilder) -> None:
     building_index, building = match
     emit_building_regions(builder, [building])
     # Patch the freshly added region's id from "building.0" to
-    # "building.<i>" so the masonry ExteriorWallOp's region_ref
-    # resolves cleanly when there's a mismatch between the
-    # emit_building_regions iteration index and the canonical
-    # building index in site.buildings.
+    # "building.<i>" so wall ops' region_ref resolves cleanly when
+    # there's a mismatch between the emit_building_regions
+    # iteration index and the canonical building index in
+    # site.buildings.
     builder.regions[-1].id = f"building.{building_index}"
-    emit_building_walls(
-        builder, building, level,
-        base_seed=builder.ctx.seed,
-        building_index=building_index,
-    )
+    # Schema-5 cut: emit_building_walls produced v4 ExteriorWallOp /
+    # InteriorWallOp tables that are gone from the schema. The v5
+    # emit pipeline (nhc.rendering.emit.stroke) now derives the
+    # equivalent V5StrokeOps directly from level + builder.site.
 
 
 def emit_site_overlays(builder: FloorIRBuilder) -> None:
@@ -1344,71 +1305,33 @@ def emit_site_overlays(builder: FloorIRBuilder) -> None:
         return
     # Site region — pixel-rect bounds.
     emit_site_region(builder, (0, 0, level.width, level.height))
-    # Building regions + roofs.
+    # Building regions.
     if site.buildings:
         emit_building_regions(builder, list(site.buildings))
-        emit_building_roofs(
-            builder, list(site.buildings),
-            base_seed=builder.ctx.seed,
-        )
-    # Optional enclosure.
+    # Enclosure region — registered when the site has a palisade /
+    # fortification enclosure, so the v5 ``emit_strokes`` enclosure
+    # branch's ``region_ref="enclosure"`` resolves cleanly.
     enclosure = getattr(site, "enclosure", None)
-    if enclosure is None:
-        return
-    kind = enclosure.kind
-    if kind == "palisade":
-        wall_style = WallStyle.Palisade
-    elif kind == "fortification":
-        wall_style = WallStyle.FortificationMerlon
-    else:
-        # Forward-compat: unknown kind -> skip enclosure rather than
-        # raise. Site SVG handles ruin / cottage / temple by skipping
-        # the enclosure pass; mirror that here.
-        return
-    # Translate (gx, gy, length_tiles) -> (edge_idx, t_center, half_px)
-    # by closest-edge projection — mirrors site_svg.py:_enclosure_fragments.
-    poly_px = [
-        (PADDING + x * CELL, PADDING + y * CELL)
-        for (x, y) in enclosure.polygon
-    ]
-    n = len(poly_px)
-    gates_param: list[tuple[int, float, float]] = []
-    for (gx, gy, length_tiles) in enclosure.gates:
-        gx_px = PADDING + gx * CELL
-        gy_px = PADDING + gy * CELL
-        best_idx = 0
-        best_d = float("inf")
-        best_t = 0.5
-        for i in range(n):
-            ax, ay = poly_px[i]
-            bx, by = poly_px[(i + 1) % n]
-            dx, dy = bx - ax, by - ay
-            seg_len_sq = dx * dx + dy * dy
-            if seg_len_sq == 0:
-                continue
-            t = max(0.0, min(1.0, (
-                (gx_px - ax) * dx + (gy_px - ay) * dy
-            ) / seg_len_sq))
-            px = ax + dx * t
-            py = ay + dy * t
-            d = (px - gx_px) ** 2 + (py - gy_px) ** 2
-            if d < best_d:
-                best_d = d
-                best_idx = i
-                best_t = t
-        gates_param.append(
-            (best_idx, best_t, float(length_tiles) * CELL / 2.0),
+    if (
+        enclosure is not None
+        and enclosure.kind in ("palisade", "fortification")
+        and len(enclosure.polygon) >= 3
+    ):
+        coords_px = [
+            (float(x * CELL), float(y * CELL))
+            for x, y in enclosure.polygon
+        ]
+        builder.add_region(
+            id="enclosure",
+            polygon=_coords_to_polygon(coords_px),
+            shape_tag="enclosure",
         )
-    emit_site_enclosure(
-        builder,
-        polygon_tiles=[
-            (float(x), float(y)) for (x, y) in enclosure.polygon
-        ],
-        wall_style=wall_style,
-        gates=gates_param,
-        base_seed=builder.ctx.seed,
-        corner_style=CornerStyle.Merlon,
-    )
+    # Schema-5 cut: emit_building_roofs and emit_site_enclosure
+    # produced v4 RoofOp / ExteriorWallOp tables that are gone from
+    # the schema. The v5 emit pipeline (nhc.rendering.emit.roof,
+    # nhc.rendering.emit.stroke) now derives the equivalent
+    # RoofOp / StrokeOp directly from builder.regions and
+    # builder.site.
 
 
 def emit_terrain_tints(builder: FloorIRBuilder) -> None:
@@ -1542,6 +1465,14 @@ def build_floor_ir(
         )
         if is_surface or is_building_floor:
             builder.site = site
-    for stage in IR_STAGES:
-        stage(builder)
+    # Schema-5 cut: only ``emit_regions`` runs to populate
+    # ``builder.regions`` for the v5 emit pipeline. The remaining
+    # IR_STAGES entries emit v4 op tables that no longer exist in
+    # the schema; they ride along as dead code until 4.3c retires
+    # them. Site / building region overlays still need to fire so
+    # the v5 emit picks up Building / Enclosure regions.
+    emit_regions(builder)
+    if builder.site is not None:
+        emit_site_overlays(builder)
+        emit_building_overlays(builder)
     return builder.finish()

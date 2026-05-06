@@ -4,6 +4,8 @@
 
 export enum RoofStyle {
   Simple = 0,
-  Dome = 1,
-  WitchHat = 2
+  Pyramid = 1,
+  Gable = 2,
+  Dome = 3,
+  WitchHat = 4
 }

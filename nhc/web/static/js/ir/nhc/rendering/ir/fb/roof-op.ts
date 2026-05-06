@@ -34,23 +34,28 @@ regionRef(optionalEncoding?:any):string|Uint8Array|null {
 
 style():RoofStyle {
   const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? this.bb!.readInt8(this.bb_pos + offset) : RoofStyle.Simple;
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : RoofStyle.Simple;
+}
+
+tone():number {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : 0;
 }
 
 tint():string|null
 tint(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
 tint(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 8);
+  const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-rngSeed():bigint {
-  const offset = this.bb!.__offset(this.bb_pos, 10);
+seed():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
 static startRoofOp(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
@@ -61,12 +66,16 @@ static addStyle(builder:flatbuffers.Builder, style:RoofStyle) {
   builder.addFieldInt8(1, style, RoofStyle.Simple);
 }
 
-static addTint(builder:flatbuffers.Builder, tintOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(2, tintOffset, 0);
+static addTone(builder:flatbuffers.Builder, tone:number) {
+  builder.addFieldInt8(2, tone, 0);
 }
 
-static addRngSeed(builder:flatbuffers.Builder, rngSeed:bigint) {
-  builder.addFieldInt64(3, rngSeed, BigInt('0'));
+static addTint(builder:flatbuffers.Builder, tintOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(3, tintOffset, 0);
+}
+
+static addSeed(builder:flatbuffers.Builder, seed:bigint) {
+  builder.addFieldInt64(4, seed, BigInt('0'));
 }
 
 static endRoofOp(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -74,12 +83,13 @@ static endRoofOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createRoofOp(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset, style:RoofStyle, tintOffset:flatbuffers.Offset, rngSeed:bigint):flatbuffers.Offset {
+static createRoofOp(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset, style:RoofStyle, tone:number, tintOffset:flatbuffers.Offset, seed:bigint):flatbuffers.Offset {
   RoofOp.startRoofOp(builder);
   RoofOp.addRegionRef(builder, regionRefOffset);
   RoofOp.addStyle(builder, style);
+  RoofOp.addTone(builder, tone);
   RoofOp.addTint(builder, tintOffset);
-  RoofOp.addRngSeed(builder, rngSeed);
+  RoofOp.addSeed(builder, seed);
   return RoofOp.endRoofOp(builder);
 }
 }

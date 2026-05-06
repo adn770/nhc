@@ -209,202 +209,6 @@ impl<'a> ::flatbuffers::Verifiable for OutlineKind {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for OutlineKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_FLOOR_KIND: i8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_FLOOR_KIND: i8 = 3;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_FLOOR_KIND: [FloorKind; 4] = [
-  FloorKind::Dungeon,
-  FloorKind::Cave,
-  FloorKind::Building,
-  FloorKind::Surface,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct FloorKind(pub i8);
-#[allow(non_upper_case_globals)]
-impl FloorKind {
-  pub const Dungeon: Self = Self(0);
-  pub const Cave: Self = Self(1);
-  pub const Building: Self = Self(2);
-  pub const Surface: Self = Self(3);
-
-  pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 3;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::Dungeon,
-    Self::Cave,
-    Self::Building,
-    Self::Surface,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::Dungeon => Some("Dungeon"),
-      Self::Cave => Some("Cave"),
-      Self::Building => Some("Building"),
-      Self::Surface => Some("Surface"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for FloorKind {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for FloorKind {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for FloorKind {
-    type Output = FloorKind;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for FloorKind {
-  type Scalar = i8;
-  #[inline]
-  fn to_little_endian(self) -> i8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: i8) -> Self {
-    let b = i8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for FloorKind {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    i8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for FloorKind {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_REGION_KIND: i8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_REGION_KIND: i8 = 6;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_REGION_KIND: [RegionKind; 7] = [
-  RegionKind::Dungeon,
-  RegionKind::Cave,
-  RegionKind::Room,
-  RegionKind::Building,
-  RegionKind::Site,
-  RegionKind::Enclosure,
-  RegionKind::Corridor,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct RegionKind(pub i8);
-#[allow(non_upper_case_globals)]
-impl RegionKind {
-  pub const Dungeon: Self = Self(0);
-  pub const Cave: Self = Self(1);
-  pub const Room: Self = Self(2);
-  pub const Building: Self = Self(3);
-  pub const Site: Self = Self(4);
-  pub const Enclosure: Self = Self(5);
-  pub const Corridor: Self = Self(6);
-
-  pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 6;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::Dungeon,
-    Self::Cave,
-    Self::Room,
-    Self::Building,
-    Self::Site,
-    Self::Enclosure,
-    Self::Corridor,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::Dungeon => Some("Dungeon"),
-      Self::Cave => Some("Cave"),
-      Self::Room => Some("Room"),
-      Self::Building => Some("Building"),
-      Self::Site => Some("Site"),
-      Self::Enclosure => Some("Enclosure"),
-      Self::Corridor => Some("Corridor"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for RegionKind {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for RegionKind {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for RegionKind {
-    type Output = RegionKind;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for RegionKind {
-  type Scalar = i8;
-  #[inline]
-  fn to_little_endian(self) -> i8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: i8) -> Self {
-    let b = i8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for RegionKind {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    i8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for RegionKind {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_SHADOW_KIND: i8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_SHADOW_KIND: i8 = 1;
@@ -577,458 +381,6 @@ impl<'a> ::flatbuffers::Verifiable for HatchKind {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for HatchKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_COBBLE_PATTERN: i8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COBBLE_PATTERN: i8 = 5;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COBBLE_PATTERN: [CobblePattern; 6] = [
-  CobblePattern::Cobble,
-  CobblePattern::Brick,
-  CobblePattern::Flagstone,
-  CobblePattern::OpusReticulatum,
-  CobblePattern::Herringbone,
-  CobblePattern::Versailles4,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct CobblePattern(pub i8);
-#[allow(non_upper_case_globals)]
-impl CobblePattern {
-  pub const Cobble: Self = Self(0);
-  pub const Brick: Self = Self(1);
-  pub const Flagstone: Self = Self(2);
-  pub const OpusReticulatum: Self = Self(3);
-  pub const Herringbone: Self = Self(4);
-  pub const Versailles4: Self = Self(5);
-
-  pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 5;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::Cobble,
-    Self::Brick,
-    Self::Flagstone,
-    Self::OpusReticulatum,
-    Self::Herringbone,
-    Self::Versailles4,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::Cobble => Some("Cobble"),
-      Self::Brick => Some("Brick"),
-      Self::Flagstone => Some("Flagstone"),
-      Self::OpusReticulatum => Some("OpusReticulatum"),
-      Self::Herringbone => Some("Herringbone"),
-      Self::Versailles4 => Some("Versailles4"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for CobblePattern {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for CobblePattern {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for CobblePattern {
-    type Output = CobblePattern;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for CobblePattern {
-  type Scalar = i8;
-  #[inline]
-  fn to_little_endian(self) -> i8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: i8) -> Self {
-    let b = i8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for CobblePattern {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    i8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for CobblePattern {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_WELL_SHAPE: i8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_WELL_SHAPE: i8 = 1;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_WELL_SHAPE: [WellShape; 2] = [
-  WellShape::Round,
-  WellShape::Square,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct WellShape(pub i8);
-#[allow(non_upper_case_globals)]
-impl WellShape {
-  pub const Round: Self = Self(0);
-  pub const Square: Self = Self(1);
-
-  pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 1;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::Round,
-    Self::Square,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::Round => Some("Round"),
-      Self::Square => Some("Square"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for WellShape {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for WellShape {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for WellShape {
-    type Output = WellShape;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for WellShape {
-  type Scalar = i8;
-  #[inline]
-  fn to_little_endian(self) -> i8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: i8) -> Self {
-    let b = i8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for WellShape {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    i8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for WellShape {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_FOUNTAIN_SHAPE: i8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_FOUNTAIN_SHAPE: i8 = 4;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_FOUNTAIN_SHAPE: [FountainShape; 5] = [
-  FountainShape::Round,
-  FountainShape::Square,
-  FountainShape::LargeRound,
-  FountainShape::LargeSquare,
-  FountainShape::Cross,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct FountainShape(pub i8);
-#[allow(non_upper_case_globals)]
-impl FountainShape {
-  pub const Round: Self = Self(0);
-  pub const Square: Self = Self(1);
-  pub const LargeRound: Self = Self(2);
-  pub const LargeSquare: Self = Self(3);
-  pub const Cross: Self = Self(4);
-
-  pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 4;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::Round,
-    Self::Square,
-    Self::LargeRound,
-    Self::LargeSquare,
-    Self::Cross,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::Round => Some("Round"),
-      Self::Square => Some("Square"),
-      Self::LargeRound => Some("LargeRound"),
-      Self::LargeSquare => Some("LargeSquare"),
-      Self::Cross => Some("Cross"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for FountainShape {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for FountainShape {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for FountainShape {
-    type Output = FountainShape;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for FountainShape {
-  type Scalar = i8;
-  #[inline]
-  fn to_little_endian(self) -> i8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: i8) -> Self {
-    let b = i8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for FountainShape {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    i8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for FountainShape {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_STAIR_DIRECTION: i8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_STAIR_DIRECTION: i8 = 1;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_STAIR_DIRECTION: [StairDirection; 2] = [
-  StairDirection::Up,
-  StairDirection::Down,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct StairDirection(pub i8);
-#[allow(non_upper_case_globals)]
-impl StairDirection {
-  pub const Up: Self = Self(0);
-  pub const Down: Self = Self(1);
-
-  pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 1;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::Up,
-    Self::Down,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::Up => Some("Up"),
-      Self::Down => Some("Down"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for StairDirection {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for StairDirection {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for StairDirection {
-    type Output = StairDirection;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for StairDirection {
-  type Scalar = i8;
-  #[inline]
-  fn to_little_endian(self) -> i8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: i8) -> Self {
-    let b = i8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for StairDirection {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    i8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for StairDirection {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_ROOF_STYLE: i8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_ROOF_STYLE: i8 = 2;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_ROOF_STYLE: [RoofStyle; 3] = [
-  RoofStyle::Simple,
-  RoofStyle::Dome,
-  RoofStyle::WitchHat,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct RoofStyle(pub i8);
-#[allow(non_upper_case_globals)]
-impl RoofStyle {
-  pub const Simple: Self = Self(0);
-  pub const Dome: Self = Self(1);
-  pub const WitchHat: Self = Self(2);
-
-  pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 2;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::Simple,
-    Self::Dome,
-    Self::WitchHat,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::Simple => Some("Simple"),
-      Self::Dome => Some("Dome"),
-      Self::WitchHat => Some("WitchHat"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for RoofStyle {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for RoofStyle {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for RoofStyle {
-    type Output = RoofStyle;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for RoofStyle {
-  type Scalar = i8;
-  #[inline]
-  fn to_little_endian(self) -> i8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: i8) -> Self {
-    let b = i8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for RoofStyle {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    i8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for RoofStyle {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_CORNER_STYLE: i8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_CORNER_STYLE: i8 = 2;
@@ -1117,414 +469,26 @@ impl<'a> ::flatbuffers::Verifiable for CornerStyle {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for CornerStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_WALL_STYLE: u8 = 0;
+pub const ENUM_MIN_MATERIAL_FAMILY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_WALL_STYLE: u8 = 8;
+pub const ENUM_MAX_MATERIAL_FAMILY: u8 = 6;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_WALL_STYLE: [WallStyle; 9] = [
-  WallStyle::DungeonInk,
-  WallStyle::CaveInk,
-  WallStyle::MasonryBrick,
-  WallStyle::MasonryStone,
-  WallStyle::PartitionStone,
-  WallStyle::PartitionBrick,
-  WallStyle::PartitionWood,
-  WallStyle::Palisade,
-  WallStyle::FortificationMerlon,
+pub const ENUM_VALUES_MATERIAL_FAMILY: [MaterialFamily; 7] = [
+  MaterialFamily::Plain,
+  MaterialFamily::Cave,
+  MaterialFamily::Wood,
+  MaterialFamily::Stone,
+  MaterialFamily::Earth,
+  MaterialFamily::Liquid,
+  MaterialFamily::Special,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
-pub struct WallStyle(pub u8);
+pub struct MaterialFamily(pub u8);
 #[allow(non_upper_case_globals)]
-impl WallStyle {
-  pub const DungeonInk: Self = Self(0);
-  pub const CaveInk: Self = Self(1);
-  pub const MasonryBrick: Self = Self(2);
-  pub const MasonryStone: Self = Self(3);
-  pub const PartitionStone: Self = Self(4);
-  pub const PartitionBrick: Self = Self(5);
-  pub const PartitionWood: Self = Self(6);
-  pub const Palisade: Self = Self(7);
-  pub const FortificationMerlon: Self = Self(8);
-
-  pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 8;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::DungeonInk,
-    Self::CaveInk,
-    Self::MasonryBrick,
-    Self::MasonryStone,
-    Self::PartitionStone,
-    Self::PartitionBrick,
-    Self::PartitionWood,
-    Self::Palisade,
-    Self::FortificationMerlon,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::DungeonInk => Some("DungeonInk"),
-      Self::CaveInk => Some("CaveInk"),
-      Self::MasonryBrick => Some("MasonryBrick"),
-      Self::MasonryStone => Some("MasonryStone"),
-      Self::PartitionStone => Some("PartitionStone"),
-      Self::PartitionBrick => Some("PartitionBrick"),
-      Self::PartitionWood => Some("PartitionWood"),
-      Self::Palisade => Some("Palisade"),
-      Self::FortificationMerlon => Some("FortificationMerlon"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for WallStyle {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for WallStyle {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for WallStyle {
-    type Output = WallStyle;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for WallStyle {
-  type Scalar = u8;
-  #[inline]
-  fn to_little_endian(self) -> u8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: u8) -> Self {
-    let b = u8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for WallStyle {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    u8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for WallStyle {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_FLOOR_STYLE: u8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_FLOOR_STYLE: u8 = 2;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_FLOOR_STYLE: [FloorStyle; 3] = [
-  FloorStyle::DungeonFloor,
-  FloorStyle::CaveFloor,
-  FloorStyle::WoodFloor,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct FloorStyle(pub u8);
-#[allow(non_upper_case_globals)]
-impl FloorStyle {
-  pub const DungeonFloor: Self = Self(0);
-  pub const CaveFloor: Self = Self(1);
-  pub const WoodFloor: Self = Self(2);
-
-  pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 2;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::DungeonFloor,
-    Self::CaveFloor,
-    Self::WoodFloor,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::DungeonFloor => Some("DungeonFloor"),
-      Self::CaveFloor => Some("CaveFloor"),
-      Self::WoodFloor => Some("WoodFloor"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for FloorStyle {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for FloorStyle {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for FloorStyle {
-    type Output = FloorStyle;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for FloorStyle {
-  type Scalar = u8;
-  #[inline]
-  fn to_little_endian(self) -> u8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: u8) -> Self {
-    let b = u8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for FloorStyle {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    u8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for FloorStyle {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_TILE_CORNER: i8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TILE_CORNER: i8 = 3;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TILE_CORNER: [TileCorner; 4] = [
-  TileCorner::NW,
-  TileCorner::NE,
-  TileCorner::SE,
-  TileCorner::SW,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct TileCorner(pub i8);
-#[allow(non_upper_case_globals)]
-impl TileCorner {
-  pub const NW: Self = Self(0);
-  pub const NE: Self = Self(1);
-  pub const SE: Self = Self(2);
-  pub const SW: Self = Self(3);
-
-  pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 3;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::NW,
-    Self::NE,
-    Self::SE,
-    Self::SW,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::NW => Some("NW"),
-      Self::NE => Some("NE"),
-      Self::SE => Some("SE"),
-      Self::SW => Some("SW"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for TileCorner {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for TileCorner {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for TileCorner {
-    type Output = TileCorner;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for TileCorner {
-  type Scalar = i8;
-  #[inline]
-  fn to_little_endian(self) -> i8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: i8) -> Self {
-    let b = i8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for TileCorner {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    i8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for TileCorner {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_TERRAIN_KIND: i8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TERRAIN_KIND: i8 = 4;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TERRAIN_KIND: [TerrainKind; 5] = [
-  TerrainKind::None,
-  TerrainKind::Water,
-  TerrainKind::Lava,
-  TerrainKind::Chasm,
-  TerrainKind::Grass,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct TerrainKind(pub i8);
-#[allow(non_upper_case_globals)]
-impl TerrainKind {
-  pub const None: Self = Self(0);
-  pub const Water: Self = Self(1);
-  pub const Lava: Self = Self(2);
-  pub const Chasm: Self = Self(3);
-  pub const Grass: Self = Self(4);
-
-  pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 4;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::None,
-    Self::Water,
-    Self::Lava,
-    Self::Chasm,
-    Self::Grass,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::None => Some("None"),
-      Self::Water => Some("Water"),
-      Self::Lava => Some("Lava"),
-      Self::Chasm => Some("Chasm"),
-      Self::Grass => Some("Grass"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for TerrainKind {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for TerrainKind {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for TerrainKind {
-    type Output = TerrainKind;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for TerrainKind {
-  type Scalar = i8;
-  #[inline]
-  fn to_little_endian(self) -> i8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: i8) -> Self {
-    let b = i8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for TerrainKind {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    i8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for TerrainKind {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_V_5_MATERIAL_FAMILY: u8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_V_5_MATERIAL_FAMILY: u8 = 6;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_V_5_MATERIAL_FAMILY: [V5MaterialFamily; 7] = [
-  V5MaterialFamily::Plain,
-  V5MaterialFamily::Cave,
-  V5MaterialFamily::Wood,
-  V5MaterialFamily::Stone,
-  V5MaterialFamily::Earth,
-  V5MaterialFamily::Liquid,
-  V5MaterialFamily::Special,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct V5MaterialFamily(pub u8);
-#[allow(non_upper_case_globals)]
-impl V5MaterialFamily {
+impl MaterialFamily {
   pub const Plain: Self = Self(0);
   pub const Cave: Self = Self(1);
   pub const Wood: Self = Self(2);
@@ -1558,7 +522,7 @@ impl V5MaterialFamily {
     }
   }
 }
-impl ::core::fmt::Debug for V5MaterialFamily {
+impl ::core::fmt::Debug for MaterialFamily {
   fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
     if let Some(name) = self.variant_name() {
       f.write_str(name)
@@ -1567,7 +531,7 @@ impl ::core::fmt::Debug for V5MaterialFamily {
     }
   }
 }
-impl<'a> ::flatbuffers::Follow<'a> for V5MaterialFamily {
+impl<'a> ::flatbuffers::Follow<'a> for MaterialFamily {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
@@ -1576,15 +540,15 @@ impl<'a> ::flatbuffers::Follow<'a> for V5MaterialFamily {
   }
 }
 
-impl ::flatbuffers::Push for V5MaterialFamily {
-    type Output = V5MaterialFamily;
+impl ::flatbuffers::Push for MaterialFamily {
+    type Output = MaterialFamily;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
         unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
     }
 }
 
-impl ::flatbuffers::EndianScalar for V5MaterialFamily {
+impl ::flatbuffers::EndianScalar for MaterialFamily {
   type Scalar = u8;
   #[inline]
   fn to_little_endian(self) -> u8 {
@@ -1598,7 +562,7 @@ impl ::flatbuffers::EndianScalar for V5MaterialFamily {
   }
 }
 
-impl<'a> ::flatbuffers::Verifiable for V5MaterialFamily {
+impl<'a> ::flatbuffers::Verifiable for MaterialFamily {
   #[inline]
   fn run_verifier(
     v: &mut ::flatbuffers::Verifier, pos: usize
@@ -1607,26 +571,26 @@ impl<'a> ::flatbuffers::Verifiable for V5MaterialFamily {
   }
 }
 
-impl ::flatbuffers::SimpleToVerifyInSlice for V5MaterialFamily {}
+impl ::flatbuffers::SimpleToVerifyInSlice for MaterialFamily {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_V_5_WALL_TREATMENT: u8 = 0;
+pub const ENUM_MIN_WALL_TREATMENT: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_V_5_WALL_TREATMENT: u8 = 4;
+pub const ENUM_MAX_WALL_TREATMENT: u8 = 4;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_V_5_WALL_TREATMENT: [V5WallTreatment; 5] = [
-  V5WallTreatment::PlainStroke,
-  V5WallTreatment::Masonry,
-  V5WallTreatment::Partition,
-  V5WallTreatment::Palisade,
-  V5WallTreatment::Fortification,
+pub const ENUM_VALUES_WALL_TREATMENT: [WallTreatment; 5] = [
+  WallTreatment::PlainStroke,
+  WallTreatment::Masonry,
+  WallTreatment::Partition,
+  WallTreatment::Palisade,
+  WallTreatment::Fortification,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
-pub struct V5WallTreatment(pub u8);
+pub struct WallTreatment(pub u8);
 #[allow(non_upper_case_globals)]
-impl V5WallTreatment {
+impl WallTreatment {
   pub const PlainStroke: Self = Self(0);
   pub const Masonry: Self = Self(1);
   pub const Partition: Self = Self(2);
@@ -1654,7 +618,7 @@ impl V5WallTreatment {
     }
   }
 }
-impl ::core::fmt::Debug for V5WallTreatment {
+impl ::core::fmt::Debug for WallTreatment {
   fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
     if let Some(name) = self.variant_name() {
       f.write_str(name)
@@ -1663,7 +627,7 @@ impl ::core::fmt::Debug for V5WallTreatment {
     }
   }
 }
-impl<'a> ::flatbuffers::Follow<'a> for V5WallTreatment {
+impl<'a> ::flatbuffers::Follow<'a> for WallTreatment {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
@@ -1672,15 +636,15 @@ impl<'a> ::flatbuffers::Follow<'a> for V5WallTreatment {
   }
 }
 
-impl ::flatbuffers::Push for V5WallTreatment {
-    type Output = V5WallTreatment;
+impl ::flatbuffers::Push for WallTreatment {
+    type Output = WallTreatment;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
         unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
     }
 }
 
-impl ::flatbuffers::EndianScalar for V5WallTreatment {
+impl ::flatbuffers::EndianScalar for WallTreatment {
   type Scalar = u8;
   #[inline]
   fn to_little_endian(self) -> u8 {
@@ -1694,7 +658,7 @@ impl ::flatbuffers::EndianScalar for V5WallTreatment {
   }
 }
 
-impl<'a> ::flatbuffers::Verifiable for V5WallTreatment {
+impl<'a> ::flatbuffers::Verifiable for WallTreatment {
   #[inline]
   fn run_verifier(
     v: &mut ::flatbuffers::Verifier, pos: usize
@@ -1703,23 +667,23 @@ impl<'a> ::flatbuffers::Verifiable for V5WallTreatment {
   }
 }
 
-impl ::flatbuffers::SimpleToVerifyInSlice for V5WallTreatment {}
+impl ::flatbuffers::SimpleToVerifyInSlice for WallTreatment {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_V_5_PATH_STYLE: u8 = 0;
+pub const ENUM_MIN_PATH_STYLE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_V_5_PATH_STYLE: u8 = 1;
+pub const ENUM_MAX_PATH_STYLE: u8 = 1;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_V_5_PATH_STYLE: [V5PathStyle; 2] = [
-  V5PathStyle::CartTracks,
-  V5PathStyle::OreVein,
+pub const ENUM_VALUES_PATH_STYLE: [PathStyle; 2] = [
+  PathStyle::CartTracks,
+  PathStyle::OreVein,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
-pub struct V5PathStyle(pub u8);
+pub struct PathStyle(pub u8);
 #[allow(non_upper_case_globals)]
-impl V5PathStyle {
+impl PathStyle {
   pub const CartTracks: Self = Self(0);
   pub const OreVein: Self = Self(1);
 
@@ -1738,7 +702,7 @@ impl V5PathStyle {
     }
   }
 }
-impl ::core::fmt::Debug for V5PathStyle {
+impl ::core::fmt::Debug for PathStyle {
   fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
     if let Some(name) = self.variant_name() {
       f.write_str(name)
@@ -1747,7 +711,7 @@ impl ::core::fmt::Debug for V5PathStyle {
     }
   }
 }
-impl<'a> ::flatbuffers::Follow<'a> for V5PathStyle {
+impl<'a> ::flatbuffers::Follow<'a> for PathStyle {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
@@ -1756,15 +720,15 @@ impl<'a> ::flatbuffers::Follow<'a> for V5PathStyle {
   }
 }
 
-impl ::flatbuffers::Push for V5PathStyle {
-    type Output = V5PathStyle;
+impl ::flatbuffers::Push for PathStyle {
+    type Output = PathStyle;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
         unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
     }
 }
 
-impl ::flatbuffers::EndianScalar for V5PathStyle {
+impl ::flatbuffers::EndianScalar for PathStyle {
   type Scalar = u8;
   #[inline]
   fn to_little_endian(self) -> u8 {
@@ -1778,7 +742,7 @@ impl ::flatbuffers::EndianScalar for V5PathStyle {
   }
 }
 
-impl<'a> ::flatbuffers::Verifiable for V5PathStyle {
+impl<'a> ::flatbuffers::Verifiable for PathStyle {
   #[inline]
   fn run_verifier(
     v: &mut ::flatbuffers::Verifier, pos: usize
@@ -1787,33 +751,33 @@ impl<'a> ::flatbuffers::Verifiable for V5PathStyle {
   }
 }
 
-impl ::flatbuffers::SimpleToVerifyInSlice for V5PathStyle {}
+impl ::flatbuffers::SimpleToVerifyInSlice for PathStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_V_5_FIXTURE_KIND: u8 = 0;
+pub const ENUM_MIN_FIXTURE_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_V_5_FIXTURE_KIND: u8 = 11;
+pub const ENUM_MAX_FIXTURE_KIND: u8 = 11;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_V_5_FIXTURE_KIND: [V5FixtureKind; 12] = [
-  V5FixtureKind::Web,
-  V5FixtureKind::Skull,
-  V5FixtureKind::Bone,
-  V5FixtureKind::LooseStone,
-  V5FixtureKind::Tree,
-  V5FixtureKind::Bush,
-  V5FixtureKind::Well,
-  V5FixtureKind::Fountain,
-  V5FixtureKind::Stair,
-  V5FixtureKind::Gravestone,
-  V5FixtureKind::Sign,
-  V5FixtureKind::Mushroom,
+pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 12] = [
+  FixtureKind::Web,
+  FixtureKind::Skull,
+  FixtureKind::Bone,
+  FixtureKind::LooseStone,
+  FixtureKind::Tree,
+  FixtureKind::Bush,
+  FixtureKind::Well,
+  FixtureKind::Fountain,
+  FixtureKind::Stair,
+  FixtureKind::Gravestone,
+  FixtureKind::Sign,
+  FixtureKind::Mushroom,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
-pub struct V5FixtureKind(pub u8);
+pub struct FixtureKind(pub u8);
 #[allow(non_upper_case_globals)]
-impl V5FixtureKind {
+impl FixtureKind {
   pub const Web: Self = Self(0);
   pub const Skull: Self = Self(1);
   pub const Bone: Self = Self(2);
@@ -1862,7 +826,7 @@ impl V5FixtureKind {
     }
   }
 }
-impl ::core::fmt::Debug for V5FixtureKind {
+impl ::core::fmt::Debug for FixtureKind {
   fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
     if let Some(name) = self.variant_name() {
       f.write_str(name)
@@ -1871,7 +835,7 @@ impl ::core::fmt::Debug for V5FixtureKind {
     }
   }
 }
-impl<'a> ::flatbuffers::Follow<'a> for V5FixtureKind {
+impl<'a> ::flatbuffers::Follow<'a> for FixtureKind {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
@@ -1880,15 +844,15 @@ impl<'a> ::flatbuffers::Follow<'a> for V5FixtureKind {
   }
 }
 
-impl ::flatbuffers::Push for V5FixtureKind {
-    type Output = V5FixtureKind;
+impl ::flatbuffers::Push for FixtureKind {
+    type Output = FixtureKind;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
         unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
     }
 }
 
-impl ::flatbuffers::EndianScalar for V5FixtureKind {
+impl ::flatbuffers::EndianScalar for FixtureKind {
   type Scalar = u8;
   #[inline]
   fn to_little_endian(self) -> u8 {
@@ -1902,7 +866,7 @@ impl ::flatbuffers::EndianScalar for V5FixtureKind {
   }
 }
 
-impl<'a> ::flatbuffers::Verifiable for V5FixtureKind {
+impl<'a> ::flatbuffers::Verifiable for FixtureKind {
   #[inline]
   fn run_verifier(
     v: &mut ::flatbuffers::Verifier, pos: usize
@@ -1911,26 +875,26 @@ impl<'a> ::flatbuffers::Verifiable for V5FixtureKind {
   }
 }
 
-impl ::flatbuffers::SimpleToVerifyInSlice for V5FixtureKind {}
+impl ::flatbuffers::SimpleToVerifyInSlice for FixtureKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_V_5_ROOF_STYLE: u8 = 0;
+pub const ENUM_MIN_ROOF_STYLE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_V_5_ROOF_STYLE: u8 = 4;
+pub const ENUM_MAX_ROOF_STYLE: u8 = 4;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_V_5_ROOF_STYLE: [V5RoofStyle; 5] = [
-  V5RoofStyle::Simple,
-  V5RoofStyle::Pyramid,
-  V5RoofStyle::Gable,
-  V5RoofStyle::Dome,
-  V5RoofStyle::WitchHat,
+pub const ENUM_VALUES_ROOF_STYLE: [RoofStyle; 5] = [
+  RoofStyle::Simple,
+  RoofStyle::Pyramid,
+  RoofStyle::Gable,
+  RoofStyle::Dome,
+  RoofStyle::WitchHat,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
-pub struct V5RoofStyle(pub u8);
+pub struct RoofStyle(pub u8);
 #[allow(non_upper_case_globals)]
-impl V5RoofStyle {
+impl RoofStyle {
   pub const Simple: Self = Self(0);
   pub const Pyramid: Self = Self(1);
   pub const Gable: Self = Self(2);
@@ -1958,7 +922,7 @@ impl V5RoofStyle {
     }
   }
 }
-impl ::core::fmt::Debug for V5RoofStyle {
+impl ::core::fmt::Debug for RoofStyle {
   fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
     if let Some(name) = self.variant_name() {
       f.write_str(name)
@@ -1967,7 +931,7 @@ impl ::core::fmt::Debug for V5RoofStyle {
     }
   }
 }
-impl<'a> ::flatbuffers::Follow<'a> for V5RoofStyle {
+impl<'a> ::flatbuffers::Follow<'a> for RoofStyle {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
@@ -1976,15 +940,15 @@ impl<'a> ::flatbuffers::Follow<'a> for V5RoofStyle {
   }
 }
 
-impl ::flatbuffers::Push for V5RoofStyle {
-    type Output = V5RoofStyle;
+impl ::flatbuffers::Push for RoofStyle {
+    type Output = RoofStyle;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
         unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
     }
 }
 
-impl ::flatbuffers::EndianScalar for V5RoofStyle {
+impl ::flatbuffers::EndianScalar for RoofStyle {
   type Scalar = u8;
   #[inline]
   fn to_little_endian(self) -> u8 {
@@ -1998,7 +962,7 @@ impl ::flatbuffers::EndianScalar for V5RoofStyle {
   }
 }
 
-impl<'a> ::flatbuffers::Verifiable for V5RoofStyle {
+impl<'a> ::flatbuffers::Verifiable for RoofStyle {
   #[inline]
   fn run_verifier(
     v: &mut ::flatbuffers::Verifier, pos: usize
@@ -2007,147 +971,23 @@ impl<'a> ::flatbuffers::Verifiable for V5RoofStyle {
   }
 }
 
-impl ::flatbuffers::SimpleToVerifyInSlice for V5RoofStyle {}
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MIN_V_5_OP: u8 = 0;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_V_5_OP: u8 = 8;
-#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-#[allow(non_camel_case_types)]
-pub const ENUM_VALUES_V_5_OP: [V5Op; 9] = [
-  V5Op::NONE,
-  V5Op::V5PaintOp,
-  V5Op::V5StampOp,
-  V5Op::V5PathOp,
-  V5Op::V5FixtureOp,
-  V5Op::V5StrokeOp,
-  V5Op::ShadowOp,
-  V5Op::V5HatchOp,
-  V5Op::V5RoofOp,
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(transparent)]
-pub struct V5Op(pub u8);
-#[allow(non_upper_case_globals)]
-impl V5Op {
-  pub const NONE: Self = Self(0);
-  pub const V5PaintOp: Self = Self(1);
-  pub const V5StampOp: Self = Self(2);
-  pub const V5PathOp: Self = Self(3);
-  pub const V5FixtureOp: Self = Self(4);
-  pub const V5StrokeOp: Self = Self(5);
-  pub const ShadowOp: Self = Self(6);
-  pub const V5HatchOp: Self = Self(7);
-  pub const V5RoofOp: Self = Self(8);
-
-  pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 8;
-  pub const ENUM_VALUES: &'static [Self] = &[
-    Self::NONE,
-    Self::V5PaintOp,
-    Self::V5StampOp,
-    Self::V5PathOp,
-    Self::V5FixtureOp,
-    Self::V5StrokeOp,
-    Self::ShadowOp,
-    Self::V5HatchOp,
-    Self::V5RoofOp,
-  ];
-  /// Returns the variant's name or "" if unknown.
-  pub fn variant_name(self) -> Option<&'static str> {
-    match self {
-      Self::NONE => Some("NONE"),
-      Self::V5PaintOp => Some("V5PaintOp"),
-      Self::V5StampOp => Some("V5StampOp"),
-      Self::V5PathOp => Some("V5PathOp"),
-      Self::V5FixtureOp => Some("V5FixtureOp"),
-      Self::V5StrokeOp => Some("V5StrokeOp"),
-      Self::ShadowOp => Some("ShadowOp"),
-      Self::V5HatchOp => Some("V5HatchOp"),
-      Self::V5RoofOp => Some("V5RoofOp"),
-      _ => None,
-    }
-  }
-}
-impl ::core::fmt::Debug for V5Op {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    if let Some(name) = self.variant_name() {
-      f.write_str(name)
-    } else {
-      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
-    }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for V5Op {
-  type Inner = Self;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
-    Self(b)
-  }
-}
-
-impl ::flatbuffers::Push for V5Op {
-    type Output = V5Op;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
-    }
-}
-
-impl ::flatbuffers::EndianScalar for V5Op {
-  type Scalar = u8;
-  #[inline]
-  fn to_little_endian(self) -> u8 {
-    self.0.to_le()
-  }
-  #[inline]
-  #[allow(clippy::wrong_self_convention)]
-  fn from_little_endian(v: u8) -> Self {
-    let b = u8::from_le(v);
-    Self(b)
-  }
-}
-
-impl<'a> ::flatbuffers::Verifiable for V5Op {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    u8::run_verifier(v, pos)
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for V5Op {}
-pub struct V5OpUnionTableOffset {}
-
+impl ::flatbuffers::SimpleToVerifyInSlice for RoofStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_OP: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_OP: u8 = 18;
+pub const ENUM_MAX_OP: u8 = 8;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_OP: [Op; 19] = [
+pub const ENUM_VALUES_OP: [Op; 9] = [
   Op::NONE,
+  Op::PaintOp,
+  Op::StampOp,
+  Op::PathOp,
+  Op::FixtureOp,
+  Op::StrokeOp,
   Op::ShadowOp,
   Op::HatchOp,
-  Op::TerrainTintOp,
-  Op::FloorGridOp,
-  Op::FloorDetailOp,
-  Op::ThematicDetailOp,
-  Op::TerrainDetailOp,
-  Op::StairsOp,
-  Op::TreeFeatureOp,
-  Op::BushFeatureOp,
-  Op::WellFeatureOp,
-  Op::FountainFeatureOp,
-  Op::DecoratorOp,
   Op::RoofOp,
-  Op::FloorOp,
-  Op::InteriorWallOp,
-  Op::ExteriorWallOp,
-  Op::CorridorWallOp,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -2156,70 +996,40 @@ pub struct Op(pub u8);
 #[allow(non_upper_case_globals)]
 impl Op {
   pub const NONE: Self = Self(0);
-  pub const ShadowOp: Self = Self(1);
-  pub const HatchOp: Self = Self(2);
-  pub const TerrainTintOp: Self = Self(3);
-  pub const FloorGridOp: Self = Self(4);
-  pub const FloorDetailOp: Self = Self(5);
-  pub const ThematicDetailOp: Self = Self(6);
-  pub const TerrainDetailOp: Self = Self(7);
-  pub const StairsOp: Self = Self(8);
-  pub const TreeFeatureOp: Self = Self(9);
-  pub const BushFeatureOp: Self = Self(10);
-  pub const WellFeatureOp: Self = Self(11);
-  pub const FountainFeatureOp: Self = Self(12);
-  pub const DecoratorOp: Self = Self(13);
-  pub const RoofOp: Self = Self(14);
-  pub const FloorOp: Self = Self(15);
-  pub const InteriorWallOp: Self = Self(16);
-  pub const ExteriorWallOp: Self = Self(17);
-  pub const CorridorWallOp: Self = Self(18);
+  pub const PaintOp: Self = Self(1);
+  pub const StampOp: Self = Self(2);
+  pub const PathOp: Self = Self(3);
+  pub const FixtureOp: Self = Self(4);
+  pub const StrokeOp: Self = Self(5);
+  pub const ShadowOp: Self = Self(6);
+  pub const HatchOp: Self = Self(7);
+  pub const RoofOp: Self = Self(8);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 18;
+  pub const ENUM_MAX: u8 = 8;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
+    Self::PaintOp,
+    Self::StampOp,
+    Self::PathOp,
+    Self::FixtureOp,
+    Self::StrokeOp,
     Self::ShadowOp,
     Self::HatchOp,
-    Self::TerrainTintOp,
-    Self::FloorGridOp,
-    Self::FloorDetailOp,
-    Self::ThematicDetailOp,
-    Self::TerrainDetailOp,
-    Self::StairsOp,
-    Self::TreeFeatureOp,
-    Self::BushFeatureOp,
-    Self::WellFeatureOp,
-    Self::FountainFeatureOp,
-    Self::DecoratorOp,
     Self::RoofOp,
-    Self::FloorOp,
-    Self::InteriorWallOp,
-    Self::ExteriorWallOp,
-    Self::CorridorWallOp,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
     match self {
       Self::NONE => Some("NONE"),
+      Self::PaintOp => Some("PaintOp"),
+      Self::StampOp => Some("StampOp"),
+      Self::PathOp => Some("PathOp"),
+      Self::FixtureOp => Some("FixtureOp"),
+      Self::StrokeOp => Some("StrokeOp"),
       Self::ShadowOp => Some("ShadowOp"),
       Self::HatchOp => Some("HatchOp"),
-      Self::TerrainTintOp => Some("TerrainTintOp"),
-      Self::FloorGridOp => Some("FloorGridOp"),
-      Self::FloorDetailOp => Some("FloorDetailOp"),
-      Self::ThematicDetailOp => Some("ThematicDetailOp"),
-      Self::TerrainDetailOp => Some("TerrainDetailOp"),
-      Self::StairsOp => Some("StairsOp"),
-      Self::TreeFeatureOp => Some("TreeFeatureOp"),
-      Self::BushFeatureOp => Some("BushFeatureOp"),
-      Self::WellFeatureOp => Some("WellFeatureOp"),
-      Self::FountainFeatureOp => Some("FountainFeatureOp"),
-      Self::DecoratorOp => Some("DecoratorOp"),
       Self::RoofOp => Some("RoofOp"),
-      Self::FloorOp => Some("FloorOp"),
-      Self::InteriorWallOp => Some("InteriorWallOp"),
-      Self::ExteriorWallOp => Some("ExteriorWallOp"),
-      Self::CorridorWallOp => Some("CorridorWallOp"),
       _ => None,
     }
   }
@@ -2689,1038 +1499,18 @@ impl<'a> TileCoord {
 
 }
 
-// struct TerrainTintTile, aligned to 4
+// struct Anchor, aligned to 4
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
-pub struct TerrainTintTile(pub [u8; 12]);
-impl Default for TerrainTintTile { 
-  fn default() -> Self { 
-    Self([0; 12])
-  }
-}
-impl ::core::fmt::Debug for TerrainTintTile {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    f.debug_struct("TerrainTintTile")
-      .field("x", &self.x())
-      .field("y", &self.y())
-      .field("kind", &self.kind())
-      .field("pad0", &self.pad0())
-      .field("pad1", &self.pad1())
-      .field("pad2", &self.pad2())
-      .finish()
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for TerrainTintTile {}
-impl<'a> ::flatbuffers::Follow<'a> for TerrainTintTile {
-  type Inner = &'a TerrainTintTile;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { <&'a TerrainTintTile>::follow(buf, loc) }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for &'a TerrainTintTile {
-  type Inner = &'a TerrainTintTile;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { ::flatbuffers::follow_cast_ref::<TerrainTintTile>(buf, loc) }
-  }
-}
-impl<'b> ::flatbuffers::Push for TerrainTintTile {
-    type Output = TerrainTintTile;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        let src = unsafe { ::core::slice::from_raw_parts(self as *const TerrainTintTile as *const u8, <Self as ::flatbuffers::Push>::size()) };
-        dst.copy_from_slice(src);
-    }
-    #[inline]
-    fn alignment() -> ::flatbuffers::PushAlignment {
-        ::flatbuffers::PushAlignment::new(4)
-    }
-}
-
-impl<'a> ::flatbuffers::Verifiable for TerrainTintTile {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.in_buffer::<Self>(pos)
-  }
-}
-
-impl<'a> TerrainTintTile {
-  #[allow(clippy::too_many_arguments)]
-  pub fn new(
-    x: i32,
-    y: i32,
-    kind: TerrainKind,
-    pad0: u8,
-    pad1: u8,
-    pad2: u8,
-  ) -> Self {
-    let mut s = Self([0; 12]);
-    s.set_x(x);
-    s.set_y(y);
-    s.set_kind(kind);
-    s.set_pad0(pad0);
-    s.set_pad1(pad1);
-    s.set_pad2(pad2);
-    s
-  }
-
-  pub fn x(&self) -> i32 {
-    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[0..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_x(&mut self, x: i32) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[0..].as_mut_ptr(),
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn y(&self) -> i32 {
-    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[4..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_y(&mut self, x: i32) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[4..].as_mut_ptr(),
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn kind(&self) -> TerrainKind {
-    let mut mem = ::core::mem::MaybeUninit::<<TerrainKind as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[8..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<TerrainKind as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_kind(&mut self, x: TerrainKind) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[8..].as_mut_ptr(),
-        ::core::mem::size_of::<<TerrainKind as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn pad0(&self) -> u8 {
-    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[9..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_pad0(&mut self, x: u8) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[9..].as_mut_ptr(),
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn pad1(&self) -> u8 {
-    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[10..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_pad1(&mut self, x: u8) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[10..].as_mut_ptr(),
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn pad2(&self) -> u8 {
-    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[11..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_pad2(&mut self, x: u8) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[11..].as_mut_ptr(),
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-}
-
-// struct TerrainDetailTile, aligned to 4
-#[repr(transparent)]
-#[derive(Clone, Copy, PartialEq)]
-pub struct TerrainDetailTile(pub [u8; 12]);
-impl Default for TerrainDetailTile { 
-  fn default() -> Self { 
-    Self([0; 12])
-  }
-}
-impl ::core::fmt::Debug for TerrainDetailTile {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    f.debug_struct("TerrainDetailTile")
-      .field("x", &self.x())
-      .field("y", &self.y())
-      .field("kind", &self.kind())
-      .field("is_corridor", &self.is_corridor())
-      .field("pad0", &self.pad0())
-      .field("pad1", &self.pad1())
-      .finish()
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for TerrainDetailTile {}
-impl<'a> ::flatbuffers::Follow<'a> for TerrainDetailTile {
-  type Inner = &'a TerrainDetailTile;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { <&'a TerrainDetailTile>::follow(buf, loc) }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for &'a TerrainDetailTile {
-  type Inner = &'a TerrainDetailTile;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { ::flatbuffers::follow_cast_ref::<TerrainDetailTile>(buf, loc) }
-  }
-}
-impl<'b> ::flatbuffers::Push for TerrainDetailTile {
-    type Output = TerrainDetailTile;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        let src = unsafe { ::core::slice::from_raw_parts(self as *const TerrainDetailTile as *const u8, <Self as ::flatbuffers::Push>::size()) };
-        dst.copy_from_slice(src);
-    }
-    #[inline]
-    fn alignment() -> ::flatbuffers::PushAlignment {
-        ::flatbuffers::PushAlignment::new(4)
-    }
-}
-
-impl<'a> ::flatbuffers::Verifiable for TerrainDetailTile {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.in_buffer::<Self>(pos)
-  }
-}
-
-impl<'a> TerrainDetailTile {
-  #[allow(clippy::too_many_arguments)]
-  pub fn new(
-    x: i32,
-    y: i32,
-    kind: TerrainKind,
-    is_corridor: bool,
-    pad0: u8,
-    pad1: u8,
-  ) -> Self {
-    let mut s = Self([0; 12]);
-    s.set_x(x);
-    s.set_y(y);
-    s.set_kind(kind);
-    s.set_is_corridor(is_corridor);
-    s.set_pad0(pad0);
-    s.set_pad1(pad1);
-    s
-  }
-
-  pub fn x(&self) -> i32 {
-    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[0..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_x(&mut self, x: i32) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[0..].as_mut_ptr(),
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn y(&self) -> i32 {
-    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[4..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_y(&mut self, x: i32) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[4..].as_mut_ptr(),
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn kind(&self) -> TerrainKind {
-    let mut mem = ::core::mem::MaybeUninit::<<TerrainKind as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[8..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<TerrainKind as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_kind(&mut self, x: TerrainKind) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[8..].as_mut_ptr(),
-        ::core::mem::size_of::<<TerrainKind as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn is_corridor(&self) -> bool {
-    let mut mem = ::core::mem::MaybeUninit::<<bool as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[9..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<bool as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_is_corridor(&mut self, x: bool) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[9..].as_mut_ptr(),
-        ::core::mem::size_of::<<bool as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn pad0(&self) -> u8 {
-    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[10..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_pad0(&mut self, x: u8) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[10..].as_mut_ptr(),
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn pad1(&self) -> u8 {
-    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[11..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_pad1(&mut self, x: u8) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[11..].as_mut_ptr(),
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-}
-
-// struct StairTile, aligned to 4
-#[repr(transparent)]
-#[derive(Clone, Copy, PartialEq)]
-pub struct StairTile(pub [u8; 12]);
-impl Default for StairTile { 
-  fn default() -> Self { 
-    Self([0; 12])
-  }
-}
-impl ::core::fmt::Debug for StairTile {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    f.debug_struct("StairTile")
-      .field("x", &self.x())
-      .field("y", &self.y())
-      .field("direction", &self.direction())
-      .field("pad0", &self.pad0())
-      .field("pad1", &self.pad1())
-      .field("pad2", &self.pad2())
-      .finish()
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for StairTile {}
-impl<'a> ::flatbuffers::Follow<'a> for StairTile {
-  type Inner = &'a StairTile;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { <&'a StairTile>::follow(buf, loc) }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for &'a StairTile {
-  type Inner = &'a StairTile;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { ::flatbuffers::follow_cast_ref::<StairTile>(buf, loc) }
-  }
-}
-impl<'b> ::flatbuffers::Push for StairTile {
-    type Output = StairTile;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        let src = unsafe { ::core::slice::from_raw_parts(self as *const StairTile as *const u8, <Self as ::flatbuffers::Push>::size()) };
-        dst.copy_from_slice(src);
-    }
-    #[inline]
-    fn alignment() -> ::flatbuffers::PushAlignment {
-        ::flatbuffers::PushAlignment::new(4)
-    }
-}
-
-impl<'a> ::flatbuffers::Verifiable for StairTile {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.in_buffer::<Self>(pos)
-  }
-}
-
-impl<'a> StairTile {
-  #[allow(clippy::too_many_arguments)]
-  pub fn new(
-    x: i32,
-    y: i32,
-    direction: StairDirection,
-    pad0: u8,
-    pad1: u8,
-    pad2: u8,
-  ) -> Self {
-    let mut s = Self([0; 12]);
-    s.set_x(x);
-    s.set_y(y);
-    s.set_direction(direction);
-    s.set_pad0(pad0);
-    s.set_pad1(pad1);
-    s.set_pad2(pad2);
-    s
-  }
-
-  pub fn x(&self) -> i32 {
-    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[0..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_x(&mut self, x: i32) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[0..].as_mut_ptr(),
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn y(&self) -> i32 {
-    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[4..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_y(&mut self, x: i32) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[4..].as_mut_ptr(),
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn direction(&self) -> StairDirection {
-    let mut mem = ::core::mem::MaybeUninit::<<StairDirection as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[8..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<StairDirection as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_direction(&mut self, x: StairDirection) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[8..].as_mut_ptr(),
-        ::core::mem::size_of::<<StairDirection as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn pad0(&self) -> u8 {
-    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[9..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_pad0(&mut self, x: u8) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[9..].as_mut_ptr(),
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn pad1(&self) -> u8 {
-    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[10..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_pad1(&mut self, x: u8) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[10..].as_mut_ptr(),
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn pad2(&self) -> u8 {
-    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[11..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_pad2(&mut self, x: u8) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[11..].as_mut_ptr(),
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-}
-
-// struct FloorGridTile, aligned to 4
-#[repr(transparent)]
-#[derive(Clone, Copy, PartialEq)]
-pub struct FloorGridTile(pub [u8; 12]);
-impl Default for FloorGridTile { 
-  fn default() -> Self { 
-    Self([0; 12])
-  }
-}
-impl ::core::fmt::Debug for FloorGridTile {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    f.debug_struct("FloorGridTile")
-      .field("x", &self.x())
-      .field("y", &self.y())
-      .field("is_corridor", &self.is_corridor())
-      .field("pad0", &self.pad0())
-      .field("pad1", &self.pad1())
-      .field("pad2", &self.pad2())
-      .finish()
-  }
-}
-
-impl ::flatbuffers::SimpleToVerifyInSlice for FloorGridTile {}
-impl<'a> ::flatbuffers::Follow<'a> for FloorGridTile {
-  type Inner = &'a FloorGridTile;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { <&'a FloorGridTile>::follow(buf, loc) }
-  }
-}
-impl<'a> ::flatbuffers::Follow<'a> for &'a FloorGridTile {
-  type Inner = &'a FloorGridTile;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { ::flatbuffers::follow_cast_ref::<FloorGridTile>(buf, loc) }
-  }
-}
-impl<'b> ::flatbuffers::Push for FloorGridTile {
-    type Output = FloorGridTile;
-    #[inline]
-    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        let src = unsafe { ::core::slice::from_raw_parts(self as *const FloorGridTile as *const u8, <Self as ::flatbuffers::Push>::size()) };
-        dst.copy_from_slice(src);
-    }
-    #[inline]
-    fn alignment() -> ::flatbuffers::PushAlignment {
-        ::flatbuffers::PushAlignment::new(4)
-    }
-}
-
-impl<'a> ::flatbuffers::Verifiable for FloorGridTile {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.in_buffer::<Self>(pos)
-  }
-}
-
-impl<'a> FloorGridTile {
-  #[allow(clippy::too_many_arguments)]
-  pub fn new(
-    x: i32,
-    y: i32,
-    is_corridor: bool,
-    pad0: u8,
-    pad1: u8,
-    pad2: u8,
-  ) -> Self {
-    let mut s = Self([0; 12]);
-    s.set_x(x);
-    s.set_y(y);
-    s.set_is_corridor(is_corridor);
-    s.set_pad0(pad0);
-    s.set_pad1(pad1);
-    s.set_pad2(pad2);
-    s
-  }
-
-  pub fn x(&self) -> i32 {
-    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[0..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_x(&mut self, x: i32) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[0..].as_mut_ptr(),
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn y(&self) -> i32 {
-    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[4..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_y(&mut self, x: i32) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[4..].as_mut_ptr(),
-        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn is_corridor(&self) -> bool {
-    let mut mem = ::core::mem::MaybeUninit::<<bool as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[8..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<bool as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_is_corridor(&mut self, x: bool) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[8..].as_mut_ptr(),
-        ::core::mem::size_of::<<bool as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn pad0(&self) -> u8 {
-    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[9..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_pad0(&mut self, x: u8) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[9..].as_mut_ptr(),
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn pad1(&self) -> u8 {
-    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[10..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_pad1(&mut self, x: u8) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[10..].as_mut_ptr(),
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-  pub fn pad2(&self) -> u8 {
-    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        self.0[11..].as_ptr(),
-        mem.as_mut_ptr() as *mut u8,
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-      mem.assume_init()
-    })
-  }
-
-  pub fn set_pad2(&mut self, x: u8) {
-    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
-    // Safety:
-    // Created from a valid Table for this object
-    // Which contains a valid value in this slot
-    unsafe {
-      ::core::ptr::copy_nonoverlapping(
-        &x_le as *const _ as *const u8,
-        self.0[11..].as_mut_ptr(),
-        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
-      );
-    }
-  }
-
-}
-
-// struct V5Anchor, aligned to 4
-#[repr(transparent)]
-#[derive(Clone, Copy, PartialEq)]
-pub struct V5Anchor(pub [u8; 16]);
-impl Default for V5Anchor { 
+pub struct Anchor(pub [u8; 16]);
+impl Default for Anchor { 
   fn default() -> Self { 
     Self([0; 16])
   }
 }
-impl ::core::fmt::Debug for V5Anchor {
+impl ::core::fmt::Debug for Anchor {
   fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-    f.debug_struct("V5Anchor")
+    f.debug_struct("Anchor")
       .field("x", &self.x())
       .field("y", &self.y())
       .field("variant", &self.variant())
@@ -3732,26 +1522,26 @@ impl ::core::fmt::Debug for V5Anchor {
   }
 }
 
-impl ::flatbuffers::SimpleToVerifyInSlice for V5Anchor {}
-impl<'a> ::flatbuffers::Follow<'a> for V5Anchor {
-  type Inner = &'a V5Anchor;
+impl ::flatbuffers::SimpleToVerifyInSlice for Anchor {}
+impl<'a> ::flatbuffers::Follow<'a> for Anchor {
+  type Inner = &'a Anchor;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { <&'a V5Anchor>::follow(buf, loc) }
+    unsafe { <&'a Anchor>::follow(buf, loc) }
   }
 }
-impl<'a> ::flatbuffers::Follow<'a> for &'a V5Anchor {
-  type Inner = &'a V5Anchor;
+impl<'a> ::flatbuffers::Follow<'a> for &'a Anchor {
+  type Inner = &'a Anchor;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { ::flatbuffers::follow_cast_ref::<V5Anchor>(buf, loc) }
+    unsafe { ::flatbuffers::follow_cast_ref::<Anchor>(buf, loc) }
   }
 }
-impl<'b> ::flatbuffers::Push for V5Anchor {
-    type Output = V5Anchor;
+impl<'b> ::flatbuffers::Push for Anchor {
+    type Output = Anchor;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        let src = unsafe { ::core::slice::from_raw_parts(self as *const V5Anchor as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const Anchor as *const u8, <Self as ::flatbuffers::Push>::size()) };
         dst.copy_from_slice(src);
     }
     #[inline]
@@ -3760,7 +1550,7 @@ impl<'b> ::flatbuffers::Push for V5Anchor {
     }
 }
 
-impl<'a> ::flatbuffers::Verifiable for V5Anchor {
+impl<'a> ::flatbuffers::Verifiable for Anchor {
   #[inline]
   fn run_verifier(
     v: &mut ::flatbuffers::Verifier, pos: usize
@@ -3769,7 +1559,7 @@ impl<'a> ::flatbuffers::Verifiable for V5Anchor {
   }
 }
 
-impl<'a> V5Anchor {
+impl<'a> Anchor {
   #[allow(clippy::too_many_arguments)]
   pub fn new(
     x: i32,
@@ -4454,6 +2244,351 @@ impl ::core::fmt::Debug for Outline<'_> {
       ds.finish()
   }
 }
+pub enum MaterialOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Material<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Material<'a> {
+  type Inner = Material<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Material<'a> {
+  pub const VT_FAMILY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SUB_PATTERN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TONE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Material { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MaterialArgs
+  ) -> ::flatbuffers::WIPOffset<Material<'bldr>> {
+    let mut builder = MaterialBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    builder.add_tone(args.tone);
+    builder.add_sub_pattern(args.sub_pattern);
+    builder.add_style(args.style);
+    builder.add_family(args.family);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn family(&self) -> MaterialFamily {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<MaterialFamily>(Material::VT_FAMILY, Some(MaterialFamily::Plain)).unwrap()}
+  }
+  #[inline]
+  pub fn style(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(Material::VT_STYLE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sub_pattern(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(Material::VT_SUB_PATTERN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn tone(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(Material::VT_TONE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Material::VT_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Material<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<MaterialFamily>("family", Self::VT_FAMILY, false)?
+     .visit_field::<u8>("style", Self::VT_STYLE, false)?
+     .visit_field::<u8>("sub_pattern", Self::VT_SUB_PATTERN, false)?
+     .visit_field::<u8>("tone", Self::VT_TONE, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MaterialArgs {
+    pub family: MaterialFamily,
+    pub style: u8,
+    pub sub_pattern: u8,
+    pub tone: u8,
+    pub seed: u64,
+}
+impl<'a> Default for MaterialArgs {
+  #[inline]
+  fn default() -> Self {
+    MaterialArgs {
+      family: MaterialFamily::Plain,
+      style: 0,
+      sub_pattern: 0,
+      tone: 0,
+      seed: 0,
+    }
+  }
+}
+
+pub struct MaterialBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MaterialBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_family(&mut self, family: MaterialFamily) {
+    self.fbb_.push_slot::<MaterialFamily>(Material::VT_FAMILY, family, MaterialFamily::Plain);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: u8) {
+    self.fbb_.push_slot::<u8>(Material::VT_STYLE, style, 0);
+  }
+  #[inline]
+  pub fn add_sub_pattern(&mut self, sub_pattern: u8) {
+    self.fbb_.push_slot::<u8>(Material::VT_SUB_PATTERN, sub_pattern, 0);
+  }
+  #[inline]
+  pub fn add_tone(&mut self, tone: u8) {
+    self.fbb_.push_slot::<u8>(Material::VT_TONE, tone, 0);
+  }
+  #[inline]
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(Material::VT_SEED, seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MaterialBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MaterialBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Material<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Material<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Material");
+      ds.field("family", &self.family());
+      ds.field("style", &self.style());
+      ds.field("sub_pattern", &self.sub_pattern());
+      ds.field("tone", &self.tone());
+      ds.field("seed", &self.seed());
+      ds.finish()
+  }
+}
+pub enum WallMaterialOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WallMaterial<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WallMaterial<'a> {
+  type Inner = WallMaterial<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WallMaterial<'a> {
+  pub const VT_FAMILY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TREATMENT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_CORNER_STYLE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TONE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WallMaterial { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WallMaterialArgs
+  ) -> ::flatbuffers::WIPOffset<WallMaterial<'bldr>> {
+    let mut builder = WallMaterialBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    builder.add_tone(args.tone);
+    builder.add_corner_style(args.corner_style);
+    builder.add_treatment(args.treatment);
+    builder.add_style(args.style);
+    builder.add_family(args.family);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn family(&self) -> MaterialFamily {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<MaterialFamily>(WallMaterial::VT_FAMILY, Some(MaterialFamily::Plain)).unwrap()}
+  }
+  #[inline]
+  pub fn style(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WallMaterial::VT_STYLE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn treatment(&self) -> WallTreatment {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<WallTreatment>(WallMaterial::VT_TREATMENT, Some(WallTreatment::PlainStroke)).unwrap()}
+  }
+  #[inline]
+  pub fn corner_style(&self) -> CornerStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<CornerStyle>(WallMaterial::VT_CORNER_STYLE, Some(CornerStyle::Merlon)).unwrap()}
+  }
+  #[inline]
+  pub fn tone(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WallMaterial::VT_TONE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WallMaterial::VT_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WallMaterial<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<MaterialFamily>("family", Self::VT_FAMILY, false)?
+     .visit_field::<u8>("style", Self::VT_STYLE, false)?
+     .visit_field::<WallTreatment>("treatment", Self::VT_TREATMENT, false)?
+     .visit_field::<CornerStyle>("corner_style", Self::VT_CORNER_STYLE, false)?
+     .visit_field::<u8>("tone", Self::VT_TONE, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WallMaterialArgs {
+    pub family: MaterialFamily,
+    pub style: u8,
+    pub treatment: WallTreatment,
+    pub corner_style: CornerStyle,
+    pub tone: u8,
+    pub seed: u64,
+}
+impl<'a> Default for WallMaterialArgs {
+  #[inline]
+  fn default() -> Self {
+    WallMaterialArgs {
+      family: MaterialFamily::Plain,
+      style: 0,
+      treatment: WallTreatment::PlainStroke,
+      corner_style: CornerStyle::Merlon,
+      tone: 0,
+      seed: 0,
+    }
+  }
+}
+
+pub struct WallMaterialBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WallMaterialBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_family(&mut self, family: MaterialFamily) {
+    self.fbb_.push_slot::<MaterialFamily>(WallMaterial::VT_FAMILY, family, MaterialFamily::Plain);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: u8) {
+    self.fbb_.push_slot::<u8>(WallMaterial::VT_STYLE, style, 0);
+  }
+  #[inline]
+  pub fn add_treatment(&mut self, treatment: WallTreatment) {
+    self.fbb_.push_slot::<WallTreatment>(WallMaterial::VT_TREATMENT, treatment, WallTreatment::PlainStroke);
+  }
+  #[inline]
+  pub fn add_corner_style(&mut self, corner_style: CornerStyle) {
+    self.fbb_.push_slot::<CornerStyle>(WallMaterial::VT_CORNER_STYLE, corner_style, CornerStyle::Merlon);
+  }
+  #[inline]
+  pub fn add_tone(&mut self, tone: u8) {
+    self.fbb_.push_slot::<u8>(WallMaterial::VT_TONE, tone, 0);
+  }
+  #[inline]
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(WallMaterial::VT_SEED, seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WallMaterialBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WallMaterialBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WallMaterial<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WallMaterial<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WallMaterial");
+      ds.field("family", &self.family());
+      ds.field("style", &self.style());
+      ds.field("treatment", &self.treatment());
+      ds.field("corner_style", &self.corner_style());
+      ds.field("tone", &self.tone());
+      ds.field("seed", &self.seed());
+      ds.finish()
+  }
+}
 pub enum RegionOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -4471,9 +2606,10 @@ impl<'a> ::flatbuffers::Follow<'a> for Region<'a> {
 
 impl<'a> Region<'a> {
   pub const VT_ID: ::flatbuffers::VOffsetT = 4;
-  pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
-  pub const VT_SHAPE_TAG: ::flatbuffers::VOffsetT = 8;
-  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PARENT_ID: ::flatbuffers::VOffsetT = 8;
+  pub const VT_CUTS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SHAPE_TAG: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4485,10 +2621,11 @@ impl<'a> Region<'a> {
     args: &'args RegionArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Region<'bldr>> {
     let mut builder = RegionBuilder::new(_fbb);
-    if let Some(x) = args.outline { builder.add_outline(x); }
     if let Some(x) = args.shape_tag { builder.add_shape_tag(x); }
+    if let Some(x) = args.cuts { builder.add_cuts(x); }
+    if let Some(x) = args.parent_id { builder.add_parent_id(x); }
+    if let Some(x) = args.outline { builder.add_outline(x); }
     if let Some(x) = args.id { builder.add_id(x); }
-    builder.add_kind(args.kind);
     builder.finish()
   }
 
@@ -4511,11 +2648,25 @@ impl<'a> Region<'a> {
     key.cmp(val)
   }
   #[inline]
-  pub fn kind(&self) -> RegionKind {
+  pub fn outline(&self) -> Option<Outline<'a>> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<RegionKind>(Region::VT_KIND, Some(RegionKind::Dungeon)).unwrap()}
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(Region::VT_OUTLINE, None)}
+  }
+  #[inline]
+  pub fn parent_id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(Region::VT_PARENT_ID, None)}
+  }
+  #[inline]
+  pub fn cuts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut>>>>(Region::VT_CUTS, None)}
   }
   #[inline]
   pub fn shape_tag(&self) -> Option<&'a str> {
@@ -4523,13 +2674,6 @@ impl<'a> Region<'a> {
     // Created from valid Table for this object
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(Region::VT_SHAPE_TAG, None)}
-  }
-  #[inline]
-  pub fn outline(&self) -> Option<Outline<'a>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(Region::VT_OUTLINE, None)}
   }
 }
 
@@ -4540,27 +2684,30 @@ impl ::flatbuffers::Verifiable for Region<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("id", Self::VT_ID, true)?
-     .visit_field::<RegionKind>("kind", Self::VT_KIND, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("shape_tag", Self::VT_SHAPE_TAG, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("parent_id", Self::VT_PARENT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Cut>>>>("cuts", Self::VT_CUTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("shape_tag", Self::VT_SHAPE_TAG, false)?
      .finish();
     Ok(())
   }
 }
 pub struct RegionArgs<'a> {
     pub id: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub kind: RegionKind,
-    pub shape_tag: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
+    pub parent_id: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub cuts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>>>,
+    pub shape_tag: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for RegionArgs<'a> {
   #[inline]
   fn default() -> Self {
     RegionArgs {
       id: None, // required field
-      kind: RegionKind::Dungeon,
-      shape_tag: None,
       outline: None,
+      parent_id: None,
+      cuts: None,
+      shape_tag: None,
     }
   }
 }
@@ -4575,16 +2722,20 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RegionBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Region::VT_ID, id);
   }
   #[inline]
-  pub fn add_kind(&mut self, kind: RegionKind) {
-    self.fbb_.push_slot::<RegionKind>(Region::VT_KIND, kind, RegionKind::Dungeon);
+  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(Region::VT_OUTLINE, outline);
+  }
+  #[inline]
+  pub fn add_parent_id(&mut self, parent_id: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Region::VT_PARENT_ID, parent_id);
+  }
+  #[inline]
+  pub fn add_cuts(&mut self, cuts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Cut<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Region::VT_CUTS, cuts);
   }
   #[inline]
   pub fn add_shape_tag(&mut self, shape_tag: ::flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Region::VT_SHAPE_TAG, shape_tag);
-  }
-  #[inline]
-  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(Region::VT_OUTLINE, outline);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RegionBuilder<'a, 'b, A> {
@@ -4606,535 +2757,745 @@ impl ::core::fmt::Debug for Region<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("Region");
       ds.field("id", &self.id());
-      ds.field("kind", &self.kind());
-      ds.field("shape_tag", &self.shape_tag());
       ds.field("outline", &self.outline());
+      ds.field("parent_id", &self.parent_id());
+      ds.field("cuts", &self.cuts());
+      ds.field("shape_tag", &self.shape_tag());
       ds.finish()
   }
 }
-pub enum RectRoomOffset {}
+pub enum PaintOpOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
-pub struct RectRoom<'a> {
+pub struct PaintOp<'a> {
   pub _tab: ::flatbuffers::Table<'a>,
 }
 
-impl<'a> ::flatbuffers::Follow<'a> for RectRoom<'a> {
-  type Inner = RectRoom<'a>;
+impl<'a> ::flatbuffers::Follow<'a> for PaintOp<'a> {
+  type Inner = PaintOp<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
     Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
   }
 }
 
-impl<'a> RectRoom<'a> {
-  pub const VT_X: ::flatbuffers::VOffsetT = 4;
-  pub const VT_Y: ::flatbuffers::VOffsetT = 6;
-  pub const VT_W: ::flatbuffers::VOffsetT = 8;
-  pub const VT_H: ::flatbuffers::VOffsetT = 10;
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 12;
+impl<'a> PaintOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SUBTRACT_REGION_REFS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_MATERIAL: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    RectRoom { _tab: table }
+    PaintOp { _tab: table }
   }
   #[allow(unused_mut)]
   pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
     _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args RectRoomArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<RectRoom<'bldr>> {
-    let mut builder = RectRoomBuilder::new(_fbb);
+    args: &'args PaintOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<PaintOp<'bldr>> {
+    let mut builder = PaintOpBuilder::new(_fbb);
+    if let Some(x) = args.material { builder.add_material(x); }
+    if let Some(x) = args.subtract_region_refs { builder.add_subtract_region_refs(x); }
     if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    builder.add_h(args.h);
-    builder.add_w(args.w);
-    builder.add_y(args.y);
-    builder.add_x(args.x);
     builder.finish()
   }
 
 
-  #[inline]
-  pub fn x(&self) -> i32 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<i32>(RectRoom::VT_X, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn y(&self) -> i32 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<i32>(RectRoom::VT_Y, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn w(&self) -> i32 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<i32>(RectRoom::VT_W, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn h(&self) -> i32 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<i32>(RectRoom::VT_H, Some(0)).unwrap()}
-  }
   #[inline]
   pub fn region_ref(&self) -> Option<&'a str> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(RectRoom::VT_REGION_REF, None)}
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PaintOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn subtract_region_refs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PaintOp::VT_SUBTRACT_REGION_REFS, None)}
+  }
+  #[inline]
+  pub fn material(&self) -> Option<Material<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Material>>(PaintOp::VT_MATERIAL, None)}
   }
 }
 
-impl ::flatbuffers::Verifiable for RectRoom<'_> {
+impl ::flatbuffers::Verifiable for PaintOp<'_> {
   #[inline]
   fn run_verifier(
     v: &mut ::flatbuffers::Verifier, pos: usize
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
-     .visit_field::<i32>("x", Self::VT_X, false)?
-     .visit_field::<i32>("y", Self::VT_Y, false)?
-     .visit_field::<i32>("w", Self::VT_W, false)?
-     .visit_field::<i32>("h", Self::VT_H, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("subtract_region_refs", Self::VT_SUBTRACT_REGION_REFS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Material>>("material", Self::VT_MATERIAL, false)?
      .finish();
     Ok(())
   }
 }
-pub struct RectRoomArgs<'a> {
-    pub x: i32,
-    pub y: i32,
-    pub w: i32,
-    pub h: i32,
+pub struct PaintOpArgs<'a> {
     pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub subtract_region_refs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub material: Option<::flatbuffers::WIPOffset<Material<'a>>>,
 }
-impl<'a> Default for RectRoomArgs<'a> {
+impl<'a> Default for PaintOpArgs<'a> {
   #[inline]
   fn default() -> Self {
-    RectRoomArgs {
-      x: 0,
-      y: 0,
-      w: 0,
-      h: 0,
+    PaintOpArgs {
       region_ref: None,
+      subtract_region_refs: None,
+      material: None,
     }
   }
 }
 
-pub struct RectRoomBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+pub struct PaintOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
   fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
   start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RectRoomBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_x(&mut self, x: i32) {
-    self.fbb_.push_slot::<i32>(RectRoom::VT_X, x, 0);
-  }
-  #[inline]
-  pub fn add_y(&mut self, y: i32) {
-    self.fbb_.push_slot::<i32>(RectRoom::VT_Y, y, 0);
-  }
-  #[inline]
-  pub fn add_w(&mut self, w: i32) {
-    self.fbb_.push_slot::<i32>(RectRoom::VT_W, w, 0);
-  }
-  #[inline]
-  pub fn add_h(&mut self, h: i32) {
-    self.fbb_.push_slot::<i32>(RectRoom::VT_H, h, 0);
-  }
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PaintOpBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RectRoom::VT_REGION_REF, region_ref);
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PaintOp::VT_REGION_REF, region_ref);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RectRoomBuilder<'a, 'b, A> {
+  pub fn add_subtract_region_refs(&mut self, subtract_region_refs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PaintOp::VT_SUBTRACT_REGION_REFS, subtract_region_refs);
+  }
+  #[inline]
+  pub fn add_material(&mut self, material: ::flatbuffers::WIPOffset<Material<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Material>>(PaintOp::VT_MATERIAL, material);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PaintOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
-    RectRoomBuilder {
+    PaintOpBuilder {
       fbb_: _fbb,
       start_: start,
     }
   }
   #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<RectRoom<'a>> {
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<PaintOp<'a>> {
     let o = self.fbb_.end_table(self.start_);
     ::flatbuffers::WIPOffset::new(o.value())
   }
 }
 
-impl ::core::fmt::Debug for RectRoom<'_> {
+impl ::core::fmt::Debug for PaintOp<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("RectRoom");
-      ds.field("x", &self.x());
-      ds.field("y", &self.y());
-      ds.field("w", &self.w());
-      ds.field("h", &self.h());
+    let mut ds = f.debug_struct("PaintOp");
       ds.field("region_ref", &self.region_ref());
+      ds.field("subtract_region_refs", &self.subtract_region_refs());
+      ds.field("material", &self.material());
       ds.finish()
   }
 }
-pub enum RoomWashOffset {}
+pub enum StampOpOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
-pub struct RoomWash<'a> {
+pub struct StampOp<'a> {
   pub _tab: ::flatbuffers::Table<'a>,
 }
 
-impl<'a> ::flatbuffers::Follow<'a> for RoomWash<'a> {
-  type Inner = RoomWash<'a>;
+impl<'a> ::flatbuffers::Follow<'a> for StampOp<'a> {
+  type Inner = StampOp<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
     Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
   }
 }
 
-impl<'a> RoomWash<'a> {
-  pub const VT_X: ::flatbuffers::VOffsetT = 4;
-  pub const VT_Y: ::flatbuffers::VOffsetT = 6;
-  pub const VT_W: ::flatbuffers::VOffsetT = 8;
-  pub const VT_H: ::flatbuffers::VOffsetT = 10;
-  pub const VT_COLOR: ::flatbuffers::VOffsetT = 12;
-  pub const VT_OPACITY: ::flatbuffers::VOffsetT = 14;
+impl<'a> StampOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SUBTRACT_REGION_REFS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DECORATOR_MASK: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DENSITY: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    RoomWash { _tab: table }
+    StampOp { _tab: table }
   }
   #[allow(unused_mut)]
   pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
     _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args RoomWashArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<RoomWash<'bldr>> {
-    let mut builder = RoomWashBuilder::new(_fbb);
-    builder.add_opacity(args.opacity);
-    if let Some(x) = args.color { builder.add_color(x); }
-    builder.add_h(args.h);
-    builder.add_w(args.w);
-    builder.add_y(args.y);
-    builder.add_x(args.x);
+    args: &'args StampOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<StampOp<'bldr>> {
+    let mut builder = StampOpBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    builder.add_decorator_mask(args.decorator_mask);
+    if let Some(x) = args.subtract_region_refs { builder.add_subtract_region_refs(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_density(args.density);
     builder.finish()
   }
 
 
   #[inline]
-  pub fn x(&self) -> i32 {
+  pub fn region_ref(&self) -> Option<&'a str> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<i32>(RoomWash::VT_X, Some(0)).unwrap()}
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(StampOp::VT_REGION_REF, None)}
   }
   #[inline]
-  pub fn y(&self) -> i32 {
+  pub fn subtract_region_refs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<i32>(RoomWash::VT_Y, Some(0)).unwrap()}
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(StampOp::VT_SUBTRACT_REGION_REFS, None)}
   }
   #[inline]
-  pub fn w(&self) -> i32 {
+  pub fn decorator_mask(&self) -> u32 {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<i32>(RoomWash::VT_W, Some(0)).unwrap()}
+    unsafe { self._tab.get::<u32>(StampOp::VT_DECORATOR_MASK, Some(0)).unwrap()}
   }
   #[inline]
-  pub fn h(&self) -> i32 {
+  pub fn density(&self) -> u8 {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<i32>(RoomWash::VT_H, Some(0)).unwrap()}
+    unsafe { self._tab.get::<u8>(StampOp::VT_DENSITY, Some(128)).unwrap()}
   }
   #[inline]
-  pub fn color(&self) -> Option<&'a str> {
+  pub fn seed(&self) -> u64 {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(RoomWash::VT_COLOR, None)}
-  }
-  #[inline]
-  pub fn opacity(&self) -> f32 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<f32>(RoomWash::VT_OPACITY, Some(0.0)).unwrap()}
+    unsafe { self._tab.get::<u64>(StampOp::VT_SEED, Some(0)).unwrap()}
   }
 }
 
-impl ::flatbuffers::Verifiable for RoomWash<'_> {
+impl ::flatbuffers::Verifiable for StampOp<'_> {
   #[inline]
   fn run_verifier(
     v: &mut ::flatbuffers::Verifier, pos: usize
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
-     .visit_field::<i32>("x", Self::VT_X, false)?
-     .visit_field::<i32>("y", Self::VT_Y, false)?
-     .visit_field::<i32>("w", Self::VT_W, false)?
-     .visit_field::<i32>("h", Self::VT_H, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("color", Self::VT_COLOR, false)?
-     .visit_field::<f32>("opacity", Self::VT_OPACITY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("subtract_region_refs", Self::VT_SUBTRACT_REGION_REFS, false)?
+     .visit_field::<u32>("decorator_mask", Self::VT_DECORATOR_MASK, false)?
+     .visit_field::<u8>("density", Self::VT_DENSITY, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .finish();
     Ok(())
   }
 }
-pub struct RoomWashArgs<'a> {
-    pub x: i32,
-    pub y: i32,
-    pub w: i32,
-    pub h: i32,
-    pub color: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub opacity: f32,
+pub struct StampOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub subtract_region_refs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub decorator_mask: u32,
+    pub density: u8,
+    pub seed: u64,
 }
-impl<'a> Default for RoomWashArgs<'a> {
+impl<'a> Default for StampOpArgs<'a> {
   #[inline]
   fn default() -> Self {
-    RoomWashArgs {
-      x: 0,
-      y: 0,
-      w: 0,
-      h: 0,
-      color: None,
-      opacity: 0.0,
+    StampOpArgs {
+      region_ref: None,
+      subtract_region_refs: None,
+      decorator_mask: 0,
+      density: 128,
+      seed: 0,
     }
   }
 }
 
-pub struct RoomWashBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+pub struct StampOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
   fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
   start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RoomWashBuilder<'a, 'b, A> {
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StampOpBuilder<'a, 'b, A> {
   #[inline]
-  pub fn add_x(&mut self, x: i32) {
-    self.fbb_.push_slot::<i32>(RoomWash::VT_X, x, 0);
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StampOp::VT_REGION_REF, region_ref);
   }
   #[inline]
-  pub fn add_y(&mut self, y: i32) {
-    self.fbb_.push_slot::<i32>(RoomWash::VT_Y, y, 0);
+  pub fn add_subtract_region_refs(&mut self, subtract_region_refs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StampOp::VT_SUBTRACT_REGION_REFS, subtract_region_refs);
   }
   #[inline]
-  pub fn add_w(&mut self, w: i32) {
-    self.fbb_.push_slot::<i32>(RoomWash::VT_W, w, 0);
+  pub fn add_decorator_mask(&mut self, decorator_mask: u32) {
+    self.fbb_.push_slot::<u32>(StampOp::VT_DECORATOR_MASK, decorator_mask, 0);
   }
   #[inline]
-  pub fn add_h(&mut self, h: i32) {
-    self.fbb_.push_slot::<i32>(RoomWash::VT_H, h, 0);
+  pub fn add_density(&mut self, density: u8) {
+    self.fbb_.push_slot::<u8>(StampOp::VT_DENSITY, density, 128);
   }
   #[inline]
-  pub fn add_color(&mut self, color: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoomWash::VT_COLOR, color);
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(StampOp::VT_SEED, seed, 0);
   }
   #[inline]
-  pub fn add_opacity(&mut self, opacity: f32) {
-    self.fbb_.push_slot::<f32>(RoomWash::VT_OPACITY, opacity, 0.0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RoomWashBuilder<'a, 'b, A> {
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StampOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
-    RoomWashBuilder {
+    StampOpBuilder {
       fbb_: _fbb,
       start_: start,
     }
   }
   #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<RoomWash<'a>> {
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<StampOp<'a>> {
     let o = self.fbb_.end_table(self.start_);
     ::flatbuffers::WIPOffset::new(o.value())
   }
 }
 
-impl ::core::fmt::Debug for RoomWash<'_> {
+impl ::core::fmt::Debug for StampOp<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("RoomWash");
-      ds.field("x", &self.x());
-      ds.field("y", &self.y());
-      ds.field("w", &self.w());
-      ds.field("h", &self.h());
-      ds.field("color", &self.color());
-      ds.field("opacity", &self.opacity());
+    let mut ds = f.debug_struct("StampOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("subtract_region_refs", &self.subtract_region_refs());
+      ds.field("decorator_mask", &self.decorator_mask());
+      ds.field("density", &self.density());
+      ds.field("seed", &self.seed());
       ds.finish()
   }
 }
-pub enum FeatureFlagsOffset {}
+pub enum PathOpOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
-pub struct FeatureFlags<'a> {
+pub struct PathOp<'a> {
   pub _tab: ::flatbuffers::Table<'a>,
 }
 
-impl<'a> ::flatbuffers::Follow<'a> for FeatureFlags<'a> {
-  type Inner = FeatureFlags<'a>;
+impl<'a> ::flatbuffers::Follow<'a> for PathOp<'a> {
+  type Inner = PathOp<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
     Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
   }
 }
 
-impl<'a> FeatureFlags<'a> {
-  pub const VT_SHADOWS_ENABLED: ::flatbuffers::VOffsetT = 4;
-  pub const VT_HATCHING_ENABLED: ::flatbuffers::VOffsetT = 6;
-  pub const VT_ATMOSPHERICS_ENABLED: ::flatbuffers::VOffsetT = 8;
-  pub const VT_MACABRE_DETAIL: ::flatbuffers::VOffsetT = 10;
-  pub const VT_VEGETATION_ENABLED: ::flatbuffers::VOffsetT = 12;
-  pub const VT_INTERIOR_FINISH: ::flatbuffers::VOffsetT = 14;
+impl<'a> PathOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 6;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    FeatureFlags { _tab: table }
+    PathOp { _tab: table }
   }
   #[allow(unused_mut)]
   pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
     _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args FeatureFlagsArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<FeatureFlags<'bldr>> {
-    let mut builder = FeatureFlagsBuilder::new(_fbb);
-    if let Some(x) = args.interior_finish { builder.add_interior_finish(x); }
-    builder.add_vegetation_enabled(args.vegetation_enabled);
-    builder.add_macabre_detail(args.macabre_detail);
-    builder.add_atmospherics_enabled(args.atmospherics_enabled);
-    builder.add_hatching_enabled(args.hatching_enabled);
-    builder.add_shadows_enabled(args.shadows_enabled);
+    args: &'args PathOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<PathOp<'bldr>> {
+    let mut builder = PathOpBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_style(args.style);
     builder.finish()
   }
 
 
   #[inline]
-  pub fn shadows_enabled(&self) -> bool {
+  pub fn region_ref(&self) -> Option<&'a str> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<bool>(FeatureFlags::VT_SHADOWS_ENABLED, Some(true)).unwrap()}
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PathOp::VT_REGION_REF, None)}
   }
   #[inline]
-  pub fn hatching_enabled(&self) -> bool {
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<bool>(FeatureFlags::VT_HATCHING_ENABLED, Some(true)).unwrap()}
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(PathOp::VT_TILES, None)}
   }
   #[inline]
-  pub fn atmospherics_enabled(&self) -> bool {
+  pub fn style(&self) -> PathStyle {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<bool>(FeatureFlags::VT_ATMOSPHERICS_ENABLED, Some(true)).unwrap()}
+    unsafe { self._tab.get::<PathStyle>(PathOp::VT_STYLE, Some(PathStyle::CartTracks)).unwrap()}
   }
   #[inline]
-  pub fn macabre_detail(&self) -> bool {
+  pub fn seed(&self) -> u64 {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<bool>(FeatureFlags::VT_MACABRE_DETAIL, Some(false)).unwrap()}
-  }
-  #[inline]
-  pub fn vegetation_enabled(&self) -> bool {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<bool>(FeatureFlags::VT_VEGETATION_ENABLED, Some(true)).unwrap()}
-  }
-  #[inline]
-  pub fn interior_finish(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FeatureFlags::VT_INTERIOR_FINISH, None)}
+    unsafe { self._tab.get::<u64>(PathOp::VT_SEED, Some(0)).unwrap()}
   }
 }
 
-impl ::flatbuffers::Verifiable for FeatureFlags<'_> {
+impl ::flatbuffers::Verifiable for PathOp<'_> {
   #[inline]
   fn run_verifier(
     v: &mut ::flatbuffers::Verifier, pos: usize
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
-     .visit_field::<bool>("shadows_enabled", Self::VT_SHADOWS_ENABLED, false)?
-     .visit_field::<bool>("hatching_enabled", Self::VT_HATCHING_ENABLED, false)?
-     .visit_field::<bool>("atmospherics_enabled", Self::VT_ATMOSPHERICS_ENABLED, false)?
-     .visit_field::<bool>("macabre_detail", Self::VT_MACABRE_DETAIL, false)?
-     .visit_field::<bool>("vegetation_enabled", Self::VT_VEGETATION_ENABLED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("interior_finish", Self::VT_INTERIOR_FINISH, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .visit_field::<PathStyle>("style", Self::VT_STYLE, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .finish();
     Ok(())
   }
 }
-pub struct FeatureFlagsArgs<'a> {
-    pub shadows_enabled: bool,
-    pub hatching_enabled: bool,
-    pub atmospherics_enabled: bool,
-    pub macabre_detail: bool,
-    pub vegetation_enabled: bool,
-    pub interior_finish: Option<::flatbuffers::WIPOffset<&'a str>>,
+pub struct PathOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+    pub style: PathStyle,
+    pub seed: u64,
 }
-impl<'a> Default for FeatureFlagsArgs<'a> {
+impl<'a> Default for PathOpArgs<'a> {
   #[inline]
   fn default() -> Self {
-    FeatureFlagsArgs {
-      shadows_enabled: true,
-      hatching_enabled: true,
-      atmospherics_enabled: true,
-      macabre_detail: false,
-      vegetation_enabled: true,
-      interior_finish: None,
+    PathOpArgs {
+      region_ref: None,
+      tiles: None,
+      style: PathStyle::CartTracks,
+      seed: 0,
     }
   }
 }
 
-pub struct FeatureFlagsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+pub struct PathOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
   fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
   start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FeatureFlagsBuilder<'a, 'b, A> {
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PathOpBuilder<'a, 'b, A> {
   #[inline]
-  pub fn add_shadows_enabled(&mut self, shadows_enabled: bool) {
-    self.fbb_.push_slot::<bool>(FeatureFlags::VT_SHADOWS_ENABLED, shadows_enabled, true);
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PathOp::VT_REGION_REF, region_ref);
   }
   #[inline]
-  pub fn add_hatching_enabled(&mut self, hatching_enabled: bool) {
-    self.fbb_.push_slot::<bool>(FeatureFlags::VT_HATCHING_ENABLED, hatching_enabled, true);
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PathOp::VT_TILES, tiles);
   }
   #[inline]
-  pub fn add_atmospherics_enabled(&mut self, atmospherics_enabled: bool) {
-    self.fbb_.push_slot::<bool>(FeatureFlags::VT_ATMOSPHERICS_ENABLED, atmospherics_enabled, true);
+  pub fn add_style(&mut self, style: PathStyle) {
+    self.fbb_.push_slot::<PathStyle>(PathOp::VT_STYLE, style, PathStyle::CartTracks);
   }
   #[inline]
-  pub fn add_macabre_detail(&mut self, macabre_detail: bool) {
-    self.fbb_.push_slot::<bool>(FeatureFlags::VT_MACABRE_DETAIL, macabre_detail, false);
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(PathOp::VT_SEED, seed, 0);
   }
   #[inline]
-  pub fn add_vegetation_enabled(&mut self, vegetation_enabled: bool) {
-    self.fbb_.push_slot::<bool>(FeatureFlags::VT_VEGETATION_ENABLED, vegetation_enabled, true);
-  }
-  #[inline]
-  pub fn add_interior_finish(&mut self, interior_finish: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FeatureFlags::VT_INTERIOR_FINISH, interior_finish);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FeatureFlagsBuilder<'a, 'b, A> {
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PathOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
-    FeatureFlagsBuilder {
+    PathOpBuilder {
       fbb_: _fbb,
       start_: start,
     }
   }
   #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<FeatureFlags<'a>> {
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<PathOp<'a>> {
     let o = self.fbb_.end_table(self.start_);
     ::flatbuffers::WIPOffset::new(o.value())
   }
 }
 
-impl ::core::fmt::Debug for FeatureFlags<'_> {
+impl ::core::fmt::Debug for PathOp<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("FeatureFlags");
-      ds.field("shadows_enabled", &self.shadows_enabled());
-      ds.field("hatching_enabled", &self.hatching_enabled());
-      ds.field("atmospherics_enabled", &self.atmospherics_enabled());
-      ds.field("macabre_detail", &self.macabre_detail());
-      ds.field("vegetation_enabled", &self.vegetation_enabled());
-      ds.field("interior_finish", &self.interior_finish());
+    let mut ds = f.debug_struct("PathOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("tiles", &self.tiles());
+      ds.field("style", &self.style());
+      ds.field("seed", &self.seed());
+      ds.finish()
+  }
+}
+pub enum FixtureOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FixtureOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FixtureOp<'a> {
+  type Inner = FixtureOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FixtureOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
+  pub const VT_ANCHORS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FixtureOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FixtureOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<FixtureOp<'bldr>> {
+    let mut builder = FixtureOpBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    if let Some(x) = args.anchors { builder.add_anchors(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FixtureOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn kind(&self) -> FixtureKind {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<FixtureKind>(FixtureOp::VT_KIND, Some(FixtureKind::Web)).unwrap()}
+  }
+  #[inline]
+  pub fn anchors(&self) -> Option<::flatbuffers::Vector<'a, Anchor>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, Anchor>>>(FixtureOp::VT_ANCHORS, None)}
+  }
+  #[inline]
+  pub fn seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FixtureOp::VT_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FixtureOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<FixtureKind>("kind", Self::VT_KIND, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Anchor>>>("anchors", Self::VT_ANCHORS, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FixtureOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub kind: FixtureKind,
+    pub anchors: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Anchor>>>,
+    pub seed: u64,
+}
+impl<'a> Default for FixtureOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    FixtureOpArgs {
+      region_ref: None,
+      kind: FixtureKind::Web,
+      anchors: None,
+      seed: 0,
+    }
+  }
+}
+
+pub struct FixtureOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FixtureOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FixtureOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_kind(&mut self, kind: FixtureKind) {
+    self.fbb_.push_slot::<FixtureKind>(FixtureOp::VT_KIND, kind, FixtureKind::Web);
+  }
+  #[inline]
+  pub fn add_anchors(&mut self, anchors: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , Anchor>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FixtureOp::VT_ANCHORS, anchors);
+  }
+  #[inline]
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(FixtureOp::VT_SEED, seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FixtureOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FixtureOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FixtureOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FixtureOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FixtureOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("kind", &self.kind());
+      ds.field("anchors", &self.anchors());
+      ds.field("seed", &self.seed());
+      ds.finish()
+  }
+}
+pub enum StrokeOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct StrokeOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for StrokeOp<'a> {
+  type Inner = StrokeOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> StrokeOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_WALL_MATERIAL: ::flatbuffers::VOffsetT = 8;
+  pub const VT_CUTS: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    StrokeOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args StrokeOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<StrokeOp<'bldr>> {
+    let mut builder = StrokeOpBuilder::new(_fbb);
+    if let Some(x) = args.cuts { builder.add_cuts(x); }
+    if let Some(x) = args.wall_material { builder.add_wall_material(x); }
+    if let Some(x) = args.outline { builder.add_outline(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(StrokeOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn outline(&self) -> Option<Outline<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(StrokeOp::VT_OUTLINE, None)}
+  }
+  #[inline]
+  pub fn wall_material(&self) -> Option<WallMaterial<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<WallMaterial>>(StrokeOp::VT_WALL_MATERIAL, None)}
+  }
+  #[inline]
+  pub fn cuts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut>>>>(StrokeOp::VT_CUTS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for StrokeOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<WallMaterial>>("wall_material", Self::VT_WALL_MATERIAL, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Cut>>>>("cuts", Self::VT_CUTS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct StrokeOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
+    pub wall_material: Option<::flatbuffers::WIPOffset<WallMaterial<'a>>>,
+    pub cuts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>>>,
+}
+impl<'a> Default for StrokeOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    StrokeOpArgs {
+      region_ref: None,
+      outline: None,
+      wall_material: None,
+      cuts: None,
+    }
+  }
+}
+
+pub struct StrokeOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StrokeOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StrokeOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(StrokeOp::VT_OUTLINE, outline);
+  }
+  #[inline]
+  pub fn add_wall_material(&mut self, wall_material: ::flatbuffers::WIPOffset<WallMaterial<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<WallMaterial>>(StrokeOp::VT_WALL_MATERIAL, wall_material);
+  }
+  #[inline]
+  pub fn add_cuts(&mut self, cuts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Cut<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StrokeOp::VT_CUTS, cuts);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StrokeOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    StrokeOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<StrokeOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for StrokeOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("StrokeOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("outline", &self.outline());
+      ds.field("wall_material", &self.wall_material());
+      ds.field("cuts", &self.cuts());
       ds.finish()
   }
 }
@@ -5336,14 +3697,13 @@ impl<'a> ::flatbuffers::Follow<'a> for HatchOp<'a> {
 
 impl<'a> HatchOp<'a> {
   pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
-  pub const VT_REGION_OUT: ::flatbuffers::VOffsetT = 6;
-  pub const VT_REGION_IN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SUBTRACT_REGION_REFS: ::flatbuffers::VOffsetT = 8;
   pub const VT_TILES: ::flatbuffers::VOffsetT = 10;
-  pub const VT_EXTENT_TILES: ::flatbuffers::VOffsetT = 12;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 14;
-  pub const VT_STRIDE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_IS_OUTER: ::flatbuffers::VOffsetT = 12;
+  pub const VT_EXTENT_TILES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 16;
   pub const VT_HATCH_UNDERLAY_COLOR: ::flatbuffers::VOffsetT = 18;
-  pub const VT_IS_OUTER: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5356,13 +3716,12 @@ impl<'a> HatchOp<'a> {
   ) -> ::flatbuffers::WIPOffset<HatchOp<'bldr>> {
     let mut builder = HatchOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
-    if let Some(x) = args.is_outer { builder.add_is_outer(x); }
     if let Some(x) = args.hatch_underlay_color { builder.add_hatch_underlay_color(x); }
-    builder.add_stride(args.stride);
     builder.add_extent_tiles(args.extent_tiles);
+    if let Some(x) = args.is_outer { builder.add_is_outer(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
-    if let Some(x) = args.region_in { builder.add_region_in(x); }
-    if let Some(x) = args.region_out { builder.add_region_out(x); }
+    if let Some(x) = args.subtract_region_refs { builder.add_subtract_region_refs(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
     builder.add_kind(args.kind);
     builder.finish()
   }
@@ -5376,18 +3735,18 @@ impl<'a> HatchOp<'a> {
     unsafe { self._tab.get::<HatchKind>(HatchOp::VT_KIND, Some(HatchKind::Room)).unwrap()}
   }
   #[inline]
-  pub fn region_out(&self) -> Option<&'a str> {
+  pub fn region_ref(&self) -> Option<&'a str> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(HatchOp::VT_REGION_OUT, None)}
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(HatchOp::VT_REGION_REF, None)}
   }
   #[inline]
-  pub fn region_in(&self) -> Option<&'a str> {
+  pub fn subtract_region_refs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(HatchOp::VT_REGION_IN, None)}
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(HatchOp::VT_SUBTRACT_REGION_REFS, None)}
   }
   #[inline]
   pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
@@ -5395,6 +3754,13 @@ impl<'a> HatchOp<'a> {
     // Created from valid Table for this object
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(HatchOp::VT_TILES, None)}
+  }
+  #[inline]
+  pub fn is_outer(&self) -> Option<::flatbuffers::Vector<'a, bool>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, bool>>>(HatchOp::VT_IS_OUTER, None)}
   }
   #[inline]
   pub fn extent_tiles(&self) -> f32 {
@@ -5411,25 +3777,11 @@ impl<'a> HatchOp<'a> {
     unsafe { self._tab.get::<u64>(HatchOp::VT_SEED, Some(0)).unwrap()}
   }
   #[inline]
-  pub fn stride(&self) -> f32 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<f32>(HatchOp::VT_STRIDE, Some(0.5)).unwrap()}
-  }
-  #[inline]
   pub fn hatch_underlay_color(&self) -> Option<&'a str> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(HatchOp::VT_HATCH_UNDERLAY_COLOR, None)}
-  }
-  #[inline]
-  pub fn is_outer(&self) -> Option<::flatbuffers::Vector<'a, bool>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, bool>>>(HatchOp::VT_IS_OUTER, None)}
   }
 }
 
@@ -5440,42 +3792,39 @@ impl ::flatbuffers::Verifiable for HatchOp<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<HatchKind>("kind", Self::VT_KIND, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_out", Self::VT_REGION_OUT, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_in", Self::VT_REGION_IN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("subtract_region_refs", Self::VT_SUBTRACT_REGION_REFS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, bool>>>("is_outer", Self::VT_IS_OUTER, false)?
      .visit_field::<f32>("extent_tiles", Self::VT_EXTENT_TILES, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<f32>("stride", Self::VT_STRIDE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("hatch_underlay_color", Self::VT_HATCH_UNDERLAY_COLOR, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, bool>>>("is_outer", Self::VT_IS_OUTER, false)?
      .finish();
     Ok(())
   }
 }
 pub struct HatchOpArgs<'a> {
     pub kind: HatchKind,
-    pub region_out: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub region_in: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub subtract_region_refs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+    pub is_outer: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, bool>>>,
     pub extent_tiles: f32,
     pub seed: u64,
-    pub stride: f32,
     pub hatch_underlay_color: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub is_outer: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, bool>>>,
 }
 impl<'a> Default for HatchOpArgs<'a> {
   #[inline]
   fn default() -> Self {
     HatchOpArgs {
       kind: HatchKind::Room,
-      region_out: None,
-      region_in: None,
+      region_ref: None,
+      subtract_region_refs: None,
       tiles: None,
+      is_outer: None,
       extent_tiles: 2.0,
       seed: 0,
-      stride: 0.5,
       hatch_underlay_color: None,
-      is_outer: None,
     }
   }
 }
@@ -5490,16 +3839,20 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HatchOpBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<HatchKind>(HatchOp::VT_KIND, kind, HatchKind::Room);
   }
   #[inline]
-  pub fn add_region_out(&mut self, region_out: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HatchOp::VT_REGION_OUT, region_out);
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HatchOp::VT_REGION_REF, region_ref);
   }
   #[inline]
-  pub fn add_region_in(&mut self, region_in: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HatchOp::VT_REGION_IN, region_in);
+  pub fn add_subtract_region_refs(&mut self, subtract_region_refs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HatchOp::VT_SUBTRACT_REGION_REFS, subtract_region_refs);
   }
   #[inline]
   pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HatchOp::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn add_is_outer(&mut self, is_outer: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , bool>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HatchOp::VT_IS_OUTER, is_outer);
   }
   #[inline]
   pub fn add_extent_tiles(&mut self, extent_tiles: f32) {
@@ -5510,16 +3863,8 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HatchOpBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(HatchOp::VT_SEED, seed, 0);
   }
   #[inline]
-  pub fn add_stride(&mut self, stride: f32) {
-    self.fbb_.push_slot::<f32>(HatchOp::VT_STRIDE, stride, 0.5);
-  }
-  #[inline]
   pub fn add_hatch_underlay_color(&mut self, hatch_underlay_color: ::flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HatchOp::VT_HATCH_UNDERLAY_COLOR, hatch_underlay_color);
-  }
-  #[inline]
-  pub fn add_is_outer(&mut self, is_outer: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , bool>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HatchOp::VT_IS_OUTER, is_outer);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HatchOpBuilder<'a, 'b, A> {
@@ -5540,2524 +3885,13 @@ impl ::core::fmt::Debug for HatchOp<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("HatchOp");
       ds.field("kind", &self.kind());
-      ds.field("region_out", &self.region_out());
-      ds.field("region_in", &self.region_in());
+      ds.field("region_ref", &self.region_ref());
+      ds.field("subtract_region_refs", &self.subtract_region_refs());
       ds.field("tiles", &self.tiles());
+      ds.field("is_outer", &self.is_outer());
       ds.field("extent_tiles", &self.extent_tiles());
       ds.field("seed", &self.seed());
-      ds.field("stride", &self.stride());
       ds.field("hatch_underlay_color", &self.hatch_underlay_color());
-      ds.field("is_outer", &self.is_outer());
-      ds.finish()
-  }
-}
-pub enum TerrainTintOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct TerrainTintOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for TerrainTintOp<'a> {
-  type Inner = TerrainTintOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> TerrainTintOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_ROOM_WASHES: ::flatbuffers::VOffsetT = 6;
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 8;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    TerrainTintOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args TerrainTintOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<TerrainTintOp<'bldr>> {
-    let mut builder = TerrainTintOpBuilder::new(_fbb);
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    if let Some(x) = args.room_washes { builder.add_room_washes(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TerrainTintTile>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TerrainTintTile>>>(TerrainTintOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn room_washes(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoomWash<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoomWash>>>>(TerrainTintOp::VT_ROOM_WASHES, None)}
-  }
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TerrainTintOp::VT_REGION_REF, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for TerrainTintOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TerrainTintTile>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RoomWash>>>>("room_washes", Self::VT_ROOM_WASHES, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct TerrainTintOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TerrainTintTile>>>,
-    pub room_washes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoomWash<'a>>>>>,
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for TerrainTintOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    TerrainTintOpArgs {
-      tiles: None,
-      room_washes: None,
-      region_ref: None,
-    }
-  }
-}
-
-pub struct TerrainTintOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TerrainTintOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TerrainTintTile>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TerrainTintOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_room_washes(&mut self, room_washes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RoomWash<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TerrainTintOp::VT_ROOM_WASHES, room_washes);
-  }
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TerrainTintOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TerrainTintOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    TerrainTintOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<TerrainTintOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for TerrainTintOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("TerrainTintOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("room_washes", &self.room_washes());
-      ds.field("region_ref", &self.region_ref());
-      ds.finish()
-  }
-}
-pub enum FloorGridOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct FloorGridOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for FloorGridOp<'a> {
-  type Inner = FloorGridOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> FloorGridOp<'a> {
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 4;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 6;
-  pub const VT_SCALE: ::flatbuffers::VOffsetT = 8;
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 10;
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 12;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    FloorGridOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args FloorGridOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<FloorGridOp<'bldr>> {
-    let mut builder = FloorGridOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.add_scale(args.scale);
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(FloorGridOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloorGridOp::VT_THEME, None)}
-  }
-  #[inline]
-  pub fn scale(&self) -> f32 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<f32>(FloorGridOp::VT_SCALE, Some(1.0)).unwrap()}
-  }
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, FloorGridTile>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, FloorGridTile>>>(FloorGridOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloorGridOp::VT_REGION_REF, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for FloorGridOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<f32>("scale", Self::VT_SCALE, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, FloorGridTile>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct FloorGridOpArgs<'a> {
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub scale: f32,
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, FloorGridTile>>>,
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for FloorGridOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    FloorGridOpArgs {
-      seed: 0,
-      theme: None,
-      scale: 1.0,
-      tiles: None,
-      region_ref: None,
-    }
-  }
-}
-
-pub struct FloorGridOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorGridOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(FloorGridOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorGridOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn add_scale(&mut self, scale: f32) {
-    self.fbb_.push_slot::<f32>(FloorGridOp::VT_SCALE, scale, 1.0);
-  }
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , FloorGridTile>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorGridOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorGridOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorGridOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    FloorGridOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<FloorGridOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for FloorGridOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("FloorGridOp");
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.field("scale", &self.scale());
-      ds.field("tiles", &self.tiles());
-      ds.field("region_ref", &self.region_ref());
-      ds.finish()
-  }
-}
-pub enum CobblestoneVariantOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct CobblestoneVariant<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for CobblestoneVariant<'a> {
-  type Inner = CobblestoneVariant<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> CobblestoneVariant<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_PATTERN: ::flatbuffers::VOffsetT = 6;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    CobblestoneVariant { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args CobblestoneVariantArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<CobblestoneVariant<'bldr>> {
-    let mut builder = CobblestoneVariantBuilder::new(_fbb);
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.add_pattern(args.pattern);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(CobblestoneVariant::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn pattern(&self) -> CobblePattern {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<CobblePattern>(CobblestoneVariant::VT_PATTERN, Some(CobblePattern::Cobble)).unwrap()}
-  }
-}
-
-impl ::flatbuffers::Verifiable for CobblestoneVariant<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<CobblePattern>("pattern", Self::VT_PATTERN, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct CobblestoneVariantArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub pattern: CobblePattern,
-}
-impl<'a> Default for CobblestoneVariantArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    CobblestoneVariantArgs {
-      tiles: None,
-      pattern: CobblePattern::Cobble,
-    }
-  }
-}
-
-pub struct CobblestoneVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CobblestoneVariantBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CobblestoneVariant::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_pattern(&mut self, pattern: CobblePattern) {
-    self.fbb_.push_slot::<CobblePattern>(CobblestoneVariant::VT_PATTERN, pattern, CobblePattern::Cobble);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CobblestoneVariantBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    CobblestoneVariantBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<CobblestoneVariant<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for CobblestoneVariant<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("CobblestoneVariant");
-      ds.field("tiles", &self.tiles());
-      ds.field("pattern", &self.pattern());
-      ds.finish()
-  }
-}
-pub enum BrickVariantOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct BrickVariant<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for BrickVariant<'a> {
-  type Inner = BrickVariant<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> BrickVariant<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    BrickVariant { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args BrickVariantArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<BrickVariant<'bldr>> {
-    let mut builder = BrickVariantBuilder::new(_fbb);
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(BrickVariant::VT_TILES, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for BrickVariant<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct BrickVariantArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-}
-impl<'a> Default for BrickVariantArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    BrickVariantArgs {
-      tiles: None,
-    }
-  }
-}
-
-pub struct BrickVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BrickVariantBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BrickVariant::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BrickVariantBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    BrickVariantBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<BrickVariant<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for BrickVariant<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("BrickVariant");
-      ds.field("tiles", &self.tiles());
-      ds.finish()
-  }
-}
-pub enum FlagstoneVariantOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct FlagstoneVariant<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for FlagstoneVariant<'a> {
-  type Inner = FlagstoneVariant<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> FlagstoneVariant<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    FlagstoneVariant { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args FlagstoneVariantArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<FlagstoneVariant<'bldr>> {
-    let mut builder = FlagstoneVariantBuilder::new(_fbb);
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(FlagstoneVariant::VT_TILES, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for FlagstoneVariant<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct FlagstoneVariantArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-}
-impl<'a> Default for FlagstoneVariantArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    FlagstoneVariantArgs {
-      tiles: None,
-    }
-  }
-}
-
-pub struct FlagstoneVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FlagstoneVariantBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FlagstoneVariant::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FlagstoneVariantBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    FlagstoneVariantBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<FlagstoneVariant<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for FlagstoneVariant<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("FlagstoneVariant");
-      ds.field("tiles", &self.tiles());
-      ds.finish()
-  }
-}
-pub enum OpusRomanoVariantOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct OpusRomanoVariant<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for OpusRomanoVariant<'a> {
-  type Inner = OpusRomanoVariant<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> OpusRomanoVariant<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    OpusRomanoVariant { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args OpusRomanoVariantArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<OpusRomanoVariant<'bldr>> {
-    let mut builder = OpusRomanoVariantBuilder::new(_fbb);
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(OpusRomanoVariant::VT_TILES, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for OpusRomanoVariant<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct OpusRomanoVariantArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-}
-impl<'a> Default for OpusRomanoVariantArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    OpusRomanoVariantArgs {
-      tiles: None,
-    }
-  }
-}
-
-pub struct OpusRomanoVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OpusRomanoVariantBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(OpusRomanoVariant::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OpusRomanoVariantBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    OpusRomanoVariantBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<OpusRomanoVariant<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for OpusRomanoVariant<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("OpusRomanoVariant");
-      ds.field("tiles", &self.tiles());
-      ds.finish()
-  }
-}
-pub enum FieldStoneVariantOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct FieldStoneVariant<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for FieldStoneVariant<'a> {
-  type Inner = FieldStoneVariant<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> FieldStoneVariant<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    FieldStoneVariant { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args FieldStoneVariantArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<FieldStoneVariant<'bldr>> {
-    let mut builder = FieldStoneVariantBuilder::new(_fbb);
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(FieldStoneVariant::VT_TILES, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for FieldStoneVariant<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct FieldStoneVariantArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-}
-impl<'a> Default for FieldStoneVariantArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    FieldStoneVariantArgs {
-      tiles: None,
-    }
-  }
-}
-
-pub struct FieldStoneVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldStoneVariantBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FieldStoneVariant::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldStoneVariantBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    FieldStoneVariantBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<FieldStoneVariant<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for FieldStoneVariant<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("FieldStoneVariant");
-      ds.field("tiles", &self.tiles());
-      ds.finish()
-  }
-}
-pub enum CartTracksVariantOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct CartTracksVariant<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for CartTracksVariant<'a> {
-  type Inner = CartTracksVariant<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> CartTracksVariant<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_OPEN_SIDES: ::flatbuffers::VOffsetT = 6;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    CartTracksVariant { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args CartTracksVariantArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<CartTracksVariant<'bldr>> {
-    let mut builder = CartTracksVariantBuilder::new(_fbb);
-    if let Some(x) = args.open_sides { builder.add_open_sides(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(CartTracksVariant::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn open_sides(&self) -> Option<::flatbuffers::Vector<'a, u8>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u8>>>(CartTracksVariant::VT_OPEN_SIDES, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for CartTracksVariant<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u8>>>("open_sides", Self::VT_OPEN_SIDES, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct CartTracksVariantArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub open_sides: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u8>>>,
-}
-impl<'a> Default for CartTracksVariantArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    CartTracksVariantArgs {
-      tiles: None,
-      open_sides: None,
-    }
-  }
-}
-
-pub struct CartTracksVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CartTracksVariantBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CartTracksVariant::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_open_sides(&mut self, open_sides: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u8>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CartTracksVariant::VT_OPEN_SIDES, open_sides);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CartTracksVariantBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    CartTracksVariantBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<CartTracksVariant<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for CartTracksVariant<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("CartTracksVariant");
-      ds.field("tiles", &self.tiles());
-      ds.field("open_sides", &self.open_sides());
-      ds.finish()
-  }
-}
-pub enum OreDepositVariantOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct OreDepositVariant<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for OreDepositVariant<'a> {
-  type Inner = OreDepositVariant<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> OreDepositVariant<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    OreDepositVariant { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args OreDepositVariantArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<OreDepositVariant<'bldr>> {
-    let mut builder = OreDepositVariantBuilder::new(_fbb);
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(OreDepositVariant::VT_TILES, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for OreDepositVariant<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct OreDepositVariantArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-}
-impl<'a> Default for OreDepositVariantArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    OreDepositVariantArgs {
-      tiles: None,
-    }
-  }
-}
-
-pub struct OreDepositVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OreDepositVariantBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(OreDepositVariant::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OreDepositVariantBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    OreDepositVariantBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<OreDepositVariant<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for OreDepositVariant<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("OreDepositVariant");
-      ds.field("tiles", &self.tiles());
-      ds.finish()
-  }
-}
-pub enum DecoratorOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct DecoratorOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for DecoratorOp<'a> {
-  type Inner = DecoratorOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> DecoratorOp<'a> {
-  pub const VT_COBBLESTONE: ::flatbuffers::VOffsetT = 4;
-  pub const VT_BRICK: ::flatbuffers::VOffsetT = 6;
-  pub const VT_FLAGSTONE: ::flatbuffers::VOffsetT = 8;
-  pub const VT_OPUS_ROMANO: ::flatbuffers::VOffsetT = 10;
-  pub const VT_FIELD_STONE: ::flatbuffers::VOffsetT = 12;
-  pub const VT_CART_TRACKS: ::flatbuffers::VOffsetT = 14;
-  pub const VT_ORE_DEPOSIT: ::flatbuffers::VOffsetT = 16;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 18;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 20;
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 22;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    DecoratorOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args DecoratorOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<DecoratorOp<'bldr>> {
-    let mut builder = DecoratorOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.ore_deposit { builder.add_ore_deposit(x); }
-    if let Some(x) = args.cart_tracks { builder.add_cart_tracks(x); }
-    if let Some(x) = args.field_stone { builder.add_field_stone(x); }
-    if let Some(x) = args.opus_romano { builder.add_opus_romano(x); }
-    if let Some(x) = args.flagstone { builder.add_flagstone(x); }
-    if let Some(x) = args.brick { builder.add_brick(x); }
-    if let Some(x) = args.cobblestone { builder.add_cobblestone(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn cobblestone(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CobblestoneVariant<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CobblestoneVariant>>>>(DecoratorOp::VT_COBBLESTONE, None)}
-  }
-  #[inline]
-  pub fn brick(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BrickVariant<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BrickVariant>>>>(DecoratorOp::VT_BRICK, None)}
-  }
-  #[inline]
-  pub fn flagstone(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FlagstoneVariant<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FlagstoneVariant>>>>(DecoratorOp::VT_FLAGSTONE, None)}
-  }
-  #[inline]
-  pub fn opus_romano(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OpusRomanoVariant<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OpusRomanoVariant>>>>(DecoratorOp::VT_OPUS_ROMANO, None)}
-  }
-  #[inline]
-  pub fn field_stone(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FieldStoneVariant<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FieldStoneVariant>>>>(DecoratorOp::VT_FIELD_STONE, None)}
-  }
-  #[inline]
-  pub fn cart_tracks(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CartTracksVariant<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CartTracksVariant>>>>(DecoratorOp::VT_CART_TRACKS, None)}
-  }
-  #[inline]
-  pub fn ore_deposit(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OreDepositVariant<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OreDepositVariant>>>>(DecoratorOp::VT_ORE_DEPOSIT, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(DecoratorOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(DecoratorOp::VT_THEME, None)}
-  }
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(DecoratorOp::VT_REGION_REF, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for DecoratorOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CobblestoneVariant>>>>("cobblestone", Self::VT_COBBLESTONE, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BrickVariant>>>>("brick", Self::VT_BRICK, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FlagstoneVariant>>>>("flagstone", Self::VT_FLAGSTONE, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<OpusRomanoVariant>>>>("opus_romano", Self::VT_OPUS_ROMANO, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FieldStoneVariant>>>>("field_stone", Self::VT_FIELD_STONE, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CartTracksVariant>>>>("cart_tracks", Self::VT_CART_TRACKS, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<OreDepositVariant>>>>("ore_deposit", Self::VT_ORE_DEPOSIT, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct DecoratorOpArgs<'a> {
-    pub cobblestone: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CobblestoneVariant<'a>>>>>,
-    pub brick: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BrickVariant<'a>>>>>,
-    pub flagstone: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FlagstoneVariant<'a>>>>>,
-    pub opus_romano: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OpusRomanoVariant<'a>>>>>,
-    pub field_stone: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FieldStoneVariant<'a>>>>>,
-    pub cart_tracks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CartTracksVariant<'a>>>>>,
-    pub ore_deposit: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OreDepositVariant<'a>>>>>,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for DecoratorOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    DecoratorOpArgs {
-      cobblestone: None,
-      brick: None,
-      flagstone: None,
-      opus_romano: None,
-      field_stone: None,
-      cart_tracks: None,
-      ore_deposit: None,
-      seed: 0,
-      theme: None,
-      region_ref: None,
-    }
-  }
-}
-
-pub struct DecoratorOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DecoratorOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_cobblestone(&mut self, cobblestone: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CobblestoneVariant<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_COBBLESTONE, cobblestone);
-  }
-  #[inline]
-  pub fn add_brick(&mut self, brick: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BrickVariant<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_BRICK, brick);
-  }
-  #[inline]
-  pub fn add_flagstone(&mut self, flagstone: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<FlagstoneVariant<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_FLAGSTONE, flagstone);
-  }
-  #[inline]
-  pub fn add_opus_romano(&mut self, opus_romano: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<OpusRomanoVariant<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_OPUS_ROMANO, opus_romano);
-  }
-  #[inline]
-  pub fn add_field_stone(&mut self, field_stone: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<FieldStoneVariant<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_FIELD_STONE, field_stone);
-  }
-  #[inline]
-  pub fn add_cart_tracks(&mut self, cart_tracks: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CartTracksVariant<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_CART_TRACKS, cart_tracks);
-  }
-  #[inline]
-  pub fn add_ore_deposit(&mut self, ore_deposit: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<OreDepositVariant<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_ORE_DEPOSIT, ore_deposit);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(DecoratorOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DecoratorOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    DecoratorOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<DecoratorOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for DecoratorOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("DecoratorOp");
-      ds.field("cobblestone", &self.cobblestone());
-      ds.field("brick", &self.brick());
-      ds.field("flagstone", &self.flagstone());
-      ds.field("opus_romano", &self.opus_romano());
-      ds.field("field_stone", &self.field_stone());
-      ds.field("cart_tracks", &self.cart_tracks());
-      ds.field("ore_deposit", &self.ore_deposit());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.field("region_ref", &self.region_ref());
-      ds.finish()
-  }
-}
-pub enum FloorDetailOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct FloorDetailOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for FloorDetailOp<'a> {
-  type Inner = FloorDetailOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> FloorDetailOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
-  pub const VT_IS_CORRIDOR: ::flatbuffers::VOffsetT = 10;
-  pub const VT_WOOD_TILES: ::flatbuffers::VOffsetT = 12;
-  pub const VT_WOOD_BUILDING_POLYGON: ::flatbuffers::VOffsetT = 14;
-  pub const VT_WOOD_ROOMS: ::flatbuffers::VOffsetT = 16;
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 18;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    FloorDetailOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args FloorDetailOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<FloorDetailOp<'bldr>> {
-    let mut builder = FloorDetailOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    if let Some(x) = args.wood_rooms { builder.add_wood_rooms(x); }
-    if let Some(x) = args.wood_building_polygon { builder.add_wood_building_polygon(x); }
-    if let Some(x) = args.wood_tiles { builder.add_wood_tiles(x); }
-    if let Some(x) = args.is_corridor { builder.add_is_corridor(x); }
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(FloorDetailOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(FloorDetailOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloorDetailOp::VT_THEME, None)}
-  }
-  #[inline]
-  pub fn is_corridor(&self) -> Option<::flatbuffers::Vector<'a, bool>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, bool>>>(FloorDetailOp::VT_IS_CORRIDOR, None)}
-  }
-  #[inline]
-  pub fn wood_tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(FloorDetailOp::VT_WOOD_TILES, None)}
-  }
-  #[inline]
-  pub fn wood_building_polygon(&self) -> Option<::flatbuffers::Vector<'a, Vec2>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, Vec2>>>(FloorDetailOp::VT_WOOD_BUILDING_POLYGON, None)}
-  }
-  #[inline]
-  pub fn wood_rooms(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RectRoom<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RectRoom>>>>(FloorDetailOp::VT_WOOD_ROOMS, None)}
-  }
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloorDetailOp::VT_REGION_REF, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for FloorDetailOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, bool>>>("is_corridor", Self::VT_IS_CORRIDOR, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("wood_tiles", Self::VT_WOOD_TILES, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Vec2>>>("wood_building_polygon", Self::VT_WOOD_BUILDING_POLYGON, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RectRoom>>>>("wood_rooms", Self::VT_WOOD_ROOMS, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct FloorDetailOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub is_corridor: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, bool>>>,
-    pub wood_tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub wood_building_polygon: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Vec2>>>,
-    pub wood_rooms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RectRoom<'a>>>>>,
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for FloorDetailOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    FloorDetailOpArgs {
-      tiles: None,
-      seed: 0,
-      theme: None,
-      is_corridor: None,
-      wood_tiles: None,
-      wood_building_polygon: None,
-      wood_rooms: None,
-      region_ref: None,
-    }
-  }
-}
-
-pub struct FloorDetailOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorDetailOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(FloorDetailOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn add_is_corridor(&mut self, is_corridor: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , bool>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_IS_CORRIDOR, is_corridor);
-  }
-  #[inline]
-  pub fn add_wood_tiles(&mut self, wood_tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_WOOD_TILES, wood_tiles);
-  }
-  #[inline]
-  pub fn add_wood_building_polygon(&mut self, wood_building_polygon: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , Vec2>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_WOOD_BUILDING_POLYGON, wood_building_polygon);
-  }
-  #[inline]
-  pub fn add_wood_rooms(&mut self, wood_rooms: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RectRoom<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_WOOD_ROOMS, wood_rooms);
-  }
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorDetailOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    FloorDetailOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<FloorDetailOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for FloorDetailOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("FloorDetailOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.field("is_corridor", &self.is_corridor());
-      ds.field("wood_tiles", &self.wood_tiles());
-      ds.field("wood_building_polygon", &self.wood_building_polygon());
-      ds.field("wood_rooms", &self.wood_rooms());
-      ds.field("region_ref", &self.region_ref());
-      ds.finish()
-  }
-}
-pub enum ThematicDetailOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct ThematicDetailOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for ThematicDetailOp<'a> {
-  type Inner = ThematicDetailOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> ThematicDetailOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_IS_CORRIDOR: ::flatbuffers::VOffsetT = 6;
-  pub const VT_WALL_CORNERS: ::flatbuffers::VOffsetT = 8;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 10;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 12;
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 14;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    ThematicDetailOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args ThematicDetailOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<ThematicDetailOp<'bldr>> {
-    let mut builder = ThematicDetailOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.wall_corners { builder.add_wall_corners(x); }
-    if let Some(x) = args.is_corridor { builder.add_is_corridor(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(ThematicDetailOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn is_corridor(&self) -> Option<::flatbuffers::Vector<'a, bool>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, bool>>>(ThematicDetailOp::VT_IS_CORRIDOR, None)}
-  }
-  #[inline]
-  pub fn wall_corners(&self) -> Option<::flatbuffers::Vector<'a, u8>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u8>>>(ThematicDetailOp::VT_WALL_CORNERS, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(ThematicDetailOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ThematicDetailOp::VT_THEME, None)}
-  }
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ThematicDetailOp::VT_REGION_REF, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for ThematicDetailOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, bool>>>("is_corridor", Self::VT_IS_CORRIDOR, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u8>>>("wall_corners", Self::VT_WALL_CORNERS, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct ThematicDetailOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub is_corridor: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, bool>>>,
-    pub wall_corners: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u8>>>,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for ThematicDetailOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    ThematicDetailOpArgs {
-      tiles: None,
-      is_corridor: None,
-      wall_corners: None,
-      seed: 0,
-      theme: None,
-      region_ref: None,
-    }
-  }
-}
-
-pub struct ThematicDetailOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ThematicDetailOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_is_corridor(&mut self, is_corridor: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , bool>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_IS_CORRIDOR, is_corridor);
-  }
-  #[inline]
-  pub fn add_wall_corners(&mut self, wall_corners: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u8>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_WALL_CORNERS, wall_corners);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(ThematicDetailOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ThematicDetailOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    ThematicDetailOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<ThematicDetailOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for ThematicDetailOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("ThematicDetailOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("is_corridor", &self.is_corridor());
-      ds.field("wall_corners", &self.wall_corners());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.field("region_ref", &self.region_ref());
-      ds.finish()
-  }
-}
-pub enum TerrainDetailOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct TerrainDetailOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for TerrainDetailOp<'a> {
-  type Inner = TerrainDetailOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> TerrainDetailOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 10;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    TerrainDetailOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args TerrainDetailOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<TerrainDetailOp<'bldr>> {
-    let mut builder = TerrainDetailOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TerrainDetailTile>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TerrainDetailTile>>>(TerrainDetailOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(TerrainDetailOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TerrainDetailOp::VT_THEME, None)}
-  }
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TerrainDetailOp::VT_REGION_REF, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for TerrainDetailOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TerrainDetailTile>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct TerrainDetailOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TerrainDetailTile>>>,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for TerrainDetailOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    TerrainDetailOpArgs {
-      tiles: None,
-      seed: 0,
-      theme: None,
-      region_ref: None,
-    }
-  }
-}
-
-pub struct TerrainDetailOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TerrainDetailOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TerrainDetailTile>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TerrainDetailOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(TerrainDetailOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TerrainDetailOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TerrainDetailOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TerrainDetailOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    TerrainDetailOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<TerrainDetailOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for TerrainDetailOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("TerrainDetailOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.field("region_ref", &self.region_ref());
-      ds.finish()
-  }
-}
-pub enum StairsOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct StairsOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for StairsOp<'a> {
-  type Inner = StairsOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> StairsOp<'a> {
-  pub const VT_STAIRS: ::flatbuffers::VOffsetT = 4;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 6;
-  pub const VT_FILL_COLOR: ::flatbuffers::VOffsetT = 8;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    StairsOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args StairsOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<StairsOp<'bldr>> {
-    let mut builder = StairsOpBuilder::new(_fbb);
-    if let Some(x) = args.fill_color { builder.add_fill_color(x); }
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.stairs { builder.add_stairs(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn stairs(&self) -> Option<::flatbuffers::Vector<'a, StairTile>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, StairTile>>>(StairsOp::VT_STAIRS, None)}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(StairsOp::VT_THEME, None)}
-  }
-  #[inline]
-  pub fn fill_color(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(StairsOp::VT_FILL_COLOR, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for StairsOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, StairTile>>>("stairs", Self::VT_STAIRS, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("fill_color", Self::VT_FILL_COLOR, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct StairsOpArgs<'a> {
-    pub stairs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, StairTile>>>,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub fill_color: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for StairsOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    StairsOpArgs {
-      stairs: None,
-      theme: None,
-      fill_color: None,
-    }
-  }
-}
-
-pub struct StairsOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StairsOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_stairs(&mut self, stairs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , StairTile>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StairsOp::VT_STAIRS, stairs);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StairsOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn add_fill_color(&mut self, fill_color: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StairsOp::VT_FILL_COLOR, fill_color);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StairsOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    StairsOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<StairsOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for StairsOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("StairsOp");
-      ds.field("stairs", &self.stairs());
-      ds.field("theme", &self.theme());
-      ds.field("fill_color", &self.fill_color());
-      ds.finish()
-  }
-}
-pub enum TreeFeatureOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct TreeFeatureOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for TreeFeatureOp<'a> {
-  type Inner = TreeFeatureOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> TreeFeatureOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
-  pub const VT_GROVE_TILES: ::flatbuffers::VOffsetT = 10;
-  pub const VT_GROVE_SIZES: ::flatbuffers::VOffsetT = 12;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    TreeFeatureOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args TreeFeatureOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<TreeFeatureOp<'bldr>> {
-    let mut builder = TreeFeatureOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.grove_sizes { builder.add_grove_sizes(x); }
-    if let Some(x) = args.grove_tiles { builder.add_grove_tiles(x); }
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(TreeFeatureOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(TreeFeatureOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TreeFeatureOp::VT_THEME, None)}
-  }
-  #[inline]
-  pub fn grove_tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(TreeFeatureOp::VT_GROVE_TILES, None)}
-  }
-  #[inline]
-  pub fn grove_sizes(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(TreeFeatureOp::VT_GROVE_SIZES, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for TreeFeatureOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("grove_tiles", Self::VT_GROVE_TILES, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("grove_sizes", Self::VT_GROVE_SIZES, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct TreeFeatureOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub grove_tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub grove_sizes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
-}
-impl<'a> Default for TreeFeatureOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    TreeFeatureOpArgs {
-      tiles: None,
-      seed: 0,
-      theme: None,
-      grove_tiles: None,
-      grove_sizes: None,
-    }
-  }
-}
-
-pub struct TreeFeatureOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TreeFeatureOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(TreeFeatureOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn add_grove_tiles(&mut self, grove_tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_GROVE_TILES, grove_tiles);
-  }
-  #[inline]
-  pub fn add_grove_sizes(&mut self, grove_sizes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_GROVE_SIZES, grove_sizes);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TreeFeatureOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    TreeFeatureOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<TreeFeatureOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for TreeFeatureOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("TreeFeatureOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.field("grove_tiles", &self.grove_tiles());
-      ds.field("grove_sizes", &self.grove_sizes());
-      ds.finish()
-  }
-}
-pub enum BushFeatureOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct BushFeatureOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for BushFeatureOp<'a> {
-  type Inner = BushFeatureOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> BushFeatureOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    BushFeatureOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args BushFeatureOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<BushFeatureOp<'bldr>> {
-    let mut builder = BushFeatureOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(BushFeatureOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(BushFeatureOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BushFeatureOp::VT_THEME, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for BushFeatureOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct BushFeatureOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for BushFeatureOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    BushFeatureOpArgs {
-      tiles: None,
-      seed: 0,
-      theme: None,
-    }
-  }
-}
-
-pub struct BushFeatureOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BushFeatureOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BushFeatureOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(BushFeatureOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BushFeatureOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BushFeatureOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    BushFeatureOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<BushFeatureOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for BushFeatureOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("BushFeatureOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.finish()
-  }
-}
-pub enum WellFeatureOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct WellFeatureOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for WellFeatureOp<'a> {
-  type Inner = WellFeatureOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> WellFeatureOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SHAPE: ::flatbuffers::VOffsetT = 6;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 8;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 10;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    WellFeatureOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args WellFeatureOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<WellFeatureOp<'bldr>> {
-    let mut builder = WellFeatureOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.add_shape(args.shape);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(WellFeatureOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn shape(&self) -> WellShape {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<WellShape>(WellFeatureOp::VT_SHAPE, Some(WellShape::Round)).unwrap()}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(WellFeatureOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WellFeatureOp::VT_THEME, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for WellFeatureOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<WellShape>("shape", Self::VT_SHAPE, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct WellFeatureOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub shape: WellShape,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for WellFeatureOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    WellFeatureOpArgs {
-      tiles: None,
-      shape: WellShape::Round,
-      seed: 0,
-      theme: None,
-    }
-  }
-}
-
-pub struct WellFeatureOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WellFeatureOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellFeatureOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_shape(&mut self, shape: WellShape) {
-    self.fbb_.push_slot::<WellShape>(WellFeatureOp::VT_SHAPE, shape, WellShape::Round);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(WellFeatureOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellFeatureOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WellFeatureOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    WellFeatureOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<WellFeatureOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for WellFeatureOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("WellFeatureOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("shape", &self.shape());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.finish()
-  }
-}
-pub enum FountainFeatureOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct FountainFeatureOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for FountainFeatureOp<'a> {
-  type Inner = FountainFeatureOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> FountainFeatureOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SHAPE: ::flatbuffers::VOffsetT = 6;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 8;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 10;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    FountainFeatureOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args FountainFeatureOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<FountainFeatureOp<'bldr>> {
-    let mut builder = FountainFeatureOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.add_shape(args.shape);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(FountainFeatureOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn shape(&self) -> FountainShape {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<FountainShape>(FountainFeatureOp::VT_SHAPE, Some(FountainShape::Round)).unwrap()}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(FountainFeatureOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FountainFeatureOp::VT_THEME, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for FountainFeatureOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<FountainShape>("shape", Self::VT_SHAPE, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct FountainFeatureOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub shape: FountainShape,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for FountainFeatureOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    FountainFeatureOpArgs {
-      tiles: None,
-      shape: FountainShape::Round,
-      seed: 0,
-      theme: None,
-    }
-  }
-}
-
-pub struct FountainFeatureOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FountainFeatureOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FountainFeatureOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_shape(&mut self, shape: FountainShape) {
-    self.fbb_.push_slot::<FountainShape>(FountainFeatureOp::VT_SHAPE, shape, FountainShape::Round);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(FountainFeatureOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FountainFeatureOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FountainFeatureOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    FountainFeatureOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<FountainFeatureOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for FountainFeatureOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("FountainFeatureOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("shape", &self.shape());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
       ds.finish()
   }
 }
@@ -8079,8 +3913,9 @@ impl<'a> ::flatbuffers::Follow<'a> for RoofOp<'a> {
 impl<'a> RoofOp<'a> {
   pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
   pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
-  pub const VT_TINT: ::flatbuffers::VOffsetT = 8;
-  pub const VT_RNG_SEED: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TONE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TINT: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -8092,9 +3927,10 @@ impl<'a> RoofOp<'a> {
     args: &'args RoofOpArgs<'args>
   ) -> ::flatbuffers::WIPOffset<RoofOp<'bldr>> {
     let mut builder = RoofOpBuilder::new(_fbb);
-    builder.add_rng_seed(args.rng_seed);
+    builder.add_seed(args.seed);
     if let Some(x) = args.tint { builder.add_tint(x); }
     if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_tone(args.tone);
     builder.add_style(args.style);
     builder.finish()
   }
@@ -8115,6 +3951,13 @@ impl<'a> RoofOp<'a> {
     unsafe { self._tab.get::<RoofStyle>(RoofOp::VT_STYLE, Some(RoofStyle::Simple)).unwrap()}
   }
   #[inline]
+  pub fn tone(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RoofOp::VT_TONE, Some(0)).unwrap()}
+  }
+  #[inline]
   pub fn tint(&self) -> Option<&'a str> {
     // Safety:
     // Created from valid Table for this object
@@ -8122,11 +3965,11 @@ impl<'a> RoofOp<'a> {
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(RoofOp::VT_TINT, None)}
   }
   #[inline]
-  pub fn rng_seed(&self) -> u64 {
+  pub fn seed(&self) -> u64 {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(RoofOp::VT_RNG_SEED, Some(0)).unwrap()}
+    unsafe { self._tab.get::<u64>(RoofOp::VT_SEED, Some(0)).unwrap()}
   }
 }
 
@@ -8138,8 +3981,9 @@ impl ::flatbuffers::Verifiable for RoofOp<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
      .visit_field::<RoofStyle>("style", Self::VT_STYLE, false)?
+     .visit_field::<u8>("tone", Self::VT_TONE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("tint", Self::VT_TINT, false)?
-     .visit_field::<u64>("rng_seed", Self::VT_RNG_SEED, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .finish();
     Ok(())
   }
@@ -8147,8 +3991,9 @@ impl ::flatbuffers::Verifiable for RoofOp<'_> {
 pub struct RoofOpArgs<'a> {
     pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub style: RoofStyle,
+    pub tone: u8,
     pub tint: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub rng_seed: u64,
+    pub seed: u64,
 }
 impl<'a> Default for RoofOpArgs<'a> {
   #[inline]
@@ -8156,8 +4001,9 @@ impl<'a> Default for RoofOpArgs<'a> {
     RoofOpArgs {
       region_ref: None,
       style: RoofStyle::Simple,
+      tone: 0,
       tint: None,
-      rng_seed: 0,
+      seed: 0,
     }
   }
 }
@@ -8176,12 +4022,16 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RoofOpBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<RoofStyle>(RoofOp::VT_STYLE, style, RoofStyle::Simple);
   }
   #[inline]
+  pub fn add_tone(&mut self, tone: u8) {
+    self.fbb_.push_slot::<u8>(RoofOp::VT_TONE, tone, 0);
+  }
+  #[inline]
   pub fn add_tint(&mut self, tint: ::flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoofOp::VT_TINT, tint);
   }
   #[inline]
-  pub fn add_rng_seed(&mut self, rng_seed: u64) {
-    self.fbb_.push_slot::<u64>(RoofOp::VT_RNG_SEED, rng_seed, 0);
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(RoofOp::VT_SEED, seed, 0);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RoofOpBuilder<'a, 'b, A> {
@@ -8203,2467 +4053,9 @@ impl ::core::fmt::Debug for RoofOp<'_> {
     let mut ds = f.debug_struct("RoofOp");
       ds.field("region_ref", &self.region_ref());
       ds.field("style", &self.style());
-      ds.field("tint", &self.tint());
-      ds.field("rng_seed", &self.rng_seed());
-      ds.finish()
-  }
-}
-pub enum FloorOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct FloorOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for FloorOp<'a> {
-  type Inner = FloorOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> FloorOp<'a> {
-  pub const VT_STYLE: ::flatbuffers::VOffsetT = 4;
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 6;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    FloorOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args FloorOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<FloorOp<'bldr>> {
-    let mut builder = FloorOpBuilder::new(_fbb);
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    builder.add_style(args.style);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn style(&self) -> FloorStyle {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<FloorStyle>(FloorOp::VT_STYLE, Some(FloorStyle::DungeonFloor)).unwrap()}
-  }
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloorOp::VT_REGION_REF, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for FloorOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<FloorStyle>("style", Self::VT_STYLE, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct FloorOpArgs<'a> {
-    pub style: FloorStyle,
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for FloorOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    FloorOpArgs {
-      style: FloorStyle::DungeonFloor,
-      region_ref: None,
-    }
-  }
-}
-
-pub struct FloorOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_style(&mut self, style: FloorStyle) {
-    self.fbb_.push_slot::<FloorStyle>(FloorOp::VT_STYLE, style, FloorStyle::DungeonFloor);
-  }
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    FloorOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<FloorOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for FloorOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("FloorOp");
-      ds.field("style", &self.style());
-      ds.field("region_ref", &self.region_ref());
-      ds.finish()
-  }
-}
-pub enum InteriorWallOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct InteriorWallOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for InteriorWallOp<'a> {
-  type Inner = InteriorWallOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> InteriorWallOp<'a> {
-  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 4;
-  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
-  pub const VT_CUTS: ::flatbuffers::VOffsetT = 8;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    InteriorWallOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args InteriorWallOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<InteriorWallOp<'bldr>> {
-    let mut builder = InteriorWallOpBuilder::new(_fbb);
-    if let Some(x) = args.cuts { builder.add_cuts(x); }
-    if let Some(x) = args.outline { builder.add_outline(x); }
-    builder.add_style(args.style);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn outline(&self) -> Option<Outline<'a>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(InteriorWallOp::VT_OUTLINE, None)}
-  }
-  #[inline]
-  pub fn style(&self) -> WallStyle {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<WallStyle>(InteriorWallOp::VT_STYLE, Some(WallStyle::DungeonInk)).unwrap()}
-  }
-  #[inline]
-  pub fn cuts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut>>>>(InteriorWallOp::VT_CUTS, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for InteriorWallOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
-     .visit_field::<WallStyle>("style", Self::VT_STYLE, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Cut>>>>("cuts", Self::VT_CUTS, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct InteriorWallOpArgs<'a> {
-    pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
-    pub style: WallStyle,
-    pub cuts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>>>,
-}
-impl<'a> Default for InteriorWallOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    InteriorWallOpArgs {
-      outline: None,
-      style: WallStyle::DungeonInk,
-      cuts: None,
-    }
-  }
-}
-
-pub struct InteriorWallOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> InteriorWallOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(InteriorWallOp::VT_OUTLINE, outline);
-  }
-  #[inline]
-  pub fn add_style(&mut self, style: WallStyle) {
-    self.fbb_.push_slot::<WallStyle>(InteriorWallOp::VT_STYLE, style, WallStyle::DungeonInk);
-  }
-  #[inline]
-  pub fn add_cuts(&mut self, cuts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Cut<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(InteriorWallOp::VT_CUTS, cuts);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> InteriorWallOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    InteriorWallOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<InteriorWallOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for InteriorWallOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("InteriorWallOp");
-      ds.field("outline", &self.outline());
-      ds.field("style", &self.style());
-      ds.field("cuts", &self.cuts());
-      ds.finish()
-  }
-}
-pub enum ExteriorWallOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct ExteriorWallOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for ExteriorWallOp<'a> {
-  type Inner = ExteriorWallOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> ExteriorWallOp<'a> {
-  pub const VT_STYLE: ::flatbuffers::VOffsetT = 4;
-  pub const VT_CORNER_STYLE: ::flatbuffers::VOffsetT = 6;
-  pub const VT_RNG_SEED: ::flatbuffers::VOffsetT = 8;
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 10;
-  pub const VT_CUTS: ::flatbuffers::VOffsetT = 12;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    ExteriorWallOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args ExteriorWallOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<ExteriorWallOp<'bldr>> {
-    let mut builder = ExteriorWallOpBuilder::new(_fbb);
-    builder.add_rng_seed(args.rng_seed);
-    if let Some(x) = args.cuts { builder.add_cuts(x); }
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    builder.add_corner_style(args.corner_style);
-    builder.add_style(args.style);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn style(&self) -> WallStyle {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<WallStyle>(ExteriorWallOp::VT_STYLE, Some(WallStyle::DungeonInk)).unwrap()}
-  }
-  #[inline]
-  pub fn corner_style(&self) -> CornerStyle {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<CornerStyle>(ExteriorWallOp::VT_CORNER_STYLE, Some(CornerStyle::Merlon)).unwrap()}
-  }
-  #[inline]
-  pub fn rng_seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(ExteriorWallOp::VT_RNG_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ExteriorWallOp::VT_REGION_REF, None)}
-  }
-  #[inline]
-  pub fn cuts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut>>>>(ExteriorWallOp::VT_CUTS, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for ExteriorWallOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<WallStyle>("style", Self::VT_STYLE, false)?
-     .visit_field::<CornerStyle>("corner_style", Self::VT_CORNER_STYLE, false)?
-     .visit_field::<u64>("rng_seed", Self::VT_RNG_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Cut>>>>("cuts", Self::VT_CUTS, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct ExteriorWallOpArgs<'a> {
-    pub style: WallStyle,
-    pub corner_style: CornerStyle,
-    pub rng_seed: u64,
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub cuts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>>>,
-}
-impl<'a> Default for ExteriorWallOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    ExteriorWallOpArgs {
-      style: WallStyle::DungeonInk,
-      corner_style: CornerStyle::Merlon,
-      rng_seed: 0,
-      region_ref: None,
-      cuts: None,
-    }
-  }
-}
-
-pub struct ExteriorWallOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ExteriorWallOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_style(&mut self, style: WallStyle) {
-    self.fbb_.push_slot::<WallStyle>(ExteriorWallOp::VT_STYLE, style, WallStyle::DungeonInk);
-  }
-  #[inline]
-  pub fn add_corner_style(&mut self, corner_style: CornerStyle) {
-    self.fbb_.push_slot::<CornerStyle>(ExteriorWallOp::VT_CORNER_STYLE, corner_style, CornerStyle::Merlon);
-  }
-  #[inline]
-  pub fn add_rng_seed(&mut self, rng_seed: u64) {
-    self.fbb_.push_slot::<u64>(ExteriorWallOp::VT_RNG_SEED, rng_seed, 0);
-  }
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ExteriorWallOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn add_cuts(&mut self, cuts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Cut<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ExteriorWallOp::VT_CUTS, cuts);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ExteriorWallOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    ExteriorWallOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<ExteriorWallOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for ExteriorWallOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("ExteriorWallOp");
-      ds.field("style", &self.style());
-      ds.field("corner_style", &self.corner_style());
-      ds.field("rng_seed", &self.rng_seed());
-      ds.field("region_ref", &self.region_ref());
-      ds.field("cuts", &self.cuts());
-      ds.finish()
-  }
-}
-pub enum CorridorWallOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct CorridorWallOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for CorridorWallOp<'a> {
-  type Inner = CorridorWallOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> CorridorWallOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    CorridorWallOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args CorridorWallOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<CorridorWallOp<'bldr>> {
-    let mut builder = CorridorWallOpBuilder::new(_fbb);
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.add_style(args.style);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(CorridorWallOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn style(&self) -> WallStyle {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<WallStyle>(CorridorWallOp::VT_STYLE, Some(WallStyle::DungeonInk)).unwrap()}
-  }
-}
-
-impl ::flatbuffers::Verifiable for CorridorWallOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<WallStyle>("style", Self::VT_STYLE, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct CorridorWallOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub style: WallStyle,
-}
-impl<'a> Default for CorridorWallOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    CorridorWallOpArgs {
-      tiles: None,
-      style: WallStyle::DungeonInk,
-    }
-  }
-}
-
-pub struct CorridorWallOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CorridorWallOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CorridorWallOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_style(&mut self, style: WallStyle) {
-    self.fbb_.push_slot::<WallStyle>(CorridorWallOp::VT_STYLE, style, WallStyle::DungeonInk);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CorridorWallOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    CorridorWallOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<CorridorWallOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for CorridorWallOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("CorridorWallOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("style", &self.style());
-      ds.finish()
-  }
-}
-pub enum V5MaterialOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct V5Material<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for V5Material<'a> {
-  type Inner = V5Material<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> V5Material<'a> {
-  pub const VT_FAMILY: ::flatbuffers::VOffsetT = 4;
-  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
-  pub const VT_SUB_PATTERN: ::flatbuffers::VOffsetT = 8;
-  pub const VT_TONE: ::flatbuffers::VOffsetT = 10;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 12;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    V5Material { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args V5MaterialArgs
-  ) -> ::flatbuffers::WIPOffset<V5Material<'bldr>> {
-    let mut builder = V5MaterialBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    builder.add_tone(args.tone);
-    builder.add_sub_pattern(args.sub_pattern);
-    builder.add_style(args.style);
-    builder.add_family(args.family);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn family(&self) -> V5MaterialFamily {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<V5MaterialFamily>(V5Material::VT_FAMILY, Some(V5MaterialFamily::Plain)).unwrap()}
-  }
-  #[inline]
-  pub fn style(&self) -> u8 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u8>(V5Material::VT_STYLE, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn sub_pattern(&self) -> u8 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u8>(V5Material::VT_SUB_PATTERN, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn tone(&self) -> u8 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u8>(V5Material::VT_TONE, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(V5Material::VT_SEED, Some(0)).unwrap()}
-  }
-}
-
-impl ::flatbuffers::Verifiable for V5Material<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<V5MaterialFamily>("family", Self::VT_FAMILY, false)?
-     .visit_field::<u8>("style", Self::VT_STYLE, false)?
-     .visit_field::<u8>("sub_pattern", Self::VT_SUB_PATTERN, false)?
-     .visit_field::<u8>("tone", Self::VT_TONE, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct V5MaterialArgs {
-    pub family: V5MaterialFamily,
-    pub style: u8,
-    pub sub_pattern: u8,
-    pub tone: u8,
-    pub seed: u64,
-}
-impl<'a> Default for V5MaterialArgs {
-  #[inline]
-  fn default() -> Self {
-    V5MaterialArgs {
-      family: V5MaterialFamily::Plain,
-      style: 0,
-      sub_pattern: 0,
-      tone: 0,
-      seed: 0,
-    }
-  }
-}
-
-pub struct V5MaterialBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5MaterialBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_family(&mut self, family: V5MaterialFamily) {
-    self.fbb_.push_slot::<V5MaterialFamily>(V5Material::VT_FAMILY, family, V5MaterialFamily::Plain);
-  }
-  #[inline]
-  pub fn add_style(&mut self, style: u8) {
-    self.fbb_.push_slot::<u8>(V5Material::VT_STYLE, style, 0);
-  }
-  #[inline]
-  pub fn add_sub_pattern(&mut self, sub_pattern: u8) {
-    self.fbb_.push_slot::<u8>(V5Material::VT_SUB_PATTERN, sub_pattern, 0);
-  }
-  #[inline]
-  pub fn add_tone(&mut self, tone: u8) {
-    self.fbb_.push_slot::<u8>(V5Material::VT_TONE, tone, 0);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(V5Material::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5MaterialBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    V5MaterialBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5Material<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for V5Material<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("V5Material");
-      ds.field("family", &self.family());
-      ds.field("style", &self.style());
-      ds.field("sub_pattern", &self.sub_pattern());
-      ds.field("tone", &self.tone());
-      ds.field("seed", &self.seed());
-      ds.finish()
-  }
-}
-pub enum V5WallMaterialOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct V5WallMaterial<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for V5WallMaterial<'a> {
-  type Inner = V5WallMaterial<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> V5WallMaterial<'a> {
-  pub const VT_FAMILY: ::flatbuffers::VOffsetT = 4;
-  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
-  pub const VT_TREATMENT: ::flatbuffers::VOffsetT = 8;
-  pub const VT_CORNER_STYLE: ::flatbuffers::VOffsetT = 10;
-  pub const VT_TONE: ::flatbuffers::VOffsetT = 12;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 14;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    V5WallMaterial { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args V5WallMaterialArgs
-  ) -> ::flatbuffers::WIPOffset<V5WallMaterial<'bldr>> {
-    let mut builder = V5WallMaterialBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    builder.add_tone(args.tone);
-    builder.add_corner_style(args.corner_style);
-    builder.add_treatment(args.treatment);
-    builder.add_style(args.style);
-    builder.add_family(args.family);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn family(&self) -> V5MaterialFamily {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<V5MaterialFamily>(V5WallMaterial::VT_FAMILY, Some(V5MaterialFamily::Plain)).unwrap()}
-  }
-  #[inline]
-  pub fn style(&self) -> u8 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u8>(V5WallMaterial::VT_STYLE, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn treatment(&self) -> V5WallTreatment {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<V5WallTreatment>(V5WallMaterial::VT_TREATMENT, Some(V5WallTreatment::PlainStroke)).unwrap()}
-  }
-  #[inline]
-  pub fn corner_style(&self) -> CornerStyle {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<CornerStyle>(V5WallMaterial::VT_CORNER_STYLE, Some(CornerStyle::Merlon)).unwrap()}
-  }
-  #[inline]
-  pub fn tone(&self) -> u8 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u8>(V5WallMaterial::VT_TONE, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(V5WallMaterial::VT_SEED, Some(0)).unwrap()}
-  }
-}
-
-impl ::flatbuffers::Verifiable for V5WallMaterial<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<V5MaterialFamily>("family", Self::VT_FAMILY, false)?
-     .visit_field::<u8>("style", Self::VT_STYLE, false)?
-     .visit_field::<V5WallTreatment>("treatment", Self::VT_TREATMENT, false)?
-     .visit_field::<CornerStyle>("corner_style", Self::VT_CORNER_STYLE, false)?
-     .visit_field::<u8>("tone", Self::VT_TONE, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct V5WallMaterialArgs {
-    pub family: V5MaterialFamily,
-    pub style: u8,
-    pub treatment: V5WallTreatment,
-    pub corner_style: CornerStyle,
-    pub tone: u8,
-    pub seed: u64,
-}
-impl<'a> Default for V5WallMaterialArgs {
-  #[inline]
-  fn default() -> Self {
-    V5WallMaterialArgs {
-      family: V5MaterialFamily::Plain,
-      style: 0,
-      treatment: V5WallTreatment::PlainStroke,
-      corner_style: CornerStyle::Merlon,
-      tone: 0,
-      seed: 0,
-    }
-  }
-}
-
-pub struct V5WallMaterialBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5WallMaterialBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_family(&mut self, family: V5MaterialFamily) {
-    self.fbb_.push_slot::<V5MaterialFamily>(V5WallMaterial::VT_FAMILY, family, V5MaterialFamily::Plain);
-  }
-  #[inline]
-  pub fn add_style(&mut self, style: u8) {
-    self.fbb_.push_slot::<u8>(V5WallMaterial::VT_STYLE, style, 0);
-  }
-  #[inline]
-  pub fn add_treatment(&mut self, treatment: V5WallTreatment) {
-    self.fbb_.push_slot::<V5WallTreatment>(V5WallMaterial::VT_TREATMENT, treatment, V5WallTreatment::PlainStroke);
-  }
-  #[inline]
-  pub fn add_corner_style(&mut self, corner_style: CornerStyle) {
-    self.fbb_.push_slot::<CornerStyle>(V5WallMaterial::VT_CORNER_STYLE, corner_style, CornerStyle::Merlon);
-  }
-  #[inline]
-  pub fn add_tone(&mut self, tone: u8) {
-    self.fbb_.push_slot::<u8>(V5WallMaterial::VT_TONE, tone, 0);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(V5WallMaterial::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5WallMaterialBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    V5WallMaterialBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5WallMaterial<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for V5WallMaterial<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("V5WallMaterial");
-      ds.field("family", &self.family());
-      ds.field("style", &self.style());
-      ds.field("treatment", &self.treatment());
-      ds.field("corner_style", &self.corner_style());
-      ds.field("tone", &self.tone());
-      ds.field("seed", &self.seed());
-      ds.finish()
-  }
-}
-pub enum V5RegionOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct V5Region<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for V5Region<'a> {
-  type Inner = V5Region<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> V5Region<'a> {
-  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
-  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 6;
-  pub const VT_PARENT_ID: ::flatbuffers::VOffsetT = 8;
-  pub const VT_CUTS: ::flatbuffers::VOffsetT = 10;
-  pub const VT_SHAPE_TAG: ::flatbuffers::VOffsetT = 12;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    V5Region { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args V5RegionArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<V5Region<'bldr>> {
-    let mut builder = V5RegionBuilder::new(_fbb);
-    if let Some(x) = args.shape_tag { builder.add_shape_tag(x); }
-    if let Some(x) = args.cuts { builder.add_cuts(x); }
-    if let Some(x) = args.parent_id { builder.add_parent_id(x); }
-    if let Some(x) = args.outline { builder.add_outline(x); }
-    if let Some(x) = args.id { builder.add_id(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn id(&self) -> &'a str {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5Region::VT_ID, None).unwrap()}
-  }
-  #[inline]
-  pub fn key_compare_less_than(&self, o: &V5Region) -> bool {
-    self.id() < o.id()
-  }
-
-  #[inline]
-  pub fn key_compare_with_value(&self, val: & str) -> ::core::cmp::Ordering {
-    let key = self.id();
-    key.cmp(val)
-  }
-  #[inline]
-  pub fn outline(&self) -> Option<Outline<'a>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(V5Region::VT_OUTLINE, None)}
-  }
-  #[inline]
-  pub fn parent_id(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5Region::VT_PARENT_ID, None)}
-  }
-  #[inline]
-  pub fn cuts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut>>>>(V5Region::VT_CUTS, None)}
-  }
-  #[inline]
-  pub fn shape_tag(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5Region::VT_SHAPE_TAG, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for V5Region<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("id", Self::VT_ID, true)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("parent_id", Self::VT_PARENT_ID, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Cut>>>>("cuts", Self::VT_CUTS, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("shape_tag", Self::VT_SHAPE_TAG, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct V5RegionArgs<'a> {
-    pub id: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
-    pub parent_id: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub cuts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>>>,
-    pub shape_tag: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for V5RegionArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    V5RegionArgs {
-      id: None, // required field
-      outline: None,
-      parent_id: None,
-      cuts: None,
-      shape_tag: None,
-    }
-  }
-}
-
-pub struct V5RegionBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5RegionBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_id(&mut self, id: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5Region::VT_ID, id);
-  }
-  #[inline]
-  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(V5Region::VT_OUTLINE, outline);
-  }
-  #[inline]
-  pub fn add_parent_id(&mut self, parent_id: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5Region::VT_PARENT_ID, parent_id);
-  }
-  #[inline]
-  pub fn add_cuts(&mut self, cuts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Cut<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5Region::VT_CUTS, cuts);
-  }
-  #[inline]
-  pub fn add_shape_tag(&mut self, shape_tag: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5Region::VT_SHAPE_TAG, shape_tag);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5RegionBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    V5RegionBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5Region<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    self.fbb_.required(o, V5Region::VT_ID,"id");
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for V5Region<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("V5Region");
-      ds.field("id", &self.id());
-      ds.field("outline", &self.outline());
-      ds.field("parent_id", &self.parent_id());
-      ds.field("cuts", &self.cuts());
-      ds.field("shape_tag", &self.shape_tag());
-      ds.finish()
-  }
-}
-pub enum V5PaintOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct V5PaintOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for V5PaintOp<'a> {
-  type Inner = V5PaintOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> V5PaintOp<'a> {
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SUBTRACT_REGION_REFS: ::flatbuffers::VOffsetT = 6;
-  pub const VT_MATERIAL: ::flatbuffers::VOffsetT = 8;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    V5PaintOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args V5PaintOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<V5PaintOp<'bldr>> {
-    let mut builder = V5PaintOpBuilder::new(_fbb);
-    if let Some(x) = args.material { builder.add_material(x); }
-    if let Some(x) = args.subtract_region_refs { builder.add_subtract_region_refs(x); }
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5PaintOp::VT_REGION_REF, None)}
-  }
-  #[inline]
-  pub fn subtract_region_refs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(V5PaintOp::VT_SUBTRACT_REGION_REFS, None)}
-  }
-  #[inline]
-  pub fn material(&self) -> Option<V5Material<'a>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<V5Material>>(V5PaintOp::VT_MATERIAL, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for V5PaintOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("subtract_region_refs", Self::VT_SUBTRACT_REGION_REFS, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<V5Material>>("material", Self::VT_MATERIAL, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct V5PaintOpArgs<'a> {
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub subtract_region_refs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
-    pub material: Option<::flatbuffers::WIPOffset<V5Material<'a>>>,
-}
-impl<'a> Default for V5PaintOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    V5PaintOpArgs {
-      region_ref: None,
-      subtract_region_refs: None,
-      material: None,
-    }
-  }
-}
-
-pub struct V5PaintOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5PaintOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5PaintOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn add_subtract_region_refs(&mut self, subtract_region_refs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5PaintOp::VT_SUBTRACT_REGION_REFS, subtract_region_refs);
-  }
-  #[inline]
-  pub fn add_material(&mut self, material: ::flatbuffers::WIPOffset<V5Material<'b >>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<V5Material>>(V5PaintOp::VT_MATERIAL, material);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5PaintOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    V5PaintOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5PaintOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for V5PaintOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("V5PaintOp");
-      ds.field("region_ref", &self.region_ref());
-      ds.field("subtract_region_refs", &self.subtract_region_refs());
-      ds.field("material", &self.material());
-      ds.finish()
-  }
-}
-pub enum V5StampOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct V5StampOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for V5StampOp<'a> {
-  type Inner = V5StampOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> V5StampOp<'a> {
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SUBTRACT_REGION_REFS: ::flatbuffers::VOffsetT = 6;
-  pub const VT_DECORATOR_MASK: ::flatbuffers::VOffsetT = 8;
-  pub const VT_DENSITY: ::flatbuffers::VOffsetT = 10;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 12;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    V5StampOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args V5StampOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<V5StampOp<'bldr>> {
-    let mut builder = V5StampOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    builder.add_decorator_mask(args.decorator_mask);
-    if let Some(x) = args.subtract_region_refs { builder.add_subtract_region_refs(x); }
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    builder.add_density(args.density);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5StampOp::VT_REGION_REF, None)}
-  }
-  #[inline]
-  pub fn subtract_region_refs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(V5StampOp::VT_SUBTRACT_REGION_REFS, None)}
-  }
-  #[inline]
-  pub fn decorator_mask(&self) -> u32 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u32>(V5StampOp::VT_DECORATOR_MASK, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn density(&self) -> u8 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u8>(V5StampOp::VT_DENSITY, Some(128)).unwrap()}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(V5StampOp::VT_SEED, Some(0)).unwrap()}
-  }
-}
-
-impl ::flatbuffers::Verifiable for V5StampOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("subtract_region_refs", Self::VT_SUBTRACT_REGION_REFS, false)?
-     .visit_field::<u32>("decorator_mask", Self::VT_DECORATOR_MASK, false)?
-     .visit_field::<u8>("density", Self::VT_DENSITY, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct V5StampOpArgs<'a> {
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub subtract_region_refs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
-    pub decorator_mask: u32,
-    pub density: u8,
-    pub seed: u64,
-}
-impl<'a> Default for V5StampOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    V5StampOpArgs {
-      region_ref: None,
-      subtract_region_refs: None,
-      decorator_mask: 0,
-      density: 128,
-      seed: 0,
-    }
-  }
-}
-
-pub struct V5StampOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5StampOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5StampOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn add_subtract_region_refs(&mut self, subtract_region_refs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5StampOp::VT_SUBTRACT_REGION_REFS, subtract_region_refs);
-  }
-  #[inline]
-  pub fn add_decorator_mask(&mut self, decorator_mask: u32) {
-    self.fbb_.push_slot::<u32>(V5StampOp::VT_DECORATOR_MASK, decorator_mask, 0);
-  }
-  #[inline]
-  pub fn add_density(&mut self, density: u8) {
-    self.fbb_.push_slot::<u8>(V5StampOp::VT_DENSITY, density, 128);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(V5StampOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5StampOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    V5StampOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5StampOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for V5StampOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("V5StampOp");
-      ds.field("region_ref", &self.region_ref());
-      ds.field("subtract_region_refs", &self.subtract_region_refs());
-      ds.field("decorator_mask", &self.decorator_mask());
-      ds.field("density", &self.density());
-      ds.field("seed", &self.seed());
-      ds.finish()
-  }
-}
-pub enum V5PathOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct V5PathOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for V5PathOp<'a> {
-  type Inner = V5PathOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> V5PathOp<'a> {
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 6;
-  pub const VT_STYLE: ::flatbuffers::VOffsetT = 8;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 10;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    V5PathOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args V5PathOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<V5PathOp<'bldr>> {
-    let mut builder = V5PathOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    builder.add_style(args.style);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5PathOp::VT_REGION_REF, None)}
-  }
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(V5PathOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn style(&self) -> V5PathStyle {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<V5PathStyle>(V5PathOp::VT_STYLE, Some(V5PathStyle::CartTracks)).unwrap()}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(V5PathOp::VT_SEED, Some(0)).unwrap()}
-  }
-}
-
-impl ::flatbuffers::Verifiable for V5PathOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<V5PathStyle>("style", Self::VT_STYLE, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct V5PathOpArgs<'a> {
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub style: V5PathStyle,
-    pub seed: u64,
-}
-impl<'a> Default for V5PathOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    V5PathOpArgs {
-      region_ref: None,
-      tiles: None,
-      style: V5PathStyle::CartTracks,
-      seed: 0,
-    }
-  }
-}
-
-pub struct V5PathOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5PathOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5PathOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5PathOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_style(&mut self, style: V5PathStyle) {
-    self.fbb_.push_slot::<V5PathStyle>(V5PathOp::VT_STYLE, style, V5PathStyle::CartTracks);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(V5PathOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5PathOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    V5PathOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5PathOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for V5PathOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("V5PathOp");
-      ds.field("region_ref", &self.region_ref());
-      ds.field("tiles", &self.tiles());
-      ds.field("style", &self.style());
-      ds.field("seed", &self.seed());
-      ds.finish()
-  }
-}
-pub enum V5FixtureOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct V5FixtureOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for V5FixtureOp<'a> {
-  type Inner = V5FixtureOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> V5FixtureOp<'a> {
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
-  pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
-  pub const VT_ANCHORS: ::flatbuffers::VOffsetT = 8;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 10;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    V5FixtureOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args V5FixtureOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<V5FixtureOp<'bldr>> {
-    let mut builder = V5FixtureOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.anchors { builder.add_anchors(x); }
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    builder.add_kind(args.kind);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5FixtureOp::VT_REGION_REF, None)}
-  }
-  #[inline]
-  pub fn kind(&self) -> V5FixtureKind {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<V5FixtureKind>(V5FixtureOp::VT_KIND, Some(V5FixtureKind::Web)).unwrap()}
-  }
-  #[inline]
-  pub fn anchors(&self) -> Option<::flatbuffers::Vector<'a, V5Anchor>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, V5Anchor>>>(V5FixtureOp::VT_ANCHORS, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(V5FixtureOp::VT_SEED, Some(0)).unwrap()}
-  }
-}
-
-impl ::flatbuffers::Verifiable for V5FixtureOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .visit_field::<V5FixtureKind>("kind", Self::VT_KIND, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, V5Anchor>>>("anchors", Self::VT_ANCHORS, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct V5FixtureOpArgs<'a> {
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub kind: V5FixtureKind,
-    pub anchors: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, V5Anchor>>>,
-    pub seed: u64,
-}
-impl<'a> Default for V5FixtureOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    V5FixtureOpArgs {
-      region_ref: None,
-      kind: V5FixtureKind::Web,
-      anchors: None,
-      seed: 0,
-    }
-  }
-}
-
-pub struct V5FixtureOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5FixtureOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5FixtureOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn add_kind(&mut self, kind: V5FixtureKind) {
-    self.fbb_.push_slot::<V5FixtureKind>(V5FixtureOp::VT_KIND, kind, V5FixtureKind::Web);
-  }
-  #[inline]
-  pub fn add_anchors(&mut self, anchors: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , V5Anchor>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5FixtureOp::VT_ANCHORS, anchors);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(V5FixtureOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5FixtureOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    V5FixtureOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5FixtureOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for V5FixtureOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("V5FixtureOp");
-      ds.field("region_ref", &self.region_ref());
-      ds.field("kind", &self.kind());
-      ds.field("anchors", &self.anchors());
-      ds.field("seed", &self.seed());
-      ds.finish()
-  }
-}
-pub enum V5StrokeOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct V5StrokeOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for V5StrokeOp<'a> {
-  type Inner = V5StrokeOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> V5StrokeOp<'a> {
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
-  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 6;
-  pub const VT_WALL_MATERIAL: ::flatbuffers::VOffsetT = 8;
-  pub const VT_CUTS: ::flatbuffers::VOffsetT = 10;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    V5StrokeOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args V5StrokeOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<V5StrokeOp<'bldr>> {
-    let mut builder = V5StrokeOpBuilder::new(_fbb);
-    if let Some(x) = args.cuts { builder.add_cuts(x); }
-    if let Some(x) = args.wall_material { builder.add_wall_material(x); }
-    if let Some(x) = args.outline { builder.add_outline(x); }
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5StrokeOp::VT_REGION_REF, None)}
-  }
-  #[inline]
-  pub fn outline(&self) -> Option<Outline<'a>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(V5StrokeOp::VT_OUTLINE, None)}
-  }
-  #[inline]
-  pub fn wall_material(&self) -> Option<V5WallMaterial<'a>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<V5WallMaterial>>(V5StrokeOp::VT_WALL_MATERIAL, None)}
-  }
-  #[inline]
-  pub fn cuts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut>>>>(V5StrokeOp::VT_CUTS, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for V5StrokeOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<V5WallMaterial>>("wall_material", Self::VT_WALL_MATERIAL, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Cut>>>>("cuts", Self::VT_CUTS, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct V5StrokeOpArgs<'a> {
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
-    pub wall_material: Option<::flatbuffers::WIPOffset<V5WallMaterial<'a>>>,
-    pub cuts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>>>,
-}
-impl<'a> Default for V5StrokeOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    V5StrokeOpArgs {
-      region_ref: None,
-      outline: None,
-      wall_material: None,
-      cuts: None,
-    }
-  }
-}
-
-pub struct V5StrokeOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5StrokeOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5StrokeOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(V5StrokeOp::VT_OUTLINE, outline);
-  }
-  #[inline]
-  pub fn add_wall_material(&mut self, wall_material: ::flatbuffers::WIPOffset<V5WallMaterial<'b >>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<V5WallMaterial>>(V5StrokeOp::VT_WALL_MATERIAL, wall_material);
-  }
-  #[inline]
-  pub fn add_cuts(&mut self, cuts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Cut<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5StrokeOp::VT_CUTS, cuts);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5StrokeOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    V5StrokeOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5StrokeOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for V5StrokeOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("V5StrokeOp");
-      ds.field("region_ref", &self.region_ref());
-      ds.field("outline", &self.outline());
-      ds.field("wall_material", &self.wall_material());
-      ds.field("cuts", &self.cuts());
-      ds.finish()
-  }
-}
-pub enum V5HatchOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct V5HatchOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for V5HatchOp<'a> {
-  type Inner = V5HatchOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> V5HatchOp<'a> {
-  pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 6;
-  pub const VT_SUBTRACT_REGION_REFS: ::flatbuffers::VOffsetT = 8;
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 10;
-  pub const VT_IS_OUTER: ::flatbuffers::VOffsetT = 12;
-  pub const VT_EXTENT_TILES: ::flatbuffers::VOffsetT = 14;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 16;
-  pub const VT_HATCH_UNDERLAY_COLOR: ::flatbuffers::VOffsetT = 18;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    V5HatchOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args V5HatchOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<V5HatchOp<'bldr>> {
-    let mut builder = V5HatchOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.hatch_underlay_color { builder.add_hatch_underlay_color(x); }
-    builder.add_extent_tiles(args.extent_tiles);
-    if let Some(x) = args.is_outer { builder.add_is_outer(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    if let Some(x) = args.subtract_region_refs { builder.add_subtract_region_refs(x); }
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    builder.add_kind(args.kind);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn kind(&self) -> HatchKind {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<HatchKind>(V5HatchOp::VT_KIND, Some(HatchKind::Room)).unwrap()}
-  }
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5HatchOp::VT_REGION_REF, None)}
-  }
-  #[inline]
-  pub fn subtract_region_refs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(V5HatchOp::VT_SUBTRACT_REGION_REFS, None)}
-  }
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(V5HatchOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn is_outer(&self) -> Option<::flatbuffers::Vector<'a, bool>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, bool>>>(V5HatchOp::VT_IS_OUTER, None)}
-  }
-  #[inline]
-  pub fn extent_tiles(&self) -> f32 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<f32>(V5HatchOp::VT_EXTENT_TILES, Some(2.0)).unwrap()}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(V5HatchOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn hatch_underlay_color(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5HatchOp::VT_HATCH_UNDERLAY_COLOR, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for V5HatchOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<HatchKind>("kind", Self::VT_KIND, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("subtract_region_refs", Self::VT_SUBTRACT_REGION_REFS, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, bool>>>("is_outer", Self::VT_IS_OUTER, false)?
-     .visit_field::<f32>("extent_tiles", Self::VT_EXTENT_TILES, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("hatch_underlay_color", Self::VT_HATCH_UNDERLAY_COLOR, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct V5HatchOpArgs<'a> {
-    pub kind: HatchKind,
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub subtract_region_refs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub is_outer: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, bool>>>,
-    pub extent_tiles: f32,
-    pub seed: u64,
-    pub hatch_underlay_color: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for V5HatchOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    V5HatchOpArgs {
-      kind: HatchKind::Room,
-      region_ref: None,
-      subtract_region_refs: None,
-      tiles: None,
-      is_outer: None,
-      extent_tiles: 2.0,
-      seed: 0,
-      hatch_underlay_color: None,
-    }
-  }
-}
-
-pub struct V5HatchOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5HatchOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_kind(&mut self, kind: HatchKind) {
-    self.fbb_.push_slot::<HatchKind>(V5HatchOp::VT_KIND, kind, HatchKind::Room);
-  }
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5HatchOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn add_subtract_region_refs(&mut self, subtract_region_refs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5HatchOp::VT_SUBTRACT_REGION_REFS, subtract_region_refs);
-  }
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5HatchOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_is_outer(&mut self, is_outer: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , bool>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5HatchOp::VT_IS_OUTER, is_outer);
-  }
-  #[inline]
-  pub fn add_extent_tiles(&mut self, extent_tiles: f32) {
-    self.fbb_.push_slot::<f32>(V5HatchOp::VT_EXTENT_TILES, extent_tiles, 2.0);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(V5HatchOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_hatch_underlay_color(&mut self, hatch_underlay_color: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5HatchOp::VT_HATCH_UNDERLAY_COLOR, hatch_underlay_color);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5HatchOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    V5HatchOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5HatchOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for V5HatchOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("V5HatchOp");
-      ds.field("kind", &self.kind());
-      ds.field("region_ref", &self.region_ref());
-      ds.field("subtract_region_refs", &self.subtract_region_refs());
-      ds.field("tiles", &self.tiles());
-      ds.field("is_outer", &self.is_outer());
-      ds.field("extent_tiles", &self.extent_tiles());
-      ds.field("seed", &self.seed());
-      ds.field("hatch_underlay_color", &self.hatch_underlay_color());
-      ds.finish()
-  }
-}
-pub enum V5RoofOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct V5RoofOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for V5RoofOp<'a> {
-  type Inner = V5RoofOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> V5RoofOp<'a> {
-  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
-  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
-  pub const VT_TONE: ::flatbuffers::VOffsetT = 8;
-  pub const VT_TINT: ::flatbuffers::VOffsetT = 10;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 12;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    V5RoofOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args V5RoofOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<V5RoofOp<'bldr>> {
-    let mut builder = V5RoofOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.tint { builder.add_tint(x); }
-    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
-    builder.add_tone(args.tone);
-    builder.add_style(args.style);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn region_ref(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5RoofOp::VT_REGION_REF, None)}
-  }
-  #[inline]
-  pub fn style(&self) -> V5RoofStyle {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<V5RoofStyle>(V5RoofOp::VT_STYLE, Some(V5RoofStyle::Simple)).unwrap()}
-  }
-  #[inline]
-  pub fn tone(&self) -> u8 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u8>(V5RoofOp::VT_TONE, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn tint(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(V5RoofOp::VT_TINT, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(V5RoofOp::VT_SEED, Some(0)).unwrap()}
-  }
-}
-
-impl ::flatbuffers::Verifiable for V5RoofOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
-     .visit_field::<V5RoofStyle>("style", Self::VT_STYLE, false)?
-     .visit_field::<u8>("tone", Self::VT_TONE, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("tint", Self::VT_TINT, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct V5RoofOpArgs<'a> {
-    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub style: V5RoofStyle,
-    pub tone: u8,
-    pub tint: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub seed: u64,
-}
-impl<'a> Default for V5RoofOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    V5RoofOpArgs {
-      region_ref: None,
-      style: V5RoofStyle::Simple,
-      tone: 0,
-      tint: None,
-      seed: 0,
-    }
-  }
-}
-
-pub struct V5RoofOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5RoofOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5RoofOp::VT_REGION_REF, region_ref);
-  }
-  #[inline]
-  pub fn add_style(&mut self, style: V5RoofStyle) {
-    self.fbb_.push_slot::<V5RoofStyle>(V5RoofOp::VT_STYLE, style, V5RoofStyle::Simple);
-  }
-  #[inline]
-  pub fn add_tone(&mut self, tone: u8) {
-    self.fbb_.push_slot::<u8>(V5RoofOp::VT_TONE, tone, 0);
-  }
-  #[inline]
-  pub fn add_tint(&mut self, tint: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5RoofOp::VT_TINT, tint);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(V5RoofOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5RoofOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    V5RoofOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5RoofOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for V5RoofOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("V5RoofOp");
-      ds.field("region_ref", &self.region_ref());
-      ds.field("style", &self.style());
       ds.field("tone", &self.tone());
       ds.field("tint", &self.tint());
       ds.field("seed", &self.seed());
-      ds.finish()
-  }
-}
-pub enum V5OpEntryOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct V5OpEntry<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for V5OpEntry<'a> {
-  type Inner = V5OpEntry<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> V5OpEntry<'a> {
-  pub const VT_OP_TYPE: ::flatbuffers::VOffsetT = 4;
-  pub const VT_OP: ::flatbuffers::VOffsetT = 6;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    V5OpEntry { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args V5OpEntryArgs
-  ) -> ::flatbuffers::WIPOffset<V5OpEntry<'bldr>> {
-    let mut builder = V5OpEntryBuilder::new(_fbb);
-    if let Some(x) = args.op { builder.add_op(x); }
-    builder.add_op_type(args.op_type);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn op_type(&self) -> V5Op {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<V5Op>(V5OpEntry::VT_OP_TYPE, Some(V5Op::NONE)).unwrap()}
-  }
-  #[inline]
-  pub fn op(&self) -> Option<::flatbuffers::Table<'a>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Table<'a>>>(V5OpEntry::VT_OP, None)}
-  }
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_v5_paint_op(&self) -> Option<V5PaintOp<'a>> {
-    if self.op_type() == V5Op::V5PaintOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { V5PaintOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_v5_stamp_op(&self) -> Option<V5StampOp<'a>> {
-    if self.op_type() == V5Op::V5StampOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { V5StampOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_v5_path_op(&self) -> Option<V5PathOp<'a>> {
-    if self.op_type() == V5Op::V5PathOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { V5PathOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_v5_fixture_op(&self) -> Option<V5FixtureOp<'a>> {
-    if self.op_type() == V5Op::V5FixtureOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { V5FixtureOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_v5_stroke_op(&self) -> Option<V5StrokeOp<'a>> {
-    if self.op_type() == V5Op::V5StrokeOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { V5StrokeOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_shadow_op(&self) -> Option<ShadowOp<'a>> {
-    if self.op_type() == V5Op::ShadowOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { ShadowOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_v5_hatch_op(&self) -> Option<V5HatchOp<'a>> {
-    if self.op_type() == V5Op::V5HatchOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { V5HatchOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_v5_roof_op(&self) -> Option<V5RoofOp<'a>> {
-    if self.op_type() == V5Op::V5RoofOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { V5RoofOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-}
-
-impl ::flatbuffers::Verifiable for V5OpEntry<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_union::<V5Op, _>("op_type", Self::VT_OP_TYPE, "op", Self::VT_OP, false, |key, v, pos| {
-        match key {
-          V5Op::V5PaintOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5PaintOp>>("V5Op::V5PaintOp", pos),
-          V5Op::V5StampOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5StampOp>>("V5Op::V5StampOp", pos),
-          V5Op::V5PathOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5PathOp>>("V5Op::V5PathOp", pos),
-          V5Op::V5FixtureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5FixtureOp>>("V5Op::V5FixtureOp", pos),
-          V5Op::V5StrokeOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5StrokeOp>>("V5Op::V5StrokeOp", pos),
-          V5Op::ShadowOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ShadowOp>>("V5Op::ShadowOp", pos),
-          V5Op::V5HatchOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5HatchOp>>("V5Op::V5HatchOp", pos),
-          V5Op::V5RoofOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<V5RoofOp>>("V5Op::V5RoofOp", pos),
-          _ => Ok(()),
-        }
-     })?
-     .finish();
-    Ok(())
-  }
-}
-pub struct V5OpEntryArgs {
-    pub op_type: V5Op,
-    pub op: Option<::flatbuffers::WIPOffset<::flatbuffers::UnionWIPOffset>>,
-}
-impl<'a> Default for V5OpEntryArgs {
-  #[inline]
-  fn default() -> Self {
-    V5OpEntryArgs {
-      op_type: V5Op::NONE,
-      op: None,
-    }
-  }
-}
-
-pub struct V5OpEntryBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> V5OpEntryBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_op_type(&mut self, op_type: V5Op) {
-    self.fbb_.push_slot::<V5Op>(V5OpEntry::VT_OP_TYPE, op_type, V5Op::NONE);
-  }
-  #[inline]
-  pub fn add_op(&mut self, op: ::flatbuffers::WIPOffset<::flatbuffers::UnionWIPOffset>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(V5OpEntry::VT_OP, op);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> V5OpEntryBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    V5OpEntryBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<V5OpEntry<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for V5OpEntry<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("V5OpEntry");
-      ds.field("op_type", &self.op_type());
-      match self.op_type() {
-        V5Op::V5PaintOp => {
-          if let Some(x) = self.op_as_v5_paint_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        V5Op::V5StampOp => {
-          if let Some(x) = self.op_as_v5_stamp_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        V5Op::V5PathOp => {
-          if let Some(x) = self.op_as_v5_path_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        V5Op::V5FixtureOp => {
-          if let Some(x) = self.op_as_v5_fixture_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        V5Op::V5StrokeOp => {
-          if let Some(x) = self.op_as_v5_stroke_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        V5Op::ShadowOp => {
-          if let Some(x) = self.op_as_shadow_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        V5Op::V5HatchOp => {
-          if let Some(x) = self.op_as_v5_hatch_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        V5Op::V5RoofOp => {
-          if let Some(x) = self.op_as_v5_roof_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        _ => {
-          let x: Option<()> = None;
-          ds.field("op", &x)
-        },
-      };
       ds.finish()
   }
 }
@@ -10718,6 +4110,81 @@ impl<'a> OpEntry<'a> {
   }
   #[inline]
   #[allow(non_snake_case)]
+  pub fn op_as_paint_op(&self) -> Option<PaintOp<'a>> {
+    if self.op_type() == Op::PaintOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { PaintOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_stamp_op(&self) -> Option<StampOp<'a>> {
+    if self.op_type() == Op::StampOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { StampOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_path_op(&self) -> Option<PathOp<'a>> {
+    if self.op_type() == Op::PathOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { PathOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_fixture_op(&self) -> Option<FixtureOp<'a>> {
+    if self.op_type() == Op::FixtureOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { FixtureOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_stroke_op(&self) -> Option<StrokeOp<'a>> {
+    if self.op_type() == Op::StrokeOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { StrokeOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
   pub fn op_as_shadow_op(&self) -> Option<ShadowOp<'a>> {
     if self.op_type() == Op::ShadowOp {
       self.op().map(|t| {
@@ -10748,171 +4215,6 @@ impl<'a> OpEntry<'a> {
 
   #[inline]
   #[allow(non_snake_case)]
-  pub fn op_as_terrain_tint_op(&self) -> Option<TerrainTintOp<'a>> {
-    if self.op_type() == Op::TerrainTintOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { TerrainTintOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_floor_grid_op(&self) -> Option<FloorGridOp<'a>> {
-    if self.op_type() == Op::FloorGridOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { FloorGridOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_floor_detail_op(&self) -> Option<FloorDetailOp<'a>> {
-    if self.op_type() == Op::FloorDetailOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { FloorDetailOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_thematic_detail_op(&self) -> Option<ThematicDetailOp<'a>> {
-    if self.op_type() == Op::ThematicDetailOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { ThematicDetailOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_terrain_detail_op(&self) -> Option<TerrainDetailOp<'a>> {
-    if self.op_type() == Op::TerrainDetailOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { TerrainDetailOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_stairs_op(&self) -> Option<StairsOp<'a>> {
-    if self.op_type() == Op::StairsOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { StairsOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_tree_feature_op(&self) -> Option<TreeFeatureOp<'a>> {
-    if self.op_type() == Op::TreeFeatureOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { TreeFeatureOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_bush_feature_op(&self) -> Option<BushFeatureOp<'a>> {
-    if self.op_type() == Op::BushFeatureOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { BushFeatureOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_well_feature_op(&self) -> Option<WellFeatureOp<'a>> {
-    if self.op_type() == Op::WellFeatureOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { WellFeatureOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_fountain_feature_op(&self) -> Option<FountainFeatureOp<'a>> {
-    if self.op_type() == Op::FountainFeatureOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { FountainFeatureOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_decorator_op(&self) -> Option<DecoratorOp<'a>> {
-    if self.op_type() == Op::DecoratorOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { DecoratorOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
   pub fn op_as_roof_op(&self) -> Option<RoofOp<'a>> {
     if self.op_type() == Op::RoofOp {
       self.op().map(|t| {
@@ -10920,66 +4222,6 @@ impl<'a> OpEntry<'a> {
        // Created from a valid Table for this object
        // Which contains a valid union in this slot
        unsafe { RoofOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_floor_op(&self) -> Option<FloorOp<'a>> {
-    if self.op_type() == Op::FloorOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { FloorOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_interior_wall_op(&self) -> Option<InteriorWallOp<'a>> {
-    if self.op_type() == Op::InteriorWallOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { InteriorWallOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_exterior_wall_op(&self) -> Option<ExteriorWallOp<'a>> {
-    if self.op_type() == Op::ExteriorWallOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { ExteriorWallOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_corridor_wall_op(&self) -> Option<CorridorWallOp<'a>> {
-    if self.op_type() == Op::CorridorWallOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { CorridorWallOp::init_from_table(t) }
      })
     } else {
       None
@@ -10996,24 +4238,14 @@ impl ::flatbuffers::Verifiable for OpEntry<'_> {
     v.visit_table(pos)?
      .visit_union::<Op, _>("op_type", Self::VT_OP_TYPE, "op", Self::VT_OP, false, |key, v, pos| {
         match key {
+          Op::PaintOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<PaintOp>>("Op::PaintOp", pos),
+          Op::StampOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<StampOp>>("Op::StampOp", pos),
+          Op::PathOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<PathOp>>("Op::PathOp", pos),
+          Op::FixtureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FixtureOp>>("Op::FixtureOp", pos),
+          Op::StrokeOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<StrokeOp>>("Op::StrokeOp", pos),
           Op::ShadowOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ShadowOp>>("Op::ShadowOp", pos),
           Op::HatchOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<HatchOp>>("Op::HatchOp", pos),
-          Op::TerrainTintOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<TerrainTintOp>>("Op::TerrainTintOp", pos),
-          Op::FloorGridOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FloorGridOp>>("Op::FloorGridOp", pos),
-          Op::FloorDetailOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FloorDetailOp>>("Op::FloorDetailOp", pos),
-          Op::ThematicDetailOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ThematicDetailOp>>("Op::ThematicDetailOp", pos),
-          Op::TerrainDetailOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<TerrainDetailOp>>("Op::TerrainDetailOp", pos),
-          Op::StairsOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<StairsOp>>("Op::StairsOp", pos),
-          Op::TreeFeatureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<TreeFeatureOp>>("Op::TreeFeatureOp", pos),
-          Op::BushFeatureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<BushFeatureOp>>("Op::BushFeatureOp", pos),
-          Op::WellFeatureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<WellFeatureOp>>("Op::WellFeatureOp", pos),
-          Op::FountainFeatureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FountainFeatureOp>>("Op::FountainFeatureOp", pos),
-          Op::DecoratorOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<DecoratorOp>>("Op::DecoratorOp", pos),
           Op::RoofOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RoofOp>>("Op::RoofOp", pos),
-          Op::FloorOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FloorOp>>("Op::FloorOp", pos),
-          Op::InteriorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<InteriorWallOp>>("Op::InteriorWallOp", pos),
-          Op::ExteriorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ExteriorWallOp>>("Op::ExteriorWallOp", pos),
-          Op::CorridorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<CorridorWallOp>>("Op::CorridorWallOp", pos),
           _ => Ok(()),
         }
      })?
@@ -11068,6 +4300,41 @@ impl ::core::fmt::Debug for OpEntry<'_> {
     let mut ds = f.debug_struct("OpEntry");
       ds.field("op_type", &self.op_type());
       match self.op_type() {
+        Op::PaintOp => {
+          if let Some(x) = self.op_as_paint_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::StampOp => {
+          if let Some(x) = self.op_as_stamp_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::PathOp => {
+          if let Some(x) = self.op_as_path_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::FixtureOp => {
+          if let Some(x) = self.op_as_fixture_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::StrokeOp => {
+          if let Some(x) = self.op_as_stroke_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
         Op::ShadowOp => {
           if let Some(x) = self.op_as_shadow_op() {
             ds.field("op", &x)
@@ -11082,113 +4349,8 @@ impl ::core::fmt::Debug for OpEntry<'_> {
             ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
           }
         },
-        Op::TerrainTintOp => {
-          if let Some(x) = self.op_as_terrain_tint_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::FloorGridOp => {
-          if let Some(x) = self.op_as_floor_grid_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::FloorDetailOp => {
-          if let Some(x) = self.op_as_floor_detail_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::ThematicDetailOp => {
-          if let Some(x) = self.op_as_thematic_detail_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::TerrainDetailOp => {
-          if let Some(x) = self.op_as_terrain_detail_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::StairsOp => {
-          if let Some(x) = self.op_as_stairs_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::TreeFeatureOp => {
-          if let Some(x) = self.op_as_tree_feature_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::BushFeatureOp => {
-          if let Some(x) = self.op_as_bush_feature_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::WellFeatureOp => {
-          if let Some(x) = self.op_as_well_feature_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::FountainFeatureOp => {
-          if let Some(x) = self.op_as_fountain_feature_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::DecoratorOp => {
-          if let Some(x) = self.op_as_decorator_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
         Op::RoofOp => {
           if let Some(x) = self.op_as_roof_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::FloorOp => {
-          if let Some(x) = self.op_as_floor_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::InteriorWallOp => {
-          if let Some(x) = self.op_as_interior_wall_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::ExteriorWallOp => {
-          if let Some(x) = self.op_as_exterior_wall_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::CorridorWallOp => {
-          if let Some(x) = self.op_as_corridor_wall_op() {
             ds.field("op", &x)
           } else {
             ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -11224,14 +4386,9 @@ impl<'a> FloorIR<'a> {
   pub const VT_HEIGHT_TILES: ::flatbuffers::VOffsetT = 10;
   pub const VT_CELL: ::flatbuffers::VOffsetT = 12;
   pub const VT_PADDING: ::flatbuffers::VOffsetT = 14;
-  pub const VT_FLOOR_KIND: ::flatbuffers::VOffsetT = 16;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 18;
-  pub const VT_BASE_SEED: ::flatbuffers::VOffsetT = 20;
-  pub const VT_FLAGS: ::flatbuffers::VOffsetT = 22;
-  pub const VT_REGIONS: ::flatbuffers::VOffsetT = 24;
-  pub const VT_OPS: ::flatbuffers::VOffsetT = 26;
-  pub const VT_V5_REGIONS: ::flatbuffers::VOffsetT = 28;
-  pub const VT_V5_OPS: ::flatbuffers::VOffsetT = 30;
+  pub const VT_BASE_SEED: ::flatbuffers::VOffsetT = 16;
+  pub const VT_REGIONS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_OPS: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -11244,19 +4401,14 @@ impl<'a> FloorIR<'a> {
   ) -> ::flatbuffers::WIPOffset<FloorIR<'bldr>> {
     let mut builder = FloorIRBuilder::new(_fbb);
     builder.add_base_seed(args.base_seed);
-    if let Some(x) = args.v5_ops { builder.add_v5_ops(x); }
-    if let Some(x) = args.v5_regions { builder.add_v5_regions(x); }
     if let Some(x) = args.ops { builder.add_ops(x); }
     if let Some(x) = args.regions { builder.add_regions(x); }
-    if let Some(x) = args.flags { builder.add_flags(x); }
-    if let Some(x) = args.theme { builder.add_theme(x); }
     builder.add_padding(args.padding);
     builder.add_cell(args.cell);
     builder.add_height_tiles(args.height_tiles);
     builder.add_width_tiles(args.width_tiles);
     builder.add_minor(args.minor);
     builder.add_major(args.major);
-    builder.add_floor_kind(args.floor_kind);
     builder.finish()
   }
 
@@ -11304,32 +4456,11 @@ impl<'a> FloorIR<'a> {
     unsafe { self._tab.get::<u32>(FloorIR::VT_PADDING, Some(32)).unwrap()}
   }
   #[inline]
-  pub fn floor_kind(&self) -> FloorKind {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<FloorKind>(FloorIR::VT_FLOOR_KIND, Some(FloorKind::Dungeon)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloorIR::VT_THEME, None)}
-  }
-  #[inline]
   pub fn base_seed(&self) -> u64 {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(FloorIR::VT_BASE_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn flags(&self) -> Option<FeatureFlags<'a>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<FeatureFlags>>(FloorIR::VT_FLAGS, None)}
   }
   #[inline]
   pub fn regions(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Region<'a>>>> {
@@ -11345,20 +4476,6 @@ impl<'a> FloorIR<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OpEntry>>>>(FloorIR::VT_OPS, None)}
   }
-  #[inline]
-  pub fn v5_regions(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5Region<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5Region>>>>(FloorIR::VT_V5_REGIONS, None)}
-  }
-  #[inline]
-  pub fn v5_ops(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5OpEntry<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5OpEntry>>>>(FloorIR::VT_V5_OPS, None)}
-  }
 }
 
 impl ::flatbuffers::Verifiable for FloorIR<'_> {
@@ -11373,14 +4490,9 @@ impl ::flatbuffers::Verifiable for FloorIR<'_> {
      .visit_field::<u32>("height_tiles", Self::VT_HEIGHT_TILES, false)?
      .visit_field::<u32>("cell", Self::VT_CELL, false)?
      .visit_field::<u32>("padding", Self::VT_PADDING, false)?
-     .visit_field::<FloorKind>("floor_kind", Self::VT_FLOOR_KIND, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
      .visit_field::<u64>("base_seed", Self::VT_BASE_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<FeatureFlags>>("flags", Self::VT_FLAGS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Region>>>>("regions", Self::VT_REGIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<OpEntry>>>>("ops", Self::VT_OPS, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<V5Region>>>>("v5_regions", Self::VT_V5_REGIONS, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<V5OpEntry>>>>("v5_ops", Self::VT_V5_OPS, false)?
      .finish();
     Ok(())
   }
@@ -11392,14 +4504,9 @@ pub struct FloorIRArgs<'a> {
     pub height_tiles: u32,
     pub cell: u32,
     pub padding: u32,
-    pub floor_kind: FloorKind,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub base_seed: u64,
-    pub flags: Option<::flatbuffers::WIPOffset<FeatureFlags<'a>>>,
     pub regions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Region<'a>>>>>,
     pub ops: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OpEntry<'a>>>>>,
-    pub v5_regions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5Region<'a>>>>>,
-    pub v5_ops: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<V5OpEntry<'a>>>>>,
 }
 impl<'a> Default for FloorIRArgs<'a> {
   #[inline]
@@ -11411,14 +4518,9 @@ impl<'a> Default for FloorIRArgs<'a> {
       height_tiles: 0,
       cell: 32,
       padding: 32,
-      floor_kind: FloorKind::Dungeon,
-      theme: None,
       base_seed: 0,
-      flags: None,
       regions: None,
       ops: None,
-      v5_regions: None,
-      v5_ops: None,
     }
   }
 }
@@ -11453,20 +4555,8 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorIRBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(FloorIR::VT_PADDING, padding, 32);
   }
   #[inline]
-  pub fn add_floor_kind(&mut self, floor_kind: FloorKind) {
-    self.fbb_.push_slot::<FloorKind>(FloorIR::VT_FLOOR_KIND, floor_kind, FloorKind::Dungeon);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorIR::VT_THEME, theme);
-  }
-  #[inline]
   pub fn add_base_seed(&mut self, base_seed: u64) {
     self.fbb_.push_slot::<u64>(FloorIR::VT_BASE_SEED, base_seed, 0);
-  }
-  #[inline]
-  pub fn add_flags(&mut self, flags: ::flatbuffers::WIPOffset<FeatureFlags<'b >>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<FeatureFlags>>(FloorIR::VT_FLAGS, flags);
   }
   #[inline]
   pub fn add_regions(&mut self, regions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Region<'b >>>>) {
@@ -11475,14 +4565,6 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorIRBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_ops(&mut self, ops: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<OpEntry<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorIR::VT_OPS, ops);
-  }
-  #[inline]
-  pub fn add_v5_regions(&mut self, v5_regions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<V5Region<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorIR::VT_V5_REGIONS, v5_regions);
-  }
-  #[inline]
-  pub fn add_v5_ops(&mut self, v5_ops: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<V5OpEntry<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorIR::VT_V5_OPS, v5_ops);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorIRBuilder<'a, 'b, A> {
@@ -11508,14 +4590,9 @@ impl ::core::fmt::Debug for FloorIR<'_> {
       ds.field("height_tiles", &self.height_tiles());
       ds.field("cell", &self.cell());
       ds.field("padding", &self.padding());
-      ds.field("floor_kind", &self.floor_kind());
-      ds.field("theme", &self.theme());
       ds.field("base_seed", &self.base_seed());
-      ds.field("flags", &self.flags());
       ds.field("regions", &self.regions());
       ds.field("ops", &self.ops());
-      ds.field("v5_regions", &self.v5_regions());
-      ds.field("v5_ops", &self.v5_ops());
       ds.finish()
   }
 }
@@ -11579,7 +4656,7 @@ pub unsafe fn root_as_floor_ir_unchecked(buf: &[u8]) -> FloorIR<'_> {
 pub unsafe fn size_prefixed_root_as_floor_ir_unchecked(buf: &[u8]) -> FloorIR<'_> {
   unsafe { ::flatbuffers::size_prefixed_root_unchecked::<FloorIR>(buf) }
 }
-pub const FLOOR_IR_IDENTIFIER: &str = "NIR4";
+pub const FLOOR_IR_IDENTIFIER: &str = "NIR5";
 
 #[inline]
 pub fn floor_ir_buffer_has_identifier(buf: &[u8]) -> bool {

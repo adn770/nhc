@@ -4,8 +4,8 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { Cut } from '../../../../nhc/rendering/ir/fb/cut.js';
 import { Outline } from '../../../../nhc/rendering/ir/fb/outline.js';
-import { RegionKind } from '../../../../nhc/rendering/ir/fb/region-kind.js';
 
 
 export class Region {
@@ -33,41 +33,69 @@ id(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-kind():RegionKind {
+outline(obj?:Outline):Outline|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
-  return offset ? this.bb!.readInt8(this.bb_pos + offset) : RegionKind.Dungeon;
+  return offset ? (obj || new Outline()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
+parentId():string|null
+parentId(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+parentId(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+cuts(index: number, obj?:Cut):Cut|null {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? (obj || new Cut()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+cutsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 shapeTag():string|null
 shapeTag(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
 shapeTag(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 8);
+  const offset = this.bb!.__offset(this.bb_pos, 12);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-outline(obj?:Outline):Outline|null {
-  const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? (obj || new Outline()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
-}
-
 static startRegion(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addId(builder:flatbuffers.Builder, idOffset:flatbuffers.Offset) {
   builder.addFieldOffset(0, idOffset, 0);
 }
 
-static addKind(builder:flatbuffers.Builder, kind:RegionKind) {
-  builder.addFieldInt8(1, kind, RegionKind.Dungeon);
+static addOutline(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(1, outlineOffset, 0);
+}
+
+static addParentId(builder:flatbuffers.Builder, parentIdOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, parentIdOffset, 0);
+}
+
+static addCuts(builder:flatbuffers.Builder, cutsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(3, cutsOffset, 0);
+}
+
+static createCutsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startCutsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
 }
 
 static addShapeTag(builder:flatbuffers.Builder, shapeTagOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(2, shapeTagOffset, 0);
-}
-
-static addOutline(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(3, outlineOffset, 0);
+  builder.addFieldOffset(4, shapeTagOffset, 0);
 }
 
 static endRegion(builder:flatbuffers.Builder):flatbuffers.Offset {

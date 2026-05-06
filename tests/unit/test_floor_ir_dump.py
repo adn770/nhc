@@ -7,12 +7,8 @@ it gets to be picky about output stability:
 - Field order matches schema declaration order.
 - Enum int values are translated to their member name strings.
 - Union variants surface as their concrete table type.
-- The ``NIR3`` file_identifier is required; non-IR buffers raise
+- The ``NIR5`` file_identifier is required; non-IR buffers raise
   ``ValueError`` early instead of leaking arbitrary bytes.
-
-These tests pin the public contract; if the schema or generator
-changes, this is where to update — or, more often, where to start
-debugging when the dumper goes red.
 """
 
 from __future__ import annotations
@@ -30,15 +26,13 @@ from nhc.rendering.ir._fb import OpEntry as OpEntryMod
 from nhc.rendering.ir.dump import dump
 
 
-def _build_minimal(file_identifier: bytes = b"NIR4") -> bytes:
+def _build_minimal(file_identifier: bytes = b"NIR5") -> bytes:
     b = flatbuffers.Builder(64)
-    theme = b.CreateString("dungeon")
     FloorIRMod.Start(b)
-    FloorIRMod.AddMajor(b, 1)
+    FloorIRMod.AddMajor(b, 5)
     FloorIRMod.AddMinor(b, 0)
     FloorIRMod.AddWidthTiles(b, 80)
     FloorIRMod.AddHeightTiles(b, 50)
-    FloorIRMod.AddTheme(b, theme)
     FloorIRMod.AddBaseSeed(b, 12345)
     root = FloorIRMod.End(b)
     b.Finish(root, file_identifier=file_identifier)
@@ -52,7 +46,6 @@ def _build_with_hatch_hole_op() -> bytes:
     HatchOpMod.AddKind(b, HatchKindMod.HatchKind.Hole)
     HatchOpMod.AddSeed(b, 777)
     HatchOpMod.AddExtentTiles(b, 2.0)
-    HatchOpMod.AddStride(b, 0.5)
     HatchOpMod.AddHatchUnderlayColor(b, underlay)
     hatch_off = HatchOpMod.End(b)
 
@@ -65,13 +58,11 @@ def _build_with_hatch_hole_op() -> bytes:
     b.PrependUOffsetTRelative(oe_off)
     ops_vec = b.EndVector()
 
-    theme = b.CreateString("dungeon")
     FloorIRMod.Start(b)
-    FloorIRMod.AddMajor(b, 1)
-    FloorIRMod.AddTheme(b, theme)
+    FloorIRMod.AddMajor(b, 5)
     FloorIRMod.AddOps(b, ops_vec)
     root = FloorIRMod.End(b)
-    b.Finish(root, file_identifier=b"NIR4")
+    b.Finish(root, file_identifier=b"NIR5")
     return bytes(b.Output())
 
 
@@ -85,28 +76,12 @@ def test_minimal_buffer_dump_field_order() -> None:
         "heightTiles",
         "cell",
         "padding",
-        "floorKind",
-        "theme",
         "baseSeed",
-        "flags",
         "regions",
         "ops",
-        # Phase 1.3 of plans/nhc_pure_ir_v5_migration_plan.md added
-        # ``v5_regions`` and ``v5_ops`` to FloorIR for the v5
-        # scaffold. Phase 1.4 populates them. The atomic cut at
-        # Phase 1.8 drops v4 ``regions`` / ``ops`` and renames these.
-        "v5Regions",
-        "v5Ops",
     ]
     assert out["__type"] == "FloorIRT"
-    assert out["major"] == 1
-    assert out["theme"] == "dungeon"
-
-
-def test_enum_translation_floor_kind() -> None:
-    out = json.loads(dump(_build_minimal()))
-    # Default FloorKind.Dungeon == 0; dump should render the name.
-    assert out["floorKind"] == "Dungeon"
+    assert out["major"] == 5
 
 
 def test_union_variant_dispatch_and_nested_enum() -> None:
@@ -124,5 +99,5 @@ def test_union_variant_dispatch_and_nested_enum() -> None:
 
 def test_rejects_non_nir_buffer() -> None:
     bad = _build_minimal(file_identifier=b"XXXX")
-    with pytest.raises(ValueError, match="NIR3"):
+    with pytest.raises(ValueError, match="NIR5"):
         dump(bad)

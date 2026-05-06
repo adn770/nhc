@@ -397,7 +397,7 @@ def _render_fixture(fx: Fixture) -> _RenderedFixture:
     # the cross-rasteriser PSNR + structural-sanity contract in
     # `tests/unit/test_ir_png_parity.py`.
     structural = dump_structural(nir)
-    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
     return _RenderedFixture(
         nir=nir,
         js=js,
@@ -414,7 +414,6 @@ def _build_synthetic_buf(fx: SyntheticRoofFixture) -> bytes:
     from nhc.rendering.ir_emitter import (
         FloorIRBuilder,
         emit_building_regions,
-        emit_building_roofs,
         emit_site_region,
     )
 
@@ -461,7 +460,9 @@ def _build_synthetic_buf(fx: SyntheticRoofFixture) -> bytes:
 
     emit_site_region(builder, (0, 0, width, height))
     emit_building_regions(builder, [building])
-    emit_building_roofs(builder, [building], base_seed=fx.seed)
+    # The v5 emit pipeline (FloorIRBuilder.finish() → emit_all)
+    # walks builder.regions for Building entries and synthesises
+    # the RoofOp; no manual emit needed.
     return builder.finish()
 
 
@@ -474,7 +475,7 @@ def _render_synthetic_fixture(
     from nhc.rendering.ir.structural import dump_structural
 
     nir = _build_synthetic_buf(fx)
-    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
     structural = dump_structural(nir)
     return nir, reference_png, structural
 
@@ -520,11 +521,16 @@ def _check_synthetic_fixture(
 
 
 def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
-    """Hand-build a FloorIR buf with one Site region + an enclosure ExteriorWallOp."""
+    """Hand-build a FloorIR buf with one Site region + an enclosure StrokeOp.
+
+    The schema-5 cut moved enclosure-stroke emission into
+    ``nhc.rendering.emit.stroke`` (called by
+    ``FloorIRBuilder.finish()``); the helper here just stubs
+    ``builder.site`` so the v5 emit picks up the enclosure.
+    """
     from nhc.rendering.ir._fb.CornerStyle import CornerStyle
-    from nhc.rendering.ir._fb.WallStyle import WallStyle
     from nhc.rendering.ir_emitter import (
-        FloorIRBuilder, emit_site_enclosure, emit_site_region,
+        FloorIRBuilder, emit_site_region,
     )
 
     @dataclasses.dataclass
@@ -553,10 +559,6 @@ def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
     # base_seed=fx.seed) below.
     builder = FloorIRBuilder(_Ctx(level=level, seed=fx.seed))  # type: ignore[arg-type]
 
-    style_map = {
-        "palisade": WallStyle.Palisade,
-        "fortification": WallStyle.FortificationMerlon,
-    }
     corner_map = {
         "merlon": CornerStyle.Merlon,
         "diamond": CornerStyle.Diamond,
@@ -593,16 +595,21 @@ def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
     )
 
     emit_site_region(builder, (0, 0, width, height))
-    # ``emit_site_enclosure`` registers the Region(kind=Enclosure)
-    # internally before emitting the ExteriorWallOp.
-    emit_site_enclosure(
-        builder,
-        polygon_tiles=[(float(x), float(y)) for x, y in fx.polygon_tiles],
-        wall_style=style_map[fx.style],
-        gates=list(fx.gates),
-        base_seed=fx.seed,
-        corner_style=corner_map[fx.corner_style],
+    # Register the enclosure Region so the v5 emit_strokes' enclosure
+    # branch (region_ref="enclosure") resolves cleanly. Mirrors the
+    # production emit_site_overlays path.
+    from nhc.rendering._svg_helpers import CELL as _CELL
+    from nhc.rendering.ir_emitter import _coords_to_polygon as _to_poly
+    enc_coords = [
+        (float(x * _CELL), float(y * _CELL)) for x, y in fx.polygon_tiles
+    ]
+    builder.add_region(
+        id="enclosure",
+        polygon=_to_poly(enc_coords),
+        shape_tag="enclosure",
     )
+    # The v5 emit pipeline (FloorIRBuilder.finish() → emit_all)
+    # reads builder.site to produce the enclosure StrokeOp.
     return builder.finish()
 
 
@@ -612,7 +619,7 @@ def _render_synthetic_enclosure_fixture(
     import nhc_render
     from nhc.rendering.ir.structural import dump_structural
     nir = _build_synthetic_enclosure_buf(fx)
-    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
     structural = dump_structural(nir)
     return nir, reference_png, structural
 
@@ -692,7 +699,7 @@ def _render_site_fixture(fx: SiteFixture) -> tuple[bytes, bytes, str]:
         vegetation=fx.vegetation,
         site=site,
     ))
-    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
     structural = dump_structural(nir)
     return nir, reference_png, structural
 
@@ -765,7 +772,7 @@ def _render_building_fixture(
         hatch_distance=2.0,
         site=site,
     ))
-    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
     structural = dump_structural(nir)
     return nir, reference_png, structural
 
@@ -817,7 +824,7 @@ def _build_synthetic_building_wall_buf(
         CircleShape, OctagonShape, Rect, RectShape,
     )
     from nhc.rendering.ir_emitter import (
-        FloorIRBuilder, emit_building_regions, emit_building_walls,
+        FloorIRBuilder, emit_building_regions,
     )
 
     @dataclasses.dataclass
@@ -886,9 +893,9 @@ def _build_synthetic_building_wall_buf(
     # sentinel so the enclosure branch is skipped.
     builder.site = _StubSite(surface=object(), buildings=[b])
     emit_building_regions(builder, [b])
-    emit_building_walls(
-        builder, b, level, base_seed=fx.seed, building_index=0,
-    )
+    # The v5 emit pipeline (FloorIRBuilder.finish() → emit_all)
+    # walks builder.site to produce building-floor StrokeOps from
+    # the stub above.
     return builder.finish()
 
 
@@ -898,7 +905,7 @@ def _render_synthetic_building_wall_fixture(
     import nhc_render
     from nhc.rendering.ir.structural import dump_structural
     nir = _build_synthetic_building_wall_buf(fx)
-    reference_png = bytes(nhc_render.ir_to_png_v5(nir, 1.0, None))
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
     structural = dump_structural(nir)
     return nir, reference_png, structural
 

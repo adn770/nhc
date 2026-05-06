@@ -4,12 +4,8 @@
 
 import * as flatbuffers from 'flatbuffers';
 
-import { FeatureFlags } from '../../../../nhc/rendering/ir/fb/feature-flags.js';
-import { FloorKind } from '../../../../nhc/rendering/ir/fb/floor-kind.js';
 import { OpEntry } from '../../../../nhc/rendering/ir/fb/op-entry.js';
 import { Region } from '../../../../nhc/rendering/ir/fb/region.js';
-import { V5OpEntry } from '../../../../nhc/rendering/ir/fb/v5-op-entry.js';
-import { V5Region } from '../../../../nhc/rendering/ir/fb/v5-region.js';
 
 
 export class FloorIR {
@@ -31,7 +27,7 @@ static getSizePrefixedRootAsFloorIR(bb:flatbuffers.ByteBuffer, obj?:FloorIR):Flo
 }
 
 static bufferHasIdentifier(bb:flatbuffers.ByteBuffer):boolean {
-  return bb.__has_identifier('NIR4');
+  return bb.__has_identifier('NIR5');
 }
 
 major():number {
@@ -64,70 +60,33 @@ padding():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 32;
 }
 
-floorKind():FloorKind {
-  const offset = this.bb!.__offset(this.bb_pos, 16);
-  return offset ? this.bb!.readInt8(this.bb_pos + offset) : FloorKind.Dungeon;
-}
-
-theme():string|null
-theme(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-theme(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 18);
-  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
-}
-
 baseSeed():bigint {
-  const offset = this.bb!.__offset(this.bb_pos, 20);
+  const offset = this.bb!.__offset(this.bb_pos, 16);
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
-flags(obj?:FeatureFlags):FeatureFlags|null {
-  const offset = this.bb!.__offset(this.bb_pos, 22);
-  return offset ? (obj || new FeatureFlags()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
-}
-
 regions(index: number, obj?:Region):Region|null {
-  const offset = this.bb!.__offset(this.bb_pos, 24);
+  const offset = this.bb!.__offset(this.bb_pos, 18);
   return offset ? (obj || new Region()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
 }
 
 regionsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 24);
+  const offset = this.bb!.__offset(this.bb_pos, 18);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 ops(index: number, obj?:OpEntry):OpEntry|null {
-  const offset = this.bb!.__offset(this.bb_pos, 26);
+  const offset = this.bb!.__offset(this.bb_pos, 20);
   return offset ? (obj || new OpEntry()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
 }
 
 opsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 26);
-  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
-}
-
-v5Regions(index: number, obj?:V5Region):V5Region|null {
-  const offset = this.bb!.__offset(this.bb_pos, 28);
-  return offset ? (obj || new V5Region()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
-}
-
-v5RegionsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 28);
-  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
-}
-
-v5Ops(index: number, obj?:V5OpEntry):V5OpEntry|null {
-  const offset = this.bb!.__offset(this.bb_pos, 30);
-  return offset ? (obj || new V5OpEntry()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
-}
-
-v5OpsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 30);
+  const offset = this.bb!.__offset(this.bb_pos, 20);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 static startFloorIR(builder:flatbuffers.Builder) {
-  builder.startObject(14);
+  builder.startObject(9);
 }
 
 static addMajor(builder:flatbuffers.Builder, major:number) {
@@ -154,24 +113,12 @@ static addPadding(builder:flatbuffers.Builder, padding:number) {
   builder.addFieldInt32(5, padding, 32);
 }
 
-static addFloorKind(builder:flatbuffers.Builder, floorKind:FloorKind) {
-  builder.addFieldInt8(6, floorKind, FloorKind.Dungeon);
-}
-
-static addTheme(builder:flatbuffers.Builder, themeOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(7, themeOffset, 0);
-}
-
 static addBaseSeed(builder:flatbuffers.Builder, baseSeed:bigint) {
-  builder.addFieldInt64(8, baseSeed, BigInt('0'));
-}
-
-static addFlags(builder:flatbuffers.Builder, flagsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(9, flagsOffset, 0);
+  builder.addFieldInt64(6, baseSeed, BigInt('0'));
 }
 
 static addRegions(builder:flatbuffers.Builder, regionsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(10, regionsOffset, 0);
+  builder.addFieldOffset(7, regionsOffset, 0);
 }
 
 static createRegionsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
@@ -187,7 +134,7 @@ static startRegionsVector(builder:flatbuffers.Builder, numElems:number) {
 }
 
 static addOps(builder:flatbuffers.Builder, opsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(11, opsOffset, 0);
+  builder.addFieldOffset(8, opsOffset, 0);
 }
 
 static createOpsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
@@ -202,49 +149,30 @@ static startOpsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
-static addV5Regions(builder:flatbuffers.Builder, v5RegionsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(12, v5RegionsOffset, 0);
-}
-
-static createV5RegionsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
-  builder.startVector(4, data.length, 4);
-  for (let i = data.length - 1; i >= 0; i--) {
-    builder.addOffset(data[i]!);
-  }
-  return builder.endVector();
-}
-
-static startV5RegionsVector(builder:flatbuffers.Builder, numElems:number) {
-  builder.startVector(4, numElems, 4);
-}
-
-static addV5Ops(builder:flatbuffers.Builder, v5OpsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(13, v5OpsOffset, 0);
-}
-
-static createV5OpsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
-  builder.startVector(4, data.length, 4);
-  for (let i = data.length - 1; i >= 0; i--) {
-    builder.addOffset(data[i]!);
-  }
-  return builder.endVector();
-}
-
-static startV5OpsVector(builder:flatbuffers.Builder, numElems:number) {
-  builder.startVector(4, numElems, 4);
-}
-
 static endFloorIR(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
 static finishFloorIRBuffer(builder:flatbuffers.Builder, offset:flatbuffers.Offset) {
-  builder.finish(offset, 'NIR4');
+  builder.finish(offset, 'NIR5');
 }
 
 static finishSizePrefixedFloorIRBuffer(builder:flatbuffers.Builder, offset:flatbuffers.Offset) {
-  builder.finish(offset, 'NIR4', true);
+  builder.finish(offset, 'NIR5', true);
 }
 
+static createFloorIR(builder:flatbuffers.Builder, major:number, minor:number, widthTiles:number, heightTiles:number, cell:number, padding:number, baseSeed:bigint, regionsOffset:flatbuffers.Offset, opsOffset:flatbuffers.Offset):flatbuffers.Offset {
+  FloorIR.startFloorIR(builder);
+  FloorIR.addMajor(builder, major);
+  FloorIR.addMinor(builder, minor);
+  FloorIR.addWidthTiles(builder, widthTiles);
+  FloorIR.addHeightTiles(builder, heightTiles);
+  FloorIR.addCell(builder, cell);
+  FloorIR.addPadding(builder, padding);
+  FloorIR.addBaseSeed(builder, baseSeed);
+  FloorIR.addRegions(builder, regionsOffset);
+  FloorIR.addOps(builder, opsOffset);
+  return FloorIR.endFloorIR(builder);
+}
 }

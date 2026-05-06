@@ -1,9 +1,9 @@
 {
   "op_counts": {
-    "V5FixtureOp": 1,
-    "V5PaintOp": 228,
-    "V5StampOp": 2,
-    "V5StrokeOp": 9
+    "FixtureOp": 1,
+    "PaintOp": 228,
+    "StampOp": 2,
+    "StrokeOp": 9
   },
   "region_count": 6,
   "region_polygon_rings": 4,

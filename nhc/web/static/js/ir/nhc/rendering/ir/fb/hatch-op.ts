@@ -31,18 +31,23 @@ kind():HatchKind {
   return offset ? this.bb!.readInt8(this.bb_pos + offset) : HatchKind.Room;
 }
 
-regionOut():string|null
-regionOut(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-regionOut(optionalEncoding?:any):string|Uint8Array|null {
+regionRef():string|null
+regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+regionRef(optionalEncoding?:any):string|Uint8Array|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-regionIn():string|null
-regionIn(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
-regionIn(optionalEncoding?:any):string|Uint8Array|null {
+subtractRegionRefs(index: number):string
+subtractRegionRefs(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+subtractRegionRefs(index: number,optionalEncoding?:any):string|Uint8Array|null {
   const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+subtractRegionRefsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 tiles(index: number, obj?:TileCoord):TileCoord|null {
@@ -55,19 +60,29 @@ tilesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
-extentTiles():number {
+isOuter(index: number):boolean|null {
   const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? !!this.bb!.readInt8(this.bb!.__vector(this.bb_pos + offset) + index) : false;
+}
+
+isOuterLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+isOuterArray():Int8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? new Int8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
+extentTiles():number {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 2.0;
 }
 
 seed():bigint {
-  const offset = this.bb!.__offset(this.bb_pos, 14);
-  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
-}
-
-stride():number {
   const offset = this.bb!.__offset(this.bb_pos, 16);
-  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.5;
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
 hatchUnderlayColor():string|null
@@ -77,35 +92,32 @@ hatchUnderlayColor(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-isOuter(index: number):boolean|null {
-  const offset = this.bb!.__offset(this.bb_pos, 20);
-  return offset ? !!this.bb!.readInt8(this.bb!.__vector(this.bb_pos + offset) + index) : false;
-}
-
-isOuterLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 20);
-  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
-}
-
-isOuterArray():Int8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 20);
-  return offset ? new Int8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
-}
-
 static startHatchOp(builder:flatbuffers.Builder) {
-  builder.startObject(9);
+  builder.startObject(8);
 }
 
 static addKind(builder:flatbuffers.Builder, kind:HatchKind) {
   builder.addFieldInt8(0, kind, HatchKind.Room);
 }
 
-static addRegionOut(builder:flatbuffers.Builder, regionOutOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(1, regionOutOffset, 0);
+static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(1, regionRefOffset, 0);
 }
 
-static addRegionIn(builder:flatbuffers.Builder, regionInOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(2, regionInOffset, 0);
+static addSubtractRegionRefs(builder:flatbuffers.Builder, subtractRegionRefsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, subtractRegionRefsOffset, 0);
+}
+
+static createSubtractRegionRefsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startSubtractRegionRefsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -116,24 +128,8 @@ static startTilesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(8, numElems, 4);
 }
 
-static addExtentTiles(builder:flatbuffers.Builder, extentTiles:number) {
-  builder.addFieldFloat32(4, extentTiles, 2.0);
-}
-
-static addSeed(builder:flatbuffers.Builder, seed:bigint) {
-  builder.addFieldInt64(5, seed, BigInt('0'));
-}
-
-static addStride(builder:flatbuffers.Builder, stride:number) {
-  builder.addFieldFloat32(6, stride, 0.5);
-}
-
-static addHatchUnderlayColor(builder:flatbuffers.Builder, hatchUnderlayColorOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(7, hatchUnderlayColorOffset, 0);
-}
-
 static addIsOuter(builder:flatbuffers.Builder, isOuterOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(8, isOuterOffset, 0);
+  builder.addFieldOffset(4, isOuterOffset, 0);
 }
 
 static createIsOuterVector(builder:flatbuffers.Builder, data:boolean[]):flatbuffers.Offset {
@@ -148,22 +144,33 @@ static startIsOuterVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(1, numElems, 1);
 }
 
+static addExtentTiles(builder:flatbuffers.Builder, extentTiles:number) {
+  builder.addFieldFloat32(5, extentTiles, 2.0);
+}
+
+static addSeed(builder:flatbuffers.Builder, seed:bigint) {
+  builder.addFieldInt64(6, seed, BigInt('0'));
+}
+
+static addHatchUnderlayColor(builder:flatbuffers.Builder, hatchUnderlayColorOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(7, hatchUnderlayColorOffset, 0);
+}
+
 static endHatchOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createHatchOp(builder:flatbuffers.Builder, kind:HatchKind, regionOutOffset:flatbuffers.Offset, regionInOffset:flatbuffers.Offset, tilesOffset:flatbuffers.Offset, extentTiles:number, seed:bigint, stride:number, hatchUnderlayColorOffset:flatbuffers.Offset, isOuterOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createHatchOp(builder:flatbuffers.Builder, kind:HatchKind, regionRefOffset:flatbuffers.Offset, subtractRegionRefsOffset:flatbuffers.Offset, tilesOffset:flatbuffers.Offset, isOuterOffset:flatbuffers.Offset, extentTiles:number, seed:bigint, hatchUnderlayColorOffset:flatbuffers.Offset):flatbuffers.Offset {
   HatchOp.startHatchOp(builder);
   HatchOp.addKind(builder, kind);
-  HatchOp.addRegionOut(builder, regionOutOffset);
-  HatchOp.addRegionIn(builder, regionInOffset);
+  HatchOp.addRegionRef(builder, regionRefOffset);
+  HatchOp.addSubtractRegionRefs(builder, subtractRegionRefsOffset);
   HatchOp.addTiles(builder, tilesOffset);
+  HatchOp.addIsOuter(builder, isOuterOffset);
   HatchOp.addExtentTiles(builder, extentTiles);
   HatchOp.addSeed(builder, seed);
-  HatchOp.addStride(builder, stride);
   HatchOp.addHatchUnderlayColor(builder, hatchUnderlayColorOffset);
-  HatchOp.addIsOuter(builder, isOuterOffset);
   return HatchOp.endHatchOp(builder);
 }
 }

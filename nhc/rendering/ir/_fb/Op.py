@@ -4,81 +4,41 @@
 
 class Op(object):
     NONE = 0
-    ShadowOp = 1
-    HatchOp = 2
-    TerrainTintOp = 3
-    FloorGridOp = 4
-    FloorDetailOp = 5
-    ThematicDetailOp = 6
-    TerrainDetailOp = 7
-    StairsOp = 8
-    TreeFeatureOp = 9
-    BushFeatureOp = 10
-    WellFeatureOp = 11
-    FountainFeatureOp = 12
-    DecoratorOp = 13
-    RoofOp = 14
-    FloorOp = 15
-    InteriorWallOp = 16
-    ExteriorWallOp = 17
-    CorridorWallOp = 18
+    PaintOp = 1
+    StampOp = 2
+    PathOp = 3
+    FixtureOp = 4
+    StrokeOp = 5
+    ShadowOp = 6
+    HatchOp = 7
+    RoofOp = 8
 
 def OpCreator(unionType, table):
     from flatbuffers.table import Table
     if not isinstance(table, Table):
         return None
+    if unionType == Op.PaintOp:
+        import nhc.rendering.ir._fb.PaintOp
+        return nhc.rendering.ir._fb.PaintOp.PaintOpT.InitFromBuf(table.Bytes, table.Pos)
+    if unionType == Op.StampOp:
+        import nhc.rendering.ir._fb.StampOp
+        return nhc.rendering.ir._fb.StampOp.StampOpT.InitFromBuf(table.Bytes, table.Pos)
+    if unionType == Op.PathOp:
+        import nhc.rendering.ir._fb.PathOp
+        return nhc.rendering.ir._fb.PathOp.PathOpT.InitFromBuf(table.Bytes, table.Pos)
+    if unionType == Op.FixtureOp:
+        import nhc.rendering.ir._fb.FixtureOp
+        return nhc.rendering.ir._fb.FixtureOp.FixtureOpT.InitFromBuf(table.Bytes, table.Pos)
+    if unionType == Op.StrokeOp:
+        import nhc.rendering.ir._fb.StrokeOp
+        return nhc.rendering.ir._fb.StrokeOp.StrokeOpT.InitFromBuf(table.Bytes, table.Pos)
     if unionType == Op.ShadowOp:
         import nhc.rendering.ir._fb.ShadowOp
         return nhc.rendering.ir._fb.ShadowOp.ShadowOpT.InitFromBuf(table.Bytes, table.Pos)
     if unionType == Op.HatchOp:
         import nhc.rendering.ir._fb.HatchOp
         return nhc.rendering.ir._fb.HatchOp.HatchOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.TerrainTintOp:
-        import nhc.rendering.ir._fb.TerrainTintOp
-        return nhc.rendering.ir._fb.TerrainTintOp.TerrainTintOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.FloorGridOp:
-        import nhc.rendering.ir._fb.FloorGridOp
-        return nhc.rendering.ir._fb.FloorGridOp.FloorGridOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.FloorDetailOp:
-        import nhc.rendering.ir._fb.FloorDetailOp
-        return nhc.rendering.ir._fb.FloorDetailOp.FloorDetailOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.ThematicDetailOp:
-        import nhc.rendering.ir._fb.ThematicDetailOp
-        return nhc.rendering.ir._fb.ThematicDetailOp.ThematicDetailOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.TerrainDetailOp:
-        import nhc.rendering.ir._fb.TerrainDetailOp
-        return nhc.rendering.ir._fb.TerrainDetailOp.TerrainDetailOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.StairsOp:
-        import nhc.rendering.ir._fb.StairsOp
-        return nhc.rendering.ir._fb.StairsOp.StairsOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.TreeFeatureOp:
-        import nhc.rendering.ir._fb.TreeFeatureOp
-        return nhc.rendering.ir._fb.TreeFeatureOp.TreeFeatureOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.BushFeatureOp:
-        import nhc.rendering.ir._fb.BushFeatureOp
-        return nhc.rendering.ir._fb.BushFeatureOp.BushFeatureOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.WellFeatureOp:
-        import nhc.rendering.ir._fb.WellFeatureOp
-        return nhc.rendering.ir._fb.WellFeatureOp.WellFeatureOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.FountainFeatureOp:
-        import nhc.rendering.ir._fb.FountainFeatureOp
-        return nhc.rendering.ir._fb.FountainFeatureOp.FountainFeatureOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.DecoratorOp:
-        import nhc.rendering.ir._fb.DecoratorOp
-        return nhc.rendering.ir._fb.DecoratorOp.DecoratorOpT.InitFromBuf(table.Bytes, table.Pos)
     if unionType == Op.RoofOp:
         import nhc.rendering.ir._fb.RoofOp
         return nhc.rendering.ir._fb.RoofOp.RoofOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.FloorOp:
-        import nhc.rendering.ir._fb.FloorOp
-        return nhc.rendering.ir._fb.FloorOp.FloorOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.InteriorWallOp:
-        import nhc.rendering.ir._fb.InteriorWallOp
-        return nhc.rendering.ir._fb.InteriorWallOp.InteriorWallOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.ExteriorWallOp:
-        import nhc.rendering.ir._fb.ExteriorWallOp
-        return nhc.rendering.ir._fb.ExteriorWallOp.ExteriorWallOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.CorridorWallOp:
-        import nhc.rendering.ir._fb.CorridorWallOp
-        return nhc.rendering.ir._fb.CorridorWallOp.CorridorWallOpT.InitFromBuf(table.Bytes, table.Pos)
     return None

@@ -42,8 +42,8 @@ def _level_with_one_tile(terrain: Terrain) -> Level:
 def _v5_stamp_decorator_bit_set(level: Level, bit: int) -> bool:
     buf = bytes(build_floor_ir(level, seed=0))
     d = json.loads(dump(buf))
-    for entry in (d.get("v5Ops") or []):
-        if entry.get("opType") != "V5StampOp":
+    for entry in (d.get("ops") or []):
+        if entry.get("opType") != "StampOp":
             continue
         mask = int((entry.get("op") or {}).get("decoratorMask", 0) or 0)
         if mask & bit:
@@ -55,7 +55,7 @@ def _v5_stamp_op_count(level: Level) -> int:
     buf = bytes(build_floor_ir(level, seed=0))
     d = json.loads(dump(buf))
     return sum(
-        1 for e in (d.get("v5Ops") or []) if e.get("opType") == "V5StampOp"
+        1 for e in (d.get("ops") or []) if e.get("opType") == "StampOp"
     )
 
 

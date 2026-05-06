@@ -56,14 +56,14 @@ nhc_render = pytest.importorskip(
 
 
 def ir_to_svg(buf: bytes) -> str:
-    """Rust ``nhc_render.ir_to_svg_v5`` shim.
+    """Rust ``nhc_render.ir_to_svg`` shim.
 
     Phase 4.2c of ``plans/nhc_pure_ir_v5_migration_plan.md`` flipped
     the parity gate from the v4 SVG path to v5. The shim keeps the
     callsite name stable so 4.3's mechanical V5* → canonical rename
     drops the ``_v5`` suffix without churning every test body.
     """
-    return nhc_render.ir_to_svg_v5(bytes(buf))
+    return nhc_render.ir_to_svg(bytes(buf))
 
 
 _FIXTURE_ROOT = (
@@ -175,7 +175,7 @@ def test_tiny_skia_psnr_against_reference(emitted) -> None:
     ``--regen-reference``.
     """
     inputs, buf = emitted
-    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / inputs.descriptor / "reference.png"
     ).read_bytes()
@@ -312,7 +312,7 @@ def test_synthetic_roof_tiny_skia_psnr(synthetic_roof_buf) -> None:
     layout, palette, or geometry from the Phase 8.1c.2 baseline.
     """
     fx, buf = synthetic_roof_buf
-    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -401,7 +401,7 @@ def test_synthetic_enclosure_tiny_skia_psnr(
     palette / dimensions / RNG / shape from the 8.2c baseline.
     """
     fx, buf = synthetic_enclosure_buf
-    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -485,7 +485,7 @@ def test_synthetic_building_wall_tiny_skia_psnr(
 ) -> None:
     """tiny-skia output: PSNR > 40 dB vs the committed reference."""
     fx, buf = synthetic_building_wall_buf
-    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -579,7 +579,7 @@ def test_site_tiny_skia_psnr(site_buf) -> None:
     time on a clean background).
     """
     fx, buf = site_buf
-    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -656,7 +656,7 @@ def building_buf(request):
 def test_building_tiny_skia_psnr(building_buf) -> None:
     """tiny-skia output: PSNR > 35 dB vs the committed reference."""
     fx, buf = building_buf
-    actual = bytes(nhc_render.ir_to_png_v5(buf, 1.0, None))
+    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()

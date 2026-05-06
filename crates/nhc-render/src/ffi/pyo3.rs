@@ -67,27 +67,7 @@ fn ir_to_png(
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
-/// IR → PNG raster, v5 op-stream variant. Phase 3.1 of
-/// `plans/nhc_pure_ir_v5_migration_plan.md`.
-///
-/// Mirrors `ir_to_png` argument shape, but walks the IR's
-/// `v5_ops` / `v5_regions` scaffold fields through the v5 op
-/// handlers under `transform::png::v5::` instead of the v4 op
-/// dispatch loop. Fed by the v5-vs-v4 PSNR cross-rasteriser gate
-/// in `tests/unit/test_ir_v5_pixel_parity.py` to surface where the
-/// v5 emit + render path diverges from the v4 reference.
-#[pyfunction]
-#[pyo3(signature = (ir_bytes, scale = 1.0, layer = None))]
-fn ir_to_png_v5(
-    ir_bytes: &[u8],
-    scale: f32,
-    layer: Option<&str>,
-) -> PyResult<Vec<u8>> {
-    transform_png::floor_ir_to_png_v5(ir_bytes, scale, layer)
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-/// SVG → PNG rasteriser — Phase 10.4 cross-rasteriser parity
+/// SVG → PNG rasteriser — cross-rasteriser parity
 /// gate. The parity harness in `tests/unit/test_ir_png_parity.py`
 /// pipes `ir_to_svg(buf)` through this function and compares the
 /// resulting pixels against the reference image, replacing the
@@ -126,32 +106,12 @@ fn ir_to_svg(
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
-/// IR → SVG document, v5 op-stream variant. Phase 4.2a of
-/// `plans/nhc_pure_ir_v5_migration_plan.md`.
-///
-/// Mirrors `ir_to_svg` argument shape minus the `bare` parameter
-/// (the v5 op union doesn't carry the v4 layer split that
-/// `BARE_SKIP_OPS` keys off; bare-mode v5 semantics land as polish
-/// post-cut). Fed by the cross-rasteriser PSNR gate in
-/// `tests/unit/test_ir_png_parity.py` once the gate flips to v5 ahead
-/// of the atomic schema cut at Phase 4.3.
-#[pyfunction]
-#[pyo3(signature = (ir_bytes, scale = 1.0, layer = None))]
-fn ir_to_svg_v5(
-    ir_bytes: &[u8],
-    scale: f32,
-    layer: Option<&str>,
-) -> PyResult<String> {
-    transform_svg::floor_ir_to_svg_v5(ir_bytes, scale, layer)
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
 /// Run the v4 thematic-detail probability gate at emit time so
-/// the v5 emit pipeline can land explicit V5FixtureOp anchors at
+/// the v5 emit pipeline can land explicit FixtureOp anchors at
 /// the same tiles where the v4 painter would render webs / bones
 /// / skulls. Returns a list of ``(kind, x, y, orientation)``
 /// tuples — kind is 0=Web, 2=Bones, 1=Skull (matching
-/// V5FixtureKind enum values).
+/// FixtureKind enum values).
 ///
 /// Phase 2.11 emit-side close-out: ThematicDetailOp's tile-level
 /// scatter (probability-gated against the v4 RNG) becomes
@@ -172,7 +132,7 @@ fn thematic_detail_anchors(
 
 /// Run the v4 floor-detail probability gate at emit time and
 /// return the tile coords where the stones bucket landed shapes.
-/// Used by v5 emit to land V5FixtureOp(LooseStone) anchors.
+/// Used by v5 emit to land FixtureOp(LooseStone) anchors.
 #[pyfunction]
 fn floor_detail_loose_stone_anchors(
     tiles: Vec<(i32, i32, bool)>,
@@ -191,10 +151,8 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(splitmix64_next, m)?)?;
     m.add_function(wrap_pyfunction!(perlin2, m)?)?;
     m.add_function(wrap_pyfunction!(ir_to_png, m)?)?;
-    m.add_function(wrap_pyfunction!(ir_to_png_v5, m)?)?;
     m.add_function(wrap_pyfunction!(svg_to_png, m)?)?;
     m.add_function(wrap_pyfunction!(ir_to_svg, m)?)?;
-    m.add_function(wrap_pyfunction!(ir_to_svg_v5, m)?)?;
     m.add_function(wrap_pyfunction!(thematic_detail_anchors, m)?)?;
     m.add_function(wrap_pyfunction!(floor_detail_loose_stone_anchors, m)?)?;
     Ok(())

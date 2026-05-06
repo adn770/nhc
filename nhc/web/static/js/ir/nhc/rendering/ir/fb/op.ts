@@ -2,101 +2,61 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
-import { BushFeatureOp } from '../../../../nhc/rendering/ir/fb/bush-feature-op.js';
-import { CorridorWallOp } from '../../../../nhc/rendering/ir/fb/corridor-wall-op.js';
-import { DecoratorOp } from '../../../../nhc/rendering/ir/fb/decorator-op.js';
-import { ExteriorWallOp } from '../../../../nhc/rendering/ir/fb/exterior-wall-op.js';
-import { FloorDetailOp } from '../../../../nhc/rendering/ir/fb/floor-detail-op.js';
-import { FloorGridOp } from '../../../../nhc/rendering/ir/fb/floor-grid-op.js';
-import { FloorOp } from '../../../../nhc/rendering/ir/fb/floor-op.js';
-import { FountainFeatureOp } from '../../../../nhc/rendering/ir/fb/fountain-feature-op.js';
+import { FixtureOp } from '../../../../nhc/rendering/ir/fb/fixture-op.js';
 import { HatchOp } from '../../../../nhc/rendering/ir/fb/hatch-op.js';
-import { InteriorWallOp } from '../../../../nhc/rendering/ir/fb/interior-wall-op.js';
+import { PaintOp } from '../../../../nhc/rendering/ir/fb/paint-op.js';
+import { PathOp } from '../../../../nhc/rendering/ir/fb/path-op.js';
 import { RoofOp } from '../../../../nhc/rendering/ir/fb/roof-op.js';
 import { ShadowOp } from '../../../../nhc/rendering/ir/fb/shadow-op.js';
-import { StairsOp } from '../../../../nhc/rendering/ir/fb/stairs-op.js';
-import { TerrainDetailOp } from '../../../../nhc/rendering/ir/fb/terrain-detail-op.js';
-import { TerrainTintOp } from '../../../../nhc/rendering/ir/fb/terrain-tint-op.js';
-import { ThematicDetailOp } from '../../../../nhc/rendering/ir/fb/thematic-detail-op.js';
-import { TreeFeatureOp } from '../../../../nhc/rendering/ir/fb/tree-feature-op.js';
-import { WellFeatureOp } from '../../../../nhc/rendering/ir/fb/well-feature-op.js';
+import { StampOp } from '../../../../nhc/rendering/ir/fb/stamp-op.js';
+import { StrokeOp } from '../../../../nhc/rendering/ir/fb/stroke-op.js';
 
 
 export enum Op {
   NONE = 0,
-  ShadowOp = 1,
-  HatchOp = 2,
-  TerrainTintOp = 3,
-  FloorGridOp = 4,
-  FloorDetailOp = 5,
-  ThematicDetailOp = 6,
-  TerrainDetailOp = 7,
-  StairsOp = 8,
-  TreeFeatureOp = 9,
-  BushFeatureOp = 10,
-  WellFeatureOp = 11,
-  FountainFeatureOp = 12,
-  DecoratorOp = 13,
-  RoofOp = 14,
-  FloorOp = 15,
-  InteriorWallOp = 16,
-  ExteriorWallOp = 17,
-  CorridorWallOp = 18
+  PaintOp = 1,
+  StampOp = 2,
+  PathOp = 3,
+  FixtureOp = 4,
+  StrokeOp = 5,
+  ShadowOp = 6,
+  HatchOp = 7,
+  RoofOp = 8
 }
 
 export function unionToOp(
   type: Op,
-  accessor: (obj:BushFeatureOp|CorridorWallOp|DecoratorOp|ExteriorWallOp|FloorDetailOp|FloorGridOp|FloorOp|FountainFeatureOp|HatchOp|InteriorWallOp|RoofOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WellFeatureOp) => BushFeatureOp|CorridorWallOp|DecoratorOp|ExteriorWallOp|FloorDetailOp|FloorGridOp|FloorOp|FountainFeatureOp|HatchOp|InteriorWallOp|RoofOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WellFeatureOp|null
-): BushFeatureOp|CorridorWallOp|DecoratorOp|ExteriorWallOp|FloorDetailOp|FloorGridOp|FloorOp|FountainFeatureOp|HatchOp|InteriorWallOp|RoofOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WellFeatureOp|null {
+  accessor: (obj:FixtureOp|HatchOp|PaintOp|PathOp|RoofOp|ShadowOp|StampOp|StrokeOp) => FixtureOp|HatchOp|PaintOp|PathOp|RoofOp|ShadowOp|StampOp|StrokeOp|null
+): FixtureOp|HatchOp|PaintOp|PathOp|RoofOp|ShadowOp|StampOp|StrokeOp|null {
   switch(Op[type]) {
     case 'NONE': return null; 
+    case 'PaintOp': return accessor(new PaintOp())! as PaintOp;
+    case 'StampOp': return accessor(new StampOp())! as StampOp;
+    case 'PathOp': return accessor(new PathOp())! as PathOp;
+    case 'FixtureOp': return accessor(new FixtureOp())! as FixtureOp;
+    case 'StrokeOp': return accessor(new StrokeOp())! as StrokeOp;
     case 'ShadowOp': return accessor(new ShadowOp())! as ShadowOp;
     case 'HatchOp': return accessor(new HatchOp())! as HatchOp;
-    case 'TerrainTintOp': return accessor(new TerrainTintOp())! as TerrainTintOp;
-    case 'FloorGridOp': return accessor(new FloorGridOp())! as FloorGridOp;
-    case 'FloorDetailOp': return accessor(new FloorDetailOp())! as FloorDetailOp;
-    case 'ThematicDetailOp': return accessor(new ThematicDetailOp())! as ThematicDetailOp;
-    case 'TerrainDetailOp': return accessor(new TerrainDetailOp())! as TerrainDetailOp;
-    case 'StairsOp': return accessor(new StairsOp())! as StairsOp;
-    case 'TreeFeatureOp': return accessor(new TreeFeatureOp())! as TreeFeatureOp;
-    case 'BushFeatureOp': return accessor(new BushFeatureOp())! as BushFeatureOp;
-    case 'WellFeatureOp': return accessor(new WellFeatureOp())! as WellFeatureOp;
-    case 'FountainFeatureOp': return accessor(new FountainFeatureOp())! as FountainFeatureOp;
-    case 'DecoratorOp': return accessor(new DecoratorOp())! as DecoratorOp;
     case 'RoofOp': return accessor(new RoofOp())! as RoofOp;
-    case 'FloorOp': return accessor(new FloorOp())! as FloorOp;
-    case 'InteriorWallOp': return accessor(new InteriorWallOp())! as InteriorWallOp;
-    case 'ExteriorWallOp': return accessor(new ExteriorWallOp())! as ExteriorWallOp;
-    case 'CorridorWallOp': return accessor(new CorridorWallOp())! as CorridorWallOp;
     default: return null;
   }
 }
 
 export function unionListToOp(
   type: Op, 
-  accessor: (index: number, obj:BushFeatureOp|CorridorWallOp|DecoratorOp|ExteriorWallOp|FloorDetailOp|FloorGridOp|FloorOp|FountainFeatureOp|HatchOp|InteriorWallOp|RoofOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WellFeatureOp) => BushFeatureOp|CorridorWallOp|DecoratorOp|ExteriorWallOp|FloorDetailOp|FloorGridOp|FloorOp|FountainFeatureOp|HatchOp|InteriorWallOp|RoofOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WellFeatureOp|null, 
+  accessor: (index: number, obj:FixtureOp|HatchOp|PaintOp|PathOp|RoofOp|ShadowOp|StampOp|StrokeOp) => FixtureOp|HatchOp|PaintOp|PathOp|RoofOp|ShadowOp|StampOp|StrokeOp|null, 
   index: number
-): BushFeatureOp|CorridorWallOp|DecoratorOp|ExteriorWallOp|FloorDetailOp|FloorGridOp|FloorOp|FountainFeatureOp|HatchOp|InteriorWallOp|RoofOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WellFeatureOp|null {
+): FixtureOp|HatchOp|PaintOp|PathOp|RoofOp|ShadowOp|StampOp|StrokeOp|null {
   switch(Op[type]) {
     case 'NONE': return null; 
+    case 'PaintOp': return accessor(index, new PaintOp())! as PaintOp;
+    case 'StampOp': return accessor(index, new StampOp())! as StampOp;
+    case 'PathOp': return accessor(index, new PathOp())! as PathOp;
+    case 'FixtureOp': return accessor(index, new FixtureOp())! as FixtureOp;
+    case 'StrokeOp': return accessor(index, new StrokeOp())! as StrokeOp;
     case 'ShadowOp': return accessor(index, new ShadowOp())! as ShadowOp;
     case 'HatchOp': return accessor(index, new HatchOp())! as HatchOp;
-    case 'TerrainTintOp': return accessor(index, new TerrainTintOp())! as TerrainTintOp;
-    case 'FloorGridOp': return accessor(index, new FloorGridOp())! as FloorGridOp;
-    case 'FloorDetailOp': return accessor(index, new FloorDetailOp())! as FloorDetailOp;
-    case 'ThematicDetailOp': return accessor(index, new ThematicDetailOp())! as ThematicDetailOp;
-    case 'TerrainDetailOp': return accessor(index, new TerrainDetailOp())! as TerrainDetailOp;
-    case 'StairsOp': return accessor(index, new StairsOp())! as StairsOp;
-    case 'TreeFeatureOp': return accessor(index, new TreeFeatureOp())! as TreeFeatureOp;
-    case 'BushFeatureOp': return accessor(index, new BushFeatureOp())! as BushFeatureOp;
-    case 'WellFeatureOp': return accessor(index, new WellFeatureOp())! as WellFeatureOp;
-    case 'FountainFeatureOp': return accessor(index, new FountainFeatureOp())! as FountainFeatureOp;
-    case 'DecoratorOp': return accessor(index, new DecoratorOp())! as DecoratorOp;
     case 'RoofOp': return accessor(index, new RoofOp())! as RoofOp;
-    case 'FloorOp': return accessor(index, new FloorOp())! as FloorOp;
-    case 'InteriorWallOp': return accessor(index, new InteriorWallOp())! as InteriorWallOp;
-    case 'ExteriorWallOp': return accessor(index, new ExteriorWallOp())! as ExteriorWallOp;
-    case 'CorridorWallOp': return accessor(index, new CorridorWallOp())! as CorridorWallOp;
     default: return null;
   }
 }

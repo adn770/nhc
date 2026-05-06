@@ -393,47 +393,10 @@ fn build_clip_pathops(region: &Region<'_>) -> Option<PathOps> {
     Some(path)
 }
 
-/// Public dispatch entry. Registered against `Op::RoofOp` in
-/// `super::op_handlers`.
-pub(super) fn draw(
-    entry: &OpEntry<'_>,
-    fir: &FloorIR<'_>,
-    painter: &mut dyn Painter,
-) {
-    let op: RoofOp = match entry.op_as_roof_op() {
-        Some(o) => o,
-        None => return,
-    };
-    let region_ref = match op.region_ref() {
-        Some(r) => r,
-        None => return,
-    };
-    let region = match find_region(fir, region_ref) {
-        Some(r) => r,
-        None => return,
-    };
-    let polygon = polygon_coords(&region);
-    if polygon.len() < 3 {
-        return;
-    }
-    let shape_tag = region.shape_tag().unwrap_or("");
-    let tint = op.tint().unwrap_or("#8A7A5A");
-    let clip = build_clip_pathops(&region);
-    draw_roof_polygon(
-        painter,
-        &polygon,
-        shape_tag,
-        tint,
-        op.rng_seed(),
-        clip.as_ref(),
-    );
-}
-
-/// Polygon-driven inner roof painter — shared by the v4 OpEntry
-/// dispatch (above) and the v5 V5RoofOp dispatch
-/// (`super::v5::roof_op::draw`). Both paths look the region up in
-/// their respective regions vector, extract the polygon + shape_tag
-/// + tint + seed, build a clip path, and call here.
+/// Polygon-driven inner roof painter — invoked by the canonical
+/// RoofOp dispatch (`super::roof_op::draw`). The caller looks the
+/// region up in `regions`, extracts the polygon + shape_tag + tint
+/// + seed, builds a clip path, and calls here.
 pub(super) fn draw_roof_polygon(
     painter: &mut dyn Painter,
     polygon: &[(f32, f32)],

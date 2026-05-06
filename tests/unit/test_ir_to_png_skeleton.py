@@ -98,13 +98,8 @@ def test_rejects_buffer_without_identifier() -> None:
     "shadows",
     "hatching",
     "structural",
-    "terrain_tints",
-    "floor_grid",
-    "floor_detail",
-    "thematic_detail",
-    "terrain_detail",
-    "stairs",
-    "surface_features",
+    "decorators",
+    "fixtures",
 ])
 def test_layer_filter_accepts_known_names(emitted, layer: str) -> None:
     """Every layer name in ``ir_to_svg``'s ``_LAYER_OPS`` resolves

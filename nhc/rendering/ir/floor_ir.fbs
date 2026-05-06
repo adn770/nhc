@@ -1,13 +1,13 @@
-// NHC Floor IR — FlatBuffers schema.
+// NHC Floor IR — FlatBuffers schema (NIR5).
 //
 // Wire format for the rendering intermediate representation, the
 // pivot point of the multi-runtime architecture documented in
-// design/map_ir.md. One buffer carries everything the renderer
+// design/map_ir_v5.md. One buffer carries everything the renderer
 // needs to draw a single floor (dungeon, cave, building interior,
 // or surface).
 //
 // Three transformer back-ends consume this schema:
-//   1. Python ir_to_svg.py     — cold path, byte-equal parity gate
+//   1. Python ir_to_svg_v5.py  — cold path, byte-equal parity gate
 //   2. Rust   transform/png.rs — server PNG path (tiny-skia)
 //   3. Rust   transform/canvas.rs (via WASM) — client gameplay path
 //
@@ -16,10 +16,9 @@
 // ignore unknown union variants for additive (minor) changes —
 // FlatBuffers' default behaviour for vectors of unions.
 //
-// See design/map_ir.md §5 for the schema rationale and §7 for the
-// per-op contract; design/ir_primitives.md (Phase 0.8) is the
-// normative determinism spec — exact RNG / Perlin call sequences
-// per op.
+// See design/map_ir_v5.md for the schema rationale and the per-op
+// contract; per-region material derivation, decorator-bit masks,
+// and per-anchor RNG keys are documented there.
 
 // Namespace mirrors the Python package path of the generated
 // bindings, so flatc's Python output drops cleanly into
@@ -32,7 +31,7 @@
 // `nhc/web/static/js/ir/index.ts` re-exports the deep tree.
 namespace nhc.rendering.ir._fb;
 
-file_identifier "NIR4";   // NHC IR Floor — schema major version 4
+file_identifier "NIR5";   // NHC IR Floor — schema major version 5
 file_extension "nir";
 
 // ── Geometry primitives ─────────────────────────────────────
@@ -57,15 +56,13 @@ table Polygon {
   rings: [PathRange];     // per-ring slices into paths
 }
 
-// Per-tile coordinate, dense. Most op tile lists are just (x, y);
-// the few ops that need a per-tile discriminator (terrain kind,
-// stair direction) get a dedicated tile struct below.
+// Per-tile coordinate, dense.
 struct TileCoord {
   x: int32;
   y: int32;
 }
 
-// ── v4e outline geometry ───────────────────────────────────────
+// ── Outline geometry ────────────────────────────────────────
 //
 // Wall + floor ops carry a single-ring closed (or open) polyline as
 // an :type:`Outline`. The descriptor variants (:enum:`OutlineKind`)
@@ -75,11 +72,7 @@ struct TileCoord {
 // polyline. :type:`Cut` carries one opening on an outline (a door,
 // a doorless gap, an enclosure gate); the wall renderer breaks the
 // stroke between Cut.start and Cut.end and optionally paints a door
-// / gate visual indicated by :enum:`CutStyle`. Cuts ride on the op
-// (`InteriorWallOp.cuts` / `ExteriorWallOp.cuts`); the wall outline
-// itself stays a pure perimeter on the resolved Region.
-//
-// See design/map_ir_v4e.md §3 for the canonical contract.
+// / gate visual indicated by :enum:`CutStyle`.
 
 enum CutStyle : ubyte {
   None = 0,
@@ -112,595 +105,45 @@ table Outline {
   rx: float;
   ry: float;
   // Multi-ring partitioning into ``vertices``. Empty for single-ring
-  // outlines (the v4e shorthand: vertices IS the single ring).
-  // Multi-ring outlines (Dungeon with cave-wall holes, multi-room
-  // cave systems with inner cavities) populate one PathRange per
-  // ring; ring 0 is the exterior, subsequent rings with
-  // ``is_hole = true`` are interior holes. Renderers use
-  // FillRule::EvenOdd to compose the fill. See design/map_ir_v4e.md
-  // §4 "Multi-ring polygons".
+  // outlines (vertices IS the single ring). Multi-ring outlines
+  // (Dungeon with cave-wall holes, multi-room cave systems with
+  // inner cavities) populate one PathRange per ring; ring 0 is the
+  // exterior, subsequent rings with ``is_hole = true`` are interior
+  // holes. Renderers use FillRule::EvenOdd to compose the fill.
   rings: [PathRange];
 }
 
-// ── Enums ────────────────────────────────────────────────────
-
-enum FloorKind: byte {
-  Dungeon = 0,
-  Cave = 1,
-  Building = 2,
-  Surface = 3,
-}
-
-enum RegionKind: byte {
-  Dungeon = 0,
-  Cave = 1,
-  Room = 2,
-  Building = 3,
-  Site = 4,
-  // Phase 1.26c — site enclosure rings (palisade / fortification).
-  // Emitted by ``emit_site_overlays`` so the corresponding
-  // ExteriorWallOp (WallStyle.Palisade / FortificationMerlon) can
-  // resolve geometry through ``region_ref = "enclosure"`` instead
-  // of ``op.outline``. Closes the deferred enclosure region_ref
-  // gap from 1.24. See plan §"Deferred coverage gaps before 1.26"
-  // and §1.26c.
-  Enclosure = 5,
-  // Phase 1.26d-2 (scope-reduced) — merged corridor system. Emitted
-  // by ``emit_regions`` as ONE ``Region(kind=Corridor, id="corridor")``
-  // per floor when corridors exist; the outline is multi-ring with
-  // one ring per disjoint corridor connected component (rings[]
-  // populated per design/map_ir_v4e.md §4 multi-ring contract; all
-  // rings are exterior with ``is_hole = false``). Closes the
-  // structural "corridor system has no Region" gap from 1.24/1.26
-  // §"Deferred coverage gaps". The per-tile corridor FloorOps still
-  // ship ``region_ref = ""`` at this commit (preserves pixel parity:
-  // consumers continue to read each FloorOp's own bbox outline);
-  // a follow-up sub-phase migrates the per-tile FloorOps to a
-  // single merged FloorOp once the consumers gain multi-ring
-  // outline rendering. See plan §1.26 split strategy / §1.26d.
-  Corridor = 6,
-}
+// ── Enums ───────────────────────────────────────────────────
 
 enum ShadowKind: byte {
   Room = 0,
   Corridor = 1,
 }
 
-// HatchKind.Hole is the interior-hole hatching emitter (currently
-// `_hatching._render_hole_hatching` with `seed + 777`); see audit
-// at debug/floor_ir_emitter_audit.md §7.2.3.
+// HatchKind.Hole is the interior-hole hatching emitter
+// (`seed + 777` per the v4 audit; carried over to v5 unchanged).
 enum HatchKind: byte {
   Room = 0,
   Hole = 1,
   Corridor = 2,
 }
 
-enum CobblePattern: byte {
-  Cobble = 0,             // 3x3 default cobble grid
-  Brick = 1,              // 4x2 running-bond
-  Flagstone = 2,          // irregular pentagon pack
-  OpusReticulatum = 3,    // diamond-net (a.k.a. opus_romano in code)
-  Herringbone = 4,        // forward-compat; not yet emitted
-  Versailles4 = 5,        // 4-stone Versailles tiling
-}
-
-enum WellShape: byte {
-  Round = 0,
-  Square = 1,
-}
-
-enum FountainShape: byte {
-  Round = 0,
-  Square = 1,
-  LargeRound = 2,
-  LargeSquare = 3,
-  Cross = 4,
-}
-
-enum StairDirection: byte {
-  Up = 0,
-  Down = 1,
-}
-
-// Phase 8.1 — Per-building roof strategy. Geometry (gable vs
-// pyramid) is derived from the building footprint's shape_tag at
-// render time, so the style enum carries only the *visual* family.
-// Dome / WitchHat are forward-compat slots for keep / tower
-// rooftops; Phase 8.1 ships Simple only and the Rust handler falls
-// back to Simple for the unknown variants.
-enum RoofStyle: byte {
-  Simple = 0,
-  Dome = 1,
-  WitchHat = 2,
-}
-
-// Corner block geometry on Fortification enclosures (WallStyle
-// FortificationMerlon). Merlon is today's default (axis-aligned
-// black square); Diamond rotates 45°; Tower is forward-compat.
-// Palisade-style enclosures ignore this enum entirely.
+// Corner block geometry on Fortification enclosures (WallMaterial
+// with treatment == Fortification). Merlon is the default
+// (axis-aligned black square); Diamond rotates 45°; Tower is
+// forward-compat. Palisade-style enclosures ignore this enum.
 enum CornerStyle: byte {
   Merlon = 0,
   Diamond = 1,
   Tower = 2,
 }
 
-// v4e wall paint style. Classifies the visual treatment for every
-// :type:`InteriorWallOp` / :type:`ExteriorWallOp` outline. The four
-// site enclosure / building masonry styles (Palisade /
-// FortificationMerlon / MasonryBrick / MasonryStone) collapse the
-// legacy ``WallMaterial`` / ``InteriorWallMaterial`` /
-// ``EnclosureStyle`` enums into one wall-paint surface — see
-// design/map_ir_v4e.md §3.
-enum WallStyle : ubyte {
-  DungeonInk = 0,
-  CaveInk = 1,
-  MasonryBrick = 2,
-  MasonryStone = 3,
-  PartitionStone = 4,
-  PartitionBrick = 5,
-  PartitionWood = 6,
-  Palisade = 7,
-  FortificationMerlon = 8,
-}
-
-// v4e floor paint style. Classifies the fill colour for every
-// :type:`FloorOp` outline. CaveInk paints identically to DungeonInk
-// today; the enum value is reserved for future divergence.
-// ``WoodFloor`` covers building interiors with
-// ``interior_finish == "wood"``: the corresponding FloorOp paints
-// AFTER the white DungeonFloor FloorOps in IR op-order, covering
-// the building footprint with the wood fill colour (#B58B5A).
-enum FloorStyle : ubyte {
-  DungeonFloor = 0,
-  CaveFloor = 1,
-  WoodFloor = 2,
-}
-
-// Corner of a tile, used to address the corner-grid vertices
-// interior partition lines start / end at. (tile_x + ΔX,
-// tile_y + ΔY) where ΔX / ΔY come from the corner: NW=(0,0),
-// NE=(1,0), SE=(1,1), SW=(0,1). Pixel coord = (tile + Δ) × CELL
-// + PADDING. The Python emitter pre-resolves coalesced partition
-// edges into pixel-space InteriorWallOp outlines using these
-// offsets.
-enum TileCorner: byte {
-  NW = 0,
-  NE = 1,
-  SE = 2,
-  SW = 3,
-}
-
-// Per-tile terrain identifier used by tint + detail ops. `None`
-// is the absent / non-terrain value.
-enum TerrainKind: byte {
-  None = 0,
-  Water = 1,
-  Lava = 2,
-  Chasm = 3,
-  Grass = 4,
-}
-
-// ── Tagged tile structs ─────────────────────────────────────
-
-// FlatBuffers struct alignment: each is laid out at the alignment
-// of its largest field (4 bytes here, since int32 dominates).
-
-struct TerrainTintTile {
-  x: int32;
-  y: int32;
-  kind: TerrainKind;
-  pad0: uint8 = 0;
-  pad1: uint8 = 0;
-  pad2: uint8 = 0;
-}
-
-struct TerrainDetailTile {
-  x: int32;
-  y: int32;
-  kind: TerrainKind;
-  is_corridor: bool;
-  pad0: uint8 = 0;
-  pad1: uint8 = 0;
-}
-
-struct StairTile {
-  x: int32;
-  y: int32;
-  direction: StairDirection;
-  pad0: uint8 = 0;
-  pad1: uint8 = 0;
-  pad2: uint8 = 0;
-}
-
-// Per-tile classification for the floor-grid handler. The legacy
-// `_render_floor_grid` walks all non-VOID tiles in y-major order
-// and routes each segment to the room-bucket or corridor-bucket
-// based on this flag. The IR carries the same bit so the
-// handler's `random.Random(seed)` stream walks segments in the
-// same order without re-deriving from the level.
-struct FloorGridTile {
-  x: int32;
-  y: int32;
-  is_corridor: bool;
-  pad0: uint8 = 0;
-  pad1: uint8 = 0;
-  pad2: uint8 = 0;
-}
-
-// ── Region records ──────────────────────────────────────────
-
-table Region {
-  id: string (key);       // referenced by `region_ref`
-  kind: RegionKind;
-  shape_tag: string;      // "rect"|"octagon"|"circle"|"pill"|"temple"|"hybrid"|"cave"
-  // v4e region geometry. Polygon (multi-ring via ``rings``),
-  // Circle (cx/cy/rx — descriptor for circle rooms), and Pill
-  // (cx/cy/rx/ry — descriptor for pill rooms) are the three
-  // descriptor variants. See design/map_ir_v4e.md §3 and §4 for the
-  // canonical contract.
-  outline: Outline;
-}
-
-table RectRoom {
-  x: int32;
-  y: int32;
-  w: int32;
-  h: int32;
-  region_ref: string;     // optional back-reference to Region
-}
-
-table RoomWash {
-  x: int32;
-  y: int32;
-  w: int32;
-  h: int32;
-  color: string;          // CSS-style hex
-  opacity: float;
-}
-
-table FeatureFlags {
-  shadows_enabled: bool = true;
-  hatching_enabled: bool = true;
-  atmospherics_enabled: bool = true;
-  macabre_detail: bool = false;
-  vegetation_enabled: bool = true;
-  interior_finish: string;   // "" | "wood" | "flagstone" | …
-}
-
-// ── Op tables ───────────────────────────────────────────────
+// ── v5 material taxonomy (canonical) ────────────────────────
 //
-// Layer order is encoded by op sequence; renderers stream linearly
-// (see design/map_ir.md §6).
+// See design/map_ir_v5.md §4 for the full family / style / sub_pattern
+// / tone matrix and the per-family palette tables.
 
-// Layer 100 — shadows.
-table ShadowOp {
-  kind: ShadowKind;
-  region_ref: string;     // for Room kind
-  tiles: [TileCoord];     // for Corridor kind
-  dx: float = 3.0;
-  dy: float = 3.0;
-  opacity: float = 0.08;
-}
-
-// Layer 200 — hatching halo + section partitioning.
-table HatchOp {
-  kind: HatchKind;
-  region_out: string;     // exclusion region (e.g. "dungeon")
-  region_in: string;      // hatched region (Room / Hole)
-  tiles: [TileCoord];     // Corridor: halo tiles. Room: candidate
-                          // tiles (post-Perlin distance filter,
-                          // row-major y-major/x-minor; the consumer
-                          // applies the 10 % RNG skip).
-  extent_tiles: float = 2.0;
-  seed: uint64;           // base_seed + 0/7/777 per kind (see audit)
-  stride: float = 0.5;
-  hatch_underlay_color: string;
-  is_outer: [bool];       // Room: parallel to tiles[]; flags
-                          // dist > base_distance_limit*0.5 so the
-                          // consumer can gate the 10 % skip without
-                          // reconstructing dist. Always False in
-                          // cave mode (no skip applies). Empty for
-                          // Corridor kind.
-}
-
-// Layer 350 — terrain tints + room-type washes (deterministic).
-table TerrainTintOp {
-  tiles: [TerrainTintTile];
-  room_washes: [RoomWash];
-  region_ref: string;     // Region clip target (typically the dungeon)
-}
-
-// Layer 400 — wobbly grid (Perlin-displaced).
-table FloorGridOp {
-  seed: uint64;            // current code uses fixed 41; emitter sets per audit
-  theme: string;
-  scale: float = 1.0;      // _DETAIL_SCALE[theme]
-  // Pre-classified non-VOID tiles in legacy iteration order
-  // (y-major, x-minor). Handler walks the list, calls
-  // `_wobbly_grid_seg` for each tile's right + bottom edges, and
-  // routes the resulting segment to the room-bucket or
-  // corridor-bucket via `is_corridor`.
-  tiles: [FloorGridTile];
-  region_ref: string;     // Region clip target (typically the dungeon)
-}
-
-// ── Layer 500c — decorator pipeline (sub-step 5, Q2) ──────────
-//
-// The seven legacy decorator types (cobblestone, brick, flagstone,
-// opus_romano, field_stone, cart_tracks, ore_deposit) ride
-// through ``FloorDetailOp.decorator_groups`` as pre-rendered SVG
-// strings today. Sub-step 5 (schema bump B) lands the structured
-// shape: one ``DecoratorOp`` carries seven parallel variant
-// vectors, one per decorator type. Q2's locked design called for
-// a ``union DecoratorVariant`` of seven variant tables, but
-// flatc's Python target doesn't yet support vectors-of-unions —
-// so we use 7 explicit per-decorator vectors instead. The Python
-// generator handles vectors-of-tables cleanly. Each variant
-// table stays minimal at this commit (just ``tiles[]``, plus
-// ``CobblestoneVariant``'s pre-existing pattern enum); each
-// per-variant port at sub-steps 6–12 grows the variant's fields
-// as needed (additive minor bumps per Q6).
-//
-// The dispatcher arm at sub-step 5 is a no-op stub (returns []);
-// the passthrough at ``FloorDetailOp.decorator_groups`` still
-// serves rendering until each variant's port lands. After step
-// 12 the passthrough drops empty and Phase 7 cleanup deletes it.
-//
-// ``DecoratorOp`` lives in the floor_detail layer slot because
-// the legacy ``walk_and_paint`` pipeline emits its fragments
-// alongside floor-detail-proper output (clip-aware, post-pass).
-// ``_LAYER_OPS["floor_detail"]`` gains the op tag at sub-step 5.
-
-table CobblestoneVariant {
-  tiles: [TileCoord];
-  pattern: CobblePattern;
-}
-
-table BrickVariant {
-  tiles: [TileCoord];
-}
-
-table FlagstoneVariant {
-  tiles: [TileCoord];
-}
-
-table OpusRomanoVariant {
-  tiles: [TileCoord];
-}
-
-table FieldStoneVariant {
-  tiles: [TileCoord];
-}
-
-table CartTracksVariant {
-  tiles: [TileCoord];
-  // Per-tile open-sides bitmask (parallel to ``tiles``). Bit 0 =
-  // N, bit 1 = S, bit 2 = E, bit 3 = W. A bit is set when the
-  // 4-neighbour on that side is also a TRACK tile. The painter
-  // uses the bitmask to dispatch to the right glyph (straight,
-  // L-corner, T-junction, cross, dead-end). The emitter resolves
-  // the neighbour walk so the consumer doesn't need level access.
-  open_sides: [uint8];
-}
-
-table OreDepositVariant {
-  tiles: [TileCoord];
-}
-
-table DecoratorOp {
-  cobblestone: [CobblestoneVariant];
-  brick: [BrickVariant];
-  flagstone: [FlagstoneVariant];
-  opus_romano: [OpusRomanoVariant];
-  field_stone: [FieldStoneVariant];
-  cart_tracks: [CartTracksVariant];
-  ore_deposit: [OreDepositVariant];
-  seed: uint64;            // base_seed + 333 (decorator pipeline)
-  theme: string;
-  region_ref: string;      // dungeon clip when applicable
-}
-
-// Layer 500a — floor detail (cracks, scratches, stones, clusters).
-table FloorDetailOp {
-  // Post-filter candidate tiles in legacy y-major / x-minor
-  // iteration order (terrain == FLOOR, not a stair feature,
-  // surface_type not in {STREET, FIELD, GARDEN}).
-  tiles: [TileCoord];
-  seed: uint64;            // base_seed + 99
-  theme: string;
-  // Per-tile corridor / door classification, parallel to tiles[].
-  // Mirrors HatchOp.is_outer pattern — the consumer routes the
-  // tile's per-bucket output (cracks / scratches / stones for
-  // floor-detail proper, webs / bones / skulls for thematic) into
-  // the room or corridor bucket. Empty falls back to the level-
-  // walk classification.
-  is_corridor: [bool];
-  // Wood-floor structured fields. Populated only when the
-  // wood-floor short-circuit fires (`ctx.interior_finish ==
-  // "wood"`). The non-wood floor-detail path leaves them empty.
-  //
-  // - `wood_tiles` carries every FLOOR tile in row-major order so
-  //   the rect-fill pass can paint the per-tile base colour
-  //   (skipped when `wood_building_polygon` is non-empty — the
-  //   building polygon already covers the whole footprint).
-  // - `wood_building_polygon` is the chamfer / curved-wall outer
-  //   outline for octagon and circle building floors. Empty when
-  //   the floor is rect-shaped.
-  // - `wood_rooms` is the per-room rect list driving the parquet
-  //   plank and grain generators (one strip pattern per room).
-  wood_tiles: [TileCoord];
-  wood_building_polygon: [Vec2];
-  wood_rooms: [RectRoom];
-  region_ref: string;     // Region clip target (typically the dungeon)
-}
-
-// Layer 500b — thematic detail (webs, bone piles, skulls).
-table ThematicDetailOp {
-  // Floor tiles in the IR's y-major / x-minor order — same
-  // candidate set the floor-detail layer walks, limited to the
-  // subset where the thematic painters can fire (any floor tile,
-  // with the per-tile probability gates for webs / bones / skulls
-  // applied by the consumer).
-  tiles: [TileCoord];
-  // Routes per-tile output to the room (False) or corridor (True)
-  // bucket. Mirrors FloorDetailOp.is_corridor.
-  is_corridor: [bool];
-  // Per-tile wall-corner bitmap, parallel to tiles[]. Webs only
-  // paint in corners adjacent to walls on both sides; the emitter
-  // pre-resolves the level-walk ``_is_floor`` checks so the
-  // consumer doesn't need level access. Bit layout (LSB first):
-  // 0x01 TL, 0x02 TR, 0x04 BL, 0x08 BR.
-  wall_corners: [ubyte];
-  seed: uint64;            // base_seed + 199
-  theme: string;
-  region_ref: string;      // dungeon clip target
-}
-
-// Layer 600 — terrain detail (water ripples, lava cracks, chasm).
-table TerrainDetailOp {
-  tiles: [TerrainDetailTile];
-  seed: uint64;            // base_seed + 200
-  theme: string;
-  region_ref: string;      // dungeon clip target
-}
-
-// Layer 700 — stairs.
-table StairsOp {
-  stairs: [StairTile];
-  theme: string;
-  fill_color: string;      // active when theme == "cave"
-}
-
-// Layer 800 — vegetation. Tree groves of size ≥ 3 fuse Rust-side
-// via the geo crate's polygon union; per-tree glyphs come from
-// the per-tile seeded rolls.
-table TreeFeatureOp {
-  // tiles[] carries free trees (singletons + pair-tiles, each
-  // painted as an individual tree). Groves of size ≥ 3 ship via
-  // the parallel grove_tiles + grove_sizes arrays below — one
-  // fused fragment per grove, computed Rust-side via the geo
-  // crate's polygon union.
-  tiles: [TileCoord];
-  seed: uint64;
-  theme: string;
-  // Grove encoding: flat list of (tx, ty) tiles belonging to
-  // groves of size ≥ 3, partitioned by grove_sizes
-  // (sum(grove_sizes) == len(grove_tiles)). Each grove paints
-  // as one fused canopy + shadow fragment with no trunks; the
-  // Rust port unions all canopy lobes across the grove via the
-  // geo crate.
-  grove_tiles: [TileCoord];
-  grove_sizes: [uint32];
-}
-
-table BushFeatureOp {
-  tiles: [TileCoord];
-  seed: uint64;
-  theme: string;
-}
-
-// Layer 800 — surface fixtures.
-table WellFeatureOp {
-  tiles: [TileCoord];     // anchor (x, y) per fixture
-  shape: WellShape;
-  seed: uint64;
-  theme: string;
-}
-
-table FountainFeatureOp {
-  tiles: [TileCoord];     // anchor (x, y) per fixture
-  shape: FountainShape;
-  seed: uint64;
-  theme: string;
-}
-
-// Phase 8.1 — Per-building shingle roof on a site surface. Joins
-// the `structural` layer (paint order codified in
-// design/map_ir.md §6.1: roofs paint after walls + floors but
-// before tints / hatching). The handler resolves geometry by
-// looking up `region_ref` in `regions[]` and dispatching on the
-// region's `shape_tag` (rect non-square / L → gable; octagon /
-// square / circle → pyramid on N-gon footprint). Circle buildings
-// no longer skip — they paint a pyramid roof on the polygonised
-// footprint Phase 8.1 emits as part of the Building region.
-table RoofOp {
-  region_ref: string;     // -> Region(kind=Building) lookup
-  style: RoofStyle = Simple;
-  tint: string;           // CSS-style hex; mid-sunlit shade
-  rng_seed: uint64;       // base_seed + 0xCAFE + building_index
-}
-
-// ── v4e wall + floor ops ────────────────────────────────────
-//
-// FloorOp / InteriorWallOp / ExteriorWallOp are the v4e stamp model.
-// FloorOp / ExteriorWallOp resolve geometry through ``region_ref``
-// → ``Region.outline``; InteriorWallOp carries its own ``outline``
-// (interior partitions are not region perimeters). Each op carries
-// a paint style enum. ``Cut`` entries (doors, doorless gaps,
-// enclosure gates) ride on the op as ``cuts: [Cut]``; the wall
-// renderer breaks the stroke between Cut.start and Cut.end. See
-// design/map_ir_v4e.md §3 for the canonical contract.
-
-table FloorOp {
-  style: FloorStyle;
-  region_ref: string;     // -> Region lookup for geometry
-}
-
-table InteriorWallOp {
-  outline: Outline;       // open or closed; interior partition geometry
-  style: WallStyle;       // PartitionWood / PartitionStone / DungeonInk / ...
-  cuts: [Cut];            // door / opening break intervals (typically empty —
-                          // upstream coalesce drops doors before emit)
-}
-
-table ExteriorWallOp {
-  style: WallStyle;       // DungeonInk / MasonryBrick / Palisade / ...
-  corner_style: CornerStyle = Merlon;
-  // splitmix64 seed for procedural styles (Masonry*, Palisade,
-  // FortificationMerlon). Each style derives its per-edge sub-seed
-  // from this value (e.g. Palisade chains use rng_seed + edge_idx).
-  // DungeonInk / CaveInk ignore this field.
-  rng_seed: ulong = 0;
-  region_ref: string;     // -> Region lookup for geometry
-  cuts: [Cut];            // door / gate break intervals
-}
-
-// Corridor wall op. Carries the full set of corridor floor-tile
-// positions for one dungeon floor. The consumer derives wall edges
-// by checking each corridor tile's four cardinal neighbours against
-// the union of all FloorOp tile coverage. ``style`` defaults to
-// DungeonInk and is reserved for future cave-corridor / themed
-// divergence. No cuts: corridor wall edges are derived at consume
-// time, not pre-resolved at emit time.
-table CorridorWallOp {
-  tiles: [TileCoord];     // corridor floor tile positions
-  style: WallStyle = DungeonInk;  // future: cave-themed corridor walls
-}
-
-// ── v5 scaffold (Phase 1.1 of plans/nhc_pure_ir_v5_migration_plan.md) ──
-//
-// v5 generalises v4e along three axes (per design/map_ir_v5.md):
-//
-// 1. Materials are first-class. ``V5Material`` carries
-//    ``(family, style, sub_pattern, tone, seed)``. Floors, walls,
-//    doors and roofs draw from the same family taxonomy.
-// 2. The op union shrinks from 18 to 8. Generic ops
-//    (``V5PaintOp`` / ``V5StampOp`` / ``V5PathOp`` / ``V5FixtureOp``
-//    / ``V5StrokeOp``) replace today's variant-typed ops; the
-//    painter dispatches on op data, never on op type.
-// 3. The painter is the deterministic source of truth. The IR
-//    ships fully resolved intent — pre-decided per-region species,
-//    pre-decided decorator bits — and the painter renders without
-//    theme strings, kind enums, or palette late-binding.
-//
-// At Phase 1.1 the v5 tables sit alongside v4 ones with a
-// ``V5_`` prefix. The ``Op`` union does NOT yet include the v5
-// variants; the schema major stays at 4.0. The atomic cut at
-// Phase 1.8 drops the v4 op tables, renames the v5 tables to
-// canonical names (V5Material → Material, etc.), and bumps
-// major to 5 with file_identifier "NIR5".
-
-enum V5MaterialFamily : ubyte {
+enum MaterialFamily : ubyte {
   Plain   = 0,
   Cave    = 1,
   Wood    = 2,
@@ -710,7 +153,7 @@ enum V5MaterialFamily : ubyte {
   Special = 6,
 }
 
-enum V5WallTreatment : ubyte {
+enum WallTreatment : ubyte {
   PlainStroke   = 0,
   Masonry       = 1,
   Partition     = 2,
@@ -718,12 +161,12 @@ enum V5WallTreatment : ubyte {
   Fortification = 4,
 }
 
-enum V5PathStyle : ubyte {
+enum PathStyle : ubyte {
   CartTracks = 0,
   OreVein    = 1,
 }
 
-enum V5FixtureKind : ubyte {
+enum FixtureKind : ubyte {
   Web         = 0,
   Skull       = 1,
   Bone        = 2,
@@ -738,12 +181,10 @@ enum V5FixtureKind : ubyte {
   Mushroom    = 11,
 }
 
-// v4 RoofStyle exposes only Simple / Dome / WitchHat. v5 extends
-// the enum with Pyramid / Gable so RoofOp can dispatch geometry
-// directly off ``style`` (today's pyramid-vs-gable choice falls
-// out of the building region's ``shape_tag``; v5 makes it
-// explicit). The cut renames V5RoofStyle → RoofStyle.
-enum V5RoofStyle : ubyte {
+// RoofOp dispatches geometry directly off ``style`` (today's
+// pyramid-vs-gable choice falls out of the building region's
+// ``shape_tag``; v5 makes it explicit).
+enum RoofStyle : ubyte {
   Simple   = 0,
   Pyramid  = 1,
   Gable    = 2,
@@ -751,18 +192,18 @@ enum V5RoofStyle : ubyte {
   WitchHat = 4,
 }
 
-table V5Material {
-  family       : V5MaterialFamily;
+table Material {
+  family       : MaterialFamily;
   style        : uint8;
   sub_pattern  : uint8;
   tone         : uint8;
   seed         : uint64;
 }
 
-table V5WallMaterial {
-  family       : V5MaterialFamily;
+table WallMaterial {
+  family       : MaterialFamily;
   style        : uint8;
-  treatment    : V5WallTreatment;
+  treatment    : WallTreatment;
   corner_style : CornerStyle = Merlon;
   tone         : uint8;
   seed         : uint64;
@@ -772,7 +213,7 @@ table V5WallMaterial {
 // (see design/map_ir_v5.md §7). ``pad0`` aligns ``group_id`` to a
 // 4-byte boundary; FlatBuffers struct alignment matches the
 // largest field (``group_id``: uint32).
-struct V5Anchor {
+struct Anchor {
   x:           int32;
   y:           int32;
   variant:     uint8;
@@ -782,10 +223,10 @@ struct V5Anchor {
   group_id:    uint32;
 }
 
-// v5 Region carries parent_id and cuts directly. ``kind`` is
-// eliminated; tooling reads ``id`` to infer role
-// (see design/map_ir_v5.md §10.1 for the naming convention).
-table V5Region {
+// Region carries parent_id and cuts directly. Tooling reads ``id``
+// to infer role (see design/map_ir_v5.md §10.1 for the naming
+// convention).
+table Region {
   id: string (key);
   outline: Outline;
   parent_id: string;
@@ -793,13 +234,15 @@ table V5Region {
   shape_tag: string;
 }
 
-table V5PaintOp {
+// ── Op tables ───────────────────────────────────────────────
+
+table PaintOp {
   region_ref: string;
   subtract_region_refs: [string];
-  material: V5Material;
+  material: Material;
 }
 
-table V5StampOp {
+table StampOp {
   region_ref: string;
   subtract_region_refs: [string];
   decorator_mask: uint32;
@@ -807,31 +250,40 @@ table V5StampOp {
   seed: uint64;
 }
 
-table V5PathOp {
+table PathOp {
   region_ref: string;
   tiles: [TileCoord];
-  style: V5PathStyle;
+  style: PathStyle;
   seed: uint64;
 }
 
-table V5FixtureOp {
+table FixtureOp {
   region_ref: string;
-  kind: V5FixtureKind;
-  anchors: [V5Anchor];
+  kind: FixtureKind;
+  anchors: [Anchor];
   seed: uint64;
 }
 
-table V5StrokeOp {
+table StrokeOp {
   region_ref: string;
   outline: Outline;
-  wall_material: V5WallMaterial;
+  wall_material: WallMaterial;
   cuts: [Cut];
 }
 
-// v5 HatchOp adopts the anti-geometry convention: a positive
-// ``region_ref`` and an exclusion list ``subtract_region_refs[]``
-// instead of v4's ``region_in`` / ``region_out``.
-table V5HatchOp {
+// Layer 100 — shadows.
+table ShadowOp {
+  kind: ShadowKind;
+  region_ref: string;     // for Room kind
+  tiles: [TileCoord];     // for Corridor kind
+  dx: float = 3.0;
+  dy: float = 3.0;
+  opacity: float = 0.08;
+}
+
+// HatchOp adopts the anti-geometry convention: a positive
+// ``region_ref`` and an exclusion list ``subtract_region_refs[]``.
+table HatchOp {
   kind: HatchKind;
   region_ref: string;
   subtract_region_refs: [string];
@@ -842,77 +294,37 @@ table V5HatchOp {
   hatch_underlay_color: string;
 }
 
-// v5 RoofOp carries an explicit tone axis and a per-op seed
-// (replacing v4's ``rng_seed``). Style enum extended with
-// Pyramid / Gable to make geometry explicit.
-table V5RoofOp {
+// RoofOp carries an explicit tone axis and a per-op seed. Style
+// enum extended with Pyramid / Gable to make geometry explicit.
+table RoofOp {
   region_ref: string;
-  style: V5RoofStyle = Simple;
+  style: RoofStyle = Simple;
   tone: uint8;
   tint: string;
   seed: uint64;
-}
-
-// v5 op union (Phase 1.3 scaffold). At the atomic cut at Phase
-// 1.8, the live ``Op`` union is replaced with the 8 variants
-// listed here (renamed without the ``V5_`` prefix). ShadowOp
-// carries over unchanged from v4 (the design treats it as the
-// 6th v5 op without rename); the union references the v4
-// ShadowOp table directly. The slot numbers below match the
-// canonical ordering in design/map_ir_v5.md §3.6.
-union V5Op {
-  V5PaintOp   = 1,
-  V5StampOp   = 2,
-  V5PathOp    = 3,
-  V5FixtureOp = 4,
-  V5StrokeOp  = 5,
-  ShadowOp    = 6,
-  V5HatchOp   = 7,
-  V5RoofOp    = 8,
-}
-
-table V5OpEntry {
-  op: V5Op;
 }
 
 // ── Op union ────────────────────────────────────────────────
 //
 // Order of variants is part of the schema major version — adding
 // a new variant at the end is a minor (additive) change. Renaming
-// or reordering is a major change. See design/map_ir.md §5.
+// or reordering is a major change. The slot numbers below match
+// the canonical ordering in design/map_ir_v5.md §3.6.
 //
 // Each op is wrapped in an OpEntry table so the root vector is a
 // vector-of-tables rather than a vector-of-unions. flatc's Python
 // and Rust generators don't yet support vectors of unions
 // directly, but a vector of tables that each *contain* a union is
-// fully supported across every target. The wrapper costs one
-// extra offset per op (4 B) — well below noise.
-//
-// Schema 4.0 cut (Phase 1.27 of plans/nhc_pure_ir_plan.md) drops
-// the legacy v3 op variants (WallsAndFloorsOp /
-// BuildingExteriorWallOp / BuildingInteriorWallOp / EnclosureOp /
-// GenericProceduralOp) along with the major bump NIR3 → NIR4. The
-// stamp-model FloorOp / InteriorWallOp / ExteriorWallOp /
-// CorridorWallOp own every wall + floor pixel from 4.0 onward.
+// fully supported across every target.
 union Op {
-  ShadowOp,
-  HatchOp,
-  TerrainTintOp,
-  FloorGridOp,
-  FloorDetailOp,
-  ThematicDetailOp,
-  TerrainDetailOp,
-  StairsOp,
-  TreeFeatureOp,
-  BushFeatureOp,
-  WellFeatureOp,
-  FountainFeatureOp,
-  DecoratorOp,
-  RoofOp,
-  FloorOp,
-  InteriorWallOp,
-  ExteriorWallOp,
-  CorridorWallOp,
+  PaintOp   = 1,
+  StampOp   = 2,
+  PathOp    = 3,
+  FixtureOp = 4,
+  StrokeOp  = 5,
+  ShadowOp  = 6,
+  HatchOp   = 7,
+  RoofOp    = 8,
 }
 
 table OpEntry {
@@ -928,18 +340,9 @@ table FloorIR {
   height_tiles: uint32;
   cell: uint32 = 32;
   padding: uint32 = 32;
-  floor_kind: FloorKind;
-  theme: string;          // "dungeon"|"crypt"|"cave"|"sewer"|"castle"|...
   base_seed: uint64;
-  flags: FeatureFlags;
   regions: [Region];
   ops: [OpEntry];
-  // ── v5 scaffold (Phase 1.3 / 1.4 of plans/nhc_pure_ir_v5_migration_plan.md)
-  // Additive fields populated by the v5 emitter alongside the v4
-  // regions / ops. The atomic cut at Phase 1.8 drops the v4
-  // ``regions`` / ``ops`` and renames these to canonical names.
-  v5_regions: [V5Region];
-  v5_ops: [V5OpEntry];
 }
 
 root_type FloorIR;

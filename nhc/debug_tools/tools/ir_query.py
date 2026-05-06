@@ -315,9 +315,9 @@ class GetIROpsTool(BaseTool):
             return err
         d = _load_dump(path.read_bytes())
         # Phase 4.1: read v5Ops (the v5 op stream). Op kinds are
-        # named after the v5 union variants — V5PaintOp, V5StampOp,
-        # V5PathOp, V5FixtureOp, V5StrokeOp, ShadowOp (carried over),
-        # V5HatchOp, V5RoofOp.
+        # named after the v5 union variants — PaintOp, StampOp,
+        # PathOp, FixtureOp, StrokeOp, ShadowOp (carried over),
+        # HatchOp, RoofOp.
         ops = d.get("v5Ops") or []
         kind = kwargs.get("kind")
         if kind is None:
@@ -436,7 +436,7 @@ class GetWallCoverageTool(BaseTool):
 
     name = "get_wall_coverage"
     description = (
-        "Report wall coverage from V5StrokeOp entries: per-treatment "
+        "Report wall coverage from StrokeOp entries: per-treatment "
         "(PlainStroke / Masonry / Partition / Palisade / "
         "Fortification) counts, per-substance-family counts, and "
         "per-stroke (region_ref, treatment, family, style) detail."
@@ -477,7 +477,7 @@ class GetWallCoverageTool(BaseTool):
 
         for entry in ops:
             op_type = entry.get("opType", "")
-            if op_type != "V5StrokeOp":
+            if op_type != "StrokeOp":
                 continue
             op = entry.get("op", {})
             wm = op.get("wallMaterial") or {}

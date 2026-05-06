@@ -22,7 +22,7 @@ class HatchOp(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def HatchOpBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x35", size_prefixed=size_prefixed)
 
     # HatchOp
     def Init(self, buf, pos):
@@ -36,18 +36,31 @@ class HatchOp(object):
         return 0
 
     # HatchOp
-    def RegionOut(self):
+    def RegionRef(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
     # HatchOp
-    def RegionIn(self):
+    def SubtractRegionRefs(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
+            a = self._tab.Vector(o)
+            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+        return ""
+
+    # HatchOp
+    def SubtractRegionRefsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # HatchOp
+    def SubtractRegionRefsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        return o == 0
 
     # HatchOp
     def Tiles(self, j):
@@ -74,25 +87,45 @@ class HatchOp(object):
         return o == 0
 
     # HatchOp
-    def ExtentTiles(self):
+    def IsOuter(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.Get(flatbuffers.number_types.BoolFlags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+        return 0
+
+    # HatchOp
+    def IsOuterAsNumpy(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.BoolFlags, o)
+        return 0
+
+    # HatchOp
+    def IsOuterLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # HatchOp
+    def IsOuterIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        return o == 0
+
+    # HatchOp
+    def ExtentTiles(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
         return 2.0
 
     # HatchOp
     def Seed(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return 0
-
-    # HatchOp
-    def Stride(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
-        return 0.5
 
     # HatchOp
     def HatchUnderlayColor(self):
@@ -101,35 +134,8 @@ class HatchOp(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-    # HatchOp
-    def IsOuter(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
-        if o != 0:
-            a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.BoolFlags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
-        return 0
-
-    # HatchOp
-    def IsOuterAsNumpy(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
-        if o != 0:
-            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.BoolFlags, o)
-        return 0
-
-    # HatchOp
-    def IsOuterLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
-
-    # HatchOp
-    def IsOuterIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
-        return o == 0
-
 def HatchOpStart(builder):
-    builder.StartObject(9)
+    builder.StartObject(8)
 
 def Start(builder):
     HatchOpStart(builder)
@@ -140,17 +146,23 @@ def HatchOpAddKind(builder, kind):
 def AddKind(builder, kind):
     HatchOpAddKind(builder, kind)
 
-def HatchOpAddRegionOut(builder, regionOut):
-    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(regionOut), 0)
+def HatchOpAddRegionRef(builder, regionRef):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
 
-def AddRegionOut(builder, regionOut):
-    HatchOpAddRegionOut(builder, regionOut)
+def AddRegionRef(builder, regionRef):
+    HatchOpAddRegionRef(builder, regionRef)
 
-def HatchOpAddRegionIn(builder, regionIn):
-    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(regionIn), 0)
+def HatchOpAddSubtractRegionRefs(builder, subtractRegionRefs):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(subtractRegionRefs), 0)
 
-def AddRegionIn(builder, regionIn):
-    HatchOpAddRegionIn(builder, regionIn)
+def AddSubtractRegionRefs(builder, subtractRegionRefs):
+    HatchOpAddSubtractRegionRefs(builder, subtractRegionRefs)
+
+def HatchOpStartSubtractRegionRefsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartSubtractRegionRefsVector(builder, numElems):
+    return HatchOpStartSubtractRegionRefsVector(builder, numElems)
 
 def HatchOpAddTiles(builder, tiles):
     builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(tiles), 0)
@@ -164,32 +176,8 @@ def HatchOpStartTilesVector(builder, numElems):
 def StartTilesVector(builder, numElems):
     return HatchOpStartTilesVector(builder, numElems)
 
-def HatchOpAddExtentTiles(builder, extentTiles):
-    builder.PrependFloat32Slot(4, extentTiles, 2.0)
-
-def AddExtentTiles(builder, extentTiles):
-    HatchOpAddExtentTiles(builder, extentTiles)
-
-def HatchOpAddSeed(builder, seed):
-    builder.PrependUint64Slot(5, seed, 0)
-
-def AddSeed(builder, seed):
-    HatchOpAddSeed(builder, seed)
-
-def HatchOpAddStride(builder, stride):
-    builder.PrependFloat32Slot(6, stride, 0.5)
-
-def AddStride(builder, stride):
-    HatchOpAddStride(builder, stride)
-
-def HatchOpAddHatchUnderlayColor(builder, hatchUnderlayColor):
-    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(hatchUnderlayColor), 0)
-
-def AddHatchUnderlayColor(builder, hatchUnderlayColor):
-    HatchOpAddHatchUnderlayColor(builder, hatchUnderlayColor)
-
 def HatchOpAddIsOuter(builder, isOuter):
-    builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(isOuter), 0)
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(isOuter), 0)
 
 def AddIsOuter(builder, isOuter):
     HatchOpAddIsOuter(builder, isOuter)
@@ -199,6 +187,24 @@ def HatchOpStartIsOuterVector(builder, numElems):
 
 def StartIsOuterVector(builder, numElems):
     return HatchOpStartIsOuterVector(builder, numElems)
+
+def HatchOpAddExtentTiles(builder, extentTiles):
+    builder.PrependFloat32Slot(5, extentTiles, 2.0)
+
+def AddExtentTiles(builder, extentTiles):
+    HatchOpAddExtentTiles(builder, extentTiles)
+
+def HatchOpAddSeed(builder, seed):
+    builder.PrependUint64Slot(6, seed, 0)
+
+def AddSeed(builder, seed):
+    HatchOpAddSeed(builder, seed)
+
+def HatchOpAddHatchUnderlayColor(builder, hatchUnderlayColor):
+    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(hatchUnderlayColor), 0)
+
+def AddHatchUnderlayColor(builder, hatchUnderlayColor):
+    HatchOpAddHatchUnderlayColor(builder, hatchUnderlayColor)
 
 def HatchOpEnd(builder):
     return builder.EndObject()
@@ -218,24 +224,22 @@ class HatchOpT(object):
     def __init__(
         self,
         kind = 0,
-        regionOut = None,
-        regionIn = None,
+        regionRef = None,
+        subtractRegionRefs = None,
         tiles = None,
+        isOuter = None,
         extentTiles = 2.0,
         seed = 0,
-        stride = 0.5,
         hatchUnderlayColor = None,
-        isOuter = None,
     ):
         self.kind = kind  # type: int
-        self.regionOut = regionOut  # type: Optional[str]
-        self.regionIn = regionIn  # type: Optional[str]
+        self.regionRef = regionRef  # type: Optional[str]
+        self.subtractRegionRefs = subtractRegionRefs  # type: Optional[List[Optional[str]]]
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
+        self.isOuter = isOuter  # type: Optional[List[bool]]
         self.extentTiles = extentTiles  # type: float
         self.seed = seed  # type: int
-        self.stride = stride  # type: float
         self.hatchUnderlayColor = hatchUnderlayColor  # type: Optional[str]
-        self.isOuter = isOuter  # type: Optional[List[bool]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -259,8 +263,11 @@ class HatchOpT(object):
         if hatchOp is None:
             return
         self.kind = hatchOp.Kind()
-        self.regionOut = hatchOp.RegionOut()
-        self.regionIn = hatchOp.RegionIn()
+        self.regionRef = hatchOp.RegionRef()
+        if not hatchOp.SubtractRegionRefsIsNone():
+            self.subtractRegionRefs = []
+            for i in range(hatchOp.SubtractRegionRefsLength()):
+                self.subtractRegionRefs.append(hatchOp.SubtractRegionRefs(i))
         if not hatchOp.TilesIsNone():
             self.tiles = []
             for i in range(hatchOp.TilesLength()):
@@ -269,10 +276,6 @@ class HatchOpT(object):
                 else:
                     tileCoord_ = nhc.rendering.ir._fb.TileCoord.TileCoordT.InitFromObj(hatchOp.Tiles(i))
                     self.tiles.append(tileCoord_)
-        self.extentTiles = hatchOp.ExtentTiles()
-        self.seed = hatchOp.Seed()
-        self.stride = hatchOp.Stride()
-        self.hatchUnderlayColor = hatchOp.HatchUnderlayColor()
         if not hatchOp.IsOuterIsNone():
             if np is None:
                 self.isOuter = []
@@ -280,20 +283,27 @@ class HatchOpT(object):
                     self.isOuter.append(hatchOp.IsOuter(i))
             else:
                 self.isOuter = hatchOp.IsOuterAsNumpy()
+        self.extentTiles = hatchOp.ExtentTiles()
+        self.seed = hatchOp.Seed()
+        self.hatchUnderlayColor = hatchOp.HatchUnderlayColor()
 
     # HatchOpT
     def Pack(self, builder):
-        if self.regionOut is not None:
-            regionOut = builder.CreateString(self.regionOut)
-        if self.regionIn is not None:
-            regionIn = builder.CreateString(self.regionIn)
+        if self.regionRef is not None:
+            regionRef = builder.CreateString(self.regionRef)
+        if self.subtractRegionRefs is not None:
+            subtractRegionRefslist = []
+            for i in range(len(self.subtractRegionRefs)):
+                subtractRegionRefslist.append(builder.CreateString(self.subtractRegionRefs[i]))
+            HatchOpStartSubtractRegionRefsVector(builder, len(self.subtractRegionRefs))
+            for i in reversed(range(len(self.subtractRegionRefs))):
+                builder.PrependUOffsetTRelative(subtractRegionRefslist[i])
+            subtractRegionRefs = builder.EndVector()
         if self.tiles is not None:
             HatchOpStartTilesVector(builder, len(self.tiles))
             for i in reversed(range(len(self.tiles))):
                 self.tiles[i].Pack(builder)
             tiles = builder.EndVector()
-        if self.hatchUnderlayColor is not None:
-            hatchUnderlayColor = builder.CreateString(self.hatchUnderlayColor)
         if self.isOuter is not None:
             if np is not None and type(self.isOuter) is np.ndarray:
                 isOuter = builder.CreateNumpyVector(self.isOuter)
@@ -302,20 +312,21 @@ class HatchOpT(object):
                 for i in reversed(range(len(self.isOuter))):
                     builder.PrependBool(self.isOuter[i])
                 isOuter = builder.EndVector()
+        if self.hatchUnderlayColor is not None:
+            hatchUnderlayColor = builder.CreateString(self.hatchUnderlayColor)
         HatchOpStart(builder)
         HatchOpAddKind(builder, self.kind)
-        if self.regionOut is not None:
-            HatchOpAddRegionOut(builder, regionOut)
-        if self.regionIn is not None:
-            HatchOpAddRegionIn(builder, regionIn)
+        if self.regionRef is not None:
+            HatchOpAddRegionRef(builder, regionRef)
+        if self.subtractRegionRefs is not None:
+            HatchOpAddSubtractRegionRefs(builder, subtractRegionRefs)
         if self.tiles is not None:
             HatchOpAddTiles(builder, tiles)
-        HatchOpAddExtentTiles(builder, self.extentTiles)
-        HatchOpAddSeed(builder, self.seed)
-        HatchOpAddStride(builder, self.stride)
-        if self.hatchUnderlayColor is not None:
-            HatchOpAddHatchUnderlayColor(builder, hatchUnderlayColor)
         if self.isOuter is not None:
             HatchOpAddIsOuter(builder, isOuter)
+        HatchOpAddExtentTiles(builder, self.extentTiles)
+        HatchOpAddSeed(builder, self.seed)
+        if self.hatchUnderlayColor is not None:
+            HatchOpAddHatchUnderlayColor(builder, hatchUnderlayColor)
         hatchOp = HatchOpEnd(builder)
         return hatchOp

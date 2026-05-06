@@ -21,23 +21,15 @@ import sys
 from typing import Any
 
 from nhc.rendering.ir._fb import (
-    CobblePattern,
     CornerStyle,
-    FloorKind,
-    FountainShape,
+    FixtureKind,
     HatchKind,
+    MaterialFamily,
     Op,
-    RegionKind,
+    PathStyle,
+    RoofStyle,
     ShadowKind,
-    StairDirection,
-    TerrainKind,
-    V5FixtureKind,
-    V5MaterialFamily,
-    V5Op,
-    V5PathStyle,
-    V5RoofStyle,
-    V5WallTreatment,
-    WellShape,
+    WallTreatment,
 )
 from nhc.rendering.ir._fb.FloorIR import FloorIR, FloorIRT
 
@@ -56,48 +48,26 @@ def _enum_value_to_name(enum_cls: type) -> dict[int, str]:
 # member name instead of a bare int. Fields not in this map pass
 # through as raw scalars.
 _ENUM_FIELDS: dict[tuple[str, str], dict[int, str]] = {
-    ("FloorIRT", "floorKind"): _enum_value_to_name(FloorKind.FloorKind),
-    ("RegionT", "kind"): _enum_value_to_name(RegionKind.RegionKind),
     ("ShadowOpT", "kind"): _enum_value_to_name(ShadowKind.ShadowKind),
     ("HatchOpT", "kind"): _enum_value_to_name(HatchKind.HatchKind),
-    ("CobblestoneVariantT", "pattern"): _enum_value_to_name(
-        CobblePattern.CobblePattern
-    ),
-    ("WellFeatureOpT", "shape"): _enum_value_to_name(WellShape.WellShape),
-    ("FountainFeatureOpT", "shape"): _enum_value_to_name(
-        FountainShape.FountainShape
-    ),
-    ("StairTileT", "direction"): _enum_value_to_name(
-        StairDirection.StairDirection
-    ),
-    ("TerrainTintTileT", "kind"): _enum_value_to_name(TerrainKind.TerrainKind),
-    ("TerrainDetailTileT", "kind"): _enum_value_to_name(
-        TerrainKind.TerrainKind
-    ),
     ("OpEntryT", "opType"): _enum_value_to_name(Op.Op),
-    # v5 enum-typed fields — Phase 1.1 schema scaffold lifted them
-    # into the IR, Phase 4.1 lifts them into the canonical dump
-    # representation so consumers (ir_query, structural diffs)
-    # can read v5 op kinds as strings.
-    ("V5OpEntryT", "opType"): _enum_value_to_name(V5Op.V5Op),
-    ("V5MaterialT", "family"): _enum_value_to_name(
-        V5MaterialFamily.V5MaterialFamily
+    ("MaterialT", "family"): _enum_value_to_name(
+        MaterialFamily.MaterialFamily
     ),
-    ("V5WallMaterialT", "family"): _enum_value_to_name(
-        V5MaterialFamily.V5MaterialFamily
+    ("WallMaterialT", "family"): _enum_value_to_name(
+        MaterialFamily.MaterialFamily
     ),
-    ("V5WallMaterialT", "treatment"): _enum_value_to_name(
-        V5WallTreatment.V5WallTreatment
+    ("WallMaterialT", "treatment"): _enum_value_to_name(
+        WallTreatment.WallTreatment
     ),
-    ("V5WallMaterialT", "cornerStyle"): _enum_value_to_name(
+    ("WallMaterialT", "cornerStyle"): _enum_value_to_name(
         CornerStyle.CornerStyle
     ),
-    ("V5FixtureOpT", "kind"): _enum_value_to_name(
-        V5FixtureKind.V5FixtureKind
+    ("FixtureOpT", "kind"): _enum_value_to_name(
+        FixtureKind.FixtureKind
     ),
-    ("V5PathOpT", "style"): _enum_value_to_name(V5PathStyle.V5PathStyle),
-    ("V5RoofOpT", "style"): _enum_value_to_name(V5RoofStyle.V5RoofStyle),
-    ("V5HatchOpT", "kind"): _enum_value_to_name(HatchKind.HatchKind),
+    ("PathOpT", "style"): _enum_value_to_name(PathStyle.PathStyle),
+    ("RoofOpT", "style"): _enum_value_to_name(RoofStyle.RoofStyle),
 }
 
 
@@ -142,13 +112,13 @@ def dump(buf: bytes) -> str:
     """Return canonicalised JSON for a FloorIR FlatBuffer.
 
     Raises ``ValueError`` if the buffer does not carry the
-    ``NIR3`` file_identifier handshake — a quick guard against
+    ``NIR5`` file_identifier handshake — a quick guard against
     feeding the dumper a binary blob that was not produced by
     ``build_floor_ir`` (or by some past schema major).
     """
     if not FloorIR.FloorIRBufferHasIdentifier(buf, 0):
         raise ValueError(
-            "Buffer does not carry the NIR3 file_identifier — is "
+            "Buffer does not carry the NIR5 file_identifier — is "
             "this a Floor IR buffer at the current schema major?"
         )
     root = FloorIR.GetRootAs(buf, 0)

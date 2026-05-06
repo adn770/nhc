@@ -358,7 +358,7 @@ fn tile_shapes_into_buckets(
 // ── Anchor-placement entry point (v5 emit) ────────────────────
 
 /// Per-anchor placement record — what the v5 emit pipeline ships
-/// as a `V5FixtureOp` anchor. ``kind`` is one of
+/// as a `FixtureOp` anchor. ``kind`` is one of
 /// `KIND_WEB` / `KIND_BONES` / `KIND_SKULL`; ``orientation`` carries
 /// the web corner (0=NW, 1=NE, 2=SW, 3=SE per the legacy
 /// `wall_bits` encoding) for Web kind, otherwise 0.
@@ -380,7 +380,7 @@ pub const KIND_SKULL: u8 = 1;
 /// byte-equal between the v4 paint path (which calls
 /// `thematic_detail_shapes` and renders shapes inline) and the v5
 /// emit path (which calls this function to land explicit
-/// V5FixtureOp anchors).
+/// FixtureOp anchors).
 ///
 /// The macabre gate drops bones / skulls when ``macabre`` is
 /// `false` — same post-pass the legacy emitter applies.

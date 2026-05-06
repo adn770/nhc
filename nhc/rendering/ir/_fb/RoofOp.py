@@ -22,7 +22,7 @@ class RoofOp(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def RoofOpBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x34", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x35", size_prefixed=size_prefixed)
 
     # RoofOp
     def Init(self, buf, pos):
@@ -39,25 +39,32 @@ class RoofOp(object):
     def Style(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
+        return 0
+
+    # RoofOp
+    def Tone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 0
 
     # RoofOp
     def Tint(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
     # RoofOp
-    def RngSeed(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+    def Seed(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return 0
 
 def RoofOpStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(5)
 
 def Start(builder):
     RoofOpStart(builder)
@@ -69,22 +76,28 @@ def AddRegionRef(builder, regionRef):
     RoofOpAddRegionRef(builder, regionRef)
 
 def RoofOpAddStyle(builder, style):
-    builder.PrependInt8Slot(1, style, 0)
+    builder.PrependUint8Slot(1, style, 0)
 
 def AddStyle(builder, style):
     RoofOpAddStyle(builder, style)
 
+def RoofOpAddTone(builder, tone):
+    builder.PrependUint8Slot(2, tone, 0)
+
+def AddTone(builder, tone):
+    RoofOpAddTone(builder, tone)
+
 def RoofOpAddTint(builder, tint):
-    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(tint), 0)
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(tint), 0)
 
 def AddTint(builder, tint):
     RoofOpAddTint(builder, tint)
 
-def RoofOpAddRngSeed(builder, rngSeed):
-    builder.PrependUint64Slot(3, rngSeed, 0)
+def RoofOpAddSeed(builder, seed):
+    builder.PrependUint64Slot(4, seed, 0)
 
-def AddRngSeed(builder, rngSeed):
-    RoofOpAddRngSeed(builder, rngSeed)
+def AddSeed(builder, seed):
+    RoofOpAddSeed(builder, seed)
 
 def RoofOpEnd(builder):
     return builder.EndObject()
@@ -100,13 +113,15 @@ class RoofOpT(object):
         self,
         regionRef = None,
         style = 0,
+        tone = 0,
         tint = None,
-        rngSeed = 0,
+        seed = 0,
     ):
         self.regionRef = regionRef  # type: Optional[str]
         self.style = style  # type: int
+        self.tone = tone  # type: int
         self.tint = tint  # type: Optional[str]
-        self.rngSeed = rngSeed  # type: int
+        self.seed = seed  # type: int
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -131,8 +146,9 @@ class RoofOpT(object):
             return
         self.regionRef = roofOp.RegionRef()
         self.style = roofOp.Style()
+        self.tone = roofOp.Tone()
         self.tint = roofOp.Tint()
-        self.rngSeed = roofOp.RngSeed()
+        self.seed = roofOp.Seed()
 
     # RoofOpT
     def Pack(self, builder):
@@ -144,8 +160,9 @@ class RoofOpT(object):
         if self.regionRef is not None:
             RoofOpAddRegionRef(builder, regionRef)
         RoofOpAddStyle(builder, self.style)
+        RoofOpAddTone(builder, self.tone)
         if self.tint is not None:
             RoofOpAddTint(builder, tint)
-        RoofOpAddRngSeed(builder, self.rngSeed)
+        RoofOpAddSeed(builder, self.seed)
         roofOp = RoofOpEnd(builder)
         return roofOp

@@ -880,7 +880,7 @@ class TestFloorIRRoutes:
         assert resp.headers["Content-Type"] == "application/octet-stream"
         body = resp.get_data()
         # FlatBuffers stamp the file_identifier at offset 4..8.
-        assert body[4:8] == b"NIR4"
+        assert body[4:8] == b"NIR5"
         # The canonical dumper is the round-trip contract.
         from nhc.rendering.ir.dump import dump
         text = dump(body)
@@ -913,7 +913,7 @@ class TestFloorIRRoutes:
             "application/json"
         )
         payload = json.loads(resp.get_data(as_text=True))
-        assert payload["major"] == 4
+        assert payload["major"] == 5
         assert payload["minor"] >= 0
         assert "regions" in payload
         assert "ops" in payload
@@ -1043,7 +1043,7 @@ class TestFloorIRArtefactsCache:
         assert svg_id in session.game._ir_cache
         # Mutate the entry: a second call must serve this byte
         # sequence verbatim (cache hit), not rebuild from level.
-        sentinel = b"NIR4" + b"\x00" * 12 + b"sentinel"
+        sentinel = b"NIR5" + b"\x00" * 12 + b"sentinel"
         session.game._ir_cache[svg_id].nir = sentinel
         resp2 = client_with_data_dir.get(
             f"/api/game/{sid}/floor/{svg_id}.nir",
@@ -1267,10 +1267,10 @@ class TestFloorIRArtefactsDiskWiring:
         assert nir_path.exists()
         assert json_path.exists()
         # Bytes round-trip the cached IR — same source as .nir route.
-        assert nir_path.read_bytes()[4:8] == b"NIR4"
+        assert nir_path.read_bytes()[4:8] == b"NIR5"
         # JSON dump is canonical and parseable.
         parsed = json.loads(json_path.read_text(encoding="utf-8"))
-        assert parsed["major"] == 4
+        assert parsed["major"] == 5
         assert "regions" in parsed
 
     def test_export_floor_ir_404_for_non_god_mode(
