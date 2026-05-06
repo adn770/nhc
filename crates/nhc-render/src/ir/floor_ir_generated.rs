@@ -1090,8 +1090,8 @@ pub struct OpUnionTableOffset {}
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct Vec2(pub [u8; 8]);
-impl Default for Vec2 { 
-  fn default() -> Self { 
+impl Default for Vec2 {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -1217,8 +1217,8 @@ impl<'a> Vec2 {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct PathRange(pub [u8; 12]);
-impl Default for PathRange { 
-  fn default() -> Self { 
+impl Default for PathRange {
+  fn default() -> Self {
     Self([0; 12])
   }
 }
@@ -1376,8 +1376,8 @@ impl<'a> PathRange {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TileCoord(pub [u8; 8]);
-impl Default for TileCoord { 
-  fn default() -> Self { 
+impl Default for TileCoord {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -1503,8 +1503,8 @@ impl<'a> TileCoord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct Anchor(pub [u8; 16]);
-impl Default for Anchor { 
-  fn default() -> Self { 
+impl Default for Anchor {
+  fn default() -> Self {
     Self([0; 16])
   }
 }

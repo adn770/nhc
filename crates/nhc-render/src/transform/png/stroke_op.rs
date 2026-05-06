@@ -29,7 +29,7 @@ use flatbuffers::{ForwardsUOffset, Vector};
 use super::region_path::outline_to_path;
 use crate::ir::{MaterialFamily, Region, StrokeOp, WallTreatment};
 use crate::painter::material::{substance_color, Family, PaletteRole};
-use crate::painter::{Paint, Painter, Stroke};
+use crate::painter::{LineCap, Paint, Painter, Stroke};
 
 /// Map the FlatBuffers `MaterialFamily` to the painter's `Family`
 /// POD. Mirrors the bridge in `super::material_from_fb`.
@@ -45,17 +45,22 @@ fn family_from_fb(family: MaterialFamily) -> Family {
     }
 }
 
-/// Per-treatment stroke width baseline. Acts as a visible visual
-/// differentiator between the five treatments while the per-
-/// treatment drawing algorithms are deferred to follow-on commits.
+/// Per-treatment plain-stroke width baseline.
+///
+/// Used for treatments that fall through to a single round-cap
+/// stroke (PlainStroke / Partition); Masonry / Palisade /
+/// Fortification dispatch to their own painters and bypass this
+/// table.
+///
+/// PlainStroke 5.0 px mirrors v4's room / dungeon / cave / corridor
+/// wall width (``CELL * 0.155``); Partition 8.0 px mirrors v4's
+/// interior-partition width (``CELL * 0.25``).
 fn treatment_stroke_width(treatment: WallTreatment) -> f32 {
     match treatment {
-        WallTreatment::PlainStroke => 1.5,
-        WallTreatment::Masonry => 3.0,
-        WallTreatment::Partition => 1.0,
-        WallTreatment::Palisade => 2.5,
-        WallTreatment::Fortification => 4.0,
-        _ => 1.5,
+        WallTreatment::PlainStroke => 5.0,
+        WallTreatment::Partition => 8.0,
+        // Other treatments dispatch to their own painters.
+        _ => 5.0,
     }
 }
 
@@ -144,7 +149,11 @@ pub fn draw<'a>(
     };
     let color = substance_color(family, wm.style(), wm.tone(), PaletteRole::Shadow);
     let paint = Paint::solid(color);
-    let stroke = Stroke::solid(treatment_stroke_width(wm.treatment()));
+    let stroke = Stroke {
+        width: treatment_stroke_width(wm.treatment()),
+        line_cap: LineCap::Round,
+        ..Stroke::default()
+    };
     painter.stroke_path(&path, &paint, &stroke);
     true
 }
@@ -280,25 +289,23 @@ mod tests {
         }
     }
 
-    /// PlainStroke and Partition still flow through the plain-stroke
-    /// fallback at distinct widths (1.5 vs 1.0). Polish 4d lifts
-    /// Partition to its own dressed thin-wall algorithm; until then
-    /// this gates the simple-stroke dispatch.
+    /// PlainStroke and Partition flow through the dressed-thin-wall
+    /// fallback at distinct widths (5.0 px vs 8.0 px); both use
+    /// round line caps.
     #[test]
-    fn plain_stroke_and_partition_pick_distinct_stroke_widths() {
-        let mut seen = Vec::new();
-        for treatment in [WallTreatment::PlainStroke, WallTreatment::Partition] {
+    fn plain_stroke_and_partition_pick_distinct_round_cap_widths() {
+        for (treatment, expected_width) in [
+            (WallTreatment::PlainStroke, 5.0_f32),
+            (WallTreatment::Partition, 8.0_f32),
+        ] {
             let buf = build_stroke_op_with_region(
                 MaterialFamily::Stone, 0, treatment,
             );
             let (call,) = paint_for(&buf);
             match call {
                 PainterCall::StrokePath(_, _, stroke) => {
-                    assert!(
-                        !seen.contains(&stroke.width.to_bits()),
-                        "treatment {treatment:?} reuses earlier stroke width"
-                    );
-                    seen.push(stroke.width.to_bits());
+                    assert_eq!(stroke.width, expected_width);
+                    assert_eq!(stroke.line_cap, LineCap::Round);
                 }
                 other => panic!("expected StrokePath, got {other:?}"),
             }
