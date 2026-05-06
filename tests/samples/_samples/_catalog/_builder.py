@@ -21,12 +21,19 @@ from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.emit.materials import (
     material_cave, material_earth, material_liquid, material_plain,
     material_special, material_stone, material_wood,
+    wall_material_fortification, wall_material_masonry,
+    wall_material_palisade, wall_material_partition,
+    wall_material_plain_stroke,
 )
+from nhc.rendering.ir._fb.Cut import CutT
+from nhc.rendering.ir._fb.CutStyle import CutStyle
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
 from nhc.rendering.ir._fb.Op import Op
 from nhc.rendering.ir._fb.OpEntry import OpEntryT
 from nhc.rendering.ir._fb.PaintOp import PaintOpT
 from nhc.rendering.ir._fb.Region import RegionT
+from nhc.rendering.ir._fb.StrokeOp import StrokeOpT
+from nhc.rendering.ir._fb.Vec2 import Vec2T
 from nhc.rendering.ir_emitter import (
     _FILE_IDENTIFIER, _SCHEMA_MAJOR, _SCHEMA_MINOR,
 )
@@ -69,15 +76,19 @@ class ColumnSpec:
         label: Header text rendered above the column (e.g.
             ``"Cobblestone Herringbone"``).
         op_factory: ``(region_id, page_seed, col_idx, row_idx)
-            -> OpEntryT`` callable that returns the op (PaintOp /
-            StrokeOp / FixtureOp / etc.) for the cell at this
-            column. The page builder anchors the op to the cell's
-            region by passing ``region_id`` for ``PaintOp.region_ref``
-            (or its equivalent on other op types).
+            -> OpEntryT | list[OpEntryT]`` callable that returns
+            one or more ops (PaintOp / StrokeOp / FixtureOp / etc.)
+            for the cell at this column. The page builder anchors
+            ops to the cell's region by passing ``region_id`` for
+            ``op.region_ref``. Multi-op cells (e.g. walls = base
+            paint + wall stroke) return a list; single-op cells
+            return one ``OpEntryT``.
     """
 
     label: str
-    op_factory: Callable[[str, int, int, int], OpEntryT]
+    op_factory: Callable[
+        [str, int, int, int], "OpEntryT | list[OpEntryT]",
+    ]
 
 
 # Default row sweep: rect / octagon / circle. Pages can override
@@ -190,10 +201,13 @@ def build_catalog_buffer(spec: CatalogPageSpec) -> bytes:
             region.shapeTag = row_shape
             regions.append(region)
 
-            op_entry = column.op_factory(
+            op_result = column.op_factory(
                 region_id, spec.seed, col_idx, row_idx,
             )
-            ops.append(op_entry)
+            if isinstance(op_result, list):
+                ops.extend(op_result)
+            else:
+                ops.append(op_result)
 
     fir = FloorIRT()
     fir.major = _SCHEMA_MAJOR
@@ -327,6 +341,119 @@ def plain_factory():
     return factory
 
 
+# ── StrokeOp factory helpers ────────────────────────────────────
+
+
+def _wrap_stroke(stroke_op: StrokeOpT) -> OpEntryT:
+    entry = OpEntryT()
+    entry.opType = Op.StrokeOp
+    entry.op = stroke_op
+    return entry
+
+
+def _make_stroke_op(
+    region_id: str, wall_material, *, cuts: list[CutT] | None = None,
+) -> OpEntryT:
+    op = StrokeOpT()
+    op.regionRef = region_id
+    op.outline = None
+    op.wallMaterial = wall_material
+    op.cuts = list(cuts or [])
+    return _wrap_stroke(op)
+
+
+def _v2(x: float, y: float) -> Vec2T:
+    v = Vec2T()
+    v.x = float(x)
+    v.y = float(y)
+    return v
+
+
+def make_cut(
+    start: tuple[float, float], end: tuple[float, float],
+    *, style: int = CutStyle.WoodGate,
+) -> CutT:
+    """Construct a single ``Cut`` from pixel-space endpoints."""
+    cut = CutT()
+    cut.start = _v2(*start)
+    cut.end = _v2(*end)
+    cut.style = style
+    return cut
+
+
+# Map treatment → wall_material factory. Used by ``wall_factory``
+# below so callers pass a treatment name without importing the
+# materials module.
+_WALL_TREATMENT_BUILDERS = {
+    "PlainStroke": wall_material_plain_stroke,
+    "Masonry": wall_material_masonry,
+    "Partition": wall_material_partition,
+    "Palisade": wall_material_palisade,
+    "Fortification": wall_material_fortification,
+}
+
+
+def wall_factory(
+    *,
+    treatment: str,
+    family=None,
+    style=None,
+    corner_style=None,
+    base: "Callable[[], Any]" = None,
+    cuts: "Callable[[int], list[CutT]] | None" = None,
+):
+    """Column op_factory emitting a base PaintOp + wall StrokeOp.
+
+    - ``treatment`` picks the WallMaterial factory (PlainStroke,
+      Masonry, Partition, Palisade, Fortification).
+    - ``family`` / ``style`` / ``corner_style`` override the
+      WallMaterial factory's defaults; pass ``None`` to keep them.
+    - ``base``: ``() -> Material`` for the cell's interior fill.
+      Defaults to Plain (white) so the wall stroke reads cleanly
+      on a neutral substrate.
+    - ``cuts``: ``(page_seed) -> list[Cut]`` for gates / doors
+      cutting the wall. Default: no cuts.
+    """
+    builder_fn = _WALL_TREATMENT_BUILDERS.get(treatment)
+    if builder_fn is None:
+        raise ValueError(f"unknown wall treatment: {treatment!r}")
+
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(
+            page_seed, col_idx, row_idx,
+            hash(treatment) & 0xFFFF_FFFF,
+        )
+        # Resolve WallMaterial using only the explicit overrides
+        # — the materials.py factory carries family / style /
+        # corner_style defaults appropriate for each treatment.
+        kwargs = {"seed": seed}
+        if family is not None:
+            kwargs["family"] = family
+        if style is not None:
+            kwargs["style"] = style
+        if corner_style is not None:
+            kwargs["corner_style"] = corner_style
+        wall_mat = builder_fn(**kwargs)
+
+        if base is not None:
+            base_material = base()
+            if hasattr(base_material, "seed") and base_material.seed == 0:
+                base_material.seed = seed
+        else:
+            base_material = material_plain(seed=seed)
+
+        cut_list: list[CutT] = []
+        if cuts is not None:
+            cut_list = cuts(page_seed)
+
+        return [
+            _make_paint_op(region_id, base_material),
+            _make_stroke_op(region_id, wall_mat, cuts=cut_list),
+        ]
+
+    return factory
+
+
 # ── Sample-spec registration helper ──────────────────────────────
 
 
@@ -371,5 +498,6 @@ __all__ = [
     "stone_factory", "wood_factory",
     "earth_factory", "liquid_factory", "special_factory",
     "cave_factory", "plain_factory",
+    "wall_factory", "make_cut",
     "register_catalog_page",
 ]

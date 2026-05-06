@@ -28,3 +28,4 @@ from . import floors_plain  # noqa: F401
 from . import floors_special  # noqa: F401
 from . import floors_stone  # noqa: F401
 from . import floors_wood  # noqa: F401
+from . import walls  # noqa: F401

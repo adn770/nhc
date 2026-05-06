@@ -232,54 +232,6 @@ for _fixture, _feature in _FIXTURE_FEATURES.items():
         ))
 
 
-# ── Wall-style matrix: shape × style × wall consumer ───────────────
-#
-# Walls in v4e flow through three op kinds:
-#
-# * ExteriorWallOp — region perimeter (DungeonInk / CaveInk for
-#   dungeons, MasonryBrick / MasonryStone for buildings, Palisade /
-#   FortificationMerlon for enclosures).
-# * InteriorWallOp — interior partitions inside a single region
-#   (PartitionStone / PartitionBrick / PartitionWood).
-# * CorridorWallOp — corridor-and-door walls between rooms.
-#
-# Building / enclosure exterior walls are exercised end-to-end by
-# the generators/sites samples; here we focus on the dungeon
-# perimeter (DungeonInk / CaveInk) per shape so per-shape stroke
-# behaviour at chamfered / curved corners is visible.
-
-
-for _shape_key in ("rect", "octagon", "circle", "pill"):
-    CATALOG.append(SampleSpec(
-        name=_shape_key,
-        category="synthetic/walls/dungeon_ink",
-        description=(
-            f"DungeonInk perimeter stroke around a {_shape_key} room. "
-            f"The wall stroke clips along the room's outline; this "
-            f"sample isolates the per-shape ExteriorWallOp dispatch."
-        ),
-        params={"style": "DungeonInk", "shape": _shape_key},
-        build=(lambda s, k=_shape_key:
-               _single_shape_result(k, theme="dungeon", seed=s)),
-        seeds=(7,),
-    ))
-
-for _shape_key in ("rect", "octagon", "circle", "pill"):
-    CATALOG.append(SampleSpec(
-        name=_shape_key,
-        category="synthetic/walls/cave_ink",
-        description=(
-            f"CaveInk perimeter stroke around a {_shape_key} room "
-            f"(cave theme — uses the buffered + jittered outline "
-            f"pipeline)."
-        ),
-        params={"style": "CaveInk", "shape": _shape_key},
-        build=(lambda s, k=_shape_key:
-               _single_shape_result(k, theme="cave", seed=s)),
-        seeds=(7,),
-    ))
-
-
 # ── Group-opacity overlap stress ───────────────────────────────────
 #
 # Group-opacity (begin_group / end_group) is the load-bearing
