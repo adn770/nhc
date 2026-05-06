@@ -52,9 +52,14 @@
 //!   centre paver plus four perimeter rectangles (12×4 top, 4×12
 //!   right, 12×4 bottom, 4×12 left) rotating around the centre.
 //!
-//! The remaining three Stone styles (Hopscotch, CrazyPaving,
-//! Ashlar) keep their flat-fill behaviour; per-style lifts ride
-//! Phase 2.4g–2.4i follow-on commits.
+//! Hopscotch (style = 6, Phase 2.4g, no sub-patterns):
+//! - 3-stone unit alternating one 12×12 square + a perimeter
+//!   rectangle pair, rotated per-unit (`(ix*7 + iy*13) % 4`) so
+//!   adjacent units read as a hopscotch pattern.
+//!
+//! The remaining two Stone styles (CrazyPaving, Ashlar) keep
+//! their flat-fill behaviour; per-style lifts ride Phase 2.4h–
+//! 2.4i follow-on commits.
 
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
@@ -176,8 +181,11 @@ pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, materi
         // Pinwheel — 5-stone pinwheel unit tiling, no sub-patterns
         // (Phase 2.4f).
         5 => paint_pinwheel(painter, region_path, pal, material.seed),
+        // Hopscotch — 3-stone square+rectangle unit tiling with
+        // per-unit rotation (Phase 2.4g).
+        6 => paint_hopscotch(painter, region_path, pal, material.seed),
         // Forward-compat sub-pattern values for unknown styles
-        // and the remaining 3 styles (Phase 2.4g–2.4i) fall back
+        // and the remaining 2 styles (Phase 2.4h–2.4i) fall back
         // to flat fill so silent loss-of-pattern is still a visible
         // floor rather than a magenta sentinel block.
         _ => fill_region(painter, region_path, pal.base),
@@ -976,6 +984,85 @@ fn paint_pinwheel<P: Painter + ?Sized>(
     painter.pop_clip();
 }
 
+// ── Hopscotch (no sub-patterns) ────────────────────────────────
+
+const HOPSCOTCH_GROUP_OPACITY: f32 = 0.9;
+const HOPSCOTCH_UNIT: f64 = 16.0;
+const HOPSCOTCH_PAD: f64 = 0.5;
+
+/// Three-stone unit (sx, sy, sw, sh) on the 16-unit grid: a 12×12
+/// square plus a 4×12 perimeter rectangle plus a 16×4 bottom
+/// rectangle. Per-unit rotation is `(tx*7 + ty*13) % 4` (same
+/// quarter-turn idiom as OpusRomano).
+const HOPSCOTCH_STONES: [(f64, f64, f64, f64); 3] = [
+    (0.0, 0.0, 12.0, 12.0),
+    (12.0, 0.0, 4.0, 12.0),
+    (0.0, 12.0, 16.0, 4.0),
+];
+
+fn hopscotch_rotate(
+    sx: f64, sy: f64, sw: f64, sh: f64, n_quarter: i32,
+) -> (f64, f64, f64, f64) {
+    let mut s = (sx, sy, sw, sh);
+    let n = ((n_quarter % 4) + 4) % 4;
+    for _ in 0..n {
+        s = (HOPSCOTCH_UNIT - s.1 - s.3, s.0, s.3, s.2);
+    }
+    s
+}
+
+/// Hopscotch — 3-stone unit alternating one 12×12 square + a
+/// perimeter rectangle pair, rotated per-unit so adjacent units
+/// read as a hopscotch pattern rather than a uniform grid. The
+/// square fills with palette.base; the rectangles fill with
+/// palette.highlight for two-tone variation. RNG-free —
+/// per-unit rotation is derived from unit indices.
+fn paint_hopscotch<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(HOPSCOTCH_GROUP_OPACITY);
+    let base_paint = Paint::solid(pal.base);
+    let highlight_paint = Paint::solid(pal.highlight);
+    let unit_x0 = (f64::from(x0) / HOPSCOTCH_UNIT).floor() * HOPSCOTCH_UNIT;
+    let unit_y0 = (f64::from(y0) / HOPSCOTCH_UNIT).floor() * HOPSCOTCH_UNIT;
+    let mut ty = unit_y0;
+    while ty < f64::from(y1) {
+        let mut tx = unit_x0;
+        while tx < f64::from(x1) {
+            let ix = (tx / HOPSCOTCH_UNIT) as i32;
+            let iy = (ty / HOPSCOTCH_UNIT) as i32;
+            let rotation = (ix * 7 + iy * 13).rem_euclid(4);
+            for (idx, &(sx, sy, sw, sh)) in HOPSCOTCH_STONES.iter().enumerate() {
+                let (sx, sy, sw, sh) = hopscotch_rotate(sx, sy, sw, sh, rotation);
+                let pick = if idx == 0 { &base_paint } else { &highlight_paint };
+                painter.fill_rect(
+                    Rect::new(
+                        (tx + sx + HOPSCOTCH_PAD) as f32,
+                        (ty + sy + HOPSCOTCH_PAD) as f32,
+                        (sw - 2.0 * HOPSCOTCH_PAD) as f32,
+                        (sh - 2.0 * HOPSCOTCH_PAD) as f32,
+                    ),
+                    pick,
+                );
+            }
+            tx += HOPSCOTCH_UNIT;
+        }
+        ty += HOPSCOTCH_UNIT;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1041,14 +1128,14 @@ mod tests {
         }
     }
 
-    /// Styles without lifted layouts (Phase 2.4g–2.4i: Hopscotch,
-    /// CrazyPaving, Ashlar) still emit the flat-fill — single
-    /// fill_path per call. Styles 0–5 (Cobblestone through
-    /// Pinwheel) lifted in 2.4a–2.4f are excluded from this gate.
+    /// Styles without lifted layouts (Phase 2.4h–2.4i: CrazyPaving,
+    /// Ashlar) still emit the flat-fill — single fill_path per
+    /// call. Styles 0–6 (Cobblestone through Hopscotch) lifted in
+    /// 2.4a–2.4g are excluded from this gate.
     #[test]
     fn non_lifted_styles_keep_flat_fill() {
         let path = one_tile_path();
-        for style in 6..9u8 {
+        for style in 7..9u8 {
             let expected = palette(style).base;
             let mut p = MockPainter::default();
             let m = Material::new(Family::Stone, style, 0, 0, 0xCAFE);
@@ -1243,6 +1330,41 @@ mod tests {
         paint(&mut a, &path, &Material::new(Family::Stone, 5, 0, 0, 333));
         paint(&mut b, &path, &Material::new(Family::Stone, 5, 0, 0, 7));
         assert_eq!(a.calls, b.calls, "Pinwheel is RNG-free");
+    }
+
+    /// Hopscotch (style=6, no sub-patterns) wraps decoration in a
+    /// push_clip / pop_clip pair plus a balanced begin_group /
+    /// end_group envelope, and emits exactly 3 fill_rect stamps
+    /// per unit (square + 2 perimeter rects).
+    #[test]
+    fn hopscotch_emits_three_stones_per_unit_with_clip_envelope() {
+        let path = four_tile_path();
+        let mut p = MockPainter::default();
+        paint(
+            &mut p, &path,
+            &Material::new(Family::Stone, 6, 0, 0, 0xCAFE),
+        );
+        assert_eq!(count_pushed_clips(&p.calls), 1);
+        assert_eq!(count_begin_groups(&p.calls), 1);
+        // 128/16 = 8 units per side → 64 units × 3 stones = 192.
+        let rects = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+            .count();
+        assert_eq!(rects, 192, "expected 3 stones × 64 units = 192 fill_rect");
+    }
+
+    /// Hopscotch is RNG-free — rotation is derived from unit
+    /// indices.
+    #[test]
+    fn hopscotch_is_seed_independent() {
+        let path = four_tile_path();
+        let mut a = MockPainter::default();
+        let mut b = MockPainter::default();
+        paint(&mut a, &path, &Material::new(Family::Stone, 6, 0, 0, 333));
+        paint(&mut b, &path, &Material::new(Family::Stone, 6, 0, 0, 7));
+        assert_eq!(a.calls, b.calls, "Hopscotch is RNG-free");
     }
 
     /// Forward-compat sub-pattern values for lifted styles
