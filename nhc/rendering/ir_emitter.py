@@ -1,28 +1,18 @@
-"""Floor IR emitter — Phase 1.a skeleton + emit_regions foundation.
+"""Floor IR emitter — region-registration + canonical v5 op stream.
 
-Walks a ``Level`` + :class:`RenderContext` through the
-:data:`IR_STAGES` pipeline and emits a ``FloorIR`` FlatBuffer. The
-stage list mirrors :data:`nhc.rendering._floor_layers.FLOOR_LAYERS`
-in §6 layer order, with an additional foundation stage
-(:func:`emit_regions`) that registers the polygon regions
-subsequent ops reference by id.
-
-Public surface:
-
-- :func:`build_floor_ir` — the cold-path entry point that
-  ``render_floor_svg`` will route through once 1.k rewires it.
-- :data:`IR_STAGES` — ordered tuple of stage callables; each takes
-  the :class:`FloorIRBuilder` and writes regions / ops.
-
-Phase 1.a fills :func:`emit_regions` (registers the dungeon
-polygon and, when present, the cave polygon). The other nine
-stages are no-op stubs; Phase 1.b–1.j land their op-emit logic
-one layer at a time.
+:func:`build_floor_ir` walks a ``Level`` + :class:`RenderContext`
+through three region-registration passes (:func:`emit_regions`,
+:func:`emit_site_overlays`, :func:`emit_building_overlays`) that
+populate ``builder.regions`` with dungeon / cave / corridor / room /
+site / building / enclosure outlines. :meth:`FloorIRBuilder.finish`
+then drives the canonical v5 emit pipeline
+(:mod:`nhc.rendering.emit`) which reads ``builder.regions`` and
+``builder.site`` directly to produce the schema-5 op stream.
 """
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 
 import flatbuffers
 
@@ -692,158 +682,12 @@ def emit_site_region(
     )
 
 
-# Roof tint palette — matches `nhc.rendering._roofs.ROOF_TINTS`.
-# `emit_building_roofs` picks one entry per building from a
-# splitmix64 stream seeded with `RoofOp.rng_seed`, so the SVG
-# handler at `_draw_roof_from_ir` and the Rust PNG port pick the
-# same shade.
-_ROOF_TINTS: tuple[str, ...] = (
-    "#8A8A8A",  # cool gray
-    "#8A7A5A",  # warm tan
-    "#8A5A3A",  # terracotta
-    "#5A5048",  # charcoal
-    "#7A5A3A",  # ochre
-)
-
-
-# splitmix64 constants — duplicated from ir_to_svg._SplitMix64 so
-# the emit-side tint pick stays a single import-cycle-free helper.
-# Both constants tables are unit-tested against the Rust crate's
-# rng.rs in the Phase 0 / Phase 4 cross-language vectors.
-_SM64_GOLDEN = 0x9E3779B97F4A7C15
-_SM64_C1 = 0xBF58476D1CE4E5B9
-_SM64_C2 = 0x94D049BB133111EB
-_SM64_MASK = 0xFFFFFFFFFFFFFFFF
-
-
-def _splitmix64_first(seed: int) -> int:
-    """First u64 from a splitmix64 stream seeded with ``seed``."""
-    state = (seed + _SM64_GOLDEN) & _SM64_MASK
-    z = ((state ^ (state >> 30)) * _SM64_C1) & _SM64_MASK
-    z = ((z ^ (z >> 27)) * _SM64_C2) & _SM64_MASK
-    return z ^ (z >> 31)
-
-
-def emit_building_roofs(
-    builder: FloorIRBuilder, buildings: list[Any], base_seed: int,
-) -> None:
-    """Emit one ``RoofOp`` per entry in ``buildings``.
-
-    Each RoofOp's ``rng_seed = base_seed + 0xCAFE + i`` matches the
-    salt list in design/map_ir.md §10. ``tint`` is picked from
-    :data:`_ROOF_TINTS` via a separate splitmix64 stream seeded
-    with ``rng_seed ^ 0xC0FFEE`` so the rasteriser-side stream
-    (seeded with ``rng_seed``) starts cleanly at the shingle-
-    layout phase — no tint-slot offset for rasterisers to skip.
-
-    ``style`` is :data:`RoofStyle.Simple` for every Phase 8.1
-    building. Dome / WitchHat are forward-compat slots; the Rust
-    handler falls back to Simple at render time.
-
-    Pre-condition: corresponding ``Region(kind=Building, id=
-    "building.<i>")`` entries must already be on ``builder.regions``
-    (typically via :func:`emit_building_regions`).
-    """
-    for i, _ in enumerate(buildings):
-        rng_seed = (base_seed + 0xCAFE + i) & _SM64_MASK
-        tint_seed = (rng_seed ^ 0xC0FFEE) & _SM64_MASK
-        tint = _ROOF_TINTS[
-            _splitmix64_first(tint_seed) % len(_ROOF_TINTS)
-        ]
-        op = RoofOpT(
-            regionRef=f"building.{i}",
-            style=RoofStyle.Simple,
-            tint=tint,
-            rngSeed=rng_seed,
-        )
-        entry = OpEntryT()
-        entry.opType = 14  # Op.RoofOp (post-1.27 union renumber).
-        entry.op = op
-        builder.add_op(entry)
-
-
-def emit_site_enclosure(
-    builder: FloorIRBuilder,
-    polygon_tiles: list[tuple[float, float]],
-    *,
-    wall_style: int,
-    gates: list[tuple[int, float, float]] | None = None,
-    base_seed: int,
-    corner_style: int = CornerStyle.Merlon,
-    cut_style: int = CutStyle.WoodGate,
-) -> None:
-    """Emit one ``ExteriorWallOp`` for a site's enclosure ring.
-
-    ``polygon_tiles`` is the closed enclosure polygon in *tile*
-    coords (no closing duplicate); the helper translates to bare
-    tile-pixel space at emit time (``tile * CELL``). The renderer's
-    outer ``translate(padding, padding)`` adds PADDING once at
-    paint time.
-
-    ``wall_style`` is one of ``WallStyle.Palisade`` /
-    ``WallStyle.FortificationMerlon``; other styles are no-ops.
-    ``gates`` is a list of ``(edge_idx, t_center, half_px)`` triples
-    matching the legacy ``site.enclosure.gates`` shape; each becomes
-    a ``Cut`` on the emitted op with style ``cut_style``. ``base_seed``
-    is the floor's base RNG seed; per design/map_ir.md §10 the
-    enclosure salt is ``+ 0xE101`` (per-edge palisade streams seed
-    at ``rng_seed + edge_idx``).
-
-    Registers ``Region(kind=Enclosure, id="enclosure")`` so the
-    emitted op resolves geometry through ``region_ref`` per
-    design/map_ir_v4e.md §3.
-    """
-    if len(polygon_tiles) < 3:
-        return
-    if wall_style not in (
-        WallStyle.Palisade, WallStyle.FortificationMerlon,
-    ):
-        return
-    coords_px = [
-        (float(x * CELL), float(y * CELL))
-        for x, y in polygon_tiles
-    ]
-    polygon = _coords_to_polygon(coords_px)
-    from nhc.rendering._outline_helpers import (
-        cuts_for_enclosure_gates,
-    )
-    if not any(
-        (r.id.decode() if isinstance(r.id, bytes) else r.id) == "enclosure"
-        for r in builder.regions
-    ):
-        builder.add_region(
-            id="enclosure",
-            kind=RegionKind.RegionKind.Enclosure,
-            polygon=polygon,
-            shape_tag="enclosure",
-        )
-    wall_op = ExteriorWallOpT()
-    wall_op.style = wall_style
-    wall_op.cornerStyle = corner_style
-    wall_op.rngSeed = (base_seed + 0xE101) & _SM64_MASK
-    wall_op.regionRef = "enclosure"
-    wall_op.cuts = cuts_for_enclosure_gates(
-        coords_px, list(gates or []), cut_style,
-    )
-    wall_entry = OpEntryT()
-    wall_entry.opType = 17  # Op.ExteriorWallOp
-    wall_entry.op = wall_op
-    builder.add_op(wall_entry)
-
-
-# ── Phase 8.3: Building wall ops ───────────────────────────────
+# ── Building wall edge helpers (live, used by emit/stroke.py) ──
 
 
 _DOOR_SUPPRESSING_FEATURES = frozenset({
     "door_open", "door_closed", "door_locked",
 })
-
-# Building exterior wall material → ExteriorWallOp WallStyle (v4).
-# Dead at the schema-5 cut; the v5 emitter resolves wall material
-# directly via ``nhc.rendering.emit.materials``. 4.3c retires.
-_MASONRY_STYLE_MAP: dict[str, int] = {}
-_PARTITION_STYLE_MAP: dict[str, int] = {}
-
 
 def _coalesce_north_edges(
     norths: set[tuple[int, int]],
@@ -960,80 +804,6 @@ def _coalesced_interior_edges(
             (ax, ay, TileCorner.NW, ax, by - 1, TileCorner.SW),
         )
     return out
-
-
-def emit_building_walls(
-    builder: FloorIRBuilder,
-    building: Any,
-    level: Any,
-    *,
-    base_seed: int,
-    building_index: int = 0,
-) -> None:
-    """Emit InteriorWallOps + ExteriorWallOp for one Building floor.
-
-    Per coalesced + door-filtered interior partition edge ships one
-    ``InteriorWallOp`` (open-polyline outline between two corner-grid
-    endpoints, style ``PartitionStone`` / ``PartitionBrick`` /
-    ``PartitionWood``). Per masonry-walled building ships one
-    ``ExteriorWallOp`` resolving geometry through
-    ``region_ref = "building.<i>"`` (style ``MasonryBrick`` /
-    ``MasonryStone``).
-
-    Buildings with ``wall_material == "dungeon"`` skip exterior emit
-    entirely — the dungeon perimeter walks through the standard
-    ExteriorWallOp / CorridorWallOp passes. Adobe / wood materials
-    skip the new op for now (forward-compat slots).
-
-    Door cuts on partitions are pre-filtered upstream by
-    ``_edge_has_visible_door`` inside ``_coalesced_interior_edges``:
-    a partition edge coinciding with a visible door tile is dropped
-    from the coalesced list rather than emitted as a Cut interval.
-
-    Pre-condition: a ``Region(kind=Building, id="building.<i>")``
-    must already be on ``builder.regions`` (typically via
-    :func:`emit_building_regions`).
-    """
-    edges = _coalesced_interior_edges(level)
-    # Interior partitions emit first so the exterior masonry overlays
-    # them at the rim — design/map_ir.md §6.1 paint order.
-    if edges:
-        from nhc.rendering._outline_helpers import outline_from_polygon
-        partition_style = _PARTITION_STYLE_MAP.get(
-            getattr(building, "interior_wall_material", "stone"),
-            WallStyle.PartitionStone,
-        )
-        for (ax, ay, a_corner, bx, by, b_corner) in edges:
-            adx, ady = _tile_corner_delta(a_corner)
-            bdx, bdy = _tile_corner_delta(b_corner)
-            point_a = ((ax + adx) * CELL, (ay + ady) * CELL)
-            point_b = ((bx + bdx) * CELL, (by + bdy) * CELL)
-            wall_op = InteriorWallOpT()
-            wall_op.outline = outline_from_polygon(
-                [point_a, point_b], closed=False,
-            )
-            wall_op.style = partition_style
-            wall_op.cuts = []
-            wall_entry = OpEntryT()
-            wall_entry.opType = 16  # Op.InteriorWallOp
-            wall_entry.op = wall_op
-            builder.add_op(wall_entry)
-
-    wall_material = building.wall_material
-    if wall_material in _MASONRY_STYLE_MAP:
-        from nhc.rendering._outline_helpers import cuts_for_building_doors
-        wall_op = ExteriorWallOpT()
-        wall_op.style = _MASONRY_STYLE_MAP[wall_material]
-        wall_op.cornerStyle = CornerStyle.Merlon
-        wall_op.rngSeed = (
-            base_seed + 0xBE71 + building_index
-        ) & _SM64_MASK
-        wall_op.regionRef = f"building.{building_index}"
-        wall_op.cuts = cuts_for_building_doors(building, level)
-        wall_entry = OpEntryT()
-        wall_entry.opType = 17  # Op.ExteriorWallOp
-        wall_entry.op = wall_op
-        builder.add_op(wall_entry)
 
 
 def emit_building_regions(
@@ -1219,26 +989,6 @@ def emit_regions(builder: FloorIRBuilder) -> None:
         )
 
 
-def emit_shadows(builder: FloorIRBuilder) -> None:
-    """Phase 1.b.1: emit ShadowOp(Corridor); 1.b.2 adds Room kind."""
-    from nhc.rendering._floor_layers import _emit_shadows_ir
-    _emit_shadows_ir(builder)
-
-
-def emit_hatch(builder: FloorIRBuilder) -> None:
-    """Phase 1.c.1: emit HatchOp(Corridor); 1.c.2 adds Room kind."""
-    from nhc.rendering._floor_layers import _emit_hatch_ir
-    _emit_hatch_ir(builder)
-
-
-def emit_walls_and_floors(builder: FloorIRBuilder) -> None:
-    """Stamp-model walls + floors. Emits FloorOp / ExteriorWallOp /
-    InteriorWallOp / CorridorWallOp covering rooms, cave systems,
-    corridors, and dungeon walls per design/map_ir_v4e.md §3 / §5."""
-    from nhc.rendering._floor_layers import _emit_walls_and_floors_ir
-    _emit_walls_and_floors_ir(builder)
-
-
 def emit_building_overlays(builder: FloorIRBuilder) -> None:
     """Building-floor composite overlays.
 
@@ -1334,85 +1084,6 @@ def emit_site_overlays(builder: FloorIRBuilder) -> None:
     # builder.site.
 
 
-def emit_terrain_tints(builder: FloorIRBuilder) -> None:
-    """Phase 1.e: emit TerrainTintOp (per-tile WATER/GRASS/LAVA/CHASM
-    tints + per-room hint washes, clipped to the dungeon interior)."""
-    from nhc.rendering._floor_layers import _emit_terrain_tints_ir
-    _emit_terrain_tints_ir(builder)
-
-
-def emit_floor_grid(builder: FloorIRBuilder) -> None:
-    """Phase 1.f: emit FloorGridOp (Perlin-displaced wobbly grid
-    overlay, fixed seed 41 per legacy)."""
-    from nhc.rendering._floor_layers import _emit_floor_grid_ir
-    _emit_floor_grid_ir(builder)
-
-
-def emit_floor_detail(builder: FloorIRBuilder) -> None:
-    """Phase 1.g: emit FloorDetailOp with pre-rendered room/corridor
-    groups (Phase 1 transitional; Phase 4 refactors to per-tile
-    structured ops when porting to Rust)."""
-    from nhc.rendering._floor_layers import _emit_floor_detail_ir
-    _emit_floor_detail_ir(builder)
-
-
-def emit_thematic_detail(builder: FloorIRBuilder) -> None:
-    """Phase 4 sub-step 4.b: emit ThematicDetailOp with the
-    floor-tile candidate set + per-tile wall-corner bitmap. The
-    dispatcher drives the painter from the IR (Python today,
-    Rust at sub-step 4.e)."""
-    from nhc.rendering._floor_layers import _emit_thematic_detail_ir
-    _emit_thematic_detail_ir(builder)
-
-
-def emit_terrain_detail(builder: FloorIRBuilder) -> None:
-    """Phase 1.h: emit TerrainDetailOp with pre-rendered room/corridor
-    groups (water / lava / chasm decorators)."""
-    from nhc.rendering._floor_layers import _emit_terrain_detail_ir
-    _emit_terrain_detail_ir(builder)
-
-
-def emit_stairs(builder: FloorIRBuilder) -> None:
-    """Phase 1.i: emit StairsOp (per-tile up/down stair markers)."""
-    from nhc.rendering._floor_layers import _emit_stairs_ir
-    _emit_stairs_ir(builder)
-
-
-def emit_surface_features(builder: FloorIRBuilder) -> None:
-    """Phase 1.j stub — starter fixtures produce no surface features.
-    Future fixtures with wells / fountains / vegetation will need
-    proper emit + handler."""
-    from nhc.rendering._floor_layers import _emit_surface_features_ir
-    _emit_surface_features_ir(builder)
-
-
-# Pipeline order mirrors design/map_ir.md §18 (and §6 layer order).
-# `emit_regions` is a foundation stage; the remaining nine each
-# correspond to one entry in `_floor_layers.FLOOR_LAYERS`.
-IR_STAGES: tuple[Callable[[FloorIRBuilder], None], ...] = (
-    emit_regions,
-    emit_shadows,
-    emit_hatch,
-    emit_walls_and_floors,
-    # Phase 8.4: site-surface composite overlays. Inserts into the
-    # `structural` layer dispatch *after* WallsAndFloorsOp so the
-    # paint order is WallsAndFloorsOp -> RoofOp -> EnclosureOp on
-    # site IRs (no-op for non-site IRs).
-    emit_site_overlays,
-    # Phase 8.5: building-floor composite overlays. Same shape as
-    # 8.4 but for level == building.floors[j]; emits Building
-    # region + interior + exterior wall ops.
-    emit_building_overlays,
-    emit_terrain_tints,
-    emit_floor_grid,
-    emit_floor_detail,
-    emit_thematic_detail,
-    emit_terrain_detail,
-    emit_stairs,
-    emit_surface_features,
-)
-
-
 # ── Public entry ────────────────────────────────────────────────
 
 
@@ -1428,16 +1099,18 @@ def build_floor_ir(
 ) -> bytes:
     """Build a ``FloorIR`` FlatBuffer for ``level``.
 
-    Mirrors :func:`nhc.rendering.svg.render_floor_svg` parameter for
-    parameter so 1.k can call ``ir_to_svg(build_floor_ir(...))`` as a
-    drop-in replacement for the legacy renderer.
+    Three region-registration passes populate ``builder.regions``:
 
-    ``site`` (Phase 8.4) wires the site-surface composite overlay
-    pass: when ``level is site.surface`` the emitter registers the
-    Site + per-Building regions and emits the matching ``RoofOp`` /
-    ``EnclosureOp`` ops. Passing a non-matching ``site`` (or
-    ``None``) is a no-op — the gameplay dungeon / cave / building
-    floors ride through unchanged.
+    - :func:`emit_regions` — dungeon / cave / corridor / room
+      regions (always runs).
+    - :func:`emit_site_overlays` — site / building / enclosure
+      regions (fires when ``level is site.surface``).
+    - :func:`emit_building_overlays` — per-building region (fires
+      when ``level.building_id`` matches one of ``site.buildings``).
+
+    :meth:`FloorIRBuilder.finish` then walks the v5 emit pipeline
+    (:mod:`nhc.rendering.emit`) which reads ``builder.regions`` and
+    ``builder.site`` directly to produce the canonical op stream.
     """
     ctx = build_render_context(
         level,
@@ -1450,11 +1123,6 @@ def build_floor_ir(
         vegetation=vegetation,
     )
     builder = FloorIRBuilder(ctx)
-    # Site context fires either of two emit-overlay stages:
-    #   - emit_site_overlays  when level is site.surface (Phase 8.4)
-    #   - emit_building_overlays when level is one of
-    #     site.buildings[i].floors[j] (Phase 8.5)
-    # Both stages are no-ops when builder.site stays None.
     if site is not None:
         is_surface = level is getattr(site, "surface", None)
         is_building_floor = (
@@ -1465,12 +1133,6 @@ def build_floor_ir(
         )
         if is_surface or is_building_floor:
             builder.site = site
-    # Schema-5 cut: only ``emit_regions`` runs to populate
-    # ``builder.regions`` for the v5 emit pipeline. The remaining
-    # IR_STAGES entries emit v4 op tables that no longer exist in
-    # the schema; they ride along as dead code until 4.3c retires
-    # them. Site / building region overlays still need to fire so
-    # the v5 emit picks up Building / Enclosure regions.
     emit_regions(builder)
     if builder.site is not None:
         emit_site_overlays(builder)
