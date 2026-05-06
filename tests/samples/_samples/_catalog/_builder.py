@@ -25,14 +25,20 @@ from nhc.rendering.emit.materials import (
     wall_material_palisade, wall_material_partition,
     wall_material_plain_stroke,
 )
+from nhc.rendering.ir._fb.Anchor import AnchorT
 from nhc.rendering.ir._fb.Cut import CutT
 from nhc.rendering.ir._fb.CutStyle import CutStyle
+from nhc.rendering.ir._fb.FixtureOp import FixtureOpT
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
 from nhc.rendering.ir._fb.Op import Op
 from nhc.rendering.ir._fb.OpEntry import OpEntryT
 from nhc.rendering.ir._fb.PaintOp import PaintOpT
+from nhc.rendering.ir._fb.PathOp import PathOpT
 from nhc.rendering.ir._fb.Region import RegionT
+from nhc.rendering.ir._fb.RoofOp import RoofOpT
+from nhc.rendering.ir._fb.StampOp import StampOpT
 from nhc.rendering.ir._fb.StrokeOp import StrokeOpT
+from nhc.rendering.ir._fb.TileCoord import TileCoordT
 from nhc.rendering.ir._fb.Vec2 import Vec2T
 from nhc.rendering.ir_emitter import (
     _FILE_IDENTIFIER, _SCHEMA_MAJOR, _SCHEMA_MINOR,
@@ -467,6 +473,210 @@ def wall_factory(
     return factory
 
 
+# ── Roof / Fixture / Stamp / Path factory helpers ───────────────
+
+
+def _wrap_roof(op: RoofOpT) -> OpEntryT:
+    e = OpEntryT()
+    e.opType = Op.RoofOp
+    e.op = op
+    return e
+
+
+def _wrap_fixture(op: FixtureOpT) -> OpEntryT:
+    e = OpEntryT()
+    e.opType = Op.FixtureOp
+    e.op = op
+    return e
+
+
+def _wrap_stamp(op: StampOpT) -> OpEntryT:
+    e = OpEntryT()
+    e.opType = Op.StampOp
+    e.op = op
+    return e
+
+
+def _wrap_path(op: PathOpT) -> OpEntryT:
+    e = OpEntryT()
+    e.opType = Op.PathOp
+    e.op = op
+    return e
+
+
+def make_anchor(
+    *,
+    x: int, y: int,
+    variant: int = 0, orientation: int = 0,
+    scale: int = 0, group_id: int = 0,
+) -> AnchorT:
+    a = AnchorT()
+    a.x = x
+    a.y = y
+    a.variant = variant
+    a.orientation = orientation
+    a.scale = scale
+    a.pad0 = 0
+    a.groupId = group_id
+    return a
+
+
+def make_tile_coord(x: int, y: int) -> TileCoordT:
+    t = TileCoordT()
+    t.x = x
+    t.y = y
+    return t
+
+
+def cell_tile_bounds(col_idx: int, row_idx: int) -> tuple[int, int, int, int]:
+    """Tile-space bounds (tx0, ty0, tx1, ty1) of the cell at
+    ``(col, row)``. Inclusive lower bound, exclusive upper bound.
+    """
+    x0, y0, x1, y1 = cell_bbox(col_idx, row_idx)
+    return (
+        x0 // CELL,
+        y0 // CELL,
+        (x1 + CELL - 1) // CELL,
+        (y1 + CELL - 1) // CELL,
+    )
+
+
+def cell_center_tile(col_idx: int, row_idx: int) -> tuple[int, int]:
+    """Tile-space (x, y) at the centre of the cell at ``(col, row)``."""
+    tx0, ty0, tx1, ty1 = cell_tile_bounds(col_idx, row_idx)
+    return ((tx0 + tx1) // 2, (ty0 + ty1) // 2)
+
+
+def roof_factory(*, style: int, tone: int = 0):
+    """Column op_factory emitting a base PaintOp (Plain) + RoofOp.
+
+    The RoofOp consumes the cell's region outline; pairing it with
+    a Plain base fill gives a clear roof silhouette.
+    """
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(
+            page_seed, col_idx, row_idx, style, tone,
+        )
+        op = RoofOpT()
+        op.regionRef = region_id
+        op.style = style
+        op.tone = tone
+        op.tint = ""
+        op.seed = seed
+        return [
+            _make_paint_op(region_id, material_plain(seed=seed)),
+            _wrap_roof(op),
+        ]
+    return factory
+
+
+def fixture_factory(
+    *,
+    kind: int,
+    variant: int = 0,
+    orientation: int = 0,
+    scale: int = 0,
+    base: "Callable[[], Any] | None" = None,
+):
+    """Column op_factory emitting a base PaintOp + FixtureOp with
+    one anchor at the cell centre.
+    """
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(
+            page_seed, col_idx, row_idx, kind, variant,
+        )
+        cx, cy = cell_center_tile(col_idx, row_idx)
+        anchor = make_anchor(
+            x=cx, y=cy,
+            variant=variant, orientation=orientation, scale=scale,
+        )
+        fop = FixtureOpT()
+        fop.regionRef = region_id
+        fop.kind = kind
+        fop.anchors = [anchor]
+        fop.seed = seed
+
+        base_material = (
+            base() if base is not None else material_plain(seed=seed)
+        )
+        return [
+            _make_paint_op(region_id, base_material),
+            _wrap_fixture(fop),
+        ]
+    return factory
+
+
+def stamp_factory(
+    *,
+    decorator_mask: int,
+    density: int = 128,
+    base: "Callable[[], Any] | None" = None,
+):
+    """Column op_factory emitting a base PaintOp + StampOp.
+
+    ``decorator_mask`` is a bitmask of decorator bits (1 << 0 =
+    GridLines, 1 << 1 = Cracks, etc. — matching the Rust ``bit::``
+    constants in ``transform/png/stamp_op.rs``).
+    """
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(
+            page_seed, col_idx, row_idx, decorator_mask, density,
+        )
+        sop = StampOpT()
+        sop.regionRef = region_id
+        sop.subtractRegionRefs = []
+        sop.decoratorMask = decorator_mask
+        sop.density = density
+        sop.seed = seed
+
+        base_material = (
+            base() if base is not None else material_plain(seed=seed)
+        )
+        return [
+            _make_paint_op(region_id, base_material),
+            _wrap_stamp(sop),
+        ]
+    return factory
+
+
+def path_factory(
+    *,
+    style: int,
+    base: "Callable[[], Any] | None" = None,
+):
+    """Column op_factory emitting a base PaintOp + PathOp.
+
+    The path tiles are picked from the cell's middle row (a
+    horizontal stripe through the cell centre) so cart-tracks /
+    ore-vein renders as a clear horizontal path inside the cell.
+    """
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(
+            page_seed, col_idx, row_idx, style,
+        )
+        tx0, ty0, tx1, ty1 = cell_tile_bounds(col_idx, row_idx)
+        mid_y = (ty0 + ty1) // 2
+        # Inset 1 tile from each side so the path doesn't sit on
+        # the cell edge — visually clearer.
+        tiles = [
+            make_tile_coord(tx, mid_y) for tx in range(tx0 + 1, tx1 - 1)
+        ]
+        pop = PathOpT()
+        pop.regionRef = region_id
+        pop.tiles = tiles
+        pop.style = style
+        pop.seed = seed
+
+        base_material = (
+            base() if base is not None else material_plain(seed=seed)
+        )
+        return [
+            _make_paint_op(region_id, base_material),
+            _wrap_path(pop),
+        ]
+    return factory
+
+
 # ── Sample-spec registration helper ──────────────────────────────
 
 
@@ -512,5 +722,9 @@ __all__ = [
     "earth_factory", "liquid_factory", "special_factory",
     "cave_factory", "plain_factory",
     "wall_factory", "make_cut",
+    "roof_factory", "fixture_factory",
+    "stamp_factory", "path_factory",
+    "make_anchor", "make_tile_coord",
+    "cell_tile_bounds", "cell_center_tile",
     "register_catalog_page",
 ]
