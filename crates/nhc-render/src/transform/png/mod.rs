@@ -24,6 +24,7 @@ use crate::painter::{Painter, SkiaPainter};
 // Per-op raster handlers — one module per Op kind.
 pub mod fixture_op;
 pub mod hatch_op;
+pub mod masonry;
 pub mod paint_op;
 pub mod path_op;
 pub mod region_path;

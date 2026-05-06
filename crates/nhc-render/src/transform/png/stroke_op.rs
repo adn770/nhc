@@ -59,6 +59,33 @@ fn treatment_stroke_width(treatment: WallTreatment) -> f32 {
     }
 }
 
+/// Walk an Outline's vertex list into a (closed) polygon-pair list.
+/// Returns ``None`` when the outline carries fewer than 3 vertices
+/// or no vertices at all.
+fn outline_polygon(outline: &crate::ir::Outline<'_>) -> Option<Vec<(f32, f32)>> {
+    let verts = outline.vertices()?;
+    if verts.len() < 3 {
+        return None;
+    }
+    let mut out: Vec<(f32, f32)> = Vec::with_capacity(verts.len());
+    for i in 0..verts.len() {
+        let v = verts.get(i);
+        out.push((v.x(), v.y()));
+    }
+    // Drop a trailing duplicate if the source carries the closing
+    // vertex inline (Shapely-style closed rings).
+    if out.len() >= 2 {
+        let last = out.len() - 1;
+        if (out[0].0 - out[last].0).abs() < 1e-6
+            && (out[0].1 - out[last].1).abs() < 1e-6
+        {
+            out.truncate(last);
+        }
+    }
+    if out.len() < 3 { None } else { Some(out) }
+}
+
+
 pub fn draw<'a>(
     op: StrokeOp<'a>,
     regions: Vector<'a, ForwardsUOffset<Region<'a>>>,
@@ -79,15 +106,30 @@ pub fn draw<'a>(
         Some(o) => o,
         None => return false,
     };
-    let (path, _multi) = match outline_to_path(&outline) {
-        Some(p) => p,
-        None => return false,
-    };
     let wm = match op.wall_material() {
         Some(m) => m,
         None => return false,
     };
     let family = family_from_fb(wm.family());
+
+    // Per-treatment dispatch — Masonry pulls a running-bond stone
+    // chain rendered by `super::masonry::render_masonry_polygon`;
+    // the rest fall through to the simple shadow-color stroke.
+    if wm.treatment() == WallTreatment::Masonry {
+        if let Some(polygon) = outline_polygon(&outline) {
+            super::masonry::render_masonry_polygon(
+                &polygon, family, wm.style(), wm.seed(), painter,
+            );
+            return true;
+        }
+        // Fall through to plain stroke if the outline can't
+        // resolve to a closed polygon (e.g. open partition lines).
+    }
+
+    let (path, _multi) = match outline_to_path(&outline) {
+        Some(p) => p,
+        None => return false,
+    };
     let color = substance_color(family, wm.style(), wm.tone(), PaletteRole::Shadow);
     let paint = Paint::solid(color);
     let stroke = Stroke::solid(treatment_stroke_width(wm.treatment()));
@@ -206,7 +248,7 @@ mod tests {
         (painter.calls.into_iter().next().unwrap(),)
     }
 
-    /// Stroke colour pulls the family's `Shadow` palette. With a
+    /// PlainStroke pulls the family's `Shadow` palette. With a
     /// Stone family at style=0 (Cobblestone), the shadow colour is
     /// the cobblestone mortar (`#9A8A7A`).
     #[test]
@@ -214,7 +256,7 @@ mod tests {
         let buf = build_stroke_op_with_region(
             MaterialFamily::Stone,
             0,
-            WallTreatment::Masonry,
+            WallTreatment::PlainStroke,
         );
         let (call,) = paint_for(&buf);
         let expected = stone::palette(0).shadow;
@@ -226,15 +268,16 @@ mod tests {
         }
     }
 
-    /// Per-treatment stroke widths must be distinct so the dispatch
-    /// is observable on rendered output even before each treatment's
-    /// drawing algorithm lands.
+    /// Per-treatment stroke widths must be distinct for treatments
+    /// that still flow through the plain-stroke fallback (everything
+    /// except Masonry, which now ports a running-bond stone chain).
+    /// Polish 4b–4d will narrow the iteration further as each
+    /// treatment's drawing algorithm lands.
     #[test]
-    fn each_treatment_picks_a_distinct_stroke_width() {
+    fn plain_stroke_treatments_pick_distinct_stroke_widths() {
         let mut seen = Vec::new();
         for treatment in [
             WallTreatment::PlainStroke,
-            WallTreatment::Masonry,
             WallTreatment::Partition,
             WallTreatment::Palisade,
             WallTreatment::Fortification,
@@ -259,18 +302,19 @@ mod tests {
     }
 
     /// Different families produce distinct stroke colours for the
-    /// same treatment — pins the substance-driven palette dispatch.
+    /// same PlainStroke treatment — pins the substance-driven
+    /// palette dispatch.
     #[test]
     fn different_families_produce_distinct_stroke_colors() {
         let stone_buf = build_stroke_op_with_region(
             MaterialFamily::Stone,
             0,
-            WallTreatment::Masonry,
+            WallTreatment::PlainStroke,
         );
         let wood_buf = build_stroke_op_with_region(
             MaterialFamily::Wood,
             0,
-            WallTreatment::Masonry,
+            WallTreatment::PlainStroke,
         );
         let (stone_call,) = paint_for(&stone_buf);
         let (wood_call,) = paint_for(&wood_buf);
@@ -283,5 +327,85 @@ mod tests {
             _ => panic!(),
         };
         assert_ne!(stone_color, wood_color);
+    }
+
+    /// Masonry treatment paints a running-bond chain of rounded-rect
+    /// stones (one per stone, two strips per edge) — far more
+    /// FillPath calls than the trivial single-stroke baseline.
+    #[test]
+    fn masonry_treatment_emits_running_bond_stone_chain() {
+        let buf = build_stroke_op_with_region(
+            MaterialFamily::Stone,
+            crate::transform::png::masonry::STONE_BRICK_STYLE,
+            WallTreatment::Masonry,
+        );
+        let fir = root_as_floor_ir(&buf).expect("parse");
+        let regions = fir.regions().expect("regions");
+        let op = fir.ops().expect("ops").get(0)
+            .op_as_stroke_op().expect("stroke op");
+        let mut painter = MockPainter::default();
+        assert!(draw(op, regions, &mut painter));
+        // Rect outline 64×64 with WALL_THICKNESS=8 gives a running-
+        // bond chain of ~5 stones × 2 strips × 4 edges. Pin a soft
+        // floor (≥ 16 fill calls) rather than an exact count so
+        // per-stone-width jitter doesn't flip the test.
+        let fill_calls = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillPath(_, _, _)))
+            .count();
+        assert!(
+            fill_calls >= 16,
+            "expected ≥ 16 stone fills for a 4-edge polygon, got {fill_calls}"
+        );
+    }
+
+    /// Masonry stones pull the family-style palette base for fill
+    /// and shadow for seam.
+    #[test]
+    fn masonry_stone_fill_and_seam_match_family_palette() {
+        use crate::painter::material::{substance_color, PaletteRole};
+        let buf = build_stroke_op_with_region(
+            MaterialFamily::Stone,
+            crate::transform::png::masonry::STONE_BRICK_STYLE,
+            WallTreatment::Masonry,
+        );
+        let fir = root_as_floor_ir(&buf).expect("parse");
+        let regions = fir.regions().expect("regions");
+        let op = fir.ops().expect("ops").get(0)
+            .op_as_stroke_op().expect("stroke op");
+        let mut painter = MockPainter::default();
+        draw(op, regions, &mut painter);
+        let fill_color = substance_color(
+            Family::Stone,
+            crate::transform::png::masonry::STONE_BRICK_STYLE,
+            0,
+            PaletteRole::Base,
+        );
+        let seam_color = substance_color(
+            Family::Stone,
+            crate::transform::png::masonry::STONE_BRICK_STYLE,
+            0,
+            PaletteRole::Shadow,
+        );
+        let mut saw_fill = false;
+        let mut saw_seam = false;
+        for call in &painter.calls {
+            match call {
+                PainterCall::FillPath(_, paint, _) => {
+                    if paint.color == fill_color {
+                        saw_fill = true;
+                    }
+                }
+                PainterCall::StrokePath(_, paint, _) => {
+                    if paint.color == seam_color {
+                        saw_seam = true;
+                    }
+                }
+                _ => {}
+            }
+        }
+        assert!(saw_fill, "no FillPath with Stone:Brick base color");
+        assert!(saw_seam, "no StrokePath with Stone:Brick shadow color");
     }
 }
