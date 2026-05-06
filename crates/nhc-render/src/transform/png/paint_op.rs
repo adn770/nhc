@@ -167,11 +167,20 @@ mod tests {
         let mut painter = MockPainter::default();
         let painted = super::draw(op, regions, &mut painter);
         assert!(painted, "draw should succeed for a valid op");
-        assert_eq!(painter.calls.len(), 1, "wood family stub emits 1 fill_path");
-        match &painter.calls[0] {
-            PainterCall::FillPath(_, _, _) => {}
-            other => panic!("expected FillPath, got {other:?}"),
-        }
+        // Wood family dispatch paints the (species, tone) base fill
+        // plus per-sub-pattern decoration (Phase 2.3a–d). Pin the
+        // smoke contract by asserting the base fill_path lands; the
+        // sub-pattern stamp counts are pinned per-sub-pattern in
+        // `painter::families::wood::tests`.
+        assert!(
+            !painter.calls.is_empty(),
+            "wood family dispatch must emit at least one painter call",
+        );
+        let has_fill_path = painter
+            .calls
+            .iter()
+            .any(|c| matches!(c, PainterCall::FillPath(_, _, _)));
+        assert!(has_fill_path, "wood family dispatch must emit a base fill_path");
     }
 
     /// Phase 2.1 — end-to-end pixel parity for the Plain family
