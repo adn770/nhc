@@ -41,6 +41,8 @@ from nhc.rendering.v5_emit.shadow import emit_shadows, translate_shadow_ops
 from nhc.rendering.v5_emit.stamp import emit_stamps, translate_stamp_ops
 from nhc.rendering.v5_emit.stroke import translate_stroke_ops
 from nhc.rendering.v5_emit.thematic_detail import (
+    emit_loose_stones,
+    emit_thematic_details,
     translate_floor_detail_loose_stones,
     translate_thematic_detail_ops,
 )
@@ -49,9 +51,11 @@ __all__ = [
     "emit_all",
     "emit_fixtures",
     "emit_hatches",
+    "emit_loose_stones",
     "emit_paths",
     "emit_regions",
     "emit_stamps",
+    "emit_thematic_details",
     "emit_roofs",
     "emit_shadows",
     "translate_all",
@@ -88,8 +92,8 @@ def emit_all(builder: Any) -> tuple[list[Any], list[Any]]:
     v5_ops.extend(emit_stamps(builder))
     v5_ops.extend(emit_paths(builder))
     v5_ops.extend(emit_fixtures(builder))
-    v5_ops.extend(translate_thematic_detail_ops(builder.ops))
-    v5_ops.extend(translate_floor_detail_loose_stones(builder.ops))
+    v5_ops.extend(emit_thematic_details(builder))
+    v5_ops.extend(emit_loose_stones(builder))
     v5_ops.extend(emit_hatches(builder))
     return v5_regions, v5_ops
 
