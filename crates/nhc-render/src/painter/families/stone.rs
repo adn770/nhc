@@ -47,9 +47,14 @@
 //!   ~16 px cell hosts a 5-7-sided polygon with seed-jittered radii
 //!   so the stones read as fitted natural fieldstone.
 //!
-//! The remaining four Stone styles (Pinwheel, Hopscotch,
-//! CrazyPaving, Ashlar) keep their flat-fill behaviour; per-style
-//! lifts ride Phase 2.4f–2.4i follow-on commits.
+//! Pinwheel (style = 5, Phase 2.4f, no sub-patterns):
+//! - 5-stone pinwheel unit tiling. Each 16×16 unit hosts one 8×8
+//!   centre paver plus four perimeter rectangles (12×4 top, 4×12
+//!   right, 12×4 bottom, 4×12 left) rotating around the centre.
+//!
+//! The remaining three Stone styles (Hopscotch, CrazyPaving,
+//! Ashlar) keep their flat-fill behaviour; per-style lifts ride
+//! Phase 2.4g–2.4i follow-on commits.
 
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
@@ -168,8 +173,11 @@ pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, materi
         // FieldStone — irregular polygonal hewn stones, no
         // sub-patterns (Phase 2.4e).
         4 => paint_field_stone(painter, region_path, pal, material.seed),
+        // Pinwheel — 5-stone pinwheel unit tiling, no sub-patterns
+        // (Phase 2.4f).
+        5 => paint_pinwheel(painter, region_path, pal, material.seed),
         // Forward-compat sub-pattern values for unknown styles
-        // and the remaining 4 styles (Phase 2.4f–2.4i) fall back
+        // and the remaining 3 styles (Phase 2.4g–2.4i) fall back
         // to flat fill so silent loss-of-pattern is still a visible
         // floor rather than a magenta sentinel block.
         _ => fill_region(painter, region_path, pal.base),
@@ -864,6 +872,110 @@ fn paint_field_stone<P: Painter + ?Sized>(
     painter.pop_clip();
 }
 
+// ── Pinwheel (no sub-patterns) ─────────────────────────────────
+
+const PINWHEEL_GROUP_OPACITY: f32 = 0.9;
+const PINWHEEL_UNIT: f64 = 16.0;
+const PINWHEEL_PAD: f64 = 0.5;
+
+/// Pinwheel — 5-stone pinwheel unit tiling. Each 16 × 16 unit
+/// hosts one 8×8 centre paver plus four perimeter rectangles
+/// (12×4 top, 4×12 right, 12×4 bottom, 4×12 left) rotating around
+/// the centre like a windmill blade. Adjacent units alternate
+/// base / highlight by parity for two-tone variation.
+/// RNG-free — geometry is purely tile-derived.
+fn paint_pinwheel<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(PINWHEEL_GROUP_OPACITY);
+    let base_paint = Paint::solid(pal.base);
+    let highlight_paint = Paint::solid(pal.highlight);
+    let unit_x0 = (f64::from(x0) / PINWHEEL_UNIT).floor() * PINWHEEL_UNIT;
+    let unit_y0 = (f64::from(y0) / PINWHEEL_UNIT).floor() * PINWHEEL_UNIT;
+    let mut iy = 0_i32;
+    let mut ty = unit_y0;
+    while ty < f64::from(y1) {
+        let mut ix = 0_i32;
+        let mut tx = unit_x0;
+        while tx < f64::from(x1) {
+            let pick = if (ix + iy) & 1 == 0 {
+                &base_paint
+            } else {
+                &highlight_paint
+            };
+            // 5 stones per unit (A=top, B=right, C=bottom, D=left,
+            // E=centre); paddings shave 2*PAD from each axis to
+            // expose the mortar bed between stones.
+            // A — top-left horizontal arm (12×4)
+            painter.fill_rect(
+                Rect::new(
+                    (tx + PINWHEEL_PAD) as f32,
+                    (ty + PINWHEEL_PAD) as f32,
+                    (12.0 - 2.0 * PINWHEEL_PAD) as f32,
+                    (4.0 - 2.0 * PINWHEEL_PAD) as f32,
+                ),
+                pick,
+            );
+            // B — top-right vertical arm (4×12)
+            painter.fill_rect(
+                Rect::new(
+                    (tx + 12.0 + PINWHEEL_PAD) as f32,
+                    (ty + PINWHEEL_PAD) as f32,
+                    (4.0 - 2.0 * PINWHEEL_PAD) as f32,
+                    (12.0 - 2.0 * PINWHEEL_PAD) as f32,
+                ),
+                pick,
+            );
+            // C — bottom-right horizontal arm (12×4)
+            painter.fill_rect(
+                Rect::new(
+                    (tx + 4.0 + PINWHEEL_PAD) as f32,
+                    (ty + 12.0 + PINWHEEL_PAD) as f32,
+                    (12.0 - 2.0 * PINWHEEL_PAD) as f32,
+                    (4.0 - 2.0 * PINWHEEL_PAD) as f32,
+                ),
+                pick,
+            );
+            // D — bottom-left vertical arm (4×12)
+            painter.fill_rect(
+                Rect::new(
+                    (tx + PINWHEEL_PAD) as f32,
+                    (ty + 4.0 + PINWHEEL_PAD) as f32,
+                    (4.0 - 2.0 * PINWHEEL_PAD) as f32,
+                    (12.0 - 2.0 * PINWHEEL_PAD) as f32,
+                ),
+                pick,
+            );
+            // E — centre square (8×8)
+            painter.fill_rect(
+                Rect::new(
+                    (tx + 4.0 + PINWHEEL_PAD) as f32,
+                    (ty + 4.0 + PINWHEEL_PAD) as f32,
+                    (8.0 - 2.0 * PINWHEEL_PAD) as f32,
+                    (8.0 - 2.0 * PINWHEEL_PAD) as f32,
+                ),
+                pick,
+            );
+            tx += PINWHEEL_UNIT;
+            ix += 1;
+        }
+        ty += PINWHEEL_UNIT;
+        iy += 1;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -929,15 +1041,14 @@ mod tests {
         }
     }
 
-    /// Styles without lifted layouts (Phase 2.4f–2.4i: Pinwheel,
-    /// Hopscotch, CrazyPaving, Ashlar) still emit the flat-fill —
-    /// single fill_path per call. Cobblestone (0) + Brick (1) +
-    /// Flagstone (2) + OpusRomano (3) + FieldStone (4) lifted in
-    /// 2.4a–2.4e are excluded from this gate.
+    /// Styles without lifted layouts (Phase 2.4g–2.4i: Hopscotch,
+    /// CrazyPaving, Ashlar) still emit the flat-fill — single
+    /// fill_path per call. Styles 0–5 (Cobblestone through
+    /// Pinwheel) lifted in 2.4a–2.4f are excluded from this gate.
     #[test]
     fn non_lifted_styles_keep_flat_fill() {
         let path = one_tile_path();
-        for style in 5..9u8 {
+        for style in 6..9u8 {
             let expected = palette(style).base;
             let mut p = MockPainter::default();
             let m = Material::new(Family::Stone, style, 0, 0, 0xCAFE);
@@ -1088,6 +1199,50 @@ mod tests {
         paint(&mut a, &path, &Material::new(Family::Stone, 4, 0, 0, 333));
         paint(&mut b, &path, &Material::new(Family::Stone, 4, 0, 0, 7));
         assert_ne!(a.calls, b.calls, "seeds must diverge");
+    }
+
+    /// Pinwheel (style=5, no sub-patterns) wraps decoration in a
+    /// push_clip / pop_clip pair plus a balanced begin_group /
+    /// end_group envelope, and emits exactly 5 fill_rect stamps
+    /// per unit (4 perimeter arms + 1 centre square).
+    #[test]
+    fn pinwheel_emits_five_stones_per_unit_with_clip_envelope() {
+        let path = four_tile_path();
+        let mut p = MockPainter::default();
+        paint(
+            &mut p, &path,
+            &Material::new(Family::Stone, 5, 0, 0, 0xCAFE),
+        );
+        assert_eq!(count_pushed_clips(&p.calls), 1);
+        assert_eq!(count_begin_groups(&p.calls), 1);
+        // 128/16 = 8 units per side → 64 units × 5 stones = 320.
+        let rects = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+            .count();
+        assert_eq!(rects, 320, "expected 5 stones × 64 units = 320 fill_rect");
+        let strokes = p
+            .calls
+            .iter()
+            .filter(|c| {
+                matches!(c, PainterCall::StrokePath(_, _, _))
+                    || matches!(c, PainterCall::StrokeRect(_, _, _))
+            })
+            .count();
+        assert_eq!(strokes, 0, "Pinwheel must not stroke its stones");
+    }
+
+    /// Pinwheel is RNG-free — different seeds must produce
+    /// identical painter calls.
+    #[test]
+    fn pinwheel_is_seed_independent() {
+        let path = four_tile_path();
+        let mut a = MockPainter::default();
+        let mut b = MockPainter::default();
+        paint(&mut a, &path, &Material::new(Family::Stone, 5, 0, 0, 333));
+        paint(&mut b, &path, &Material::new(Family::Stone, 5, 0, 0, 7));
+        assert_eq!(a.calls, b.calls, "Pinwheel is RNG-free");
     }
 
     /// Forward-compat sub-pattern values for lifted styles
