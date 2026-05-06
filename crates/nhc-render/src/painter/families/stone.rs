@@ -36,10 +36,15 @@
 //!   with seed-jittered corners; the joint between plates is the
 //!   deep palette.shadow stroke.
 //!
-//! The remaining six Stone styles (OpusRomano, FieldStone,
-//! Pinwheel, Hopscotch, CrazyPaving, Ashlar) keep their flat-fill
-//! behaviour; per-style lifts ride Phase 2.4d–2.4i follow-on
-//! commits.
+//! OpusRomano (style = 3, Phase 2.4d, no sub-patterns):
+//! - Versailles pattern. Each 32 px tile splits into a 6×6
+//!   subsquare grid with four stones (one 4×4 paver + 2×4 + 2×2
+//!   + 4×2 trio); tile rotation is derived from tile coords so
+//!   the pattern reads as a coherent tessellation across tiles.
+//!
+//! The remaining five Stone styles (FieldStone, Pinwheel,
+//! Hopscotch, CrazyPaving, Ashlar) keep their flat-fill behaviour;
+//! per-style lifts ride Phase 2.4e–2.4i follow-on commits.
 
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
@@ -152,8 +157,11 @@ pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, materi
         },
         // Flagstone — single layout, no sub-patterns (Phase 2.4c).
         2 => paint_flagstone(painter, region_path, pal, material.seed),
+        // OpusRomano — Versailles pattern, no sub-patterns
+        // (Phase 2.4d).
+        3 => paint_opus_romano(painter, region_path, pal, material.seed),
         // Forward-compat sub-pattern values for unknown styles
-        // and the remaining 6 styles (Phase 2.4d–2.4i) fall back
+        // and the remaining 5 styles (Phase 2.4e–2.4i) fall back
         // to flat fill so silent loss-of-pattern is still a visible
         // floor rather than a magenta sentinel block.
         _ => fill_region(painter, region_path, pal.base),
@@ -695,6 +703,87 @@ fn paint_flagstone<P: Painter + ?Sized>(
     painter.pop_clip();
 }
 
+// ── OpusRomano (no sub-patterns) ───────────────────────────────
+
+const OPUS_ROMANO_GROUP_OPACITY: f32 = 0.85;
+const OPUS_ROMANO_TILE: f64 = 32.0;
+const OPUS_ROMANO_SUBDIVISIONS: i32 = 6;
+const OPUS_ROMANO_INSET: f64 = 0.5;
+/// Versailles-pattern 4-stone arrangement on a 6×6 subsquare grid:
+/// `(sub_x, sub_y, sub_w, sub_h)`. Lifted from the v4
+/// ``primitives/opus_romano.rs::STONES``.
+const OPUS_ROMANO_STONES: [(i32, i32, i32, i32); 4] = [
+    (0, 0, 4, 4),
+    (4, 0, 2, 4),
+    (0, 4, 2, 2),
+    (2, 4, 4, 2),
+];
+
+fn opus_romano_rotate(
+    sx: i32, sy: i32, sw: i32, sh: i32, n_quarter: i32,
+) -> (i32, i32, i32, i32) {
+    let mut s = (sx, sy, sw, sh);
+    let n = ((n_quarter % 4) + 4) % 4;
+    for _ in 0..n {
+        s = (OPUS_ROMANO_SUBDIVISIONS - s.1 - s.3, s.0, s.3, s.2);
+    }
+    s
+}
+
+/// OpusRomano — Versailles pattern. Each 32 px tile splits into a
+/// 6×6 subsquare grid with four stones arranged as one large
+/// 4×4 paver + a 2×4 + 2×2 + 4×2 trio. Tile rotation is derived
+/// from the tile coords (`(tx * 7 + ty * 13) % 4`) so adjacent
+/// tiles read as a single visually-coherent pattern. Stones
+/// alternate base / highlight by stone index for two-tone variation
+/// over a palette.shadow mortar bed. Algorithm spirit lifted from
+/// the v4 ``primitives/opus_romano.rs`` decorator.
+fn paint_opus_romano<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(OPUS_ROMANO_GROUP_OPACITY);
+    let sub = OPUS_ROMANO_TILE / f64::from(OPUS_ROMANO_SUBDIVISIONS);
+    let base_paint = Paint::solid(pal.base);
+    let highlight_paint = Paint::solid(pal.highlight);
+    let tile_x0 = (f64::from(x0) / OPUS_ROMANO_TILE).floor() * OPUS_ROMANO_TILE;
+    let tile_y0 = (f64::from(y0) / OPUS_ROMANO_TILE).floor() * OPUS_ROMANO_TILE;
+    let mut ty = tile_y0;
+    while ty < f64::from(y1) {
+        let mut tx = tile_x0;
+        while tx < f64::from(x1) {
+            let tile_ix = (tx / OPUS_ROMANO_TILE) as i32;
+            let tile_iy = (ty / OPUS_ROMANO_TILE) as i32;
+            let rotation = (tile_ix * 7 + tile_iy * 13).rem_euclid(4);
+            for (idx, &(sx, sy, sw, sh)) in OPUS_ROMANO_STONES.iter().enumerate() {
+                let (sx, sy, sw, sh) = opus_romano_rotate(sx, sy, sw, sh, rotation);
+                let xx = tx + f64::from(sx) * sub + OPUS_ROMANO_INSET;
+                let yy = ty + f64::from(sy) * sub + OPUS_ROMANO_INSET;
+                let w = f64::from(sw) * sub - 2.0 * OPUS_ROMANO_INSET;
+                let h = f64::from(sh) * sub - 2.0 * OPUS_ROMANO_INSET;
+                let pick = if idx & 1 == 0 { &base_paint } else { &highlight_paint };
+                painter.fill_rect(
+                    Rect::new(xx as f32, yy as f32, w as f32, h as f32),
+                    pick,
+                );
+            }
+            tx += OPUS_ROMANO_TILE;
+        }
+        ty += OPUS_ROMANO_TILE;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -760,15 +849,15 @@ mod tests {
         }
     }
 
-    /// Styles without lifted layouts (Phase 2.4d–2.4i: OpusRomano,
-    /// FieldStone, Pinwheel, Hopscotch, CrazyPaving, Ashlar) still
-    /// emit the flat-fill — single fill_path per call. Cobblestone
-    /// (0) + Brick (1) + Flagstone (2) lifted in 2.4a / 2.4b / 2.4c
-    /// are excluded from this gate.
+    /// Styles without lifted layouts (Phase 2.4e–2.4i: FieldStone,
+    /// Pinwheel, Hopscotch, CrazyPaving, Ashlar) still emit the
+    /// flat-fill — single fill_path per call. Cobblestone (0) +
+    /// Brick (1) + Flagstone (2) + OpusRomano (3) lifted in
+    /// 2.4a / 2.4b / 2.4c / 2.4d are excluded from this gate.
     #[test]
     fn non_lifted_styles_keep_flat_fill() {
         let path = one_tile_path();
-        for style in 3..9u8 {
+        for style in 4..9u8 {
             let expected = palette(style).base;
             let mut p = MockPainter::default();
             let m = Material::new(Family::Stone, style, 0, 0, 0xCAFE);
@@ -820,6 +909,52 @@ mod tests {
         paint(&mut a, &path, &Material::new(Family::Stone, 2, 0, 0, 333));
         paint(&mut b, &path, &Material::new(Family::Stone, 2, 0, 0, 7));
         assert_ne!(a.calls, b.calls, "seeds must diverge");
+    }
+
+    /// OpusRomano (style=3, no sub-patterns) wraps decoration in a
+    /// push_clip / pop_clip pair plus a balanced begin_group /
+    /// end_group envelope, and emits fill_rect stamps for the
+    /// Versailles-pattern stones (4 stones × N tiles).
+    #[test]
+    fn opus_romano_emits_versailles_stones_with_clip_envelope() {
+        let path = four_tile_path();
+        let mut p = MockPainter::default();
+        let m = Material::new(Family::Stone, 3, 0, 0, 0xCAFE);
+        paint(&mut p, &path, &m);
+        assert_eq!(count_pushed_clips(&p.calls), 1, "expected 1 push_clip");
+        assert_eq!(count_begin_groups(&p.calls), 1, "expected 1 begin_group");
+        // 4×4 tile region → 16 tiles × 4 stones = 64 fill_rect.
+        let rects = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+            .count();
+        assert_eq!(rects, 64, "expected 4 stones × 16 tiles = 64 fill_rect");
+        let strokes = p
+            .calls
+            .iter()
+            .filter(|c| {
+                matches!(c, PainterCall::StrokePath(_, _, _))
+                    || matches!(c, PainterCall::StrokeRect(_, _, _))
+            })
+            .count();
+        assert_eq!(strokes, 0, "OpusRomano must not stroke its stones");
+    }
+
+    /// OpusRomano rotation is derived from tile coords, not RNG —
+    /// the same region under different seeds must produce identical
+    /// painter calls (deterministic, RNG-free).
+    #[test]
+    fn opus_romano_is_seed_independent() {
+        let path = four_tile_path();
+        let mut a = MockPainter::default();
+        let mut b = MockPainter::default();
+        paint(&mut a, &path, &Material::new(Family::Stone, 3, 0, 0, 333));
+        paint(&mut b, &path, &Material::new(Family::Stone, 3, 0, 0, 7));
+        assert_eq!(
+            a.calls, b.calls,
+            "OpusRomano is RNG-free — different seeds must produce identical output",
+        );
     }
 
     /// Forward-compat sub-pattern values for lifted styles
