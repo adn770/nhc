@@ -5,12 +5,13 @@
 //! axes (Cobblestone × 4, Brick × 3, Ashlar × 2; the rest none).
 //! Per-style optional tone axis (typically Light / Medium / Dark).
 //!
-//! Phase 2.4a of `plans/nhc_pure_ir_v5_migration_plan.md`. The
+//! Phase 2.4a–b of `plans/nhc_pure_ir_v5_migration_plan.md`. The
 //! per-style palette is already locked (lifted from the v4 stone
-//! primitives); this commit adds the (style, sub_pattern) dispatch
-//! surface and ships all four Cobblestone sub-patterns as
-//! distinct layout algorithms over a shared palette:
+//! primitives); these commits add the (style, sub_pattern)
+//! dispatch surface and ship the per-sub-pattern layout algorithms
+//! for the two styles with sub-pattern axes:
 //!
+//! Cobblestone (style = 0, Phase 2.4a):
 //! - `Herringbone (0)` — thin rotated bricks alternating ±45° in
 //!   a chevron-interlock grid.
 //! - `Stack (1)` — square pavers in a uniform grid; deep mortar
@@ -22,10 +23,18 @@
 //!   region; each paver fills with the base / highlight palette
 //!   keyed off its tile-cell parity.
 //!
-//! The remaining eight Stone styles (Brick, Flagstone, OpusRomano,
+//! Brick (style = 1, Phase 2.4b):
+//! - `RunningBond (0)` — every brick a stretcher; rows offset by
+//!   half a brick-width for the classic half-bond stagger.
+//! - `EnglishBond (1)` — alternating courses of stretchers and
+//!   square headers, banded layers by row parity.
+//! - `FlemishBond (2)` — each row alternates stretcher + header
+//!   pairs; rows offset by half a (stretcher + header) unit.
+//!
+//! The remaining seven Stone styles (Flagstone, OpusRomano,
 //! FieldStone, Pinwheel, Hopscotch, CrazyPaving, Ashlar) keep
 //! their flat-fill behaviour; per-style sub-pattern lifts ride
-//! Phase 2.4b–2.4i follow-on commits.
+//! Phase 2.4c–2.4i follow-on commits.
 
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
@@ -116,27 +125,32 @@ pub(crate) fn palette(style: u8) -> StonePalette {
 }
 
 const COBBLE_GROUP_OPACITY: f32 = 0.85;
+const BRICK_GROUP_OPACITY: f32 = 0.9;
 
 pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, material: &Material) {
     let pal = palette(material.style);
-    // Cobblestone (style = 0) is the only style with sub-pattern
-    // layouts implemented in this commit. The remaining 8 styles
-    // keep the flat-fill stub from Phase 2.4 baseline; per-style
-    // lifts ride Phase 2.4b–2.4i follow-ons.
-    if material.style == 0 {
-        match material.sub_pattern {
+    match material.style {
+        // Cobblestone — 4 sub-patterns landed at Phase 2.4a.
+        0 => match material.sub_pattern {
             0 => paint_cobblestone_herringbone(painter, region_path, pal, material.seed),
             1 => paint_cobblestone_stack(painter, region_path, pal, material.seed),
             2 => paint_cobblestone_rubble(painter, region_path, pal, material.seed),
             3 => paint_cobblestone_mosaic(painter, region_path, pal, material.seed),
-            // Forward-compat sub-pattern values fall back to flat
-            // fill so silent loss-of-pattern is still a visible
-            // floor rather than a magenta sentinel block.
             _ => fill_region(painter, region_path, pal.base),
-        }
-        return;
+        },
+        // Brick — 3 bonds landed at Phase 2.4b.
+        1 => match material.sub_pattern {
+            0 => paint_brick_running_bond(painter, region_path, pal, material.seed),
+            1 => paint_brick_english_bond(painter, region_path, pal, material.seed),
+            2 => paint_brick_flemish_bond(painter, region_path, pal, material.seed),
+            _ => fill_region(painter, region_path, pal.base),
+        },
+        // Forward-compat sub-pattern values for unknown styles
+        // and the remaining 7 styles (Phase 2.4c–2.4i) fall back
+        // to flat fill so silent loss-of-pattern is still a visible
+        // floor rather than a magenta sentinel block.
+        _ => fill_region(painter, region_path, pal.base),
     }
-    fill_region(painter, region_path, pal.base);
 }
 
 // ── Cobblestone sub-pattern algorithms ─────────────────────────
@@ -421,6 +435,174 @@ fn paint_cobblestone_mosaic<P: Painter + ?Sized>(
     painter.pop_clip();
 }
 
+// ── Brick sub-pattern algorithms ───────────────────────────────
+
+const BRICK_W: f64 = 16.0;
+const BRICK_H: f64 = 6.0;
+const BRICK_GAP: f64 = 0.6;
+
+/// RunningBond — every brick is a stretcher (long side horizontal).
+/// Each row offset by half a brick-width for the classic
+/// half-bond stagger. Brick face fills with palette.base over a
+/// palette.shadow mortar bed.
+fn paint_brick_running_bond<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(BRICK_GROUP_OPACITY);
+    let row_h = BRICK_H + BRICK_GAP;
+    let col_w = BRICK_W + BRICK_GAP;
+    let base_paint = Paint::solid(pal.base);
+    let mut row = 0_i32;
+    let mut y = f64::from(y0);
+    while y < f64::from(y1) {
+        let row_offset = if (row & 1) == 0 { 0.0 } else { -BRICK_W * 0.5 };
+        let mut x = f64::from(x0) + row_offset - col_w;
+        while x < f64::from(x1) {
+            painter.fill_rect(
+                Rect::new(
+                    x as f32,
+                    y as f32,
+                    (BRICK_W - BRICK_GAP) as f32,
+                    (BRICK_H - BRICK_GAP) as f32,
+                ),
+                &base_paint,
+            );
+            x += col_w;
+        }
+        y += row_h;
+        row += 1;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
+/// EnglishBond — alternating courses: one row of stretchers (long
+/// side horizontal, palette.base) followed by one row of headers
+/// (square brick ends, palette.highlight). The classic English
+/// bond pattern reads as banded layers.
+fn paint_brick_english_bond<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(BRICK_GROUP_OPACITY);
+    let row_h = BRICK_H + BRICK_GAP;
+    let stretcher_w = BRICK_W + BRICK_GAP;
+    let header_w = BRICK_H + BRICK_GAP;
+    let base_paint = Paint::solid(pal.base);
+    let highlight_paint = Paint::solid(pal.highlight);
+    let mut row = 0_i32;
+    let mut y = f64::from(y0);
+    while y < f64::from(y1) {
+        if (row & 1) == 0 {
+            let mut x = f64::from(x0);
+            while x < f64::from(x1) {
+                painter.fill_rect(
+                    Rect::new(
+                        x as f32,
+                        y as f32,
+                        (BRICK_W - BRICK_GAP) as f32,
+                        (BRICK_H - BRICK_GAP) as f32,
+                    ),
+                    &base_paint,
+                );
+                x += stretcher_w;
+            }
+        } else {
+            let mut x = f64::from(x0);
+            while x < f64::from(x1) {
+                painter.fill_rect(
+                    Rect::new(
+                        x as f32,
+                        y as f32,
+                        (BRICK_H - BRICK_GAP) as f32,
+                        (BRICK_H - BRICK_GAP) as f32,
+                    ),
+                    &highlight_paint,
+                );
+                x += header_w;
+            }
+        }
+        y += row_h;
+        row += 1;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
+/// FlemishBond — each row alternates stretcher + header pairs;
+/// successive rows offset by half a (stretcher + header) unit so
+/// the headers form a vertical staggered grid through the wall.
+fn paint_brick_flemish_bond<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(BRICK_GROUP_OPACITY);
+    let row_h = BRICK_H + BRICK_GAP;
+    let unit_w = BRICK_W + BRICK_H + 2.0 * BRICK_GAP;
+    let base_paint = Paint::solid(pal.base);
+    let highlight_paint = Paint::solid(pal.highlight);
+    let mut row = 0_i32;
+    let mut y = f64::from(y0);
+    while y < f64::from(y1) {
+        let row_offset = if (row & 1) == 0 { 0.0 } else { -unit_w * 0.5 };
+        let mut x = f64::from(x0) + row_offset - unit_w;
+        while x < f64::from(x1) {
+            painter.fill_rect(
+                Rect::new(
+                    x as f32,
+                    y as f32,
+                    (BRICK_W - BRICK_GAP) as f32,
+                    (BRICK_H - BRICK_GAP) as f32,
+                ),
+                &base_paint,
+            );
+            let hx = x + BRICK_W + BRICK_GAP;
+            painter.fill_rect(
+                Rect::new(
+                    hx as f32,
+                    y as f32,
+                    (BRICK_H - BRICK_GAP) as f32,
+                    (BRICK_H - BRICK_GAP) as f32,
+                ),
+                &highlight_paint,
+            );
+            x += unit_w;
+        }
+        y += row_h;
+        row += 1;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -486,13 +668,15 @@ mod tests {
         }
     }
 
-    /// Non-Cobblestone styles still emit the flat-fill (single
-    /// fill_path per call). Per-style sub-pattern lifts ride
-    /// Phase 2.4b–2.4i follow-ons.
+    /// Styles without sub-pattern lifts (Phase 2.4c–2.4i: Flagstone,
+    /// OpusRomano, FieldStone, Pinwheel, Hopscotch, CrazyPaving,
+    /// Ashlar) still emit the flat-fill — single fill_path per
+    /// call. Cobblestone (0) + Brick (1) lifted in 2.4a / 2.4b are
+    /// excluded from this gate.
     #[test]
-    fn non_cobblestone_styles_keep_flat_fill() {
+    fn non_lifted_styles_keep_flat_fill() {
         let path = one_tile_path();
-        for style in 1..9u8 {
+        for style in 2..9u8 {
             let expected = palette(style).base;
             let mut p = MockPainter::default();
             let m = Material::new(Family::Stone, style, 0, 0, 0xCAFE);
@@ -507,16 +691,22 @@ mod tests {
         }
     }
 
-    /// Forward-compat sub-pattern values for Cobblestone fall back
-    /// to flat fill rather than emitting a magenta sentinel.
+    /// Forward-compat sub-pattern values for lifted styles
+    /// (Cobblestone, Brick) fall back to flat fill rather than
+    /// emitting a magenta sentinel.
     #[test]
-    fn cobblestone_unknown_sub_pattern_falls_back_to_flat_fill() {
+    fn lifted_styles_unknown_sub_pattern_falls_back_to_flat_fill() {
         let path = one_tile_path();
-        let mut p = MockPainter::default();
-        let m = Material::new(Family::Stone, 0, 99, 0, 0xCAFE);
-        paint(&mut p, &path, &m);
-        assert_eq!(p.calls.len(), 1);
-        assert!(matches!(p.calls[0], PainterCall::FillPath(_, _, _)));
+        for style in [0u8, 1u8] {
+            let mut p = MockPainter::default();
+            let m = Material::new(Family::Stone, style, 99, 0, 0xCAFE);
+            paint(&mut p, &path, &m);
+            assert_eq!(p.calls.len(), 1, "style {style}");
+            assert!(
+                matches!(p.calls[0], PainterCall::FillPath(_, _, _)),
+                "style {style}",
+            );
+        }
     }
 
     fn count_pushed_clips(calls: &[PainterCall]) -> usize {
@@ -643,5 +833,107 @@ mod tests {
                 "sub_pattern {sub}: different seeds must diverge",
             );
         }
+    }
+
+    /// Every Brick sub-pattern wraps decoration in a push_clip /
+    /// pop_clip pair plus a balanced begin_group / end_group
+    /// envelope. Mirrors the Cobblestone gate for Phase 2.4b.
+    #[test]
+    fn every_brick_sub_pattern_emits_clip_and_group_envelopes() {
+        let path = four_tile_path();
+        for sub in 0..3u8 {
+            let mut p = MockPainter::default();
+            let m = Material::new(Family::Stone, 1, sub, 0, 0xCAFE);
+            paint(&mut p, &path, &m);
+            assert_eq!(
+                count_pushed_clips(&p.calls),
+                1,
+                "brick sub_pattern {sub}: expected 1 push_clip",
+            );
+            assert_eq!(
+                count_begin_groups(&p.calls),
+                1,
+                "brick sub_pattern {sub}: expected 1 begin_group",
+            );
+            let pops = p
+                .calls
+                .iter()
+                .filter(|c| matches!(c, PainterCall::PopClip))
+                .count();
+            let ends = p
+                .calls
+                .iter()
+                .filter(|c| matches!(c, PainterCall::EndGroup))
+                .count();
+            assert_eq!(pops, 1, "brick sub_pattern {sub}: expected 1 pop_clip");
+            assert_eq!(ends, 1, "brick sub_pattern {sub}: expected 1 end_group");
+        }
+    }
+
+    /// Every Brick sub-pattern emits its bricks via fill_rect
+    /// stamps over the mortar fill_path (exactly one fill_path for
+    /// the mortar bed, no stroke_path / fill_polygon stamps). Pin
+    /// the call shape so future algorithm tweaks don't accidentally
+    /// switch to stroked outlines.
+    #[test]
+    fn brick_sub_patterns_emit_only_fill_rect_decoration() {
+        let path = four_tile_path();
+        for sub in 0..3u8 {
+            let mut p = MockPainter::default();
+            paint(
+                &mut p, &path,
+                &Material::new(Family::Stone, 1, sub, 0, 0xCAFE),
+            );
+            let rects = p
+                .calls
+                .iter()
+                .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+                .count();
+            let strokes = p
+                .calls
+                .iter()
+                .filter(|c| {
+                    matches!(c, PainterCall::StrokePath(_, _, _))
+                        || matches!(c, PainterCall::StrokeRect(_, _, _))
+                })
+                .count();
+            assert!(
+                rects > 10,
+                "brick sub_pattern {sub}: expected many fill_rect bricks, got {rects}",
+            );
+            assert_eq!(
+                strokes, 0,
+                "brick sub_pattern {sub}: expected no stroke calls",
+            );
+        }
+    }
+
+    /// The three Brick bonds emit distinct stamp counts on the same
+    /// region — RunningBond uses uniform stretchers, EnglishBond
+    /// alternates row sizes (header rows pack more bricks),
+    /// FlemishBond pairs stretcher + header per cell. Pin that no
+    /// two bonds collapse to identical output.
+    #[test]
+    fn brick_sub_patterns_diverge_across_bonds() {
+        let path = four_tile_path();
+        let count_rects = |sub: u8| -> usize {
+            let mut p = MockPainter::default();
+            paint(
+                &mut p, &path,
+                &Material::new(Family::Stone, 1, sub, 0, 0xCAFE),
+            );
+            p.calls
+                .iter()
+                .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+                .count()
+        };
+        let running = count_rects(0);
+        let english = count_rects(1);
+        let flemish = count_rects(2);
+        // All three counts must differ pairwise — the bond layouts
+        // produce visibly distinct masonry.
+        assert_ne!(running, english, "RunningBond vs EnglishBond identical count");
+        assert_ne!(running, flemish, "RunningBond vs FlemishBond identical count");
+        assert_ne!(english, flemish, "EnglishBond vs FlemishBond identical count");
     }
 }
