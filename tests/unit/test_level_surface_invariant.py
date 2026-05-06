@@ -102,7 +102,7 @@ _ALL_GENERATORS: list[tuple[str, _BuildFn]] = [
     ("site:town:city", _town("city")),
     ("dungeon:bsp", _bsp),
     ("dungeon:cellular", _cellular),
-    ("template:tower", _template("procedural:tower")),
+    ("template:tower", _template("procedural:radial")),
     ("template:crypt", _template("procedural:crypt")),
     ("template:mine", _template("procedural:mine")),
     ("theme:cave", _theme("cave")),

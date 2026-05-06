@@ -34,8 +34,8 @@ class StructuralTemplate:
 # ── Template registry ──────────────────────────────────────────
 
 TEMPLATES: dict[str, StructuralTemplate] = {
-    "procedural:tower": StructuralTemplate(
-        name="procedural:tower",
+    "procedural:radial": StructuralTemplate(
+        name="procedural:radial",
         base_generator="bsp",
         preferred_shapes=["circle", "octagon"],
         layout_strategy="radial",

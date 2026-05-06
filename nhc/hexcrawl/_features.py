@@ -252,7 +252,7 @@ def _template_for(feature: HexFeatureType) -> str:
         HexFeatureType.CAVE: "procedural:cave",
         HexFeatureType.HOLE: "procedural:cave",
         HexFeatureType.RUIN: "procedural:ruin",
-        HexFeatureType.TOWER: "procedural:tower",
+        HexFeatureType.TOWER: "procedural:radial",
         HexFeatureType.GRAVEYARD: "procedural:crypt",
         # Keep hexes now route through the keep site assembler
         # (see site_kind mapping below); the template string is

@@ -22,12 +22,12 @@ class TestStructuralTemplate:
         assert t.theme == "dungeon"
 
     def test_registry_has_known_templates(self):
-        assert "procedural:tower" in TEMPLATES
+        assert "procedural:radial" in TEMPLATES
         assert "procedural:crypt" in TEMPLATES
         assert "procedural:mine" in TEMPLATES
 
     def test_tower_template_properties(self):
-        t = TEMPLATES["procedural:tower"]
+        t = TEMPLATES["procedural:radial"]
         assert t.base_generator == "bsp"
         assert "circle" in t.preferred_shapes
         assert t.layout_strategy == "radial"
@@ -50,7 +50,7 @@ class TestStructuralTemplate:
 class TestApplyTemplate:
     def test_apply_overrides_room_size(self):
         params = GenerationParams()
-        tmpl = TEMPLATES["procedural:tower"]
+        tmpl = TEMPLATES["procedural:radial"]
         effective = apply_template(params, tmpl)
         assert effective.room_size.min == tmpl.room_size_override.min
         assert effective.room_size.max == tmpl.room_size_override.max
@@ -72,19 +72,19 @@ class TestApplyTemplate:
 
     def test_apply_sets_template_name(self):
         params = GenerationParams()
-        tmpl = TEMPLATES["procedural:tower"]
+        tmpl = TEMPLATES["procedural:radial"]
         effective = apply_template(params, tmpl)
-        assert effective.template == "procedural:tower"
+        assert effective.template == "procedural:radial"
 
     def test_apply_preserves_seed(self):
         params = GenerationParams(seed=42)
-        tmpl = TEMPLATES["procedural:tower"]
+        tmpl = TEMPLATES["procedural:radial"]
         effective = apply_template(params, tmpl)
         assert effective.seed == 42
 
     def test_apply_preserves_depth(self):
         params = GenerationParams(depth=3)
-        tmpl = TEMPLATES["procedural:tower"]
+        tmpl = TEMPLATES["procedural:radial"]
         effective = apply_template(params, tmpl)
         assert effective.depth == 3
 

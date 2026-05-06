@@ -50,7 +50,7 @@ class TestPipelineTemplateRouting:
         params = GenerationParams(
             width=80, height=40, depth=1, seed=99,
             shape_variety=1.0,
-            template="procedural:tower",
+            template="procedural:radial",
         )
         level = generate_level(params)
         assert isinstance(level, Level)

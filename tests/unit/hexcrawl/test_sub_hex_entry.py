@@ -644,7 +644,7 @@ def test_resolve_entry_macro_tower() -> None:
     sub = _sub_cell(
         major=HexFeatureType.TOWER,
         dungeon=DungeonRef(
-            template="procedural:tower", depth=1, site_kind="tower",
+            template="procedural:radial", depth=1, site_kind="tower",
         ),
     )
     route, kind, tier = resolve_sub_hex_entry(sub)

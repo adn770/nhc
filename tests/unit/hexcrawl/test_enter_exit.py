@@ -89,7 +89,7 @@ def test_dungeon_seed_different_for_different_coords() -> None:
 
 def test_dungeon_seed_different_for_different_templates() -> None:
     a = dungeon_seed(42, HexCoord(3, 5), "procedural:cave")
-    b = dungeon_seed(42, HexCoord(3, 5), "procedural:tower")
+    b = dungeon_seed(42, HexCoord(3, 5), "procedural:radial")
     assert a != b
 
 
@@ -222,11 +222,11 @@ async def test_tower_template_passes_through(tmp_path) -> None:
     applies StructuralTemplate overrides."""
     g = _make_game(tmp_path)
     _attach_feature(g, HexCoord(0, 0), HexFeatureType.TOWER,
-                    "procedural:tower")
+                    "procedural:radial")
     await g.enter_hex_feature()
     assert g.level is not None
     assert g.generation_params is not None
-    assert g.generation_params.template == "procedural:tower"
+    assert g.generation_params.template == "procedural:radial"
 
 
 @pytest.mark.asyncio

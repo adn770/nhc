@@ -57,7 +57,7 @@ def _attach_tower_site(g: Game, coord: HexCoord) -> None:
     cell = g.hex_world.cells[coord]
     cell.feature = HexFeatureType.TOWER
     cell.dungeon = DungeonRef(
-        template="procedural:tower",
+        template="procedural:radial",
         depth=1,
         site_kind="tower",
     )

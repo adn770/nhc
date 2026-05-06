@@ -134,9 +134,9 @@ CATALOG.extend([
 ])
 
 for _label, _template, _w, _h in [
-    ("tower", "procedural:tower", 60, 40),
-    ("crypt", "procedural:crypt", 80, 40),
-    ("mine",  "procedural:mine",  80, 40),
+    ("radial", "procedural:radial", 60, 40),
+    ("crypt",  "procedural:crypt",  80, 40),
+    ("mine",   "procedural:mine",   80, 40),
 ]:
     # Bind loop vars at definition time; lambda default args pin them.
     CATALOG.append(SampleSpec(

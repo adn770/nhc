@@ -3,7 +3,7 @@
 When a hex feature's DungeonRef carries site_kind = "tower", the
 game engine dispatches through assemble_site() and lands the
 player on the ground floor of the assembled tower Building
-instead of running the old procedural:tower template. Other
+instead of running the old procedural:radial template. Other
 site_kind values still flow through the template pipeline; this
 is the first live-routed kind.
 """
@@ -52,7 +52,7 @@ def _attach_tower_site(g: Game, coord: HexCoord) -> None:
     cell = g.hex_world.cells[coord]
     cell.feature = HexFeatureType.TOWER
     cell.dungeon = DungeonRef(
-        template="procedural:tower",
+        template="procedural:radial",
         depth=1,
         site_kind="tower",
     )
@@ -108,7 +108,7 @@ async def test_bare_dungeonref_without_site_kind_uses_old_path(
     cell = g.hex_world.cells[HexCoord(0, 0)]
     cell.feature = HexFeatureType.TOWER
     cell.dungeon = DungeonRef(
-        template="procedural:tower", depth=1,
+        template="procedural:radial", depth=1,
     )  # NOTE: no site_kind
     g.hex_player_position = HexCoord(0, 0)
     await g.enter_hex_feature()
@@ -116,7 +116,7 @@ async def test_bare_dungeonref_without_site_kind_uses_old_path(
     # generation_params untouched from a previous entry (likely None
     # on a fresh game).
     assert g.generation_params is not None
-    assert g.generation_params.template == "procedural:tower"
+    assert g.generation_params.template == "procedural:radial"
 
 
 @pytest.mark.asyncio

@@ -31,7 +31,7 @@ class TestDungeonRefExtensions:
 
     def test_site_kind_set(self):
         ref = DungeonRef(
-            template="procedural:tower", site_kind="tower",
+            template="procedural:radial", site_kind="tower",
         )
         assert ref.site_kind == "tower"
 

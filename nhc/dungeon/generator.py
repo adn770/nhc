@@ -34,7 +34,7 @@ class GenerationParams:
     water_features: bool = False
     multiple_stairs: bool = False
     shape_variety: float = 0.0  # 0.0 = all rect, 1.0 = all non-rect
-    template: str | None = None  # structural template, e.g. "procedural:tower"
+    template: str | None = None  # structural template, e.g. "procedural:radial"
     preferred_shapes: list[str] | None = None  # restrict shape selection
     layout_strategy: str = "default"  # room connectivity strategy
 

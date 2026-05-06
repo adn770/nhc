@@ -59,11 +59,11 @@ class TestGenerationParamsToDict:
         assert d["room_size"] == {"min": 3, "max": 8}
 
     def test_template_roundtrip(self):
-        params = GenerationParams(template="procedural:tower")
+        params = GenerationParams(template="procedural:radial")
         d = params.to_dict()
-        assert d["template"] == "procedural:tower"
+        assert d["template"] == "procedural:radial"
         restored = GenerationParams.from_dict(d)
-        assert restored.template == "procedural:tower"
+        assert restored.template == "procedural:radial"
 
     def test_template_default_none(self):
         params = GenerationParams()

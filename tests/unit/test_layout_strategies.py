@@ -135,7 +135,7 @@ class TestPipelineWithLayout:
 
         params = GenerationParams(
             width=60, height=40, depth=1, seed=42,
-            template="procedural:tower",
+            template="procedural:radial",
         )
         level = generate_level(params)
         assert len(level.rooms) >= 3

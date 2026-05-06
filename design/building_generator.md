@@ -420,7 +420,7 @@ name.
 - `StructuralTemplate` itself -- Building adds a sibling
   `BuildingTemplate` dataclass for per-floor params; sites
   get a `SiteTemplate` at the assembler level.
-- `procedural:tower`, `procedural:mine`, `procedural:crypt`
+- `procedural:radial`, `procedural:mine`, `procedural:crypt`
   -- these stay as single-`Level` generators. Towers as
   *sites* (this doc) are new and go through the site
   assembler, not the old template.
