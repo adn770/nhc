@@ -43,11 +43,18 @@ class BuildResult:
         site: Optional :class:`Site` reference for samples that
             wrap a site-level surface (settlements / sites/macro).
             Used by label extraction to reach buildings.
+        svg_post_process: Optional ``(svg_text) -> svg_text`` hook
+            applied unconditionally to the SVG before write (PNG
+            stays untouched). Catalog pages use this to inject
+            row / column ``<text>`` labels — distinct from the
+            opt-in ``--labels`` overlay which extracts metadata
+            from a source level.
     """
 
     buf: bytes
     level: Any | None = None
     site: Any | None = None
+    svg_post_process: Callable[[str], str] | None = None
 
 
 # Builders may return either raw bytes (no labels) or a
@@ -144,6 +151,10 @@ def write_sample(
     """
     if result is None or svg is None or png is None:
         result, svg, png = render_sample(spec, seed)
+    # Catalog SVG post-processing (row / column labels) — runs
+    # unconditionally so catalog pages always carry their axes.
+    if result.svg_post_process is not None:
+        svg = result.svg_post_process(svg)
     if inject_labels and result.level is not None:
         from ._labels import inject_labels as _inject
         svg = _inject(svg, result.level, site=result.site)

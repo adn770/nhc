@@ -51,6 +51,7 @@ from pathlib import Path
 # entries to the shared list.
 from tests.samples._samples import generators  # noqa: F401
 from tests.samples._samples import synthetic  # noqa: F401
+from tests.samples._samples import _catalog  # noqa: F401
 from tests.samples._samples._core import (
     CATALOG, SampleSpec, write_sample,
 )
