@@ -33,7 +33,7 @@ from typing import Any
 
 from nhc.rendering.v5_emit.fixture import emit_fixtures, translate_fixtures
 from nhc.rendering.v5_emit.hatch import emit_hatches, translate_hatch_ops
-from nhc.rendering.v5_emit.paint import translate_paint_ops
+from nhc.rendering.v5_emit.paint import emit_paints, translate_paint_ops
 from nhc.rendering.v5_emit.path import emit_paths, translate_path_ops
 from nhc.rendering.v5_emit.regions import emit_regions, translate_region
 from nhc.rendering.v5_emit.roof import emit_roofs, translate_roof_ops
@@ -52,6 +52,7 @@ __all__ = [
     "emit_fixtures",
     "emit_hatches",
     "emit_loose_stones",
+    "emit_paints",
     "emit_paths",
     "emit_regions",
     "emit_stamps",
@@ -86,7 +87,7 @@ def emit_all(builder: Any) -> tuple[list[Any], list[Any]]:
     v5_regions = emit_regions(builder)
     v5_ops: list[Any] = []
     v5_ops.extend(emit_shadows(builder))
-    v5_ops.extend(translate_paint_ops(builder.ops))
+    v5_ops.extend(emit_paints(builder))
     v5_ops.extend(translate_stroke_ops(builder.ops))
     v5_ops.extend(emit_roofs(builder))
     v5_ops.extend(emit_stamps(builder))
