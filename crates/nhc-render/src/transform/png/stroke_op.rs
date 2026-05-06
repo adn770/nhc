@@ -112,18 +112,30 @@ pub fn draw<'a>(
     };
     let family = family_from_fb(wm.family());
 
-    // Per-treatment dispatch — Masonry pulls a running-bond stone
-    // chain rendered by `super::masonry::render_masonry_polygon`;
-    // the rest fall through to the simple shadow-color stroke.
-    if wm.treatment() == WallTreatment::Masonry {
-        if let Some(polygon) = outline_polygon(&outline) {
+    // Per-treatment dispatch — Masonry / Palisade / Fortification
+    // pull dedicated drawing algorithms; the rest fall through to
+    // the simple shadow-color stroke.
+    let polygon = outline_polygon(&outline);
+    match (wm.treatment(), polygon.as_ref()) {
+        (WallTreatment::Masonry, Some(poly)) => {
             super::masonry::render_masonry_polygon(
-                &polygon, family, wm.style(), wm.seed(), painter,
+                poly, family, wm.style(), wm.seed(), painter,
             );
             return true;
         }
-        // Fall through to plain stroke if the outline can't
-        // resolve to a closed polygon (e.g. open partition lines).
+        (WallTreatment::Palisade, Some(poly)) => {
+            super::enclosure::render_palisade_polygon(
+                poly, op.cuts(), family, wm.style(), wm.seed(), painter,
+            );
+            return true;
+        }
+        (WallTreatment::Fortification, Some(poly)) => {
+            super::enclosure::render_fortification_polygon(
+                poly, op.cuts(), wm.corner_style(), painter,
+            );
+            return true;
+        }
+        _ => {}
     }
 
     let (path, _multi) = match outline_to_path(&outline) {
@@ -268,24 +280,16 @@ mod tests {
         }
     }
 
-    /// Per-treatment stroke widths must be distinct for treatments
-    /// that still flow through the plain-stroke fallback (everything
-    /// except Masonry, which now ports a running-bond stone chain).
-    /// Polish 4b–4d will narrow the iteration further as each
-    /// treatment's drawing algorithm lands.
+    /// PlainStroke and Partition still flow through the plain-stroke
+    /// fallback at distinct widths (1.5 vs 1.0). Polish 4d lifts
+    /// Partition to its own dressed thin-wall algorithm; until then
+    /// this gates the simple-stroke dispatch.
     #[test]
-    fn plain_stroke_treatments_pick_distinct_stroke_widths() {
+    fn plain_stroke_and_partition_pick_distinct_stroke_widths() {
         let mut seen = Vec::new();
-        for treatment in [
-            WallTreatment::PlainStroke,
-            WallTreatment::Partition,
-            WallTreatment::Palisade,
-            WallTreatment::Fortification,
-        ] {
+        for treatment in [WallTreatment::PlainStroke, WallTreatment::Partition] {
             let buf = build_stroke_op_with_region(
-                MaterialFamily::Stone,
-                0,
-                treatment,
+                MaterialFamily::Stone, 0, treatment,
             );
             let (call,) = paint_for(&buf);
             match call {
@@ -357,6 +361,63 @@ mod tests {
         assert!(
             fill_calls >= 16,
             "expected ≥ 16 stone fills for a 4-edge polygon, got {fill_calls}"
+        );
+    }
+
+    /// Palisade treatment paints circle posts (one per fill_circle
+    /// call) along the polygon edges. A 4-edge polygon at the test
+    /// dimensions emits dozens of posts.
+    #[test]
+    fn palisade_treatment_emits_circle_post_chain() {
+        let buf = build_stroke_op_with_region(
+            MaterialFamily::Wood,
+            0,
+            WallTreatment::Palisade,
+        );
+        let fir = root_as_floor_ir(&buf).expect("parse");
+        let regions = fir.regions().expect("regions");
+        let op = fir.ops().expect("ops").get(0)
+            .op_as_stroke_op().expect("stroke op");
+        let mut painter = MockPainter::default();
+        assert!(draw(op, regions, &mut painter));
+        let circle_calls = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillCircle(_, _, _, _)))
+            .count();
+        assert!(
+            circle_calls >= 8,
+            "expected ≥ 8 palisade post fills on a 4-edge polygon, got {circle_calls}"
+        );
+    }
+
+    /// Fortification treatment paints alternating crenel / merlon
+    /// rectangles along the polygon edges plus a corner shape per
+    /// vertex. A 4-edge polygon emits at least one fill_rect per
+    /// chain step + one per corner.
+    #[test]
+    fn fortification_treatment_emits_battlement_rects_and_corners() {
+        let buf = build_stroke_op_with_region(
+            MaterialFamily::Stone,
+            crate::transform::png::masonry::STONE_BRICK_STYLE,
+            WallTreatment::Fortification,
+        );
+        let fir = root_as_floor_ir(&buf).expect("parse");
+        let regions = fir.regions().expect("regions");
+        let op = fir.ops().expect("ops").get(0)
+            .op_as_stroke_op().expect("stroke op");
+        let mut painter = MockPainter::default();
+        assert!(draw(op, regions, &mut painter));
+        let rect_calls = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+            .count();
+        // 4-edge polygon (64×64) yields multiple battlement steps
+        // per edge plus 4 corner shapes — ≥ 8 fill_rect calls.
+        assert!(
+            rect_calls >= 8,
+            "expected ≥ 8 fortification fill_rects, got {rect_calls}"
         );
     }
 
