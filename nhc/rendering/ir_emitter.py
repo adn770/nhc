@@ -1016,6 +1016,40 @@ def emit_regions(builder: FloorIRBuilder) -> None:
                 shape_tag=region_prefix,
             )
 
+    # Stone-decorator regions — one ``Region(id="<prefix>.<i>")`` per
+    # disjoint cluster of pavement-style tiles, mirroring the terrain
+    # regions above. The matching ``emit_paints`` stone-decorator
+    # branch references each region directly so the Rust
+    # ``paint_op::draw`` handler (which silently drops empty
+    # ``region_ref`` PaintOps) gets a real outline to clip against.
+    # Without this, the keep courtyard's FLOOR + STREET tiles
+    # rendered as page-background cream because the cobble PaintOp
+    # was dropped at the consumer.
+    from nhc.rendering._floor_detail import (
+        _is_brick_tile, _is_cobble_tile, _is_field_overlay_tile,
+        _is_flagstone_tile, _is_opus_romano_tile,
+    )
+    from nhc.rendering._floor_layers import _collect_predicate_components
+    for predicate, region_prefix in (
+        (_is_cobble_tile, "paved"),
+        (_is_brick_tile, "brick"),
+        (_is_flagstone_tile, "flagstone"),
+        (_is_opus_romano_tile, "opus_romano"),
+        (_is_field_overlay_tile, "fieldstone"),
+    ):
+        components = _collect_predicate_components(
+            ctx.level, predicate, exclude=cave_tiles,
+        )
+        for i, cluster in enumerate(components):
+            coords = _terrain_cluster_coords(cluster)
+            if not coords or len(coords) < 4:
+                continue
+            builder.add_region(
+                id=f"{region_prefix}.{i}",
+                polygon=_coords_to_polygon(coords),
+                shape_tag=region_prefix,
+            )
+
 
 def emit_building_overlays(builder: FloorIRBuilder) -> None:
     """Building-floor composite overlays.

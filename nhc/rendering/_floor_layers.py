@@ -24,7 +24,7 @@ tile sets:
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.rendering._svg_helpers import _is_door
@@ -170,24 +170,22 @@ def _collect_cave_systems(
     return groups
 
 
-def _collect_terrain_systems(
-    level: Any, terrain: Terrain,
+def _collect_predicate_components(
+    level: Any,
+    predicate: Callable[[Any, int, int], bool],
     *,
     exclude: set[tuple[int, int]] | None = None,
 ) -> list[set[tuple[int, int]]]:
-    """Partition level tiles of ``terrain`` into disjoint connected
-    components.
+    """Partition tiles matching ``predicate(level, x, y)`` into disjoint
+    connected components.
 
-    Used by ``emit_regions`` to register one ``Region(id="<kind>.<i>")``
-    per disjoint cluster (water / lava / chasm / grass), and by
-    ``emit_paints`` to emit a corresponding ``PaintOp`` per cluster.
-    Mirrors :func:`_collect_cave_systems`'s pattern: build a 32-pixel
-    tile box per matching tile, union via Shapely, walk the resulting
-    geoms.
+    Generalisation of :func:`_collect_terrain_systems` for predicates
+    that aren't a single :class:`Terrain` value (e.g.
+    :func:`nhc.rendering._floor_detail._is_cobble_tile` keys on
+    ``surface_type ∈ {STREET, PAVED}``). Build a 32-pixel tile box per
+    matching tile, union via Shapely, walk the resulting geoms.
 
-    ``exclude`` (typically the cave-tile set) skips tiles already
-    owned by another region — water tiles inside a cave system stay
-    on the cave region.
+    ``exclude`` skips tiles already owned by another region.
     """
     excluded = exclude or set()
     tiles: set[tuple[int, int]] = set()
@@ -195,7 +193,7 @@ def _collect_terrain_systems(
         for x in range(level.width):
             if (x, y) in excluded:
                 continue
-            if level.tiles[y][x].terrain == terrain:
+            if predicate(level, x, y):
                 tiles.add((x, y))
     if not tiles:
         return []
@@ -235,6 +233,30 @@ def _collect_terrain_systems(
         if comp_tiles:
             groups.append(comp_tiles)
     return groups
+
+
+def _collect_terrain_systems(
+    level: Any, terrain: Terrain,
+    *,
+    exclude: set[tuple[int, int]] | None = None,
+) -> list[set[tuple[int, int]]]:
+    """Partition level tiles of ``terrain`` into disjoint connected
+    components.
+
+    Used by ``emit_regions`` to register one ``Region(id="<kind>.<i>")``
+    per disjoint cluster (water / lava / chasm / grass), and by
+    ``emit_paints`` to emit a corresponding ``PaintOp`` per cluster.
+    Thin wrapper over :func:`_collect_predicate_components`.
+
+    ``exclude`` (typically the cave-tile set) skips tiles already
+    owned by another region — water tiles inside a cave system stay
+    on the cave region.
+    """
+    return _collect_predicate_components(
+        level,
+        lambda lv, x, y: lv.tiles[y][x].terrain == terrain,
+        exclude=exclude,
+    )
 
 
 def _terrain_cluster_coords(

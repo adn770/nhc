@@ -76,10 +76,6 @@ def emit_paints(builder: Any) -> list[OpEntryT]:
         PillShape, RectShape, TempleShape,
     )
     from nhc.dungeon.model import Terrain
-    from nhc.rendering._floor_detail import (
-        _is_brick_tile, _is_cobble_tile, _is_field_overlay_tile,
-        _is_flagstone_tile, _is_opus_romano_tile,
-    )
     from nhc.rendering._floor_layers import (
         _collect_cave_systems, _collect_corridor_components,
         _collect_corridor_tiles,
@@ -103,12 +99,15 @@ def emit_paints(builder: Any) -> list[OpEntryT]:
             if isinstance(room.shape, CaveShape):
                 cave_region_rooms.add(idx)
 
-    # Pre-collect terrain region ids registered by emit_regions.
-    # Each "<kind>.<i>" in builder.regions corresponds to one
-    # disjoint cluster of WATER / LAVA / CHASM / GRASS tiles, and
-    # gets one PaintOp(Material(<family>:<style>)) here.
+    # Pre-collect terrain + stone-decorator region ids registered by
+    # ``_emit_floor_layers`` / ``emit_regions``. Each "<kind>.<i>" in
+    # builder.regions corresponds to one disjoint cluster (water /
+    # lava / chasm / grass / paved / brick / flagstone / opus_romano /
+    # fieldstone) and gets one PaintOp here.
     terrain_region_ids: dict[str, list[str]] = {
         "water": [], "lava": [], "chasm": [], "grass": [],
+        "paved": [], "brick": [], "flagstone": [],
+        "opus_romano": [], "fieldstone": [],
     }
     for region in builder.regions:
         rid = region.id
@@ -217,78 +216,28 @@ def emit_paints(builder: Any) -> list[OpEntryT]:
                     material=material_wood(seed=0),
                 )))
 
-    # 5. Stone-variant decorators — gated on the wood short-circuit
-    # in v4 emit (which returns before the decorator pass when
-    # interior_finish == "wood").
+    # 5. Stone-variant decorators — emit one PaintOp per disjoint
+    # ``<prefix>.<i>`` region registered by ``_emit_floor_layers``.
+    # Gated on the wood short-circuit (the v4 emit returns before the
+    # decorator pass when ``interior_finish == "wood"``).
     if not is_wood:
         deco_seed = ctx.seed + 333
-        cobble_hits = False
-        brick_hits = False
-        flagstone_hits = False
-        opus_romano_hits = False
-        field_stone_hits = False
-        for y in range(level.height):
-            for x in range(level.width):
-                if not cobble_hits and _is_cobble_tile(level, x, y):
-                    cobble_hits = True
-                if not brick_hits and _is_brick_tile(level, x, y):
-                    brick_hits = True
-                if not flagstone_hits and _is_flagstone_tile(level, x, y):
-                    flagstone_hits = True
-                if not opus_romano_hits and _is_opus_romano_tile(level, x, y):
-                    opus_romano_hits = True
-                if not field_stone_hits and _is_field_overlay_tile(level, x, y):
-                    field_stone_hits = True
-                if (
-                    cobble_hits and brick_hits and flagstone_hits
-                    and opus_romano_hits and field_stone_hits
-                ):
-                    break
-            if (
-                cobble_hits and brick_hits and flagstone_hits
-                and opus_romano_hits and field_stone_hits
-            ):
-                break
-
-        if cobble_hits:
-            result.append(_wrap(_make_paint_op(
-                region_ref="",
-                material=material_stone(
-                    style=STONE_COBBLESTONE,
-                    sub_pattern=STONE_COBBLE_HERRINGBONE,
-                    seed=deco_seed,
-                ),
-            )))
-        if brick_hits:
-            result.append(_wrap(_make_paint_op(
-                region_ref="",
-                material=material_stone(
-                    style=STONE_BRICK,
-                    sub_pattern=STONE_BRICK_RUNNING_BOND,
-                    seed=deco_seed,
-                ),
-            )))
-        if flagstone_hits:
-            result.append(_wrap(_make_paint_op(
-                region_ref="",
-                material=material_stone(
-                    style=STONE_FLAGSTONE, seed=deco_seed,
-                ),
-            )))
-        if opus_romano_hits:
-            result.append(_wrap(_make_paint_op(
-                region_ref="",
-                material=material_stone(
-                    style=STONE_OPUS_ROMANO, seed=deco_seed,
-                ),
-            )))
-        if field_stone_hits:
-            result.append(_wrap(_make_paint_op(
-                region_ref="",
-                material=material_stone(
-                    style=STONE_FIELDSTONE, seed=deco_seed,
-                ),
-            )))
+        for region_prefix, style, sub_pattern in (
+            ("paved", STONE_COBBLESTONE, STONE_COBBLE_HERRINGBONE),
+            ("brick", STONE_BRICK, STONE_BRICK_RUNNING_BOND),
+            ("flagstone", STONE_FLAGSTONE, 0),
+            ("opus_romano", STONE_OPUS_ROMANO, 0),
+            ("fieldstone", STONE_FIELDSTONE, 0),
+        ):
+            for rid in terrain_region_ids[region_prefix]:
+                result.append(_wrap(_make_paint_op(
+                    region_ref=rid,
+                    material=material_stone(
+                        style=style,
+                        sub_pattern=sub_pattern,
+                        seed=deco_seed,
+                    ),
+                )))
 
     return result
 
