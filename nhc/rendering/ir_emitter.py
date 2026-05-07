@@ -1025,8 +1025,20 @@ def emit_regions(builder: FloorIRBuilder) -> None:
     # Without this, the keep courtyard's FLOOR + STREET tiles
     # rendered as page-background cream because the cobble PaintOp
     # was dropped at the consumer.
+    # ``_is_field_overlay_tile`` is intentionally NOT in this list:
+    # the predicate fires on every ``Terrain.GRASS + SurfaceType.FIELD``
+    # tile, which is the entire countryside on a settlement. The v5
+    # ``paint_field_stone`` painter renders 100% coverage (greenish
+    # substrate fill + per-cell stone polygons), so wiring fieldstone
+    # into the predicate-based emit buried every settlement's grass
+    # under a moss-like tessellation. v4's reference handled FieldStone
+    # as a sparse 10% scattered-ellipse decorator, not a substrate;
+    # until the painter is reshaped to match that intent (or a more
+    # specific surface_type marker is introduced), settlements skip
+    # fieldstone region emission entirely and the FIELD tiles render
+    # as plain Earth Grass.
     from nhc.rendering._floor_detail import (
-        _is_brick_tile, _is_cobble_tile, _is_field_overlay_tile,
+        _is_brick_tile, _is_cobble_tile,
         _is_flagstone_tile, _is_opus_romano_tile,
     )
     from nhc.rendering._floor_layers import _collect_predicate_components
@@ -1035,7 +1047,6 @@ def emit_regions(builder: FloorIRBuilder) -> None:
         (_is_brick_tile, "brick"),
         (_is_flagstone_tile, "flagstone"),
         (_is_opus_romano_tile, "opus_romano"),
-        (_is_field_overlay_tile, "fieldstone"),
     ):
         components = _collect_predicate_components(
             ctx.level, predicate, exclude=cave_tiles,
