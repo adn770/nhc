@@ -19,6 +19,7 @@
 //! Surface authority: `design/map_ir_v4e.md` §7. When the design
 //! and this module diverge, the design wins.
 
+pub mod canvas;
 pub mod families;
 pub mod material;
 pub mod skia;
@@ -27,6 +28,7 @@ pub mod svg;
 #[cfg(test)]
 pub(crate) mod test_util;
 
+pub use canvas::{Canvas2DCtx, CanvasLineCap, CanvasLineJoin, CanvasPainter};
 pub use material::{paint_material, Family, Material, V5_MATERIAL_FALLBACK_COLOR};
 pub use skia::SkiaPainter;
 pub use svg::SvgPainter;
