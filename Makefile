@@ -61,3 +61,19 @@ rust-test:
 		{ echo "cargo not found — see CONTRIBUTING.md"; exit 1; }
 	@echo "==> cargo test (no PyO3 extension-module to keep linker honest)"
 	cargo test -p nhc-render
+
+# WASM bundle for the browser-side rendering path. The Flask
+# route ``/wasm/<path>`` (registered in nhc/web/app.py) serves
+# the bundle straight from ``crates/nhc-render-wasm/pkg/`` so
+# this target is the only step needed to refresh the
+# browser-loaded module after a Rust source change. The
+# generated ``pkg/`` directory is .gitignored and a missing
+# build falls through to a 404 → the JS dispatcher then warns
+# and falls back to PNG.
+.PHONY: wasm-build
+wasm-build:
+	@command -v wasm-pack >/dev/null || \
+		{ echo "wasm-pack not found — install with 'cargo install \
+wasm-pack'"; exit 1; }
+	@echo "==> wasm-pack build crates/nhc-render-wasm --target web"
+	wasm-pack build crates/nhc-render-wasm --target web

@@ -79,6 +79,23 @@ pub fn render_ir_to_canvas(
     Ok(vec![w, h])
 }
 
+/// Compute the destination canvas dims for an IR buffer + scale
+/// without rendering.
+///
+/// JS dispatchers call this before sizing the `<canvas>` element
+/// so the subsequent `render_ir_to_canvas` call has the correct
+/// destination dims (Canvas2D rendering clips to the existing
+/// canvas size). Returns `[width, height]` in CSS pixels.
+#[wasm_bindgen]
+pub fn ir_canvas_dims(
+    ir_bytes: &[u8],
+    scale: f32,
+) -> Result<Vec<u32>, JsValue> {
+    let (w, h) = nhc_render::transform::canvas::canvas_dims(ir_bytes, scale)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    Ok(vec![w, h])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

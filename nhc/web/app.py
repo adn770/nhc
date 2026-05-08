@@ -410,6 +410,30 @@ def create_app(
             _HEXTILES_DIR, relpath, max_age=60 * 60 * 24,
         )
 
+    # WASM bundle for the browser-side rendering path. Built by
+    # ``wasm-pack build crates/nhc-render-wasm --target web`` into
+    # ``crates/nhc-render-wasm/pkg/`` (see Phase 5.1 of the v5
+    # migration plan). We serve the bundle off the filesystem
+    # rather than copying into ``static/`` so the wasm-pack output
+    # tracks the latest cargo build automatically; the directory
+    # is ``.gitignored`` so a missing build falls through to 404
+    # and the JS dispatcher's "no module" branch warns + falls
+    # back to PNG. ``Cross-Origin-*`` headers stay loose because
+    # the bundle uses ``WebAssembly.instantiate`` from a
+    # same-origin fetch — no shared-array-buffer requirement.
+    _WASM_DIR = (
+        Path(__file__).resolve().parents[2]
+        / "crates" / "nhc-render-wasm" / "pkg"
+    )
+
+    @app.route("/wasm/<path:relpath>", methods=["GET"])
+    def wasm_bundle(relpath: str):
+        if not _WASM_DIR.is_dir():
+            abort(404)
+        return send_from_directory(
+            _WASM_DIR, relpath, max_age=60 * 5,
+        )
+
     _HELP_LANGS = ("en", "es", "ca")
 
     @app.route("/api/help/<lang>", methods=["GET"])

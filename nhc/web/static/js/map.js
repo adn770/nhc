@@ -295,8 +295,17 @@ const GameMap = {
       return;
     }
     if (mode === "wasm") {
-      console.warn("[setFloorURL] wasm render mode not implemented "
-                   + "yet (Phase 11); falling back to png");
+      try {
+        await this._loadFloorWASM(url + ".nir");
+        return;
+      } catch (err) {
+        // Phase 5.4 dispatcher errors fall back to PNG so a
+        // broken bundle / missing route doesn't strand the
+        // player on a blank screen during dev. Log once at
+        // warn so the regression surfaces.
+        console.warn("[setFloorURL] wasm path failed, falling "
+                     + "back to PNG:", err);
+      }
     }
     await this._loadFloorPNG(url + ".png");
   },
@@ -344,6 +353,23 @@ const GameMap = {
     } catch (err) {
       console.error("[setFloorURL] PNG path failed:", err);
     }
+  },
+
+  async _loadFloorWASM(url) {
+    // Phase 5.4 dispatcher entry. Imports the dispatcher
+    // module lazily so the (~150 KB gzipped) wasm bundle isn't
+    // requested when the page is in PNG / SVG mode. Throws on
+    // fetch / init / render failure — the caller in
+    // setFloorURL catches and falls back to PNG.
+    const mod = await import(
+      "/static/js/floor_ir_renderer.js?v="
+      + (document.querySelector('meta[name="static-version"]')
+         ?.getAttribute("content") || "0")
+    );
+    const { canvas, width, height } = await mod.fetchAndRender(url);
+    const container = document.getElementById("floor-svg");
+    container.replaceChildren(canvas);
+    this._installFloorDimensions(width, height, "WASM");
   },
 
   async _loadFloorSVG(url) {

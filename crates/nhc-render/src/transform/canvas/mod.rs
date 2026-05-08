@@ -57,6 +57,32 @@ impl std::fmt::Display for CanvasError {
 
 impl std::error::Error for CanvasError {}
 
+/// Compute the canvas dimensions a [`floor_ir_to_canvas`] call
+/// would produce for `(buf, scale)`.
+///
+/// JS dispatchers call this before sizing the destination
+/// canvas (Canvas2D rendering clips to whatever size the
+/// destination already has, so the canvas needs the right dims
+/// up front). Returns `(width, height)` in CSS pixels.
+pub fn canvas_dims(buf: &[u8], scale: f32) -> Result<(u32, u32), CanvasError> {
+    if buf.len() < 8 || !floor_ir_buffer_has_identifier(buf) {
+        return Err(CanvasError::InvalidBuffer(
+            "buffer does not carry the NIR5 file_identifier".to_string(),
+        ));
+    }
+    let fir = root_as_floor_ir(buf)
+        .map_err(|e| CanvasError::InvalidBuffer(e.to_string()))?;
+    let cell = fir.cell() as f32;
+    let padding = fir.padding() as f32;
+    let canvas_w = ((fir.width_tiles() as f32 * cell + 2.0 * padding) * scale)
+        .round()
+        .max(0.0) as u32;
+    let canvas_h = ((fir.height_tiles() as f32 * cell + 2.0 * padding) * scale)
+        .round()
+        .max(0.0) as u32;
+    Ok((canvas_w, canvas_h))
+}
+
 /// Render a `FloorIR` buffer onto a Canvas2D surface.
 ///
 /// `scale` multiplies the canvas dimensions; `1.0` matches the
@@ -380,6 +406,28 @@ mod tests {
         let restores = ops.iter().filter(|o| matches!(o, Op::Restore)).count();
         assert_eq!(saves, 1);
         assert_eq!(restores, 1);
+    }
+
+    #[test]
+    fn canvas_dims_matches_render_dims() {
+        // The pre-flight `canvas_dims` helper must agree with
+        // the dims returned by `floor_ir_to_canvas` so JS
+        // dispatchers can resize the destination once before
+        // rendering. 4 × 3 tiles, cell=32, padding=32, scale=1.5
+        // → canvas_w = (4*32 + 64) * 1.5 = 288, canvas_h = 240.
+        let buf = build_minimal_buf(4, 3);
+        let (dw, dh) = canvas_dims(&buf, 1.5).expect("dims succeed");
+        let ctx = RecCtx::new();
+        let (rw, rh) =
+            floor_ir_to_canvas(&buf, 1.5, None, false, &ctx).unwrap();
+        assert_eq!((dw, dh), (rw, rh));
+        assert_eq!((dw, dh), (288, 240));
+    }
+
+    #[test]
+    fn canvas_dims_rejects_invalid_buffer() {
+        let err = canvas_dims(&[0u8; 16], 1.0).unwrap_err();
+        assert!(matches!(err, CanvasError::InvalidBuffer(_)));
     }
 
     #[test]
