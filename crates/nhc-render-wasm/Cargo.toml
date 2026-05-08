@@ -44,12 +44,21 @@ wasm-bindgen = "0.2"
 # refuses to build for ``wasm32-unknown-unknown`` without the
 # ``js`` feature, since the wasm runtime has no OS RNG. The
 # ``js`` feature routes ``getrandom`` to the browser's
-# ``crypto.getRandomValues`` via web-sys. The dep is only
-# enabled when this crate compiles for wasm32 — host-side
-# ``cargo test`` builds use the OS-default getrandom backend
-# without pulling web-sys in.
+# ``crypto.getRandomValues`` via web-sys. ``web-sys`` carries
+# the per-feature gates needed by the Phase 5.3 ``WebCanvasCtx``
+# impl. Both deps are wasm32-only — host-side ``cargo test``
+# builds skip them entirely so the smoke / canvas tests run
+# without a browser.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
+web-sys = { version = "0.3", features = [
+    "CanvasRenderingContext2d",
+    "CanvasWindingRule",
+    "Document",
+    "Element",
+    "HtmlCanvasElement",
+    "Window",
+] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

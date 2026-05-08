@@ -127,6 +127,12 @@ pub trait Canvas2DCtx: Sized {
     /// `[a c e ; b d f ; 0 0 1]`. See trait docs for the
     /// per-component mapping.
     fn transform(&self, a: f64, b: f64, c: f64, d: f64, e: f64, f: f64);
+    /// Replace the current transform with the matrix
+    /// `[a c e ; b d f ; 0 0 1]` (absolute set, not post-
+    /// multiply). Used by `end_group` to drop down to identity
+    /// for the 1:1 offscreen blit, then `restore()` brings the
+    /// previous transform back. Mirrors Canvas2D `setTransform`.
+    fn set_transform(&self, a: f64, b: f64, c: f64, d: f64, e: f64, f: f64);
 
     fn set_fill_style(&self, css_color: &str);
     fn set_stroke_style(&self, css_color: &str);
@@ -262,7 +268,13 @@ pub struct CanvasPainter<'a, C: Canvas2DCtx> {
     height: u32,
     group_stack: Vec<GroupFrame<C>>,
     clip_depth: u32,
-    transform_depth: u32,
+    /// Cumulative transforms pushed via `push_transform`. Each
+    /// entry is the composed transform from the painter's base
+    /// surface down to that stack level. `begin_group` reads
+    /// `transform_stack.last()` and replays it onto the freshly
+    /// allocated offscreen so paints inside the group land at
+    /// the same canvas-pixel coordinates as on the base.
+    transform_stack: Vec<Transform>,
 }
 
 struct GroupFrame<C: Canvas2DCtx> {
@@ -281,7 +293,7 @@ impl<'a, C: Canvas2DCtx> CanvasPainter<'a, C> {
             height,
             group_stack: Vec::new(),
             clip_depth: 0,
-            transform_depth: 0,
+            transform_stack: Vec::new(),
         }
     }
 
@@ -291,7 +303,7 @@ impl<'a, C: Canvas2DCtx> CanvasPainter<'a, C> {
     pub fn is_balanced(&self) -> bool {
         self.group_stack.is_empty()
             && self.clip_depth == 0
-            && self.transform_depth == 0
+            && self.transform_stack.is_empty()
     }
 
     fn active_ctx(&self) -> &C {
@@ -440,6 +452,24 @@ impl<C: Canvas2DCtx> Painter for CanvasPainter<'_, C> {
     fn begin_group(&mut self, opacity: f32) {
         let active = self.active_ctx();
         let offscreen = active.create_offscreen(self.width, self.height);
+        // Replay the painter's cumulative transform onto the
+        // offscreen so paints inside the group land at the same
+        // canvas-pixel coordinates as they would on the base
+        // surface. Without this the offscreen sits at identity
+        // while the base still has the active push_transforms
+        // applied, and paints inside the group render at IR
+        // coords on the offscreen but blit back at the base's
+        // transformed origin — visible as a misaligned overlay.
+        if let Some(t) = self.transform_stack.last() {
+            offscreen.transform(
+                t.sx as f64,
+                t.ky as f64,
+                t.kx as f64,
+                t.sy as f64,
+                t.tx as f64,
+                t.ty as f64,
+            );
+        }
         self.group_stack.push(GroupFrame { offscreen, opacity });
     }
 
@@ -450,6 +480,12 @@ impl<C: Canvas2DCtx> Painter for CanvasPainter<'_, C> {
             .expect("end_group without matching begin_group");
         let dst = self.active_ctx();
         dst.save();
+        // Drop down to identity for the offscreen blit so the
+        // source image lands 1:1 at canvas pixel (0, 0)
+        // regardless of any push_transform currently active on
+        // the destination. The matching `restore` below brings
+        // the active transform back for subsequent paints.
+        dst.set_transform(1.0, 0.0, 0.0, 1.0, 0.0, 0.0);
         dst.set_global_alpha(frame.opacity as f64);
         dst.draw_image_at(&frame.offscreen, 0.0, 0.0);
         dst.restore();
@@ -474,6 +510,10 @@ impl<C: Canvas2DCtx> Painter for CanvasPainter<'_, C> {
     }
 
     fn push_transform(&mut self, t: Transform) {
+        let cumulative = match self.transform_stack.last() {
+            Some(top) => top.pre_concat(t),
+            None => t,
+        };
         let ctx = self.active_ctx();
         ctx.save();
         // Canvas2D `transform(a, b, c, d, e, f)` post-multiplies
@@ -488,13 +528,15 @@ impl<C: Canvas2DCtx> Painter for CanvasPainter<'_, C> {
             t.tx as f64,
             t.ty as f64,
         );
-        self.transform_depth += 1;
+        self.transform_stack.push(cumulative);
     }
 
     fn pop_transform(&mut self) {
         let ctx = self.active_ctx();
         ctx.restore();
-        self.transform_depth -= 1;
+        self.transform_stack
+            .pop()
+            .expect("pop_transform without matching push_transform");
     }
 }
 
@@ -526,6 +568,7 @@ mod tests {
         Clip,
         ClipEvenOdd,
         Transform(f64, f64, f64, f64, f64, f64),
+        SetTransform(f64, f64, f64, f64, f64, f64),
         SetFillStyle(String),
         SetStrokeStyle(String),
         SetLineWidth(f64),
@@ -645,6 +688,9 @@ mod tests {
         }
         fn transform(&self, a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) {
             self.record(Op::Transform(a, b, c, d, e, f));
+        }
+        fn set_transform(&self, a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) {
+            self.record(Op::SetTransform(a, b, c, d, e, f));
         }
         fn set_fill_style(&self, css: &str) {
             self.record(Op::SetFillStyle(css.to_string()));
@@ -837,13 +883,17 @@ mod tests {
         p.end_group();
         // Fill before begin_group hits ctx 0; fill inside the
         // group hits the offscreen ctx 1; end_group blits ctx 1
-        // back onto ctx 0 with globalAlpha 0.5.
+        // back onto ctx 0 inside a save / set_transform-identity
+        // / set_global_alpha / drawImage / restore envelope so
+        // the blit lands 1:1 regardless of any push_transform
+        // currently active on the destination.
         assert_eq!(
             ctx.ops_for(0),
             vec![
                 Op::SetFillStyle("rgb(255, 0, 0)".to_string()),
                 Op::FillRect(0.0, 0.0, 1.0, 1.0),
                 Op::Save,
+                Op::SetTransform(1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
                 Op::SetGlobalAlpha(0.5),
                 Op::DrawImage(1, 0.0, 0.0),
                 Op::Restore,
@@ -1092,6 +1142,73 @@ mod tests {
         p.fill_polygon(&[], &red(), FillRule::Winding);
         p.stroke_polyline(&[], &red(), &Stroke::solid(1.0));
         assert!(ctx.ops().is_empty());
+    }
+
+    #[test]
+    fn begin_group_propagates_active_transform_to_offscreen() {
+        // After push_transform, begin_group must replay the
+        // cumulative transform onto the new offscreen so paints
+        // inside the group land at the same canvas-pixel
+        // coordinates as paints on the base. Without this the
+        // offscreen sits at identity, paints inside the group
+        // render at IR coords, and the end_group blit lands at
+        // the wrong base position.
+        let ctx = RecCtx::new();
+        let mut p = CanvasPainter::new(&ctx, 32, 32);
+        p.push_transform(Transform::translate(10.0, 20.0));
+        p.begin_group(0.5);
+        p.end_group();
+        p.pop_transform();
+        // ctx 1 (the offscreen) should have received a Transform
+        // call mirroring the active push_transform — args
+        // formatted in Canvas2D order (sx, ky, kx, sy, tx, ty)
+        // for a pure translate(10, 20).
+        let inner = ctx.ops_for(1);
+        assert!(
+            inner.contains(&Op::Transform(1.0, 0.0, 0.0, 1.0, 10.0, 20.0)),
+            "expected offscreen to receive replayed transform, got {inner:?}",
+        );
+    }
+
+    #[test]
+    fn nested_push_transform_composes_cumulative_for_offscreen() {
+        // With two stacked push_transforms (translate(5, 0)
+        // outer + translate(0, 7) inner), a begin_group inside
+        // the inner scope should propagate the COMPOSED
+        // transform translate(5, 7) — not just the inner local
+        // — to the new offscreen. The painter tracks cumulative
+        // transforms in its stack; this test pins the composition.
+        let ctx = RecCtx::new();
+        let mut p = CanvasPainter::new(&ctx, 32, 32);
+        p.push_transform(Transform::translate(5.0, 0.0));
+        p.push_transform(Transform::translate(0.0, 7.0));
+        p.begin_group(1.0);
+        p.end_group();
+        p.pop_transform();
+        p.pop_transform();
+        let inner = ctx.ops_for(1);
+        assert!(
+            inner.contains(&Op::Transform(1.0, 0.0, 0.0, 1.0, 5.0, 7.0)),
+            "expected composed transform translate(5, 7), got {inner:?}",
+        );
+    }
+
+    #[test]
+    fn begin_group_without_active_transform_does_not_call_transform_on_offscreen() {
+        // Without any push_transform, begin_group should NOT
+        // emit a Transform call on the new offscreen — the
+        // offscreen starts at identity which already matches the
+        // base. Avoids paying for a no-op canvas state mutation
+        // on every group.
+        let ctx = RecCtx::new();
+        let mut p = CanvasPainter::new(&ctx, 32, 32);
+        p.begin_group(1.0);
+        p.end_group();
+        let inner = ctx.ops_for(1);
+        assert!(
+            !inner.iter().any(|op| matches!(op, Op::Transform(..))),
+            "expected no Transform call on offscreen, got {inner:?}",
+        );
     }
 
     #[test]

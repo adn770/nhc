@@ -1,15 +1,30 @@
 //! WASM bundle for NHC map rendering.
 //!
 //! Thin wrapper around [`nhc_render`] that exposes the rendering
-//! primitives to JavaScript via `wasm-bindgen`. Phase 5.1 ships
-//! only the crate skeleton + a smoke export that proves the
-//! wasm-pack pipeline round-trips end-to-end. The CanvasPainter
-//! impl (5.2), `transform/canvas/` op dispatcher (5.3), and JS
-//! dispatcher wiring (5.4) land in subsequent commits.
+//! primitives to JavaScript via `wasm-bindgen`. Two surfaces:
+//!
+//! - `splitmix64_next` — the Phase 5.1 smoke export proving the
+//!   wasm-pack pipeline round-trips end-to-end.
+//! - `render_ir_to_canvas` — the Phase 5.3 entry point that the
+//!   browser-side JS dispatcher in `nhc/web/static/js/` calls
+//!   when `NHC_RENDER_MODE=wasm` (Phase 5.4 wires this into
+//!   `setFloorURL`). Takes a FloorIR FlatBuffer + a
+//!   `CanvasRenderingContext2d` and dispatches every op against
+//!   a [`web_canvas::WebCanvasCtx`]-backed [`CanvasPainter`].
+//!
+//! The web-sys-touching surface (``WebCanvasCtx`` + the
+//! ``render_ir_to_canvas`` export) is gated behind
+//! ``cfg(target_arch = "wasm32")`` so native ``cargo test``
+//! builds skip both. Native unit tests cover the
+//! ``splitmix64_next`` logic + the entry-point dispatch in
+//! ``nhc_render::transform::canvas``.
 
 use wasm_bindgen::prelude::*;
 
 use nhc_render::rng::SplitMix64;
+
+#[cfg(target_arch = "wasm32")]
+pub mod web_canvas;
 
 /// Pull the next splitmix64 output for a given seed.
 ///
@@ -20,6 +35,48 @@ use nhc_render::rng::SplitMix64;
 #[wasm_bindgen]
 pub fn splitmix64_next(seed: u64) -> u64 {
     SplitMix64::from_seed(seed).next_u64()
+}
+
+/// Render a FloorIR FlatBuffer onto a Canvas2D context.
+///
+/// Mirrors the PNG entry point's signature on the wasm side so
+/// the JS dispatcher in `nhc/web/static/js/floor_ir_renderer.js`
+/// (Phase 5.4) can swap `setFloorURL`'s "fetch PNG, decode,
+/// draw" path for "fetch .nir, call render_ir_to_canvas". The
+/// caller is responsible for sizing the destination canvas to
+/// `(width_tiles * cell + 2 * padding) * scale` CSS pixels
+/// before invoking; the function does not touch the canvas
+/// dimensions, only the pixel content.
+///
+/// Returns the canvas dims (`[width, height]`) so the JS side
+/// can confirm the destination matched the IR's natural canvas
+/// size.
+///
+/// `layer` (when non-empty) filters dispatch to one of:
+/// `"shadows"`, `"hatching"`, `"structural"`, `"decorators"`,
+/// `"fixtures"`. `bare` (when `true`) elides the four
+/// decoration layers — mirrors the SVG `bare` flag for the web
+/// `/admin` debug visualisation.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn render_ir_to_canvas(
+    ir_bytes: &[u8],
+    ctx: &web_sys::CanvasRenderingContext2d,
+    scale: f32,
+    layer: Option<String>,
+    bare: bool,
+) -> Result<Vec<u32>, JsValue> {
+    let webctx = web_canvas::WebCanvasCtx::from_ctx(ctx.clone())?;
+    let layer_ref = layer.as_deref();
+    let (w, h) = nhc_render::transform::canvas::floor_ir_to_canvas(
+        ir_bytes,
+        scale,
+        layer_ref,
+        bare,
+        &webctx,
+    )
+    .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    Ok(vec![w, h])
 }
 
 #[cfg(test)]
