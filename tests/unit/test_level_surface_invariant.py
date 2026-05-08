@@ -123,6 +123,16 @@ _ALL_GENERATORS: list[tuple[str, _BuildFn]] = [
 _XFAIL: set[str] = set()
 
 
+# Site surfaces (``site:*``) opt out of the strict-VOID-buffer
+# contract: the perimeter ring that previously rendered as VOID
+# now paints as GRASS so the canvas reads "settlement in
+# countryside" rather than "framed art on paper". Renderable
+# content (grass tiles) extends to the canvas edge for these
+# entries. Dungeon / template / theme / building-floor levels
+# keep the strict invariant — they're framed by VOID by design.
+_RELAX_BBOX_TO_CANVAS_EDGE = ("site:",)
+
+
 @pytest.mark.parametrize("seed", [7, 42, 99])
 @pytest.mark.parametrize(
     "name,build", _ALL_GENERATORS,
@@ -145,19 +155,22 @@ def test_renderable_bbox_inside_surface(
     level, site = build(seed)
     bbox = compute_renderable_bbox(level, site)
     assert not bbox.empty, f"{name}@{seed}: empty renderable bbox"
-    assert bbox.min_x >= 1, (
-        f"{name}@{seed}: bbox.min_x={bbox.min_x} < 1"
+    relaxed = name.startswith(_RELAX_BBOX_TO_CANVAS_EDGE)
+    edge_x = level.width - 1 if relaxed else level.width - 2
+    edge_y = level.height - 1 if relaxed else level.height - 2
+    assert bbox.min_x >= 0 if relaxed else bbox.min_x >= 1, (
+        f"{name}@{seed}: bbox.min_x={bbox.min_x} < "
+        f"{0 if relaxed else 1}"
     )
-    assert bbox.min_y >= 1, (
-        f"{name}@{seed}: bbox.min_y={bbox.min_y} < 1"
+    assert bbox.min_y >= 0 if relaxed else bbox.min_y >= 1, (
+        f"{name}@{seed}: bbox.min_y={bbox.min_y} < "
+        f"{0 if relaxed else 1}"
     )
-    assert bbox.max_x <= level.width - 2, (
-        f"{name}@{seed}: bbox.max_x={bbox.max_x} > "
-        f"width-2={level.width - 2}"
+    assert bbox.max_x <= edge_x, (
+        f"{name}@{seed}: bbox.max_x={bbox.max_x} > {edge_x}"
     )
-    assert bbox.max_y <= level.height - 2, (
-        f"{name}@{seed}: bbox.max_y={bbox.max_y} > "
-        f"height-2={level.height - 2}"
+    assert bbox.max_y <= edge_y, (
+        f"{name}@{seed}: bbox.max_y={bbox.max_y} > {edge_y}"
     )
 
 

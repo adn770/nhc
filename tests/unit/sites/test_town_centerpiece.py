@@ -133,10 +133,10 @@ class TestCenterpiecePlacement:
 
 class TestCenterpiecePatchSurface:
     @pytest.mark.parametrize("size_class,patch_dim,feature_dim", [
-        ("hamlet", 3, 1),
-        ("village", 3, 1),
-        ("town", 4, 2),
-        ("city", 5, 3),
+        ("hamlet", 5, 1),
+        ("village", 5, 1),
+        ("town", 7, 2),
+        ("city", 11, 3),
     ])
     def test_patch_is_floor_and_street(
         self, size_class, patch_dim, feature_dim,

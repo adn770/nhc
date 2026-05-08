@@ -47,8 +47,8 @@ from nhc.dungeon.room_types import (
 )
 from nhc.sites._site import (
     Enclosure, InteriorDoorLink, Site, outside_neighbour,
-    paint_surface_doors, stamp_building_door,
-    stamp_building_door_on_floor,
+    paint_outer_grass_ring, paint_surface_doors,
+    stamp_building_door, stamp_building_door_on_floor,
 )
 from nhc.sites._placement import (
     safe_floor_near, smallest_leaf_door,
@@ -140,12 +140,20 @@ class _CenterpieceSpec:
     feature_cross: str | None = None
 
 
+# Centerpiece patch dimensions bumped across every size class so
+# the plaza around the well / fountain reads as a proper paved
+# square rather than a tight collar against the feature rim:
+#
+#   hamlet   3 → 5   (1-tile well + 2-tile apron)
+#   village  3 → 5   (1-tile well + 2-tile apron)
+#   town     4 → 7   (2-tile fountain + 2-3 tile apron)
+#   city     9 → 11  (3-tile fountain + 4-tile apron)
 _CENTERPIECE_PER_SIZE: dict[str, _CenterpieceSpec] = {
-    "hamlet": _CenterpieceSpec(1, 3, "well", "well_square"),
-    "village": _CenterpieceSpec(1, 3, "well", "well_square"),
-    "town": _CenterpieceSpec(2, 4, "fountain", "fountain_square"),
+    "hamlet": _CenterpieceSpec(1, 5, "well", "well_square"),
+    "village": _CenterpieceSpec(1, 5, "well", "well_square"),
+    "town": _CenterpieceSpec(2, 7, "fountain", "fountain_square"),
     "city": _CenterpieceSpec(
-        3, 5,
+        3, 11,
         "fountain_large",
         "fountain_large_square",
         feature_cross="fountain_cross",
@@ -223,6 +231,27 @@ class _TownSizeConfig:
     palisade_outer_width: int
     palisade_outer_height: int
     has_palisade: bool
+    # Enclosure stone vs wood — ``"palisade"`` (default) renders
+    # wood logs with a Wood family stroke; ``"fortification"``
+    # renders stone walls with a Stone family stroke (the keep
+    # treatment). Cities use fortification to read as the most
+    # urban / urbanised tier.
+    enclosure_kind: str = "palisade"
+    # Pave every walkable tile inside the enclosure (FIELD / GARDEN
+    # → STREET) so the city renders as a uniformly paved courtyard
+    # with buildings packed in. False for hamlet / village / town
+    # which keep open grass + garden patches between routed streets.
+    paved_courtyard: bool = False
+    # Width of the grass ring between the (palisade) outer rect
+    # and the canvas edge. ``1`` for hamlet (the existing 1-tile
+    # buffer that previously rendered as VOID — now grass). ``2``
+    # for the palisade-bearing tiers (village / town / city) so
+    # the wall sits on a 2-tile-deep grass apron with scattered
+    # vegetation. The palisade rect insets by ``ring`` from the
+    # canvas edge; surface dims stay at
+    # ``palisade_outer + 2`` so content packs tighter rather than
+    # the canvas growing.
+    grass_ring_width: int = 1
 
     @property
     def surface_width(self) -> int:
@@ -282,10 +311,18 @@ _SIZE_CLASSES: dict[str, _TownSizeConfig] = {
     # ``Level`` is ``palisade_outer + 2`` so the 1-tile VOID
     # margin contract holds — see
     # ``design/level_surface_layout.md``.
+    # Hamlet surface tightened from 56 × 52 → 56 × 40 so the
+    # 3-4 buildings + their immediate FIELD periphery read as a
+    # cozy isolated cluster rather than two cottages lost in a
+    # forest. Width stays at 56 to leave the cluster packer
+    # enough horizontal slack for two side-by-side clusters of
+    # the larger temple / inn-sized buildings (16×16 footprints
+    # still appear at the hamlet tier); height drops 12 tiles
+    # to crop the empty FIELD halo above and below the buildings.
     "hamlet": _TownSizeConfig(
         building_count_range=(3, 4),
         palisade_outer_width=56,
-        palisade_outer_height=52,
+        palisade_outer_height=40,
         has_palisade=False,
     ),
     "village": _TownSizeConfig(
@@ -293,32 +330,85 @@ _SIZE_CLASSES: dict[str, _TownSizeConfig] = {
         palisade_outer_width=72,
         palisade_outer_height=58,
         has_palisade=True,
+        grass_ring_width=2,
     ),
     "town": _TownSizeConfig(
         building_count_range=(8, 10),
         palisade_outer_width=88,
         palisade_outer_height=72,
         has_palisade=True,
+        grass_ring_width=2,
     ),
+    # City building count bumped progressively from (10, 13) →
+    # (14, 18) → (18, 22) → (40, 48) so the tier reads as a dense
+    # urban settlement, clearly distinct from the town predecessor.
+    # The street network branches per cluster anchor, so more
+    # buildings + more clusters naturally pull in more side streets
+    # without growing the spine logic. Surface dims stay at 104 × 86
+    # — the goal is "more packed", not "bigger area". Note: the
+    # cluster placer drops a few clusters per seed when the
+    # rejection sampling exhausts; the actual ``len(site.buildings)``
+    # observed across 50 seeds with the current packing settings
+    # falls in [34, 46], roughly doubling the previous (18, 22).
     "city": _TownSizeConfig(
-        building_count_range=(10, 13),
+        building_count_range=(40, 48),
         palisade_outer_width=104,
         palisade_outer_height=86,
         has_palisade=True,
+        enclosure_kind="fortification",
+        paved_courtyard=True,
+        grass_ring_width=2,
     ),
+}
+
+
+# Per-size street material (encoded as a ``(family, style,
+# sub_pattern)`` int triple). Mirrors ``MaterialFamily.Stone = 3``
+# and the style / sub-pattern constants in
+# ``nhc/rendering/emit/materials.py`` (``STONE_FIELDSTONE = 4``,
+# ``STONE_COBBLESTONE = 0`` + ``RUBBLE = 2``,
+# ``STONE_FLAGSTONE = 2``, ``STONE_BRICK = 1`` +
+# ``FLEMISH_BOND = 2``). Settlements stamp this onto
+# ``surface.metadata.street_material`` so the v5 emit pipeline
+# overrides the ``paved.*`` PaintOp material per size class. The
+# urbanisation gradient runs hamlet → city: rough natural fieldstone
+# at the smallest tier, refined bonded brick at the largest.
+_STREET_MATERIAL_BY_SIZE: dict[str, tuple[int, int, int]] = {
+    "hamlet": (3, 4, 0),    # Stone / FieldStone
+    "village": (3, 0, 2),   # Stone / Cobblestone / Rubble
+    "town": (3, 2, 0),      # Stone / Flagstone
+    "city": (3, 2, 0),      # Stone / Flagstone (paired with
+    # the Ashlar Staggered open pavement for a uniformly stone
+    # urban look — fortified, paved, dressed-stone city).
+}
+
+
+# Per-size open-courtyard pavement material — only the city tier
+# stamps ``SurfaceType.PAVEMENT`` (the post-pass that paves every
+# walkable tile outside the routed FlemishBond streets), so this
+# table is single-entry. Encoded as ``(family, style, sub_pattern)``
+# matching the constants in ``nhc/rendering/emit/materials.py``.
+_PAVEMENT_MATERIAL_BY_SIZE: dict[str, tuple[int, int, int]] = {
+    "city": (3, 8, 1),      # Stone / Ashlar / Staggered Joint
 }
 
 
 def _palisade_outer_rect(config: _TownSizeConfig) -> Rect:
     """Return the palisade outer rect in surface coords.
 
-    The rect lives at ``(1, 1)`` so the row/column at index 0 and
-    the row/column at the surface's max index stay VOID — that's
-    the 1-tile margin contract.
+    The rect insets by ``config.grass_ring_width`` from each
+    canvas edge so a grass apron sits between the wall and the
+    edge. Surface dims stay at ``palisade_outer + 2``; for a
+    ``ring=2`` settlement the actual palisade rect dims shrink
+    by 2 in each axis (the wall packs tighter rather than the
+    canvas growing).
     """
+    ring = config.grass_ring_width
+    inset = 2 * (ring - 1)
     return Rect(
-        1, 1,
-        config.palisade_outer_width, config.palisade_outer_height,
+        ring, ring,
+        config.palisade_outer_width - inset,
+        config.palisade_outer_height - inset,
     )
 
 
@@ -333,14 +423,16 @@ def _buildable_bounds(
     from the palisade outer rect by :data:`TOWN_PALISADE_PADDING`
     on every side. For non-palisade sites the buildable area is
     the full palisade-outer-sized rect: clusters spread within
-    the 1-tile VOID margin without a wall to step around.
+    the grass-ring margin without a wall to step around.
     """
-    pw = config.palisade_outer_width
-    ph = config.palisade_outer_height
+    pal = _palisade_outer_rect(config)
     if has_palisade:
         pad = TOWN_PALISADE_PADDING
-        return (1 + pad, 1 + pad, 1 + pw - pad, 1 + ph - pad)
-    return (1, 1, 1 + pw, 1 + ph)
+        return (
+            pal.x + pad, pal.y + pad,
+            pal.x2 - pad, pal.y2 - pad,
+        )
+    return (pal.x, pal.y, pal.x2, pal.y2)
 
 
 def assemble_town(
@@ -438,8 +530,17 @@ def assemble_town(
         site_id, rng, roles, sizes, cluster_plans,
         overrides=overrides,
     )
+    # Pair each placed building with its original role by index
+    # (the cluster packer can drop members at the dense city
+    # tier, so ``buildings`` is shorter than ``roles`` — a
+    # positional ``zip`` pairs the wrong role with the wrong
+    # building, giving stables the residential tag and vice
+    # versa). Building ids encode the original role index as the
+    # ``_b{i}`` suffix.
     role_assignments: dict[str, str] = {}
-    for b, role in zip(buildings, roles):
+    for b in buildings:
+        original_index = int(b.id.rsplit("_b", 1)[1])
+        role = roles[original_index]
         if role == "residential":
             continue
         role_assignments[b.id] = role
@@ -451,6 +552,7 @@ def assemble_town(
         enclosure = _build_palisade(
             _palisade_outer_rect(config), cluster_plans, rng,
             sides=gate_sides,
+            kind=config.enclosure_kind,
         )
     else:
         enclosure = None
@@ -513,6 +615,24 @@ def assemble_town(
     site.building_doors.update(door_map)
     site.cluster_plans = cluster_plans
     paint_surface_doors(site, SurfaceType.STREET)
+    if config.paved_courtyard:
+        # Cities pave their enclosure interior — every remaining
+        # GARDEN / FIELD tile inside the palisade rect becomes
+        # PAVEMENT so the courtyard renders as one paved surface
+        # (Ashlar Staggered via ``pavement_material``). Restricted
+        # to the palisade interior so the FIELD tiles in the
+        # outer grass ring (trees / bushes outside the wall)
+        # survive. Runs BEFORE the vegetation scatter so the
+        # subsequent pass sees inner-courtyard tiles as PAVEMENT
+        # (and skips them) while the outer ring stays FIELD and
+        # accepts the canopy.
+        _pave_courtyard_post_pass(surface, _palisade_outer_rect(config))
+    # Vegetation scatter walks every FIELD tile. After the
+    # ``_paint_outer_grass_ring`` step, the outer grass apron is
+    # FIELD too, so this pass also seeds trees / bushes outside
+    # the palisade — visible on every settlement size. Cities run
+    # the pave-courtyard pass above first, so only the outer ring
+    # remains FIELD when scatter walks the surface.
     _scatter_town_vegetation(
         site, cluster_plans, size_class, rng,
     )
@@ -972,6 +1092,7 @@ def _build_palisade(
     cluster_plans: list[_ClusterPlan],
     rng: random.Random,
     sides: list[str] | None = None,
+    kind: str = "palisade",
 ) -> Enclosure:
     """Wrap the buildable interior in a palisade of fixed size
     and place gates at the cluster-bbox-set y-midpoint (Q14).
@@ -1009,7 +1130,7 @@ def _build_palisade(
         gx = min_x if side == "west" else max_x
         gates.append((gx, gy, TOWN_GATE_LENGTH_TILES))
     return Enclosure(
-        kind="palisade", polygon=polygon, gates=gates,
+        kind=kind, polygon=polygon, gates=gates,
     )
 
 
@@ -1115,6 +1236,12 @@ def _build_town_surface(
     surface.metadata.theme = "town"
     surface.metadata.ambient = "town"
     surface.metadata.prerevealed = True
+    surface.metadata.street_material = _STREET_MATERIAL_BY_SIZE.get(
+        size_class,
+    )
+    surface.metadata.pavement_material = (
+        _PAVEMENT_MATERIAL_BY_SIZE.get(size_class)
+    )
     blocked: set[tuple[int, int]] = set()
     for b in buildings:
         blocked |= b.base_shape.floor_tiles(b.base_rect)
@@ -1127,7 +1254,45 @@ def _build_town_surface(
         open_bounds=open_bounds,
     )
     paint_surface(surface, classification)
+    paint_outer_grass_ring(surface, config.grass_ring_width)
     return surface
+
+
+def _pave_courtyard_post_pass(
+    surface: Level, palisade_rect: Rect,
+) -> None:
+    """Convert every GARDEN / FIELD tile **inside the palisade
+    rect** to PAVEMENT.
+
+    Runs at the end of ``assemble_town`` for size classes whose
+    config sets ``paved_courtyard = True`` (cities). Door
+    placement and vegetation scatter both read the pre-conversion
+    ``surface_type`` so they keep their existing bias semantics
+    (door bias toward GARDEN tiles, vegetation only on FIELD
+    tiles); the post-pass runs *after* both so the visual
+    surface ends up uniformly paved while the upstream placement
+    logic stays intact.
+
+    Restricted to the palisade interior so the FIELD tiles in
+    the outer grass ring (placed by ``_paint_outer_grass_ring``
+    for the trees / bushes outside the wall) survive the pave.
+
+    Routed STREET tiles are NOT converted — they keep their own
+    ``paved.*`` region (rendered as Brick FlemishBond via
+    ``street_material``). The PAVEMENT tiles end up in a
+    separate ``pavement.*`` region (rendered as Ashlar
+    StaggeredJoint via ``pavement_material``), giving the city a
+    visible split between the routed network and the open plaza.
+    """
+    for y in range(palisade_rect.y, palisade_rect.y2):
+        for x in range(palisade_rect.x, palisade_rect.x2):
+            if not surface.in_bounds(x, y):
+                continue
+            tile = surface.tiles[y][x]
+            if tile.surface_type in (
+                SurfaceType.GARDEN, SurfaceType.FIELD,
+            ):
+                tile.surface_type = SurfaceType.PAVEMENT
 
 
 def _place_service_npcs(

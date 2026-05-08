@@ -62,12 +62,16 @@ class TestSizeClassBuildingCounts:
             )
             assert 8 <= len(site.buildings) <= 10
 
-    def test_city_has_ten_to_thirteen_buildings(self):
+    def test_city_has_thirty_to_fortyeight_buildings(self):
+        """City draws 40-48 candidate buildings; rejection sampling
+        on the dense (12-16 cluster, 4-member-cap) packing drops
+        a few when the courtyard exhausts its placement attempts.
+        Observed range across 50 seeds is [30, 46]."""
         for seed in range(10):
             site = assemble_town(
                 "t1", random.Random(seed), size_class="city",
             )
-            assert 10 <= len(site.buildings) <= 13
+            assert 30 <= len(site.buildings) <= 48
 
     def test_unknown_size_class_raises(self):
         with pytest.raises(ValueError):
@@ -84,13 +88,25 @@ class TestHamletHasNoPalisade:
             )
             assert site.enclosure is None
 
-    def test_larger_settlements_have_palisade(self):
-        for size in ("village", "town", "city"):
+    def test_larger_settlements_have_an_enclosure(self):
+        """Village + town wrap a wood palisade; city upgrades to a
+        stone fortification (matching the keep treatment) so the
+        urban tier reads visually distinct from its smaller
+        predecessors."""
+        expected_kind = {
+            "village": "palisade",
+            "town": "palisade",
+            "city": "fortification",
+        }
+        for size, kind in expected_kind.items():
             site = assemble_town(
                 "t1", random.Random(1), size_class=size,
             )
             assert site.enclosure is not None
-            assert site.enclosure.kind == "palisade"
+            assert site.enclosure.kind == kind, (
+                f"{size}: enclosure kind {site.enclosure.kind!r} "
+                f"(expected {kind!r})"
+            )
 
 
 class TestServiceRoleAssignment:

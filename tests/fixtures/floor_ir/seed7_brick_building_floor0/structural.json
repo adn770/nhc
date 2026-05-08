@@ -1,6 +1,5 @@
 {
   "op_counts": {
-    "FixtureOp": 1,
     "PaintOp": 228,
     "StampOp": 4,
     "StrokeOp": 9

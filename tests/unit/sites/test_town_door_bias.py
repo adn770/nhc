@@ -109,12 +109,19 @@ class TestLBlockDoorBias:
         """The inner-corner (elbow) building of an L-block prefers
         GARDEN; the two outer-arm buildings keep STREET preference.
         Tested across many seeds with at least one L-block hit."""
+        # Tested on the ``town`` size class, which keeps GARDEN
+        # tiles inter-cluster. Cities pave their entire courtyard
+        # (FIELD / GARDEN → STREET via the paved_courtyard post-
+        # pass) so the test surface_type readback no longer
+        # distinguishes pre-pave bias from post-pave uniform
+        # paving — the bias logic itself is unchanged and still
+        # observable on smaller tiers.
         seen_l_block = 0
         elbow_garden = 0
         elbow_total = 0
         for seed in range(80):
             site = assemble_town(
-                "t1", random.Random(seed), size_class="city",
+                "t1", random.Random(seed), size_class="town",
             )
             for plan in site.cluster_plans:
                 if plan.kind != "l_block":
@@ -161,9 +168,12 @@ class TestCourtyardDoorBias:
         ew_garden = 0
         ew_total = 0
         any_street_count = 0
+        # See ``test_l_block_elbow_door_prefers_garden`` — cities
+        # pave their entire courtyard so we exercise the bias
+        # against the ``town`` tier where GARDEN tiles persist.
         for seed in range(120):
             site = assemble_town(
-                "t1", random.Random(seed), size_class="city",
+                "t1", random.Random(seed), size_class="town",
             )
             for plan in site.cluster_plans:
                 if plan.kind != "courtyard":
@@ -228,9 +238,14 @@ class TestDoorPlacementSafety:
                     f"seed={seed} {size_class}: door of {bid} at "
                     f"({sx},{sy}) is not walkable terrain"
                 )
+                # Cities pave their courtyard via the
+                # ``paved_courtyard`` post-pass, converting GARDEN
+                # / FIELD → PAVEMENT after door placement runs. The
+                # door bias still saw the pre-conversion type; we
+                # accept PAVEMENT here as the post-pass artifact.
                 assert tile.surface_type in (
                     SurfaceType.STREET, SurfaceType.GARDEN,
-                    SurfaceType.FIELD,
+                    SurfaceType.FIELD, SurfaceType.PAVEMENT,
                 ), (
                     f"seed={seed} {size_class}: door of {bid} at "
                     f"({sx},{sy}) on {tile.surface_type!r}"

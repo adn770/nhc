@@ -14,10 +14,17 @@ The v4 reference rendered FIELD tiles as plain grass with a
 sparse 10% scattered-ellipse decorator on top — the heavy substrate
 treatment is a v5 emit drift, not the original design intent.
 
-These tests pin the corrected behaviour: settlement IRs (towns,
-hamlets, villages, cities) emit no ``fieldstone.*`` regions and
-no Stone/4 PaintOps. Buildings + courtyard fills (paved, brick,
-flagstone, opus_romano) are unaffected.
+These tests pin the corrected behaviour: settlement IRs emit no
+``fieldstone.*`` regions, so the wide-coverage substrate cannot
+return. The Stone/4 (FieldStone) **material** is still used —
+hamlets stamp their street network with FieldStone via the
+per-size ``street_material`` override (see
+``tests/unit/sites/test_settlement_street_material.py``) — but
+only on the narrow ``paved.*`` road polygon, never on a wide
+grass-blanket region.
+
+Buildings + courtyard fills (paved, brick, flagstone, opus_romano)
+are unaffected.
 """
 
 from __future__ import annotations
@@ -78,25 +85,36 @@ class TestNoFieldstoneOnSettlements:
             "countryside and the v5 painter renders 100% coverage"
         )
 
-    def test_town_seed7_emits_no_stone_fieldstone_paint_op(self) -> None:
-        d = _ir_dict_for_settlement("town", 7)
-        ops = _stone_paint_ops_with_style(d, _STONE_STYLE_FIELDSTONE)
-        assert ops == [], (
-            f"town_seed7: expected zero Stone/FieldStone PaintOps; "
-            f"got {len(ops)} (region_refs="
-            f"{[op.get('regionRef') for op in ops]})"
-        )
-
-    def test_no_settlement_size_emits_fieldstone(self) -> None:
+    def test_no_settlement_size_emits_fieldstone_region(self) -> None:
+        """The original moss-substrate regression came from a
+        ``fieldstone.<i>`` Region + PaintOp covering the entire
+        countryside. Pin that no settlement IR ships any
+        ``fieldstone.*`` region — Stone/FieldStone material may
+        still be referenced by other PaintOps (see hamlet street
+        emit), but only on narrow ``paved.*`` road polygons."""
         for size_class in ("hamlet", "village", "town", "city"):
             d = _ir_dict_for_settlement(size_class, 7)
             assert _region_ids_with_prefix(d, "fieldstone") == [], (
-                f"{size_class}_seed7: unexpected fieldstone.* regions"
+                f"{size_class}_seed7: unexpected fieldstone.* regions "
+                f"(would resurrect the wide-coverage moss substrate)"
             )
+
+    def test_fieldstone_paint_op_only_targets_paved_road_region(
+        self,
+    ) -> None:
+        """If any Stone/FieldStone PaintOp ships, it must target a
+        ``paved.*`` region (the street network) — never a
+        ``fieldstone.*`` region (the dropped wide-coverage path)
+        and never a ``grass.*`` / wider terrain region."""
+        for size_class in ("hamlet", "village", "town", "city"):
+            d = _ir_dict_for_settlement(size_class, 7)
             ops = _stone_paint_ops_with_style(d, _STONE_STYLE_FIELDSTONE)
-            assert ops == [], (
-                f"{size_class}_seed7: unexpected Stone/FieldStone PaintOps"
-            )
+            for op in ops:
+                rr = op.get("regionRef") or ""
+                assert rr.startswith("paved."), (
+                    f"{size_class}_seed7: Stone/FieldStone PaintOp on "
+                    f"region_ref={rr!r}; only ``paved.*`` is allowed"
+                )
 
 
 class TestPavedAndCourtyardEmitsUnaffected:

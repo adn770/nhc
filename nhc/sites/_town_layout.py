@@ -31,8 +31,17 @@ if TYPE_CHECKING:
 # import (nhc.sites.town imports this module).
 
 
-CLUSTER_BBOX_GAP = 2
-"""Minimum tiles between two cluster bboxes so a street fits."""
+CLUSTER_BBOX_GAP = 1
+"""Minimum tiles between two cluster bboxes so a street fits.
+
+Reduced from 2 to 1 to enable the city tier's denser packing
+(36-44 buildings across 12-16 clusters in a 104x86 inner rect).
+A 1-tile gap still fits a single-width street between clusters;
+spine paths in town/city widen to 2 tiles where possible but
+gracefully shrink to 1 tile in pinch points between cluster
+bboxes. Smaller settlements (hamlet/village/town) have plenty
+of slack so the tighter gap doesn't visibly change their
+layouts."""
 
 MAX_CLUSTER_MEMBERS = 4
 """Cluster size cap (1..4)."""
@@ -44,7 +53,16 @@ CLUSTER_COUNT_RANGE: dict[str, tuple[int, int]] = {
     "hamlet": (2, 2),
     "village": (2, 3),
     "town": (3, 4),
-    "city": (4, 6),
+    # City progressively bumped (4, 6) → (5, 6) → (6, 8) → (12, 16)
+    # so the cluster partitioner can fit the (36, 44) building
+    # range with the ``MAX_CLUSTER_MEMBERS = 4`` cap.
+    # ``ceil(44 / 4) = 11`` is the minimum cluster count that lets
+    # ``_partition_sizes`` hand out 44 buildings without producing
+    # a cluster of size 5+; the lower bound of 12 keeps a touch of
+    # margin and the upper bound of 16 gives the city visibly more
+    # distinct cluster bboxes (and thus more routed side streets
+    # between them) than smaller tiers.
+    "city": (12, 16),
 }
 """Inclusive (lo, hi) target cluster count per size_class (Q13)."""
 

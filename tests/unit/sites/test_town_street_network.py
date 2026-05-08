@@ -263,14 +263,16 @@ class TestSurfaceClassification:
                     )
 
     @pytest.mark.parametrize("size_class", [
-        "village", "town", "city",
+        "village", "town",
     ])
     def test_field_tiles_appear_at_palisade_periphery(
         self, size_class,
     ):
         """Every palisade-using site emits some FIELD tiles --
         the periphery between the outermost clusters and the
-        palisade wall."""
+        palisade wall. Cities are excluded: the city tier paves
+        every walkable tile (FIELD / GARDEN → STREET) so the
+        whole fortified courtyard reads as one urban surface."""
         seen_field = False
         for seed in range(15):
             site = assemble_town(
@@ -289,6 +291,31 @@ class TestSurfaceClassification:
             f"{size_class}: no FIELD tiles produced across 15 "
             "seeds; palisade periphery should generate some"
         )
+
+    def test_city_paves_palisade_interior(self) -> None:
+        """City tier converts every walkable FIELD / GARDEN tile
+        **inside the palisade rect** to PAVEMENT so the fortified
+        courtyard renders as one paved surface (Ashlar Staggered
+        via ``pavement_material``). FIELD tiles in the outer
+        2-tile grass ring (where trees / bushes scatter outside
+        the wall) survive the post-pass."""
+        from nhc.sites.town import _SIZE_CLASSES, _palisade_outer_rect
+        config = _SIZE_CLASSES["city"]
+        pal = _palisade_outer_rect(config)
+        for seed in range(15):
+            site = assemble_town(
+                "t1", random.Random(seed), size_class="city",
+            )
+            for y in range(pal.y, pal.y2):
+                for x in range(pal.x, pal.x2):
+                    tile = site.surface.tiles[y][x]
+                    assert tile.surface_type not in (
+                        SurfaceType.FIELD, SurfaceType.GARDEN,
+                    ), (
+                        f"city seed={seed}: palisade-interior tile "
+                        f"({x},{y}) carries {tile.surface_type!r}; "
+                        f"cities pave the courtyard with PAVEMENT"
+                    )
 
 
 # ── 5. Gate placement (Q14) ───────────────────────────────────

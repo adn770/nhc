@@ -422,4 +422,45 @@ def assemble_site(
     else:
         raise ValueError(f"unknown site kind: {kind!r}")
     populate_building_door_sides(site)
+    # Convert the site surface's outer 1-tile VOID buffer to
+    # GRASS / FIELD so the canvas reads "site sits in countryside"
+    # rather than "framed art on paper". Town settlements handle
+    # their own grass ring (1 or 2 tiles depending on enclosure)
+    # internally, so this only fires for non-town site kinds.
+    if kind != "town":
+        paint_outer_grass_ring(site.surface, ring_width=1)
     return site
+
+
+def paint_outer_grass_ring(level: "Level", ring_width: int) -> None:
+    """Convert the outer ``ring_width``-tile VOID border of a
+    site surface to GRASS / FIELD.
+
+    Replaces the historic 1-tile VOID buffer at the canvas edge
+    (per ``design/level_surface_layout.md``) with renderable grass
+    tiles so the final canvas reads "site in countryside" rather
+    than "framed art on paper". Settlements with palisade /
+    fortification use ``ring_width=2`` to leave room for trees /
+    bushes outside the wall; every other site (and hamlet) uses
+    ``ring_width=1`` — just the existing canvas-edge buffer flips
+    from VOID to grass.
+
+    Only VOID tiles are touched: enclosure walls, building
+    footprints, or any other content that already paints into
+    the perimeter is left alone.
+    """
+    h = level.height
+    w = level.width
+    for y in range(h):
+        for x in range(w):
+            if (
+                x >= ring_width and x < w - ring_width
+                and y >= ring_width and y < h - ring_width
+            ):
+                continue
+            tile = level.tiles[y][x]
+            if tile.terrain is Terrain.VOID:
+                level.tiles[y][x] = Tile(
+                    terrain=Terrain.GRASS,
+                    surface_type=SurfaceType.FIELD,
+                )
