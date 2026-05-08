@@ -1,0 +1,65 @@
+# nhc-render-wasm — browser-side WASM bundle for the NHC
+# rendering pipeline.
+#
+# A thin wrapper around `nhc-render` (built with
+# ``--no-default-features --features wasm``). Every
+# ``#[wasm_bindgen]`` export that the JS dispatcher in
+# ``nhc/web/static/js/`` consumes lives here; the rendering
+# primitives, op handlers, and Painter implementations stay in
+# ``nhc-render``.
+#
+# Build the bundle from the workspace root with:
+#
+#     wasm-pack build crates/nhc-render-wasm --target web
+#
+# Native unit tests run on the host arch (no browser needed):
+#
+#     cargo test -p nhc-render-wasm --lib --release
+#
+# This crate is the Phase 5.1 deliverable from
+# ``plans/nhc_pure_ir_v5_migration_plan.md``. The CanvasPainter
+# impl (5.2), ``transform/canvas/`` op dispatcher (5.3), and JS
+# dispatcher wiring (5.4) land in subsequent commits.
+
+[package]
+name = "nhc-render-wasm"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "NHC procedural map rendering — browser WASM bundle"
+publish = false
+
+[lib]
+name = "nhc_render_wasm"
+# cdylib: the wasm-pack output. rlib: enables ``cargo test`` to
+# link the library so the native unit-test pass exercises the
+# Rust logic without needing a wasm runner.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+nhc-render = { path = "../nhc-render", default-features = false, features = ["wasm"] }
+wasm-bindgen = "0.2"
+
+# ``getrandom`` is a transitive dep (rand → getrandom) that
+# refuses to build for ``wasm32-unknown-unknown`` without the
+# ``js`` feature, since the wasm runtime has no OS RNG. The
+# ``js`` feature routes ``getrandom`` to the browser's
+# ``crypto.getRandomValues`` via web-sys. The dep is only
+# enabled when this crate compiles for wasm32 — host-side
+# ``cargo test`` builds use the OS-default getrandom backend
+# without pulling web-sys in.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+# Disable wasm-opt for Phase 5.1 — the host's installed
+# wasm-opt (Homebrew) is older than what wasm-bindgen 0.2's
+# bulk-memory output needs (``memory.copy`` validation fails
+# without ``--enable-bulk-memory-opt``). Bundle-size hygiene is
+# Phase 5.5 territory; that phase will pin a wasm-opt version
+# and re-enable optimisation. The unoptimised bundle still
+# functions end-to-end.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

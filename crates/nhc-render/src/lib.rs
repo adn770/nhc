@@ -6,10 +6,11 @@
 //! the three transformer back-ends (PNG via `tiny-skia`, Canvas
 //! command stream for WASM, optional SVG for parity testing).
 //!
-//! Each primitive is reachable from both ABIs — Python via PyO3
-//! and JavaScript via wasm-bindgen — through thin FFI shims in
-//! `ffi::pyo3` and `ffi::wasm`. The shims contain no logic; they
-//! deserialise FlatBuffers IR and call into the primitives.
+//! Server-side Python consumes the primitives via the PyO3 FFI
+//! shim in `ffi::pyo3`; browser-side JavaScript consumes them
+//! via `wasm-bindgen` exports in the standalone
+//! `nhc-render-wasm` workspace member, which depends on this
+//! crate with `default-features = false`.
 //!
 //! See `design/map_ir.md` §8 for the architecture rationale and
 //! `plans/nhc_ir_migration_plan.md` Phase 4 for the per-primitive
@@ -28,7 +29,4 @@ pub mod transform;
 mod test_util;
 
 #[cfg(feature = "pyo3")]
-pub mod ffi;
-
-#[cfg(all(feature = "wasm", not(feature = "pyo3")))]
 pub mod ffi;
