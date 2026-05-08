@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 from nhc.dungeon.model import Rect, SurfaceType, Terrain, Tile
 
 if TYPE_CHECKING:
+    from nhc.sites._site import Site as Site  # noqa: F401
     from nhc.dungeon.building import Building
     from nhc.dungeon.model import Level
     from nhc.sites._site import Enclosure
@@ -335,6 +336,161 @@ def _widen_path(
     return widened
 
 
+def connect_doors_to_street_network(
+    site: "Site",
+    config_grass_ring: int,
+) -> None:
+    """Route a STREET connector path so every building door has a
+    STREET tile within its 4-neighbourhood.
+
+    Invariant guarantee: after this pass every entry in
+    ``site.building_doors`` has at least one STREET-tagged tile
+    in its 4-neighbourhood (north / south / east / west). The
+    door tile itself keeps its surface_type — the door-bias logic
+    that biases L-block elbows toward GARDEN and courtyard
+    east/west doors toward GARDEN is preserved; this pass only
+    adds connectors, never overwrites the door tile.
+
+    The pass walks every door tile, skips it if its 4-neighbours
+    already include a STREET tile, and otherwise A*-routes a path
+    through the palisade interior (or open hamlet bounds) from
+    one of its non-building 4-neighbours to the nearest existing
+    STREET tile. Every tile on that path is re-stamped as STREET.
+
+    The walkable mask excludes building footprints but allows
+    routing through GARDEN / FIELD tiles plus the existing routed
+    STREET network. Out-of-palisade tiles (the grass ring) are
+    excluded because settlement doors face the courtyard, not
+    the periphery.
+    """
+    surface = site.surface
+    blocked: set[tuple[int, int]] = set()
+    for b in site.buildings:
+        blocked |= b.base_shape.floor_tiles(b.base_rect)
+
+    if site.enclosure is not None:
+        walkable = _palisade_interior_walkable(
+            site.enclosure, surface.width, surface.height, blocked,
+        )
+    else:
+        # Hamlet open surface: the buildable bounds derive from the
+        # outer ring (1 tile of grass at the canvas edge) plus
+        # padding. Re-derive from the current surface dims.
+        walkable = _open_surface_walkable(
+            (
+                config_grass_ring,
+                config_grass_ring,
+                surface.width - config_grass_ring,
+                surface.height - config_grass_ring,
+            ),
+            blocked,
+        )
+
+    streets: set[tuple[int, int]] = set()
+    for y, row in enumerate(surface.tiles):
+        for x, tile in enumerate(row):
+            if tile.surface_type is SurfaceType.STREET:
+                streets.add((x, y))
+                walkable.add((x, y))
+    for sxy in site.building_doors:
+        walkable.add(sxy)
+
+    def _stamp_street(x: int, y: int) -> None:
+        existing = surface.tiles[y][x]
+        surface.tiles[y][x] = Tile(
+            terrain=existing.terrain,
+            feature=existing.feature,
+            door_side=existing.door_side,
+            opened_at_turn=existing.opened_at_turn,
+            buried=list(existing.buried),
+            dug_floor=existing.dug_floor,
+            dug_wall=existing.dug_wall,
+            surface_type=SurfaceType.STREET,
+        )
+
+    def _has_street_neighbour(sx: int, sy: int) -> bool:
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            if (sx + dx, sy + dy) in streets:
+                return True
+        return False
+
+    def _walkable_neighbour(sx: int, sy: int) -> tuple[int, int] | None:
+        """Return a non-building 4-neighbour to use as the path
+        start (the door tile itself is walkable but we route
+        FROM a side tile so the door's surface_type is left
+        untouched)."""
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nb = (sx + dx, sy + dy)
+            if nb in blocked:
+                continue
+            if nb in walkable:
+                return nb
+        return None
+
+    # Walk every door. If a 4-neighbour is already STREET, the
+    # invariant holds — skip. Otherwise route a path from a
+    # walkable 4-neighbour to the nearest existing STREET tile
+    # and stamp every tile on the path as STREET.
+    for sxy in list(site.building_doors):
+        sx, sy = sxy
+        if not surface.in_bounds(sx, sy):
+            continue
+        if _has_street_neighbour(sx, sy):
+            continue
+        start = _walkable_neighbour(sx, sy)
+        if start is None:
+            continue
+        target = _nearest_in(start, streets)
+        if target is None:
+            # No existing streets — stamp the start tile alone
+            # so subsequent doors can chain to it.
+            _stamp_street(*start)
+            streets.add(start)
+            walkable.add(start)
+            continue
+        path = _route_path(start, target, walkable)
+        if not path:
+            # A* failed (door is in an enclosed walkable pocket).
+            # Stamp the start tile alone as a STREET stub so the
+            # per-door 4-neighbour invariant still holds; the
+            # stub forms its own STREET sub-component.
+            _stamp_street(*start)
+            streets.add(start)
+            walkable.add(start)
+            continue
+        for px, py in path:
+            if (px, py) in streets:
+                continue
+            _stamp_street(px, py)
+            streets.add((px, py))
+
+
+def _gate_apron_tiles(
+    gate: tuple[int, int, int],
+    enclosure_bbox: tuple[int, int, int, int],
+    walkable: set[tuple[int, int]],
+) -> set[tuple[int, int]]:
+    """Return the walkable-side tiles for a 2+ tile gate.
+
+    Gates lie on the wall normal at ``(gx, gy + d)`` for
+    ``d in [0, length)``; the walkable apron one step inside the
+    palisade carries every gate row so the gate's full opening
+    fills with STREET regardless of the spine approach direction.
+    Pre-fix only the gate-anchor row (the path endpoint) was
+    streeted — when the spine arrived at an east-side gate from
+    the north, the perpendicular widening tried ``(max_x, gy)``
+    (outside the walkable bbox) and the second gate row stayed
+    un-streeted, making the gate look "one tile off".
+    """
+    gx, gy, length = gate
+    min_x, _, max_x, _ = enclosure_bbox
+    inner_x = gx if gx == min_x else gx - 1
+    return {
+        (inner_x, gy + d) for d in range(length)
+        if (inner_x, gy + d) in walkable
+    }
+
+
 def _route_spine_paths(
     plans: list["_ClusterPlan"],
     gate_anchors: list[tuple[int, int]],
@@ -605,6 +761,20 @@ def compute_town_street_network(
     )
     streets |= branches
 
+    # Gate apron — each palisade gate is a 2-tile-tall opening
+    # on the wall, but the spine only routes a single anchor at
+    # ``gy``; both the spine widening (which biases one
+    # perpendicular direction and skips fallbacks past the
+    # palisade bbox) and 1-tile-wide branches can leave the
+    # gate's second row un-streeted. Stamp every gate row as
+    # STREET on the walkable side so the gate visually matches
+    # its 2-tile cut.
+    gate_apron: set[tuple[int, int]] = set()
+    if enclosure is not None:
+        for gate in enclosure.gates:
+            gate_apron |= _gate_apron_tiles(gate, env_bbox, walkable)
+    streets |= gate_apron
+
     cp_anchor: tuple[int, int] | None = None
     if centerpiece_rect is not None:
         cp_anchor = _centerpiece_anchor(centerpiece_rect, walkable)
@@ -618,7 +788,7 @@ def compute_town_street_network(
         a = _cluster_route_anchor(p, walkable)
         if a is not None:
             cluster_anchors_set.add(a)
-    anchors = set(gate_anchors) | cluster_anchors_set
+    anchors = set(gate_anchors) | cluster_anchors_set | gate_apron
     if cp_anchor is not None:
         anchors.add(cp_anchor)
     streets = _prune_dead_ends(streets, anchors)

@@ -57,8 +57,8 @@ from nhc.sites._town_layout import (
     _ClusterMember, _ClusterPlan, _cluster_pack,
 )
 from nhc.sites._town_streets import (
-    compute_town_street_network, gates_y_for_cluster_set,
-    paint_surface,
+    compute_town_street_network, connect_doors_to_street_network,
+    gates_y_for_cluster_set, paint_surface,
 )
 from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import Biome, DungeonRef
@@ -615,6 +615,13 @@ def assemble_town(
     site.building_doors.update(door_map)
     site.cluster_plans = cluster_plans
     paint_surface_doors(site, SurfaceType.STREET)
+    # Invariant: every building door must rest on a STREET tile
+    # connected to the routed street network. Door placement
+    # picks the prettiest perimeter slot per the bias algorithm
+    # but doesn't guarantee a STREET-tagged tile underneath; this
+    # pass routes a short connector through the buildable
+    # interior to merge each door into the existing network.
+    connect_doors_to_street_network(site, config.grass_ring_width)
     if config.paved_courtyard:
         # Cities pave their enclosure interior — every remaining
         # GARDEN / FIELD tile inside the palisade rect becomes
