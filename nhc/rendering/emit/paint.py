@@ -30,6 +30,8 @@ from nhc.rendering.emit.materials import (
     LIQUID_LAVA,
     LIQUID_WATER,
     SPECIAL_CHASM,
+    STONE_ASHLAR,
+    STONE_ASHLAR_STAGGERED_JOINT,
     STONE_BRICK,
     STONE_BRICK_RUNNING_BOND,
     STONE_COBBLE_HERRINGBONE,
@@ -107,7 +109,7 @@ def emit_paints(builder: Any) -> list[OpEntryT]:
     terrain_region_ids: dict[str, list[str]] = {
         "water": [], "lava": [], "chasm": [], "grass": [],
         "paved": [], "brick": [], "flagstone": [],
-        "opus_romano": [], "fieldstone": [],
+        "opus_romano": [], "fieldstone": [], "pavement": [],
     }
     for region in builder.regions:
         rid = region.id
@@ -222,19 +224,42 @@ def emit_paints(builder: Any) -> list[OpEntryT]:
     # decorator pass when ``interior_finish == "wood"``).
     if not is_wood:
         deco_seed = ctx.seed + 333
+        # Settlement assemblers stamp ``surface.metadata.street_material``
+        # to override the global ``paved.*`` default per size class
+        # (hamlet → FieldStone, village → Cobble Rubble, town →
+        # Flagstone, city → Brick FlemishBond). ``pavement_material``
+        # similarly overrides the ``pavement.*`` default for the city's
+        # open-courtyard plaza (Ashlar StaggeredJoint). ``None`` on
+        # either falls back to the global default used by keep /
+        # mansion courtyards and synthetic fixtures.
+        street_override = getattr(level.metadata, "street_material", None)
+        pavement_override = getattr(
+            level.metadata, "pavement_material", None,
+        )
         for region_prefix, style, sub_pattern in (
             ("paved", STONE_COBBLESTONE, STONE_COBBLE_HERRINGBONE),
             ("brick", STONE_BRICK, STONE_BRICK_RUNNING_BOND),
             ("flagstone", STONE_FLAGSTONE, 0),
             ("opus_romano", STONE_OPUS_ROMANO, 0),
             ("fieldstone", STONE_FIELDSTONE, 0),
+            ("pavement", STONE_ASHLAR, STONE_ASHLAR_STAGGERED_JOINT),
         ):
             for rid in terrain_region_ids[region_prefix]:
+                override = None
+                if region_prefix == "paved":
+                    override = street_override
+                elif region_prefix == "pavement":
+                    override = pavement_override
+                if override is not None:
+                    _, op_style, op_sub = override
+                else:
+                    op_style = style
+                    op_sub = sub_pattern
                 result.append(_wrap(_make_paint_op(
                     region_ref=rid,
                     material=material_stone(
-                        style=style,
-                        sub_pattern=sub_pattern,
+                        style=op_style,
+                        sub_pattern=op_sub,
                         seed=deco_seed,
                     ),
                 )))

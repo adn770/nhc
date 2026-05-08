@@ -47,6 +47,13 @@ class SurfaceType(Enum):
     BRICK = "brick"
     FLAGSTONE = "flagstone"
     OPUS_ROMANO = "opus_romano"
+    # Open-courtyard pavement — stamped by the city assembler on
+    # every walkable tile that's not part of the routed street
+    # network. Maps to its own ``pavement.*`` region (default
+    # Stone Ashlar StaggeredJoint via the per-size
+    # ``pavement_material`` override) so the open plaza reads
+    # visually distinct from the routed FlemishBond streets.
+    PAVEMENT = "pavement"
 
 
 @dataclass
@@ -731,6 +738,22 @@ class LevelMetadata:
     # and the SVG pipeline skips dungeon-style hatching. Entity and
     # secret visibility stay gated by FOV.
     prerevealed: bool = False
+    # Per-surface override for the ``paved.*`` PaintOp material. Set
+    # by settlement assemblers so each size class (hamlet / village
+    # / town / city) renders its street network with a distinctive
+    # stone style + sub-pattern. ``None`` falls back to the global
+    # default (Stone Cobblestone Herringbone) used by keep / mansion
+    # courtyards and synthetic fixtures. Encoded as a
+    # ``(family, style, sub_pattern)`` triple of int constants from
+    # ``nhc/rendering/emit/materials.py``.
+    street_material: tuple[int, int, int] | None = None
+    # Per-surface override for the ``pavement.*`` PaintOp material.
+    # Set by the city assembler so the open plaza / courtyard
+    # tiles outside the routed FlemishBond streets render as
+    # Ashlar StaggeredJoint dressed stone. ``None`` falls back to
+    # the global default (Stone Ashlar Staggered) for any other
+    # caller that taps ``SurfaceType.PAVEMENT``.
+    pavement_material: tuple[int, int, int] | None = None
 
 
 # ─── Interior edge-wall primitive ─────────────────────────────

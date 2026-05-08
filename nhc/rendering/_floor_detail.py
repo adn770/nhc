@@ -183,6 +183,17 @@ def _is_opus_romano_tile(
     )
 
 
+def _is_pavement_tile(level: "Level", x: int, y: int) -> bool:
+    """Predicate for the open-plaza pavement region.
+
+    Cities stamp ``SurfaceType.PAVEMENT`` on every walkable tile
+    outside the routed STREET network so the open courtyard
+    renders as Ashlar StaggeredJoint dressed stone (distinct from
+    the FlemishBond brick streets).
+    """
+    return level.tiles[y][x].surface_type is SurfaceType.PAVEMENT
+
+
 # ── Field and garden surfaces (tunable constants) ─────────────
 
 # FIELD_TINT is retained for sample-generator info panels and the

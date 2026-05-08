@@ -1040,6 +1040,7 @@ def emit_regions(builder: FloorIRBuilder) -> None:
     from nhc.rendering._floor_detail import (
         _is_brick_tile, _is_cobble_tile,
         _is_flagstone_tile, _is_opus_romano_tile,
+        _is_pavement_tile,
     )
     from nhc.rendering._floor_layers import _collect_predicate_components
     for predicate, region_prefix in (
@@ -1047,6 +1048,7 @@ def emit_regions(builder: FloorIRBuilder) -> None:
         (_is_brick_tile, "brick"),
         (_is_flagstone_tile, "flagstone"),
         (_is_opus_romano_tile, "opus_romano"),
+        (_is_pavement_tile, "pavement"),
     ):
         components = _collect_predicate_components(
             ctx.level, predicate, exclude=cave_tiles,
