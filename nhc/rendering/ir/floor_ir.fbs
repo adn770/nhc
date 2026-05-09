@@ -269,6 +269,14 @@ enum FixtureKind : ubyte {
   Bookshelf   = 38,
   Hearth      = 39,
   Cauldron    = 40,
+  // Outdoor camp — top-down silhouettes for wilderness /
+  // bandit-camp / traveler-rest scenes. ``Campfire``
+  // mirrors ``Hearth``'s lit / cold variant axis.
+  Campfire    = 41,
+  Tent        = 42,
+  Logs        = 43,
+  Stump       = 44,
+  Boulder     = 45,
 }
 
 // RoofOp dispatches geometry directly off ``style`` (today's

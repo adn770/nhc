@@ -1524,6 +1524,250 @@ fn paint_cauldron_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
     }
 }
 
+// ── Outdoor camp — top-down silhouettes ───────────────────────
+
+const CAMPFIRE_STONE: Color = Color::rgba(0x88, 0x80, 0x70, 1.0);
+const CAMPFIRE_ASH: Color = Color::rgba(0x32, 0x28, 0x22, 1.0);
+const CAMPFIRE_FLAME: Color = Color::rgba(0xFF, 0x9A, 0x30, 1.0);
+const CAMPFIRE_FLAME_CORE: Color = Color::rgba(0xFF, 0xE0, 0x60, 1.0);
+
+/// Campfire — open ground fire (no footed bowl, distinguishes
+/// from ``Brazier``). Top-down: a ring of 6 small stones around
+/// a dark ash patch with an orange flame in the middle.
+/// ``variant == 1`` paints a cold campfire (ash + stones, no
+/// flame).
+fn paint_campfire_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    // Ash patch — dark circle in the middle.
+    painter.fill_circle(
+        cx as f32, cy as f32, (CELL * 0.13) as f32,
+        &Paint::solid(CAMPFIRE_ASH),
+    );
+    // Stone ring — 6 small stones around the ash.
+    let ring_r = CELL * 0.18;
+    let stone_paint = Paint::solid(CAMPFIRE_STONE);
+    for i in 0..6 {
+        let theta = (i as f64) * PI / 3.0;
+        let sx = cx + ring_r * theta.cos();
+        let sy = cy + ring_r * theta.sin();
+        painter.fill_circle(
+            sx as f32, sy as f32, (CELL * 0.045) as f32, &stone_paint,
+        );
+    }
+    if a.variant() != 1 {
+        // Lit — orange flame teardrop + brighter core.
+        let base_y = cy + CELL * 0.02;
+        let mut flame = PathOps::new();
+        flame.move_to(Vec2::new(
+            (cx - CELL * 0.07) as f32, base_y as f32,
+        ));
+        flame.quad_to(
+            Vec2::new(cx as f32, (base_y - CELL * 0.14) as f32),
+            Vec2::new(cx as f32, (base_y - CELL * 0.20) as f32),
+        );
+        flame.quad_to(
+            Vec2::new(cx as f32, (base_y - CELL * 0.14) as f32),
+            Vec2::new((cx + CELL * 0.07) as f32, base_y as f32),
+        );
+        flame.close();
+        painter.fill_path(
+            &flame, &Paint::solid(CAMPFIRE_FLAME), FillRule::Winding,
+        );
+        painter.fill_ellipse(
+            cx as f32, (base_y - CELL * 0.06) as f32,
+            (CELL * 0.025) as f32, (CELL * 0.06) as f32,
+            &Paint::solid(CAMPFIRE_FLAME_CORE),
+        );
+    }
+}
+
+const TENT_CANVAS: Color = Color::rgba(0xC8, 0xB8, 0x90, 1.0);
+const TENT_RIDGE: Color = Color::rgba(0x6E, 0x5A, 0x40, 1.0);
+const TENT_DOOR: Color = Color::rgba(0x32, 0x24, 0x18, 1.0);
+
+/// Tent — triangular canvas tent viewed from above. Apex points
+/// in the +x direction (the entrance / front of the tent).
+/// Includes a darker ridge stripe down the centreline and a
+/// small dark door slit at the +x apex.
+fn paint_tent_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    // Triangle pointing +x: apex at (+x), base at (-x).
+    let apex_x = cx + CELL * 0.32;
+    let base_x = cx - CELL * 0.28;
+    let base_half = CELL * 0.22;
+    let mut triangle = PathOps::new();
+    triangle.move_to(Vec2::new(apex_x as f32, cy as f32));
+    triangle.line_to(Vec2::new(base_x as f32, (cy - base_half) as f32));
+    triangle.line_to(Vec2::new(base_x as f32, (cy + base_half) as f32));
+    triangle.close();
+    painter.fill_path(
+        &triangle, &Paint::solid(TENT_CANVAS), FillRule::Winding,
+    );
+    // Ridge — thin darker stroke down the centreline (+x axis).
+    let mut ridge = PathOps::new();
+    ridge.move_to(Vec2::new(base_x as f32, cy as f32));
+    ridge.line_to(Vec2::new(apex_x as f32, cy as f32));
+    painter.stroke_path(
+        &ridge, &Paint::solid(TENT_RIDGE),
+        &Stroke {
+            width: 0.7, line_cap: LineCap::Round,
+            line_join: LineJoin::Miter,
+        },
+    );
+    // Door slit — small dark dot near the +x apex.
+    painter.fill_circle(
+        (apex_x - CELL * 0.06) as f32, cy as f32,
+        (CELL * 0.025) as f32,
+        &Paint::solid(TENT_DOOR),
+    );
+}
+
+const LOG_BARK: Color = Color::rgba(0x6B, 0x47, 0x28, 1.0);
+const LOG_END: Color = Color::rgba(0xC8, 0x9E, 0x6E, 1.0);
+const LOG_CORE: Color = Color::rgba(0x86, 0x60, 0x3A, 1.0);
+
+/// Logs — pile of chopped firewood, viewed from above as
+/// stacked log cross-sections. Three logs in a triangular
+/// stacking pattern (2 below + 1 on top), each a brown
+/// elliptical end with a darker core ring suggesting growth
+/// rings.
+fn paint_logs_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let log_rx = CELL * 0.10;
+    let log_ry = CELL * 0.07;
+    let centres = [
+        (cx - log_rx * 1.05, cy + log_ry * 0.85),
+        (cx + log_rx * 1.05, cy + log_ry * 0.85),
+        (cx, cy - log_ry * 0.85),
+    ];
+    let bark_paint = Paint::solid(LOG_BARK);
+    let end_paint = Paint::solid(LOG_END);
+    let core_paint = Paint::solid(LOG_CORE);
+    for &(lx, ly) in &centres {
+        // Outer bark ring.
+        painter.fill_ellipse(
+            lx as f32, ly as f32,
+            log_rx as f32, log_ry as f32,
+            &bark_paint,
+        );
+        // Pale wood end (cross-section interior).
+        painter.fill_ellipse(
+            lx as f32, ly as f32,
+            (log_rx * 0.75) as f32, (log_ry * 0.7) as f32,
+            &end_paint,
+        );
+        // Darker core ring suggesting growth rings.
+        painter.fill_ellipse(
+            lx as f32, ly as f32,
+            (log_rx * 0.25) as f32, (log_ry * 0.20) as f32,
+            &core_paint,
+        );
+    }
+}
+
+const STUMP_BARK: Color = Color::rgba(0x55, 0x3A, 0x22, 1.0);
+const STUMP_WOOD: Color = Color::rgba(0xA8, 0x86, 0x5E, 1.0);
+const STUMP_RING: Color = Color::rgba(0x6E, 0x52, 0x36, 1.0);
+
+/// Stump — tree stump cross-section viewed from above. Outer
+/// dark bark + inner pale wood + 2 darker concentric growth
+/// rings. ``variant == 1`` adds a small radial root extension
+/// pattern (4 short dark lines) so the stump reads as
+/// well-rooted in the ground.
+fn paint_stump_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let r_outer = CELL * 0.20;
+    painter.fill_circle(
+        cx as f32, cy as f32, r_outer as f32,
+        &Paint::solid(STUMP_BARK),
+    );
+    painter.fill_circle(
+        cx as f32, cy as f32, (r_outer * 0.85) as f32,
+        &Paint::solid(STUMP_WOOD),
+    );
+    // Two darker concentric growth rings.
+    let ring_stroke = Stroke {
+        width: 0.5, line_cap: LineCap::Butt, line_join: LineJoin::Miter,
+    };
+    let ring_paint = Paint::solid(STUMP_RING);
+    for ring_r_frac in [0.55_f64, 0.30] {
+        let radius = r_outer * 0.85 * ring_r_frac;
+        let mut path = PathOps::new();
+        let n = 20;
+        for i in 0..=n {
+            let theta = (i as f64) * 2.0 * PI / (n as f64);
+            let pxx = cx + radius * theta.cos();
+            let pyy = cy + radius * theta.sin();
+            if i == 0 {
+                path.move_to(Vec2::new(pxx as f32, pyy as f32));
+            } else {
+                path.line_to(Vec2::new(pxx as f32, pyy as f32));
+            }
+        }
+        painter.stroke_path(&path, &ring_paint, &ring_stroke);
+    }
+    if a.variant() == 1 {
+        // Root flares — 4 short dark stroke fragments radiating
+        // outward at NE / NW / SE / SW (off-axis to avoid
+        // covering the cardinal-direction axes a future
+        // orientation tweak might use).
+        let root_stroke = Stroke {
+            width: 1.0, line_cap: LineCap::Round,
+            line_join: LineJoin::Miter,
+        };
+        for i in 0..4 {
+            let theta = PI / 4.0 + (i as f64) * PI / 2.0;
+            let rx = cx + r_outer * theta.cos();
+            let ry = cy + r_outer * theta.sin();
+            let ex = cx + r_outer * 1.45 * theta.cos();
+            let ey = cy + r_outer * 1.45 * theta.sin();
+            let mut root = PathOps::new();
+            root.move_to(Vec2::new(rx as f32, ry as f32));
+            root.line_to(Vec2::new(ex as f32, ey as f32));
+            painter.stroke_path(&root, &ring_paint, &root_stroke);
+        }
+    }
+}
+
+const BOULDER_STONE: Color = Color::rgba(0x9A, 0x96, 0x8E, 1.0);
+const BOULDER_HIGHLIGHT: Color = Color::rgba(0xB6, 0xB2, 0xAA, 1.0);
+const BOULDER_SHADOW: Color = Color::rgba(0x6E, 0x6A, 0x60, 1.0);
+
+/// Boulder — natural rock viewed from above. Single irregular
+/// roundish silhouette with a brighter highlight ellipse on the
+/// -y side and a darker shadow ellipse on the +y side, reading
+/// as a rounded stone catching ambient light from the north.
+/// ``variant == 1`` renders a smaller boulder (good for
+/// scattering smaller-scale boulder fields).
+fn paint_boulder_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let scale = if a.variant() == 1 { 0.65 } else { 1.0 };
+    let body_rx = CELL * 0.24 * scale;
+    let body_ry = CELL * 0.20 * scale;
+    painter.fill_ellipse(
+        cx as f32, cy as f32,
+        body_rx as f32, body_ry as f32,
+        &Paint::solid(BOULDER_STONE),
+    );
+    // Highlight on the -y side.
+    painter.fill_ellipse(
+        (cx - body_rx * 0.20) as f32, (cy - body_ry * 0.30) as f32,
+        (body_rx * 0.55) as f32, (body_ry * 0.30) as f32,
+        &Paint::solid(BOULDER_HIGHLIGHT),
+    );
+    // Shadow on the +y side.
+    painter.fill_ellipse(
+        (cx + body_rx * 0.15) as f32, (cy + body_ry * 0.40) as f32,
+        (body_rx * 0.65) as f32, (body_ry * 0.25) as f32,
+        &Paint::solid(BOULDER_SHADOW),
+    );
+}
+
 /// Convenience axis-aligned rectangle fill via fill_path. Used
 /// by the per-anchor painters above instead of fill_rect so the
 /// SVG painter renders a single ``<path>`` rather than mixing
@@ -1817,6 +2061,32 @@ pub fn draw<'a>(
                 paint_cauldron_anchor(painter, &anchors.get(i), op.seed());
             }
         }
+        // Outdoor camp.
+        FixtureKind::Campfire => {
+            for i in 0..anchors.len() {
+                paint_campfire_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Tent => {
+            for i in 0..anchors.len() {
+                paint_tent_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Logs => {
+            for i in 0..anchors.len() {
+                paint_logs_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Stump => {
+            for i in 0..anchors.len() {
+                paint_stump_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Boulder => {
+            for i in 0..anchors.len() {
+                paint_boulder_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
         _ => {
             // Defensive — unknown kinds (forward-compat enum
             // variants) hit the wildcard. Magenta sentinel fill so
@@ -2054,6 +2324,85 @@ mod tests {
             .count();
         assert_eq!(rect_circles, 0, "rectangular table should emit no circles");
         assert!(round_circles >= 2, "round table should emit ≥ 2 circles");
+    }
+
+    /// Outdoor-camp kinds (Campfire / Tent / Logs / Stump /
+    /// Boulder) each dispatch to their per-anchor painter and
+    /// emit multi-call output. Pin so a future enum addition
+    /// that forgets the dispatch arm surfaces here as a single
+    /// magenta-sentinel call.
+    #[test]
+    fn outdoor_camp_kinds_dispatch_to_their_painters() {
+        for kind in [
+            FixtureKind::Campfire, FixtureKind::Tent,
+            FixtureKind::Logs, FixtureKind::Stump,
+            FixtureKind::Boulder,
+        ] {
+            let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+            let painter = run(&build_fixture_op(kind, &anchors));
+            assert!(
+                painter.calls.len() > 1,
+                "kind {kind:?}: expected multi-call painter, got {}",
+                painter.calls.len(),
+            );
+        }
+    }
+
+    /// Campfire.variant=1 (cold) skips the flame; variant=0
+    /// (default, lit) emits a flame fill_path + bright core
+    /// fill_ellipse. Pins the variant axis (mirror of the
+    /// Hearth lit/cold split).
+    #[test]
+    fn campfire_cold_variant_skips_flame_path() {
+        let lit_anchor = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+        let cold_anchor = [Anchor::new(2, 3, 1, 0, 0, 0, 0, 0, 0)];
+        let p_lit = run(&build_fixture_op(FixtureKind::Campfire, &lit_anchor));
+        let p_cold = run(&build_fixture_op(
+            FixtureKind::Campfire, &cold_anchor,
+        ));
+        let lit_paths = p_lit
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillPath(_, _, _)))
+            .count();
+        let cold_paths = p_cold
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillPath(_, _, _)))
+            .count();
+        assert!(
+            lit_paths > cold_paths,
+            "lit campfire ({lit_paths} fill_paths) must emit > cold ({cold_paths})",
+        );
+    }
+
+    /// Stump.variant=1 (well-rooted) adds 4 root-flare strokes
+    /// on top of the default stump silhouette; variant=0 emits
+    /// only the bark + wood + 2 growth ring strokes (no roots).
+    /// Pins the variant axis.
+    #[test]
+    fn stump_rooted_variant_adds_root_strokes() {
+        let plain_anchor = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+        let rooted_anchor = [Anchor::new(2, 3, 1, 0, 0, 0, 0, 0, 0)];
+        let p_plain = run(&build_fixture_op(
+            FixtureKind::Stump, &plain_anchor,
+        ));
+        let p_rooted = run(&build_fixture_op(
+            FixtureKind::Stump, &rooted_anchor,
+        ));
+        let plain_strokes = p_plain
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::StrokePath(_, _, _)))
+            .count();
+        let rooted_strokes = p_rooted
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::StrokePath(_, _, _)))
+            .count();
+        // Plain emits 2 ring strokes; rooted emits 2 + 4 root
+        // strokes = 6.
+        assert_eq!(rooted_strokes, plain_strokes + 4);
     }
 
     /// Hearth.variant=1 (cold) skips the flame; variant=0

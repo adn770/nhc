@@ -272,4 +272,46 @@ register_catalog_page(CatalogPageSpec(
 ))
 
 
+# ── Outdoor camp fixtures ──────────────────────────────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="outdoor-camp-1",
+    category="synthetic/fixtures",
+    description=(
+        "Outdoor camp set 1 — Campfire (stone ring + ash + flame; "
+        "variant=1 paints a cold campfire), Tent (triangular "
+        "canvas pointing +x with ridge stripe + door slit), Logs "
+        "(3-log triangular pile of cross-section ends with bark "
+        "+ wood + core rings)."
+    ),
+    columns=[
+        ColumnSpec("Campfire", fixture_factory(kind=FixtureKind.Campfire)),
+        ColumnSpec("Tent", fixture_factory(kind=FixtureKind.Tent)),
+        ColumnSpec("Logs", fixture_factory(kind=FixtureKind.Logs)),
+    ],
+    seed=7,
+    params={"axis": "outdoor-camp-1"},
+))
+
+
+register_catalog_page(CatalogPageSpec(
+    name="outdoor-camp-2",
+    category="synthetic/fixtures",
+    description=(
+        "Outdoor camp set 2 — Stump (tree-stump cross-section "
+        "with bark + wood + 2 growth rings; variant=1 adds 4 "
+        "root flares), Boulder (rounded gray stone with -y "
+        "highlight + +y shadow; variant=1 renders a smaller "
+        "boulder)."
+    ),
+    columns=[
+        ColumnSpec("Stump", fixture_factory(kind=FixtureKind.Stump)),
+        ColumnSpec("Boulder", fixture_factory(kind=FixtureKind.Boulder)),
+    ],
+    seed=7,
+    params={"axis": "outdoor-camp-2"},
+))
+
+
 __all__ = []

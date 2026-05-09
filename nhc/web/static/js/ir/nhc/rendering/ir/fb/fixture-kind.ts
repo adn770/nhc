@@ -43,5 +43,10 @@ export enum FixtureKind {
   Bed = 37,
   Bookshelf = 38,
   Hearth = 39,
-  Cauldron = 40
+  Cauldron = 40,
+  Campfire = 41,
+  Tent = 42,
+  Logs = 43,
+  Stump = 44,
+  Boulder = 45
 }
