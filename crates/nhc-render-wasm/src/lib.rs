@@ -23,6 +23,18 @@ use wasm_bindgen::prelude::*;
 
 use nhc_render::rng::SplitMix64;
 
+/// One-shot panic-hook installer. Both the JS dispatcher and
+/// the Node parity-gate runner invoke this once at startup so
+/// any subsequent Rust panic surfaces on ``console.error``
+/// with the panic message + a stack frame instead of the bare
+/// ``RuntimeError: unreachable`` V8 emits by default. Idempotent
+/// — calling it more than once is harmless.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn install_panic_hook() {
+    console_error_panic_hook::set_once();
+}
+
 #[cfg(target_arch = "wasm32")]
 pub mod web_canvas;
 

@@ -1,0 +1,13 @@
+{
+  "name": "nhc-test-runners",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Test-only Node runners for the NHC project. The only runtime here is the wasm-bundle parity gate (Phase 5.6 of plans/nhc_pure_ir_v5_migration_plan.md); the player-facing web app is Python/Flask + browser JS, not Node.",
+  "type": "module",
+  "devDependencies": {
+    "@napi-rs/canvas": "^0.1.66"
+  },
+  "scripts": {
+    "test:wasm-canvas": "node tests/wasm/canvas_parity_runner.mjs"
+  }
+}

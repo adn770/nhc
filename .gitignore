@@ -15,6 +15,11 @@ build/
 target/
 *.pdb
 
+# Node — only used by the Phase 5.6 wasm-bundle parity gate
+# (tests/wasm/). package.json + package-lock.json are tracked,
+# but the install tree itself stays local.
+node_modules/
+
 # Debug artifacts
 debug/*
 !debug/.gitkeep

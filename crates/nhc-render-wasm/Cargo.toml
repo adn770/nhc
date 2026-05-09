@@ -39,6 +39,15 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 nhc-render = { path = "../nhc-render", default-features = false, features = ["wasm"] }
 wasm-bindgen = "0.2"
+# Routes Rust panics to ``console.error`` with the panic
+# message + a JS stack frame. Without this, panics surface as
+# the bare ``RuntimeError: unreachable`` from V8 with no hint
+# of which assertion / unwrap fired. ~3 KB cost on the wasm
+# bundle; the parity gate's PSNR comparison would be
+# impossible to debug without it. Phase 5.5's ``-O1`` /
+# ``panic = "abort"`` still strip most of std's panic
+# infrastructure — the hook just keeps the print path alive.
+console_error_panic_hook = "0.1"
 
 # ``getrandom`` is a transitive dep (rand → getrandom) that
 # refuses to build for ``wasm32-unknown-unknown`` without the
