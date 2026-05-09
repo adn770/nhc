@@ -2,13 +2,20 @@
 //!
 //! 12 species (Oak, Walnut, Cherry, Pine, Weathered + the
 //! post-Phase-5 deferred-polish additions Mahogany, Ebony, Ash,
-//! Maple, Birch, Teak, Bamboo) × 4 tones (Light, Medium, Dark,
-//! Charred) × 6 sub-patterns (Plank, BasketWeave, Parquet,
-//! Herringbone + the post-Phase-5 deferred-polish additions
-//! Chevron, Brick) = 288 wood combinations. The palette holds
-//! 144 colour entries (12 species × 4 tones × 3 roles [base,
-//! highlight, shadow]); sub-patterns are algorithm-side, not
-//! palette-side.
+//! Maple, Birch, Teak, Bamboo) × 6 tones (Light, Medium, Dark,
+//! Charred + the post-Phase-5 additions Bleached, Aged) × 6
+//! sub-patterns (Plank, BasketWeave, Parquet, Herringbone +
+//! the post-Phase-5 additions Chevron, Brick) = 432 wood
+//! combinations. The palette holds 216 colour entries (12
+//! species × 6 tones × 3 roles [base, highlight, shadow]);
+//! sub-patterns are algorithm-side, not palette-side.
+//!
+//! Tone semantics: tones 0–3 (Light → Charred) form a strict
+//! darkening progression — pinned by
+//! ``tones_within_each_species_decrease_in_brightness``. Tones
+//! 4 (Bleached) and 5 (Aged) sit OUTSIDE the gradient: Bleached
+//! is paler than Light (sun-faded surface), Aged is between
+//! Medium and Charred with a grayer patina (weathered surface).
 //!
 //! Phase 2.3a–d of `plans/nhc_pure_ir_v5_migration_plan.md`. The
 //! per-(species, tone) palette is locked (Phase 2.3 baseline);
@@ -71,7 +78,7 @@ const fn hex_to_color(rgb: u32) -> Color {
 }
 
 const N_SPECIES: usize = 12;
-const N_TONES: usize = 4;
+const N_TONES: usize = 6;
 
 /// 5 species × 4 tones × 3 roles. Light / Medium / Dark are lifted
 /// directly from the v4 ``WOOD_SPECIES`` table in
@@ -79,6 +86,12 @@ const N_TONES: usize = 4;
 /// ``(fill, grain_light, grain_dark)`` triple maps to ``(base,
 /// highlight, shadow)``. Charred (the new 4th tone) is hand-picked
 /// per species so the four tones read as a darkening progression.
+// Each row: 6 tones in the order
+//   [Light=0, Medium=1, Dark=2, Charred=3, Bleached=4, Aged=5].
+// Light → Charred is a strict darkening gradient; Bleached
+// (sun-faded surface) sits PALER than Light; Aged (weathered
+// surface with patina) sits BETWEEN Medium and Charred with a
+// grayer cast.
 const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
     // Oak — warm tan.
     [
@@ -86,6 +99,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0xB58B5A, 0xC4A076, 0x8F6540), // Medium
         entry(0x9B7548, 0xAC8A60, 0x7A5530), // Dark
         entry(0x402A18, 0x5A3E26, 0x281810), // Charred
+        entry(0xE8D8B8, 0xF2E5C8, 0xC0AC8C), // Bleached
+        entry(0x886F58, 0xA08868, 0x5A463A), // Aged
     ],
     // Walnut — deep cocoa, redder hue.
     [
@@ -93,6 +108,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0x6E4F32, 0x8B6446, 0x523820),
         entry(0x553820, 0x6E4F32, 0x3F2818),
         entry(0x221810, 0x382A1C, 0x140C08),
+        entry(0xC8A088, 0xDCB89C, 0x9C7F65),
+        entry(0x5C4838, 0x726046, 0x3A2D24),
     ],
     // Cherry — reddish brown, slight orange.
     [
@@ -100,6 +117,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0x9B6442, 0xB07A55, 0x7A4D2E),
         entry(0x7E4F32, 0x955F44, 0x5F3820),
         entry(0x362018, 0x4C2E22, 0x1E120C),
+        entry(0xDCB098, 0xE8C0A8, 0xB48E78),
+        entry(0x705548, 0x8A6A5C, 0x4A372E),
     ],
     // Pine — pale honey, the lightest species.
     [
@@ -107,6 +126,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0xC4A176, 0xD8B888, 0xA48458),
         entry(0xA88556, 0xBFA070, 0x88683C),
         entry(0x443620, 0x5A4A30, 0x2A1F12),
+        entry(0xEED8B0, 0xF5E8C8, 0xC4B090),
+        entry(0x9E8A6E, 0xB6A088, 0x6E5F4E),
     ],
     // Weathered grey — silvered teak / driftwood.
     [
@@ -114,6 +135,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0x6E695F, 0x8A8478, 0x544F46),
         entry(0x544F46, 0x6E695F, 0x3D3932),
         entry(0x201C18, 0x322E28, 0x100C0A),
+        entry(0xC4C0B8, 0xD8D4CC, 0x9C9890),
+        entry(0x564F46, 0x6E6759, 0x3A352E),
     ],
     // Mahogany — deep red-brown, classic furniture wood.
     [
@@ -121,6 +144,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0x9C4530, 0xB85843, 0x762E1E),
         entry(0x7A3320, 0x923F2A, 0x592216),
         entry(0x2C1208, 0x401D14, 0x180A04),
+        entry(0xDC9888, 0xE8B0A0, 0xB47C6C),
+        entry(0x705048, 0x8A6862, 0x4A3328),
     ],
     // Ebony — near-black with subtle warm tint.
     [
@@ -128,6 +153,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0x3A2D24, 0x4D3E32, 0x271E16),
         entry(0x271E16, 0x3A2D24, 0x180F0A),
         entry(0x0E0805, 0x1A1108, 0x080402),
+        entry(0x988880, 0xB0A098, 0x726660),
+        entry(0x261D18, 0x382E26, 0x18120E),
     ],
     // Ash — pale, creamy with subtle grain.
     [
@@ -135,6 +162,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0xC1B498, 0xD8CCB4, 0x988A70),
         entry(0x9D907A, 0xB2A38B, 0x7A6F58),
         entry(0x3E3424, 0x504432, 0x2C2418),
+        entry(0xECE4D0, 0xF6F0DE, 0xC0B8A0),
+        entry(0x847C68, 0x9E9684, 0x5A544A),
     ],
     // Maple — warm light beige.
     [
@@ -142,6 +171,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0xC8B080, 0xE6CFA0, 0xA08D5C),
         entry(0xA48E68, 0xBCA47C, 0x806842),
         entry(0x382818, 0x4C3A24, 0x261810),
+        entry(0xF0DEB8, 0xF8E8CA, 0xC8B898),
+        entry(0x86714F, 0xA08D6E, 0x5A4D38),
     ],
     // Birch — very pale with hint of pink-cream.
     [
@@ -149,6 +180,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0xD2C5A6, 0xE8DEC2, 0xA89A78),
         entry(0xB0A488, 0xC8BCA0, 0x847656),
         entry(0x322820, 0x443830, 0x1F1A12),
+        entry(0xF6EED2, 0xFAF4DE, 0xC8C0AC),
+        entry(0x8A7E68, 0xA09684, 0x5C5446),
     ],
     // Teak — warm golden-brown with mid-saturation.
     [
@@ -156,6 +189,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0xA77548, 0xC68C5C, 0x82582C),
         entry(0x866038, 0x9E7244, 0x624222),
         entry(0x382410, 0x4C3018, 0x281808),
+        entry(0xE0B898, 0xECC8AC, 0xB89880),
+        entry(0x745548, 0x8E6A5C, 0x4A382E),
     ],
     // Bamboo — pale yellow-tan with linear grain feel.
     [
@@ -163,6 +198,8 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0xC4AB68, 0xDDC988, 0xA08848),
         entry(0xA08544, 0xB89C5C, 0x7A642C),
         entry(0x302410, 0x402F18, 0x1E1708),
+        entry(0xEEDFB0, 0xF6EAC8, 0xC4B594),
+        entry(0x806E50, 0x9C8A68, 0x5A4E3A),
     ],
 ];
 
@@ -730,8 +767,11 @@ mod tests {
         assert_eq!(bases.len(), N_SPECIES * N_TONES);
     }
 
-    /// Within a species, the 4 tones must be a darkening progression:
-    /// Light > Medium > Dark > Charred (sum of channels).
+    /// Within a species, the 4 baseline tones must be a darkening
+    /// progression: Light > Medium > Dark > Charred (sum of
+    /// channels). The post-Phase-5 additions Bleached and Aged
+    /// sit OUTSIDE this gradient and are pinned by their own
+    /// test below.
     #[test]
     fn tones_within_each_species_decrease_in_brightness() {
         for s in 0..N_SPECIES as u8 {
@@ -746,6 +786,33 @@ mod tests {
             assert!(light > medium, "species {s}: Light <= Medium");
             assert!(medium > dark, "species {s}: Medium <= Dark");
             assert!(dark > charred, "species {s}: Dark <= Charred");
+        }
+    }
+
+    /// Bleached (tone=4) is sun-faded — paler than every species'
+    /// Light tone. Aged (tone=5) is weathered with a grayer
+    /// patina — sits between Medium and Charred so it reads as
+    /// worn but not burnt.
+    #[test]
+    fn bleached_outranks_light_aged_sits_between_medium_and_charred() {
+        for s in 0..N_SPECIES as u8 {
+            let brightness = |t: u8| {
+                let c = palette(s, t).base;
+                c.r as u32 + c.g as u32 + c.b as u32
+            };
+            let light = brightness(0);
+            let medium = brightness(1);
+            let charred = brightness(3);
+            let bleached = brightness(4);
+            let aged = brightness(5);
+            assert!(
+                bleached > light,
+                "species {s}: Bleached ({bleached}) must be paler than Light ({light})",
+            );
+            assert!(
+                aged < medium && aged > charred,
+                "species {s}: Aged ({aged}) must sit between Medium ({medium}) and Charred ({charred})",
+            );
         }
     }
 
