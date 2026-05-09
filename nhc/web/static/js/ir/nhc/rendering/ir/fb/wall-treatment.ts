@@ -11,5 +11,6 @@ export enum WallTreatment {
   Drystone = 5,
   Adobe = 6,
   WattleAndDaub = 7,
-  Iron = 8
+  Iron = 8,
+  PostAndRail = 9
 }

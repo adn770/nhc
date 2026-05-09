@@ -185,6 +185,12 @@ enum WallTreatment : ubyte {
   Adobe         = 6,
   WattleAndDaub = 7,
   Iron          = 8,
+  // Farm fence — squared posts at fixed pitch with thin rails
+  // between them. Top-down view. Uses the family / style / tone
+  // palette for colour, so callers can render natural-wood
+  // fences (Wood family) or painted-white pickets (Plain family
+  // / pale stone style) without needing a separate enum.
+  PostAndRail   = 9,
 }
 
 enum PathStyle : ubyte {
@@ -230,6 +236,13 @@ enum FixtureKind : ubyte {
   Trapdoor    = 21,
   Footprint   = 22,
   ChalkCircle = 23,
+  // Farm animals — top-down silhouettes.
+  Cow         = 24,
+  Sheep       = 25,
+  Pig         = 26,
+  Chicken     = 27,
+  Goat        = 28,
+  Horse       = 29,
 }
 
 // RoofOp dispatches geometry directly off ``style`` (today's

@@ -972,6 +972,193 @@ fn paint_chalk_circle_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) 
     }
 }
 
+// ── Farm animals — top-down silhouettes ───────────────────────
+//
+// Each painter draws the animal viewed from above: oval body
+// (length along the +x axis), small accent shapes (head /
+// horns / mane / tail / ears / etc.) at characteristic
+// positions. RNG-free; ``variant`` reserved on the signature
+// for future per-individual colour variation but not yet
+// consumed.
+
+const COW_HIDE: Color = Color::rgba(0x8C, 0x6F, 0x4F, 1.0);
+const COW_SPOT: Color = Color::rgba(0xF0, 0xEC, 0xE0, 1.0);
+const COW_DARK: Color = Color::rgba(0x4A, 0x36, 0x22, 1.0);
+
+/// Cow — large brown oval body with two pale hide spots and a
+/// small dark head extension at the front (+x).
+fn paint_cow_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let body_rx = CELL * 0.30;
+    let body_ry = CELL * 0.18;
+    painter.fill_ellipse(
+        cx as f32, cy as f32,
+        body_rx as f32, body_ry as f32,
+        &Paint::solid(COW_HIDE),
+    );
+    // Two pale hide patches.
+    painter.fill_ellipse(
+        (cx - CELL * 0.10) as f32, (cy - CELL * 0.04) as f32,
+        (CELL * 0.07) as f32, (CELL * 0.05) as f32,
+        &Paint::solid(COW_SPOT),
+    );
+    painter.fill_ellipse(
+        (cx + CELL * 0.06) as f32, (cy + CELL * 0.06) as f32,
+        (CELL * 0.06) as f32, (CELL * 0.04) as f32,
+        &Paint::solid(COW_SPOT),
+    );
+    // Head — small dark ellipse off the front (+x) end.
+    painter.fill_ellipse(
+        (cx + body_rx * 0.85) as f32, cy as f32,
+        (CELL * 0.07) as f32, (CELL * 0.08) as f32,
+        &Paint::solid(COW_DARK),
+    );
+}
+
+const SHEEP_FLEECE: Color = Color::rgba(0xF0, 0xEC, 0xDC, 1.0);
+const SHEEP_FACE: Color = Color::rgba(0x42, 0x36, 0x2A, 1.0);
+
+/// Sheep — round white-fleece body with a small dark face poking
+/// out the front. Top-down silhouette.
+fn paint_sheep_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let body_r = CELL * 0.20;
+    painter.fill_circle(
+        cx as f32, cy as f32, body_r as f32,
+        &Paint::solid(SHEEP_FLEECE),
+    );
+    painter.fill_circle(
+        (cx + body_r * 0.85) as f32, cy as f32,
+        (CELL * 0.06) as f32,
+        &Paint::solid(SHEEP_FACE),
+    );
+}
+
+const PIG_BODY: Color = Color::rgba(0xE8, 0xA8, 0x9C, 1.0);
+const PIG_SNOUT: Color = Color::rgba(0xC8, 0x80, 0x70, 1.0);
+
+/// Pig — pink oval body with a darker snout dot at the front
+/// and a curly-tail dot at the back.
+fn paint_pig_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let body_rx = CELL * 0.26;
+    let body_ry = CELL * 0.17;
+    painter.fill_ellipse(
+        cx as f32, cy as f32,
+        body_rx as f32, body_ry as f32,
+        &Paint::solid(PIG_BODY),
+    );
+    // Snout — small darker dot at +x.
+    painter.fill_circle(
+        (cx + body_rx * 0.95) as f32, cy as f32,
+        (CELL * 0.04) as f32,
+        &Paint::solid(PIG_SNOUT),
+    );
+    // Curly tail — tiny dot at -x.
+    painter.fill_circle(
+        (cx - body_rx * 0.95) as f32, cy as f32,
+        (CELL * 0.025) as f32,
+        &Paint::solid(PIG_SNOUT),
+    );
+}
+
+const CHICKEN_FEATHERS: Color = Color::rgba(0xE6, 0xC8, 0x88, 1.0);
+const CHICKEN_BEAK: Color = Color::rgba(0xE0, 0x90, 0x30, 1.0);
+const CHICKEN_COMB: Color = Color::rgba(0xC8, 0x30, 0x30, 1.0);
+
+/// Chicken — small round buff body with an orange beak and a
+/// red comb dot. Smaller than sheep / pig; reads as poultry at
+/// tile scale.
+fn paint_chicken_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let body_r = CELL * 0.13;
+    painter.fill_circle(
+        cx as f32, cy as f32, body_r as f32,
+        &Paint::solid(CHICKEN_FEATHERS),
+    );
+    // Comb — small red dot above the head.
+    painter.fill_circle(
+        (cx + body_r * 0.6) as f32, (cy - body_r * 0.6) as f32,
+        (CELL * 0.025) as f32,
+        &Paint::solid(CHICKEN_COMB),
+    );
+    // Beak — small triangle / dot at +x.
+    painter.fill_circle(
+        (cx + body_r * 1.10) as f32, cy as f32,
+        (CELL * 0.022) as f32,
+        &Paint::solid(CHICKEN_BEAK),
+    );
+}
+
+const GOAT_HIDE: Color = Color::rgba(0x9C, 0x88, 0x70, 1.0);
+const GOAT_HORN: Color = Color::rgba(0x32, 0x28, 0x1A, 1.0);
+
+/// Goat — gray-brown body with two small dark horn dabs at the
+/// head and a small beard dot beneath.
+fn paint_goat_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let body_rx = CELL * 0.24;
+    let body_ry = CELL * 0.15;
+    painter.fill_ellipse(
+        cx as f32, cy as f32,
+        body_rx as f32, body_ry as f32,
+        &Paint::solid(GOAT_HIDE),
+    );
+    let head_x = cx + body_rx * 0.90;
+    // Horns — two small darker dots above the head.
+    painter.fill_circle(
+        head_x as f32, (cy - body_ry * 0.55) as f32,
+        (CELL * 0.025) as f32,
+        &Paint::solid(GOAT_HORN),
+    );
+    painter.fill_circle(
+        (head_x + CELL * 0.04) as f32, (cy - body_ry * 0.40) as f32,
+        (CELL * 0.025) as f32,
+        &Paint::solid(GOAT_HORN),
+    );
+    // Beard — small dot below the head.
+    painter.fill_circle(
+        head_x as f32, (cy + body_ry * 0.55) as f32,
+        (CELL * 0.025) as f32,
+        &Paint::solid(GOAT_HORN),
+    );
+}
+
+const HORSE_COAT: Color = Color::rgba(0x6B, 0x47, 0x2A, 1.0);
+const HORSE_MANE: Color = Color::rgba(0x32, 0x22, 0x14, 1.0);
+
+/// Horse — long oval body with a darker mane stripe along the
+/// back (the long axis) and a small tail dot at the rear.
+fn paint_horse_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let body_rx = CELL * 0.34;
+    let body_ry = CELL * 0.14;
+    painter.fill_ellipse(
+        cx as f32, cy as f32,
+        body_rx as f32, body_ry as f32,
+        &Paint::solid(HORSE_COAT),
+    );
+    // Mane — narrower darker ellipse offset slightly above the
+    // body's long axis to read as a top-edge mane line.
+    painter.fill_ellipse(
+        cx as f32, (cy - body_ry * 0.45) as f32,
+        (body_rx * 0.65) as f32, (body_ry * 0.30) as f32,
+        &Paint::solid(HORSE_MANE),
+    );
+    // Tail — small dab at the rear (-x end).
+    painter.fill_circle(
+        (cx - body_rx * 1.05) as f32, cy as f32,
+        (CELL * 0.040) as f32,
+        &Paint::solid(HORSE_MANE),
+    );
+}
+
 /// Convenience axis-aligned rectangle fill via fill_path. Used
 /// by the per-anchor painters above instead of fill_rect so the
 /// SVG painter renders a single ``<path>`` rather than mixing
@@ -1177,6 +1364,37 @@ pub fn draw<'a>(
                 paint_chalk_circle_anchor(painter, &anchors.get(i), op.seed());
             }
         }
+        // Farm animals.
+        FixtureKind::Cow => {
+            for i in 0..anchors.len() {
+                paint_cow_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Sheep => {
+            for i in 0..anchors.len() {
+                paint_sheep_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Pig => {
+            for i in 0..anchors.len() {
+                paint_pig_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Chicken => {
+            for i in 0..anchors.len() {
+                paint_chicken_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Goat => {
+            for i in 0..anchors.len() {
+                paint_goat_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Horse => {
+            for i in 0..anchors.len() {
+                paint_horse_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
         _ => {
             // Defensive — unknown kinds (forward-compat enum
             // variants) hit the wildcard. Magenta sentinel fill so
@@ -1365,6 +1583,27 @@ mod tests {
                 painter.calls.len() > 1,
                 "kind {kind:?}: expected multi-call lifted painter, got {}",
                 painter.calls.len()
+            );
+        }
+    }
+
+    /// Farm-animal kinds (Cow / Sheep / Pig / Chicken / Goat /
+    /// Horse) each dispatch to their per-anchor painter and emit
+    /// multi-call output. Pin so a future enum addition that
+    /// forgets the dispatch arm surfaces here as a single
+    /// magenta-sentinel call.
+    #[test]
+    fn farm_animal_kinds_dispatch_to_their_painters() {
+        for kind in [
+            FixtureKind::Cow, FixtureKind::Sheep, FixtureKind::Pig,
+            FixtureKind::Chicken, FixtureKind::Goat, FixtureKind::Horse,
+        ] {
+            let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+            let painter = run(&build_fixture_op(kind, &anchors));
+            assert!(
+                painter.calls.len() > 1,
+                "kind {kind:?}: expected multi-call painter, got {}",
+                painter.calls.len(),
             );
         }
     }

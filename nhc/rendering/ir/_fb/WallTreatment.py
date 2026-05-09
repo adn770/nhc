@@ -12,3 +12,4 @@ class WallTreatment(object):
     Adobe = 6
     WattleAndDaub = 7
     Iron = 8
+    PostAndRail = 9

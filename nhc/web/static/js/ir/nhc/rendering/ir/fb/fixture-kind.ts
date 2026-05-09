@@ -26,5 +26,11 @@ export enum FixtureKind {
   Ladder = 20,
   Trapdoor = 21,
   Footprint = 22,
-  ChalkCircle = 23
+  ChalkCircle = 23,
+  Cow = 24,
+  Sheep = 25,
+  Pig = 26,
+  Chicken = 27,
+  Goat = 28,
+  Horse = 29
 }

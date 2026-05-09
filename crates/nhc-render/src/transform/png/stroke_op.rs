@@ -29,7 +29,7 @@ use flatbuffers::{ForwardsUOffset, Vector};
 use super::region_path::outline_to_path;
 use crate::ir::{MaterialFamily, Region, StrokeOp, WallTreatment};
 use crate::painter::material::{substance_color, Family, PaletteRole};
-use crate::painter::{Color, LineCap, Paint, PathOps, Painter, Stroke, Vec2};
+use crate::painter::{Color, LineCap, LineJoin, Paint, PathOps, Painter, Rect, Stroke, Vec2};
 
 /// Map the FlatBuffers `MaterialFamily` to the painter's `Family`
 /// POD. Mirrors the bridge in `super::material_from_fb`.
@@ -158,6 +158,18 @@ pub fn draw<'a>(
             render_wattle_and_daub_polygon(poly, color, painter);
             return true;
         }
+        (WallTreatment::PostAndRail, Some(poly)) => {
+            let post_color = substance_color(
+                family, wm.style(), wm.tone(), PaletteRole::Base,
+            );
+            let rail_color = substance_color(
+                family, wm.style(), wm.tone(), PaletteRole::Shadow,
+            );
+            render_post_and_rail_polygon(
+                poly, post_color, rail_color, painter,
+            );
+            return true;
+        }
         _ => {}
     }
 
@@ -174,6 +186,82 @@ pub fn draw<'a>(
     };
     painter.stroke_path(&path, &paint, &stroke);
     true
+}
+
+/// PostAndRail (top-down farm fence) — walks every polygon
+/// edge, strokes a thin rail along the edge in the shadow
+/// tone, and drops squared posts at a fixed pitch (12 px) plus
+/// at every polygon vertex so corners read as a clear post.
+/// Top-down view: posts are 3 px squares; rails are 0.9 px
+/// strokes. Caller picks the wood family / style / tone for a
+/// natural fence, or Plain family / pale style for a
+/// painted-white picket effect.
+fn render_post_and_rail_polygon(
+    polygon: &[(f32, f32)],
+    post_color: Color,
+    rail_color: Color,
+    painter: &mut dyn Painter,
+) {
+    if polygon.len() < 2 {
+        return;
+    }
+    const PITCH: f32 = 12.0;
+    const POST_HALF: f32 = 1.5;
+    let post_paint = Paint::solid(post_color);
+    let rail_paint = Paint::solid(rail_color);
+    let rail_stroke = Stroke {
+        width: 0.9,
+        line_cap: LineCap::Butt,
+        line_join: LineJoin::Miter,
+    };
+    let n = polygon.len();
+    // 1) Rail strokes — one stroke per edge.
+    for i in 0..n {
+        let (ax, ay) = polygon[i];
+        let (bx, by) = polygon[(i + 1) % n];
+        let mut rail = PathOps::new();
+        rail.move_to(Vec2::new(ax, ay));
+        rail.line_to(Vec2::new(bx, by));
+        painter.stroke_path(&rail, &rail_paint, &rail_stroke);
+    }
+    // 2) Vertex posts — one square per polygon vertex so
+    //    corners always read as a post (avoids the case where
+    //    the pitch sampler would skip a corner that's < pitch
+    //    away from the previous post).
+    for &(vx, vy) in polygon {
+        painter.fill_rect(
+            Rect::new(vx - POST_HALF, vy - POST_HALF,
+                POST_HALF * 2.0, POST_HALF * 2.0),
+            &post_paint,
+        );
+    }
+    // 3) Mid-edge posts — fixed-pitch sampler along each edge,
+    //    skipping the endpoints (already covered by the vertex
+    //    pass).
+    for i in 0..n {
+        let (ax, ay) = polygon[i];
+        let (bx, by) = polygon[(i + 1) % n];
+        let dx = bx - ax;
+        let dy = by - ay;
+        let len = (dx * dx + dy * dy).sqrt();
+        if len < PITCH {
+            continue;
+        }
+        let n_posts = (len / PITCH).floor() as i32;
+        for j in 1..=n_posts {
+            let t = (j as f32) * PITCH / len;
+            if t >= 1.0 {
+                break;
+            }
+            let cx = ax + dx * t;
+            let cy = ay + dy * t;
+            painter.fill_rect(
+                Rect::new(cx - POST_HALF, cy - POST_HALF,
+                    POST_HALF * 2.0, POST_HALF * 2.0),
+                &post_paint,
+            );
+        }
+    }
 }
 
 /// WattleAndDaub overlay — strokes the wall as a thicker daub
@@ -597,6 +685,45 @@ mod tests {
                 ),
             }
         }
+    }
+
+    /// PostAndRail dispatches to the dedicated farm-fence
+    /// painter — emits one rail stroke per polygon edge plus
+    /// at least one fill_rect post per polygon vertex (a 4-edge
+    /// 64×64 polygon = 4 rails + 4 vertex posts + per-edge
+    /// pitch-sampled posts ≥ 4 rails + 4 posts).
+    #[test]
+    fn post_and_rail_treatment_emits_rails_plus_squared_posts() {
+        let buf = build_stroke_op_with_region(
+            MaterialFamily::Wood,
+            0,
+            WallTreatment::PostAndRail,
+        );
+        let fir = root_as_floor_ir(&buf).expect("parse");
+        let regions = fir.regions().expect("regions");
+        let op = fir
+            .ops()
+            .expect("ops")
+            .get(0)
+            .op_as_stroke_op()
+            .expect("stroke op");
+        let mut painter = MockPainter::default();
+        assert!(draw(op, regions, &mut painter));
+        let rails = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::StrokePath(_, _, _)))
+            .count();
+        let posts = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+            .count();
+        assert_eq!(rails, 4, "PostAndRail should emit 4 rail strokes");
+        assert!(
+            posts >= 4,
+            "PostAndRail should emit ≥ 4 squared posts (vertex + pitch), got {posts}",
+        );
     }
 
     /// WattleAndDaub gets its own dispatch — emits the daub
