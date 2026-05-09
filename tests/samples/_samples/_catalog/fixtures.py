@@ -92,4 +92,142 @@ register_catalog_page(CatalogPageSpec(
 ))
 
 
+# ── Post-Phase-5 deferred-polish FixtureKind additions ────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="containers",
+    category="synthetic/fixtures",
+    description=(
+        "Container fixtures — Chest (wooden coffer + iron bands + "
+        "brass lock), Crate (square with cross-bracing), Barrel "
+        "(vertical oval body + 3 hoops). Plus Trough (long water "
+        "trough; variant=1 swaps to feed)."
+    ),
+    columns=[
+        ColumnSpec("Chest", fixture_factory(kind=FixtureKind.Chest)),
+        ColumnSpec("Crate", fixture_factory(kind=FixtureKind.Crate)),
+        ColumnSpec("Barrel", fixture_factory(kind=FixtureKind.Barrel)),
+        ColumnSpec("Trough", fixture_factory(kind=FixtureKind.Trough)),
+    ],
+    seed=7,
+    params={"axis": "containers"},
+))
+
+
+register_catalog_page(CatalogPageSpec(
+    name="ritual",
+    category="synthetic/fixtures",
+    description=(
+        "Ritual / ceremonial fixtures — Altar (stone slab + "
+        "raised top), Brazier (footed bowl + flame), Statue "
+        "(humanoid silhouette on a base), ChalkCircle (pale "
+        "arcane summoning ring with radial inscriptions)."
+    ),
+    columns=[
+        ColumnSpec("Altar", fixture_factory(kind=FixtureKind.Altar)),
+        ColumnSpec("Brazier", fixture_factory(kind=FixtureKind.Brazier)),
+        ColumnSpec("Statue", fixture_factory(kind=FixtureKind.Statue)),
+        ColumnSpec("ChalkCircle", fixture_factory(
+            kind=FixtureKind.ChalkCircle,
+        )),
+    ],
+    seed=7,
+    params={"axis": "ritual"},
+))
+
+
+register_catalog_page(CatalogPageSpec(
+    name="architecture",
+    category="synthetic/fixtures",
+    description=(
+        "Architectural fixtures — Pillar (round column + base/cap), "
+        "Pedestal (short circular plinth), Ladder (vertical rails "
+        "+ rungs), Trapdoor (square plank + diagonal brace + "
+        "hinge), plus Footprint (boot-shape stamp distinct from "
+        "the per-tile-decorator Footprints bit)."
+    ),
+    columns=[
+        ColumnSpec("Pillar", fixture_factory(kind=FixtureKind.Pillar)),
+        ColumnSpec("Pedestal", fixture_factory(kind=FixtureKind.Pedestal)),
+        ColumnSpec("Ladder", fixture_factory(kind=FixtureKind.Ladder)),
+        ColumnSpec("Trapdoor", fixture_factory(kind=FixtureKind.Trapdoor)),
+        ColumnSpec("Footprint", fixture_factory(
+            kind=FixtureKind.Footprint,
+        )),
+    ],
+    seed=7,
+    params={"axis": "architecture"},
+))
+
+
+# ── Farm-animal fixtures ────────────────────────────────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="farm-animals-1",
+    category="synthetic/fixtures",
+    description=(
+        "Farm animals set 1 — Cow (brown body + hide patches + "
+        "dark head), Sheep (round white-fleece body + dark face), "
+        "Pig (pink oval body + snout + curly tail). Top-down "
+        "silhouettes; body extends along +x axis."
+    ),
+    columns=[
+        ColumnSpec("Cow", fixture_factory(kind=FixtureKind.Cow)),
+        ColumnSpec("Sheep", fixture_factory(kind=FixtureKind.Sheep)),
+        ColumnSpec("Pig", fixture_factory(kind=FixtureKind.Pig)),
+    ],
+    seed=7,
+    params={"axis": "farm-animals-1"},
+))
+
+
+register_catalog_page(CatalogPageSpec(
+    name="farm-animals-2",
+    category="synthetic/fixtures",
+    description=(
+        "Farm animals set 2 — Chicken (small buff body + red comb "
+        "+ orange beak), Goat (gray-brown body + horns + beard), "
+        "Horse (long body + dark mane stripe + tail). Top-down "
+        "silhouettes; body extends along +x axis."
+    ),
+    columns=[
+        ColumnSpec("Chicken", fixture_factory(kind=FixtureKind.Chicken)),
+        ColumnSpec("Goat", fixture_factory(kind=FixtureKind.Goat)),
+        ColumnSpec("Horse", fixture_factory(kind=FixtureKind.Horse)),
+    ],
+    seed=7,
+    params={"axis": "farm-animals-2"},
+))
+
+
+# ── Farm-structure fixtures ─────────────────────────────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="farm-structures",
+    category="synthetic/fixtures",
+    description=(
+        "Static farm structures — Hayrick (round haystack with "
+        "concentric peaked-top rings), Beehive (straw skep + "
+        "concentric ring outlines), Scarecrow (cross silhouette "
+        "+ straw hat), Plough (pointed metal blade + 2 trailing "
+        "wooden handles). Top-down silhouettes; +x is the "
+        "implement's working direction (matches the farm-animal "
+        "head-at-+x convention)."
+    ),
+    columns=[
+        ColumnSpec("Hayrick", fixture_factory(kind=FixtureKind.Hayrick)),
+        ColumnSpec("Beehive", fixture_factory(kind=FixtureKind.Beehive)),
+        ColumnSpec("Scarecrow", fixture_factory(
+            kind=FixtureKind.Scarecrow,
+        )),
+        ColumnSpec("Plough", fixture_factory(kind=FixtureKind.Plough)),
+    ],
+    seed=7,
+    params={"axis": "farm-structures"},
+))
+
+
 __all__ = []

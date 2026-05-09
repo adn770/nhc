@@ -27,18 +27,29 @@ WOOD_WALNUT = 1
 WOOD_CHERRY = 2
 WOOD_PINE = 3
 WOOD_WEATHERED = 4
+WOOD_MAHOGANY = 5
+WOOD_EBONY = 6
+WOOD_ASH = 7
+WOOD_MAPLE = 8
+WOOD_BIRCH = 9
+WOOD_TEAK = 10
+WOOD_BAMBOO = 11
 
 # Wood — sub_pattern (layout)
 WOOD_PLANK = 0
 WOOD_BASKETWEAVE = 1
 WOOD_PARQUET = 2
 WOOD_HERRINGBONE = 3
+WOOD_CHEVRON = 4
+WOOD_BRICK = 5
 
 # Wood — tone
 WOOD_LIGHT = 0
 WOOD_MEDIUM = 1
 WOOD_DARK = 2
 WOOD_CHARRED = 3
+WOOD_BLEACHED = 4
+WOOD_AGED = 5
 
 # Cave — style
 CAVE_LIMESTONE = 0
@@ -246,5 +257,107 @@ def wall_material_fortification(
     """Fortification enclosure (crenellated battlement)."""
     return _make_wall_material(
         family, style, WallTreatment.Fortification,
+        corner_style=corner_style, seed=seed,
+    )
+
+
+def wall_material_drystone(
+    *,
+    family: int = MaterialFamily.Stone,
+    style: int = STONE_FIELDSTONE,
+    corner_style: int = CornerStyle.Merlon,
+    seed: int = 0,
+) -> WallMaterialT:
+    """Drystone wall — fall-through stroke at chunky width."""
+    return _make_wall_material(
+        family, style, WallTreatment.Drystone,
+        corner_style=corner_style, seed=seed,
+    )
+
+
+def wall_material_adobe(
+    *,
+    family: int = MaterialFamily.Earth,
+    style: int = EARTH_DIRT,
+    corner_style: int = CornerStyle.Merlon,
+    seed: int = 0,
+) -> WallMaterialT:
+    """Adobe wall — fall-through stroke at medium width with
+    earth-toned palette."""
+    return _make_wall_material(
+        family, style, WallTreatment.Adobe,
+        corner_style=corner_style, seed=seed,
+    )
+
+
+def wall_material_wattle_and_daub(
+    *,
+    family: int = MaterialFamily.Earth,
+    style: int = EARTH_MUD,
+    corner_style: int = CornerStyle.Merlon,
+    seed: int = 0,
+) -> WallMaterialT:
+    """WattleAndDaub wall — daub stroke with woven tick overlay."""
+    return _make_wall_material(
+        family, style, WallTreatment.WattleAndDaub,
+        corner_style=corner_style, seed=seed,
+    )
+
+
+def wall_material_iron(
+    *,
+    family: int = MaterialFamily.Stone,
+    style: int = STONE_ASHLAR,
+    corner_style: int = CornerStyle.Merlon,
+    seed: int = 0,
+) -> WallMaterialT:
+    """Iron wall — fall-through stroke at thinner width; caller
+    picks a metallic-looking family palette for the visual."""
+    return _make_wall_material(
+        family, style, WallTreatment.Iron,
+        corner_style=corner_style, seed=seed,
+    )
+
+
+def wall_material_post_and_rail(
+    *,
+    family: int = MaterialFamily.Wood,
+    style: int = WOOD_OAK,
+    corner_style: int = CornerStyle.Merlon,
+    seed: int = 0,
+) -> WallMaterialT:
+    """PostAndRail farm fence — squared posts at fixed pitch +
+    thin connecting rails."""
+    return _make_wall_material(
+        family, style, WallTreatment.PostAndRail,
+        corner_style=corner_style, seed=seed,
+    )
+
+
+def wall_material_hedge(
+    *,
+    family: int = MaterialFamily.Earth,
+    style: int = EARTH_GRASS,
+    corner_style: int = CornerStyle.Merlon,
+    seed: int = 0,
+) -> WallMaterialT:
+    """Hedge fence — chain of foliage circles along the edges."""
+    return _make_wall_material(
+        family, style, WallTreatment.Hedge,
+        corner_style=corner_style, seed=seed,
+    )
+
+
+def wall_material_drystone_low_wall(
+    *,
+    family: int = MaterialFamily.Stone,
+    style: int = STONE_FIELDSTONE,
+    corner_style: int = CornerStyle.Merlon,
+    seed: int = 0,
+) -> WallMaterialT:
+    """DrystoneLowWall — short stacked stones along the polygon
+    edges; pasture / garden boundary scale."""
+    return _make_wall_material(
+        family, style, WallTreatment.DrystoneLowWall,
         corner_style=corner_style, seed=seed,
     )

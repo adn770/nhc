@@ -33,6 +33,16 @@ _BIT_MOSS = 1 << 5
 _BIT_BLOOD = 1 << 6
 _BIT_ASH = 1 << 7
 _BIT_PUDDLES = 1 << 8
+# Post-Phase-5 deferred-polish bits.
+_BIT_FROST = 1 << 9
+_BIT_MOLD = 1 << 10
+_BIT_LEAVES = 1 << 11
+_BIT_SNOW = 1 << 12
+_BIT_SAND_DRIFT = 1 << 13
+_BIT_POLLEN = 1 << 14
+_BIT_STAINS = 1 << 15
+_BIT_INSCRIPTIONS = 1 << 16
+_BIT_FOOTPRINTS = 1 << 17
 
 
 # ── Bits 1: architectural + organic decay ──────────────────────
@@ -82,6 +92,60 @@ register_catalog_page(CatalogPageSpec(
     ],
     seed=7,
     params={"axis": "decorator-bits-2"},
+))
+
+
+# ── Bits 3: weather + organic surface coatings ────────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="bits-3",
+    category="synthetic/decorators",
+    description=(
+        "Decorator bits set 3 — Frost (pale ice crystals at 30% "
+        "density), Mold (dark green patches at 8%), Leaves (autumn "
+        "leaf scatter at 20%), Snow (white drift dots at 40%) — "
+        "stamped over a Plain base across rect / octagon / circle "
+        "shape rows."
+    ),
+    columns=[
+        ColumnSpec("Frost", stamp_factory(decorator_mask=_BIT_FROST)),
+        ColumnSpec("Mold", stamp_factory(decorator_mask=_BIT_MOLD)),
+        ColumnSpec("Leaves", stamp_factory(decorator_mask=_BIT_LEAVES)),
+        ColumnSpec("Snow", stamp_factory(decorator_mask=_BIT_SNOW)),
+    ],
+    seed=7,
+    params={"axis": "decorator-bits-3"},
+))
+
+
+# ── Bits 4: trace marks + airborne particulates ───────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="bits-4",
+    category="synthetic/decorators",
+    description=(
+        "Decorator bits set 4 — SandDrift (tan grains at 35% "
+        "density), Pollen (yellow specks at 15%), Stains (large "
+        "brown-black patches at 6%), Inscriptions (short engraved "
+        "stroke marks at 4%), Footprints (boot-shape stamps at "
+        "5%) — stamped over a Plain base across rect / octagon / "
+        "circle shape rows."
+    ),
+    columns=[
+        ColumnSpec("SandDrift", stamp_factory(decorator_mask=_BIT_SAND_DRIFT)),
+        ColumnSpec("Pollen", stamp_factory(decorator_mask=_BIT_POLLEN)),
+        ColumnSpec("Stains", stamp_factory(decorator_mask=_BIT_STAINS)),
+        ColumnSpec("Inscriptions", stamp_factory(
+            decorator_mask=_BIT_INSCRIPTIONS,
+        )),
+        ColumnSpec("Footprints", stamp_factory(
+            decorator_mask=_BIT_FOOTPRINTS,
+        )),
+    ],
+    seed=7,
+    params={"axis": "decorator-bits-4"},
 ))
 
 

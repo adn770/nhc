@@ -13,10 +13,12 @@ Each page swept across rect / octagon / circle shape rows.
 from __future__ import annotations
 
 from nhc.rendering.emit.materials import (
-    WOOD_BASKETWEAVE, WOOD_CHARRED, WOOD_CHERRY, WOOD_DARK,
-    WOOD_HERRINGBONE, WOOD_LIGHT, WOOD_MEDIUM, WOOD_OAK,
-    WOOD_PARQUET, WOOD_PINE, WOOD_PLANK, WOOD_WALNUT,
-    WOOD_WEATHERED,
+    WOOD_AGED, WOOD_ASH, WOOD_BAMBOO, WOOD_BASKETWEAVE,
+    WOOD_BIRCH, WOOD_BLEACHED, WOOD_BRICK, WOOD_CHARRED,
+    WOOD_CHERRY, WOOD_CHEVRON, WOOD_DARK, WOOD_EBONY,
+    WOOD_HERRINGBONE, WOOD_LIGHT, WOOD_MAHOGANY, WOOD_MAPLE,
+    WOOD_MEDIUM, WOOD_OAK, WOOD_PARQUET, WOOD_PINE,
+    WOOD_PLANK, WOOD_TEAK, WOOD_WALNUT, WOOD_WEATHERED,
 )
 
 from ._builder import (
@@ -138,6 +140,105 @@ register_catalog_page(CatalogPageSpec(
     ],
     seed=7,
     params={"family": "Wood", "species": "Oak", "axis": "tones"},
+))
+
+
+# ── Post-Phase-5 deferred-polish additions ──────────────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="oak-layouts-extra",
+    category="synthetic/floors/wood",
+    description=(
+        "Wood Oak — two post-Phase-5 layouts (Chevron, plank V's "
+        "stacked vertically; Brick, half-stagger wood-block bond) "
+        "at Medium tone across rect / octagon / circle shape rows. "
+        "Pairs with the existing oak-layouts page."
+    ),
+    columns=[
+        ColumnSpec("Chevron", wood_factory(
+            species=WOOD_OAK, layout=WOOD_CHEVRON, tone=WOOD_MEDIUM,
+        )),
+        ColumnSpec("Brick", wood_factory(
+            species=WOOD_OAK, layout=WOOD_BRICK, tone=WOOD_MEDIUM,
+        )),
+    ],
+    seed=7,
+    params={"family": "Wood", "species": "Oak", "axis": "layouts-extra"},
+))
+
+
+register_catalog_page(CatalogPageSpec(
+    name="species-extra-1",
+    category="synthetic/floors/wood",
+    description=(
+        "Wood new species set 1 — Mahogany (deep red-brown), Ebony "
+        "(near-black), Ash (pale creamy), Maple (warm beige) at "
+        "Medium tone with Plank layout. Surfaces the per-species "
+        "palette differentiation alongside the existing 5 species."
+    ),
+    columns=[
+        ColumnSpec("Mahogany", wood_factory(
+            species=WOOD_MAHOGANY, layout=WOOD_PLANK, tone=WOOD_MEDIUM,
+        )),
+        ColumnSpec("Ebony", wood_factory(
+            species=WOOD_EBONY, layout=WOOD_PLANK, tone=WOOD_MEDIUM,
+        )),
+        ColumnSpec("Ash", wood_factory(
+            species=WOOD_ASH, layout=WOOD_PLANK, tone=WOOD_MEDIUM,
+        )),
+        ColumnSpec("Maple", wood_factory(
+            species=WOOD_MAPLE, layout=WOOD_PLANK, tone=WOOD_MEDIUM,
+        )),
+    ],
+    seed=7,
+    params={"family": "Wood", "axis": "species-extra-1"},
+))
+
+
+register_catalog_page(CatalogPageSpec(
+    name="species-extra-2",
+    category="synthetic/floors/wood",
+    description=(
+        "Wood new species set 2 — Birch (very pale pink-cream), "
+        "Teak (warm golden-brown), Bamboo (pale yellow-tan) at "
+        "Medium tone with Plank layout."
+    ),
+    columns=[
+        ColumnSpec("Birch", wood_factory(
+            species=WOOD_BIRCH, layout=WOOD_PLANK, tone=WOOD_MEDIUM,
+        )),
+        ColumnSpec("Teak", wood_factory(
+            species=WOOD_TEAK, layout=WOOD_PLANK, tone=WOOD_MEDIUM,
+        )),
+        ColumnSpec("Bamboo", wood_factory(
+            species=WOOD_BAMBOO, layout=WOOD_PLANK, tone=WOOD_MEDIUM,
+        )),
+    ],
+    seed=7,
+    params={"family": "Wood", "axis": "species-extra-2"},
+))
+
+
+register_catalog_page(CatalogPageSpec(
+    name="oak-tones-extra",
+    category="synthetic/floors/wood",
+    description=(
+        "Wood Oak — two post-Phase-5 tones (Bleached, sun-faded "
+        "paler than Light; Aged, weathered with grayer patina "
+        "between Medium and Charred) at Plank layout across "
+        "rect / octagon / circle shape rows."
+    ),
+    columns=[
+        ColumnSpec("Bleached", wood_factory(
+            species=WOOD_OAK, layout=WOOD_PLANK, tone=WOOD_BLEACHED,
+        )),
+        ColumnSpec("Aged", wood_factory(
+            species=WOOD_OAK, layout=WOOD_PLANK, tone=WOOD_AGED,
+        )),
+    ],
+    seed=7,
+    params={"family": "Wood", "species": "Oak", "axis": "tones-extra"},
 ))
 
 

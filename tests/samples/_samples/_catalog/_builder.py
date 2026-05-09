@@ -21,9 +21,12 @@ from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.emit.materials import (
     material_cave, material_earth, material_liquid, material_plain,
     material_special, material_stone, material_wood,
-    wall_material_fortification, wall_material_masonry,
+    wall_material_adobe, wall_material_drystone,
+    wall_material_drystone_low_wall, wall_material_fortification,
+    wall_material_hedge, wall_material_iron, wall_material_masonry,
     wall_material_palisade, wall_material_partition,
-    wall_material_plain_stroke,
+    wall_material_plain_stroke, wall_material_post_and_rail,
+    wall_material_wattle_and_daub,
 )
 from nhc.rendering.ir._fb.Anchor import AnchorT
 from nhc.rendering.ir._fb.Cut import CutT
@@ -423,6 +426,13 @@ _WALL_TREATMENT_BUILDERS = {
     "Partition": wall_material_partition,
     "Palisade": wall_material_palisade,
     "Fortification": wall_material_fortification,
+    "Drystone": wall_material_drystone,
+    "Adobe": wall_material_adobe,
+    "WattleAndDaub": wall_material_wattle_and_daub,
+    "Iron": wall_material_iron,
+    "PostAndRail": wall_material_post_and_rail,
+    "Hedge": wall_material_hedge,
+    "DrystoneLowWall": wall_material_drystone_low_wall,
 }
 
 

@@ -23,7 +23,9 @@ from nhc.rendering.emit.materials import (
     STONE_BRICK,
     STONE_BRICK_ENGLISH_BOND,
     STONE_BRICK_FLEMISH_BOND,
+    STONE_BRICK_HEADER_BOND,
     STONE_BRICK_RUNNING_BOND,
+    STONE_BRICK_STACK_BOND,
     STONE_COBBLE_HERRINGBONE,
     STONE_COBBLE_MOSAIC,
     STONE_COBBLE_RUBBLE,
@@ -33,7 +35,9 @@ from nhc.rendering.emit.materials import (
     STONE_FIELDSTONE,
     STONE_FLAGSTONE,
     STONE_HOPSCOTCH,
+    STONE_OPUS_RETICULATUM,
     STONE_OPUS_ROMANO,
+    STONE_OPUS_SPICATUM,
     STONE_PINWHEEL,
 )
 
@@ -141,6 +145,54 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Pinwheel", stone_factory(style=STONE_PINWHEEL)),
         ColumnSpec("Hopscotch", stone_factory(style=STONE_HOPSCOTCH)),
         ColumnSpec("CrazyPaving", stone_factory(style=STONE_CRAZY_PAVING)),
+    ],
+    seed=7,
+    params={"family": "Stone"},
+))
+
+
+# ── Post-Phase-5 deferred-polish additions ──────────────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="brick-extra",
+    category="synthetic/floors/stone",
+    description=(
+        "Stone Brick — two post-Phase-5 sub-patterns (HeaderBond, "
+        "every brick a square header on a half-row stagger; "
+        "StackBond, stretchers stacked with no row offset). "
+        "Surfaces the row-shift drop in StackBond + the denser "
+        "header packing alongside the existing 3-bond page."
+    ),
+    columns=[
+        ColumnSpec("HeaderBond", stone_factory(
+            style=STONE_BRICK, sub_pattern=STONE_BRICK_HEADER_BOND,
+        )),
+        ColumnSpec("StackBond", stone_factory(
+            style=STONE_BRICK, sub_pattern=STONE_BRICK_STACK_BOND,
+        )),
+    ],
+    seed=7,
+    params={"family": "Stone", "style": "Brick"},
+))
+
+
+register_catalog_page(CatalogPageSpec(
+    name="opus-pair",
+    category="synthetic/floors/stone",
+    description=(
+        "Stone OpusReticulatum (Roman netting; small diamond stones "
+        "in a regular diagonal grid) + OpusSpicatum (Roman ear of "
+        "wheat; ±45° rotated bricks in a chevron weave) across "
+        "rect / octagon / circle shape rows."
+    ),
+    columns=[
+        ColumnSpec("OpusReticulatum", stone_factory(
+            style=STONE_OPUS_RETICULATUM,
+        )),
+        ColumnSpec("OpusSpicatum", stone_factory(
+            style=STONE_OPUS_SPICATUM,
+        )),
     ],
     seed=7,
     params={"family": "Stone"},

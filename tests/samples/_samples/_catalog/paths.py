@@ -30,4 +30,31 @@ register_catalog_page(CatalogPageSpec(
 ))
 
 
+# ── Post-Phase-5 deferred-polish path styles ──────────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="styles-extra",
+    category="synthetic/paths",
+    description=(
+        "PathStyle post-Phase-5 additions — RailLine (clean grey "
+        "steel rail per tile, derived from open-sides connectivity), "
+        "Vines (per-tile sinuous green tendrils via quadratic "
+        "splines), RootSystem (3-4 short brown tendrils per tile), "
+        "RiverBed (translucent blue tile fill + ripple stroke), "
+        "LavaSeam (bright orange core + deep-red glow stroke pair "
+        "per tile) — across rect / octagon / circle shape rows."
+    ),
+    columns=[
+        ColumnSpec("RailLine", path_factory(style=PathStyle.RailLine)),
+        ColumnSpec("Vines", path_factory(style=PathStyle.Vines)),
+        ColumnSpec("RootSystem", path_factory(style=PathStyle.RootSystem)),
+        ColumnSpec("RiverBed", path_factory(style=PathStyle.RiverBed)),
+        ColumnSpec("LavaSeam", path_factory(style=PathStyle.LavaSeam)),
+    ],
+    seed=7,
+    params={"axis": "path-styles-extra"},
+))
+
+
 __all__ = []

@@ -72,9 +72,67 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Tower", wall_factory(
             treatment="Fortification", corner_style=CornerStyle.Tower,
         )),
+        ColumnSpec("Round", wall_factory(
+            treatment="Fortification", corner_style=CornerStyle.Round,
+        )),
+        ColumnSpec("Crow", wall_factory(
+            treatment="Fortification", corner_style=CornerStyle.Crow,
+        )),
     ],
     seed=7,
     params={"treatment": "Fortification", "axis": "corner-styles"},
+))
+
+
+# ── Post-Phase-5 deferred-polish wall treatments ───────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="treatments-extra",
+    category="synthetic/walls",
+    description=(
+        "Four post-Phase-5 WallTreatment variants — Drystone "
+        "(chunky 6.5 px stroke), Adobe (softer 6.0 px), "
+        "WattleAndDaub (5.5 px daub + perpendicular wattle ticks), "
+        "Iron (thinner 5.5 px metal plating) — across rect / "
+        "octagon / circle shape rows. Each cell paints a Plain "
+        "base then strokes the cell outline."
+    ),
+    columns=[
+        ColumnSpec("Drystone", wall_factory(treatment="Drystone")),
+        ColumnSpec("Adobe", wall_factory(treatment="Adobe")),
+        ColumnSpec("WattleAndDaub", wall_factory(treatment="WattleAndDaub")),
+        ColumnSpec("Iron", wall_factory(treatment="Iron")),
+    ],
+    seed=7,
+    params={"axis": "treatments-extra"},
+))
+
+
+# ── Farm fences ─────────────────────────────────────────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="fences-farm",
+    category="synthetic/walls",
+    description=(
+        "Farm-scale fences — PostAndRail (squared posts at 12 px "
+        "pitch + thin rails), Hedge (foliage-circle chain at 4 px "
+        "pitch), DrystoneLowWall (oval-stone chain at 5 px pitch) "
+        "— across rect / octagon / circle shape rows. Top-down "
+        "view; each treatment pulls colour from its family palette "
+        "(PostAndRail → Wood, Hedge → Earth.Grass, DrystoneLowWall "
+        "→ Stone.FieldStone)."
+    ),
+    columns=[
+        ColumnSpec("PostAndRail", wall_factory(treatment="PostAndRail")),
+        ColumnSpec("Hedge", wall_factory(treatment="Hedge")),
+        ColumnSpec("DrystoneLowWall", wall_factory(
+            treatment="DrystoneLowWall",
+        )),
+    ],
+    seed=7,
+    params={"axis": "fences-farm"},
 ))
 
 
