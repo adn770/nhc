@@ -18,6 +18,8 @@
 //! emitter ships multiple StampOps with different masks /
 //! densities targeting the same region.
 
+use std::f64::consts::PI;
+
 use flatbuffers::{ForwardsUOffset, Vector};
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
@@ -48,10 +50,22 @@ pub mod bit {
     pub const BLOOD: u32 = 1 << 6;
     pub const ASH: u32 = 1 << 7;
     pub const PUDDLES: u32 = 1 << 8;
+    // Post-Phase-5 deferred-polish additions.
+    pub const FROST: u32 = 1 << 9;
+    pub const MOLD: u32 = 1 << 10;
+    pub const LEAVES: u32 = 1 << 11;
+    pub const SNOW: u32 = 1 << 12;
+    pub const SAND_DRIFT: u32 = 1 << 13;
+    pub const POLLEN: u32 = 1 << 14;
+    pub const STAINS: u32 = 1 << 15;
+    pub const INSCRIPTIONS: u32 = 1 << 16;
+    pub const FOOTPRINTS: u32 = 1 << 17;
 
     pub const ALL: &[u32] = &[
         GRID_LINES, CRACKS, SCRATCHES, RIPPLES, LAVA_CRACKS,
         MOSS, BLOOD, ASH, PUDDLES,
+        FROST, MOLD, LEAVES, SNOW, SAND_DRIFT, POLLEN, STAINS,
+        INSCRIPTIONS, FOOTPRINTS,
     ];
 }
 
@@ -70,6 +84,15 @@ fn stub_color(bit_value: u32) -> Color {
         bit::BLOOD => Color::rgba(0x88, 0x10, 0x10, 0.55),
         bit::ASH => Color::rgba(0x80, 0x80, 0x80, 0.35),
         bit::PUDDLES => Color::rgba(0x18, 0x28, 0x40, 0.30),
+        bit::FROST => Color::rgba(0xE0, 0xF0, 0xFF, 0.50),
+        bit::MOLD => Color::rgba(0x2A, 0x40, 0x15, 0.55),
+        bit::LEAVES => Color::rgba(0xA0, 0x60, 0x2A, 0.65),
+        bit::SNOW => Color::rgba(0xF8, 0xFA, 0xFF, 0.65),
+        bit::SAND_DRIFT => Color::rgba(0xC8, 0xAC, 0x78, 0.40),
+        bit::POLLEN => Color::rgba(0xE8, 0xD0, 0x40, 0.40),
+        bit::STAINS => Color::rgba(0x3A, 0x28, 0x20, 0.55),
+        bit::INSCRIPTIONS => Color::rgba(0x20, 0x20, 0x20, 0.70),
+        bit::FOOTPRINTS => Color::rgba(0x4A, 0x35, 0x25, 0.50),
         _ => Color::rgba(0xFF, 0x00, 0xFF, 1.0),
     }
 }
@@ -608,6 +631,328 @@ fn paint_lava_cracks(
     );
 }
 
+// ── Post-Phase-5 deferred-polish bit painters ──────────────────
+
+/// Frost bit — fine pale-blue ice crystals scattered densely.
+/// Per hit, paint 4-6 tiny circles in cool white-blue at
+/// sub-tile positions; reads as light frost on outdoor stone.
+fn paint_frost(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const FROST_BASE: Color = Color::rgba(0xE0, 0xF0, 0xFF, 1.0);
+    const FROST_PROB: f64 = 0.30;
+    const FROST_OPACITY: f32 = 0.50;
+    const FROST_SEED_SALT: u64 = 0xF1C5_C0FF_EE00_0001;
+
+    paint_per_tile_decorator(
+        painter, outline, region_path, seed,
+        FROST_SEED_SALT, FROST_PROB, FROST_OPACITY,
+        |painter, rng, px, py| {
+            let n_crystals = rng.gen_range(4..=6);
+            for _ in 0..n_crystals {
+                let cx = px + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let cy = py + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let r = rng.gen_range((CELL * 0.015)..(CELL * 0.035));
+                painter.fill_circle(
+                    cx as f32, cy as f32, r as f32,
+                    &Paint::solid(FROST_BASE),
+                );
+            }
+        },
+    );
+}
+
+/// Mold bit — patchy dark-green spots at low density. Per hit,
+/// paint 1-2 small irregular ellipses in deep mossy green over
+/// a darker shadow tone.
+fn paint_mold(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const MOLD_BASE: Color = Color::rgba(0x2A, 0x40, 0x15, 1.0);
+    const MOLD_DARK: Color = Color::rgba(0x18, 0x28, 0x0A, 1.0);
+    const MOLD_PROB: f64 = 0.08;
+    const MOLD_OPACITY: f32 = 0.55;
+    const MOLD_SEED_SALT: u64 = 0x70DA_C0FF_EE00_0001;
+
+    paint_per_tile_decorator(
+        painter, outline, region_path, seed,
+        MOLD_SEED_SALT, MOLD_PROB, MOLD_OPACITY,
+        |painter, rng, px, py| {
+            let n_patches = rng.gen_range(1..=2);
+            for _ in 0..n_patches {
+                let cx = px + rng.gen_range((CELL * 0.20)..(CELL * 0.80));
+                let cy = py + rng.gen_range((CELL * 0.20)..(CELL * 0.80));
+                let rx = rng.gen_range((CELL * 0.08)..(CELL * 0.16));
+                let ry = rng.gen_range((CELL * 0.06)..(CELL * 0.12));
+                let dark = rng.gen::<f64>() < 0.40;
+                let paint = Paint::solid(if dark { MOLD_DARK } else { MOLD_BASE });
+                painter.fill_ellipse(
+                    cx as f32, cy as f32,
+                    rx as f32, ry as f32,
+                    &paint,
+                );
+            }
+        },
+    );
+}
+
+/// Leaves bit — fallen autumn leaves at moderate density. Per
+/// hit, paint 1-2 small ellipses in a brown / green mix to
+/// suggest a scatter of fallen foliage.
+fn paint_leaves(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const LEAVES_BROWN: Color = Color::rgba(0xA0, 0x60, 0x2A, 1.0);
+    const LEAVES_GREEN: Color = Color::rgba(0x60, 0x78, 0x30, 1.0);
+    const LEAVES_PROB: f64 = 0.20;
+    const LEAVES_OPACITY: f32 = 0.65;
+    const LEAVES_SEED_SALT: u64 = 0x1EAF_C0FF_EE00_0001;
+
+    paint_per_tile_decorator(
+        painter, outline, region_path, seed,
+        LEAVES_SEED_SALT, LEAVES_PROB, LEAVES_OPACITY,
+        |painter, rng, px, py| {
+            let n_leaves = rng.gen_range(1..=2);
+            for _ in 0..n_leaves {
+                let cx = px + rng.gen_range((CELL * 0.20)..(CELL * 0.80));
+                let cy = py + rng.gen_range((CELL * 0.20)..(CELL * 0.80));
+                let rx = rng.gen_range((CELL * 0.07)..(CELL * 0.12));
+                let ry = rng.gen_range((CELL * 0.04)..(CELL * 0.07));
+                let green = rng.gen::<f64>() < 0.35;
+                let paint = Paint::solid(
+                    if green { LEAVES_GREEN } else { LEAVES_BROWN },
+                );
+                painter.fill_ellipse(
+                    cx as f32, cy as f32,
+                    rx as f32, ry as f32,
+                    &paint,
+                );
+            }
+        },
+    );
+}
+
+/// Snow bit — white drift dots at high density. Per hit, paint
+/// 5-8 small white circles scattered across the tile.
+fn paint_snow(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const SNOW_BASE: Color = Color::rgba(0xF8, 0xFA, 0xFF, 1.0);
+    const SNOW_PROB: f64 = 0.40;
+    const SNOW_OPACITY: f32 = 0.65;
+    const SNOW_SEED_SALT: u64 = 0x5710_C0FF_EE00_0001;
+
+    paint_per_tile_decorator(
+        painter, outline, region_path, seed,
+        SNOW_SEED_SALT, SNOW_PROB, SNOW_OPACITY,
+        |painter, rng, px, py| {
+            let n_flakes = rng.gen_range(5..=8);
+            for _ in 0..n_flakes {
+                let cx = px + rng.gen_range((CELL * 0.05)..(CELL * 0.95));
+                let cy = py + rng.gen_range((CELL * 0.05)..(CELL * 0.95));
+                let r = rng.gen_range((CELL * 0.02)..(CELL * 0.04));
+                painter.fill_circle(
+                    cx as f32, cy as f32, r as f32,
+                    &Paint::solid(SNOW_BASE),
+                );
+            }
+        },
+    );
+}
+
+/// SandDrift bit — sandy specks at moderate-high density. Per
+/// hit, paint 6-9 tiny tan dots; reads as wind-blown sand.
+fn paint_sand_drift(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const SAND_BASE: Color = Color::rgba(0xC8, 0xAC, 0x78, 1.0);
+    const SAND_PROB: f64 = 0.35;
+    const SAND_OPACITY: f32 = 0.40;
+    const SAND_SEED_SALT: u64 = 0x5ADD_C0FF_EE00_0001;
+
+    paint_per_tile_decorator(
+        painter, outline, region_path, seed,
+        SAND_SEED_SALT, SAND_PROB, SAND_OPACITY,
+        |painter, rng, px, py| {
+            let n_grains = rng.gen_range(6..=9);
+            for _ in 0..n_grains {
+                let cx = px + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let cy = py + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let r = rng.gen_range((CELL * 0.015)..(CELL * 0.030));
+                painter.fill_circle(
+                    cx as f32, cy as f32, r as f32,
+                    &Paint::solid(SAND_BASE),
+                );
+            }
+        },
+    );
+}
+
+/// Pollen bit — bright yellow specks at low-moderate density.
+/// Per hit, paint 5-8 tiny yellow circles; reads as airborne
+/// pollen settled on the surface.
+fn paint_pollen(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const POLLEN_BASE: Color = Color::rgba(0xE8, 0xD0, 0x40, 1.0);
+    const POLLEN_PROB: f64 = 0.15;
+    const POLLEN_OPACITY: f32 = 0.40;
+    const POLLEN_SEED_SALT: u64 = 0x7011_C0FF_EE00_0001;
+
+    paint_per_tile_decorator(
+        painter, outline, region_path, seed,
+        POLLEN_SEED_SALT, POLLEN_PROB, POLLEN_OPACITY,
+        |painter, rng, px, py| {
+            let n_specks = rng.gen_range(5..=8);
+            for _ in 0..n_specks {
+                let cx = px + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let cy = py + rng.gen_range((CELL * 0.10)..(CELL * 0.90));
+                let r = rng.gen_range((CELL * 0.012)..(CELL * 0.025));
+                painter.fill_circle(
+                    cx as f32, cy as f32, r as f32,
+                    &Paint::solid(POLLEN_BASE),
+                );
+            }
+        },
+    );
+}
+
+/// Stains bit — irregular dark patches at very low density. Per
+/// hit, paint 1-2 large brown-black ellipses; reads as
+/// long-soaked stains on the floor.
+fn paint_stains(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const STAINS_BASE: Color = Color::rgba(0x3A, 0x28, 0x20, 1.0);
+    const STAINS_PROB: f64 = 0.06;
+    const STAINS_OPACITY: f32 = 0.55;
+    const STAINS_SEED_SALT: u64 = 0x57A1_C0FF_EE00_0001;
+
+    paint_per_tile_decorator(
+        painter, outline, region_path, seed,
+        STAINS_SEED_SALT, STAINS_PROB, STAINS_OPACITY,
+        |painter, rng, px, py| {
+            let n_patches = rng.gen_range(1..=2);
+            for _ in 0..n_patches {
+                let cx = px + rng.gen_range((CELL * 0.25)..(CELL * 0.75));
+                let cy = py + rng.gen_range((CELL * 0.25)..(CELL * 0.75));
+                let rx = rng.gen_range((CELL * 0.12)..(CELL * 0.20));
+                let ry = rng.gen_range((CELL * 0.10)..(CELL * 0.16));
+                painter.fill_ellipse(
+                    cx as f32, cy as f32,
+                    rx as f32, ry as f32,
+                    &Paint::solid(STAINS_BASE),
+                );
+            }
+        },
+    );
+}
+
+/// Inscriptions bit — engraved marks at very low density. Per
+/// hit, paint 2-4 short straight stroke lines suggesting carved
+/// glyphs / runes / tally marks.
+fn paint_inscriptions(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const INSCRIPTIONS_INK: Color = Color::rgba(0x20, 0x20, 0x20, 1.0);
+    const INSCRIPTIONS_PROB: f64 = 0.04;
+    const INSCRIPTIONS_OPACITY: f32 = 0.70;
+    const INSCRIPTIONS_SEED_SALT: u64 = 0x1C57_C0FF_EE00_0001;
+
+    paint_per_tile_decorator(
+        painter, outline, region_path, seed,
+        INSCRIPTIONS_SEED_SALT, INSCRIPTIONS_PROB, INSCRIPTIONS_OPACITY,
+        |painter, rng, px, py| {
+            let n_marks = rng.gen_range(2..=4);
+            let stroke = Stroke {
+                width: 0.7,
+                line_cap: LineCap::Round,
+                line_join: LineJoin::Round,
+            };
+            let paint = Paint::solid(INSCRIPTIONS_INK);
+            for _ in 0..n_marks {
+                let cx = px + rng.gen_range((CELL * 0.25)..(CELL * 0.75));
+                let cy = py + rng.gen_range((CELL * 0.30)..(CELL * 0.70));
+                let len = rng.gen_range((CELL * 0.05)..(CELL * 0.12));
+                let angle: f64 = rng.gen_range(-(PI / 6.0)..(PI / 6.0));
+                let dx = len * angle.cos();
+                let dy = len * angle.sin();
+                let mut path = PathOps::new();
+                path.move_to(Vec2::new(
+                    (cx - dx * 0.5) as f32,
+                    (cy - dy * 0.5) as f32,
+                ));
+                path.line_to(Vec2::new(
+                    (cx + dx * 0.5) as f32,
+                    (cy + dy * 0.5) as f32,
+                ));
+                painter.stroke_path(&path, &paint, &stroke);
+            }
+        },
+    );
+}
+
+/// Footprints bit — boot prints at very low density. Per hit,
+/// paint a single boot-shape stamp (oval body + small heel
+/// ellipse) to suggest someone walked through.
+fn paint_footprints(
+    painter: &mut dyn Painter,
+    outline: &Outline<'_>,
+    region_path: &PathOps,
+    seed: u64,
+) {
+    const FOOT_BASE: Color = Color::rgba(0x4A, 0x35, 0x25, 1.0);
+    const FOOT_PROB: f64 = 0.05;
+    const FOOT_OPACITY: f32 = 0.50;
+    const FOOT_SEED_SALT: u64 = 0xF007_C0FF_EE00_0001;
+
+    paint_per_tile_decorator(
+        painter, outline, region_path, seed,
+        FOOT_SEED_SALT, FOOT_PROB, FOOT_OPACITY,
+        |painter, rng, px, py| {
+            let cx = px + rng.gen_range((CELL * 0.30)..(CELL * 0.70));
+            let cy = py + rng.gen_range((CELL * 0.30)..(CELL * 0.70));
+            // Sole — large vertical ellipse.
+            painter.fill_ellipse(
+                cx as f32, cy as f32,
+                (CELL * 0.07) as f32, (CELL * 0.13) as f32,
+                &Paint::solid(FOOT_BASE),
+            );
+            // Heel — small ellipse offset behind the sole.
+            let heel_cy = cy + CELL * 0.10;
+            painter.fill_ellipse(
+                cx as f32, heel_cy as f32,
+                (CELL * 0.05) as f32, (CELL * 0.04) as f32,
+                &Paint::solid(FOOT_BASE),
+            );
+        },
+    );
+}
+
 /// Per-bit dispatcher. Phase 2.9 commits replace each not-yet-
 /// lifted arm with the bit's real painter.
 fn dispatch_bit(
@@ -646,11 +991,37 @@ fn dispatch_bit(
         bit::LAVA_CRACKS => {
             paint_lava_cracks(painter, outline, region_path, seed);
         }
-        // No more not-yet-lifted bits at Phase 2.9 — every bit in
-        // the v5 registry has a real painter. The wildcard arm
-        // keeps the sentinel-fill behaviour as a safety net for
-        // future additive minor-bumps that introduce new bits;
-        // visual review flags them via the magenta sentinel.
+        // Post-Phase-5 deferred-polish additions.
+        bit::FROST => {
+            paint_frost(painter, outline, region_path, seed);
+        }
+        bit::MOLD => {
+            paint_mold(painter, outline, region_path, seed);
+        }
+        bit::LEAVES => {
+            paint_leaves(painter, outline, region_path, seed);
+        }
+        bit::SNOW => {
+            paint_snow(painter, outline, region_path, seed);
+        }
+        bit::SAND_DRIFT => {
+            paint_sand_drift(painter, outline, region_path, seed);
+        }
+        bit::POLLEN => {
+            paint_pollen(painter, outline, region_path, seed);
+        }
+        bit::STAINS => {
+            paint_stains(painter, outline, region_path, seed);
+        }
+        bit::INSCRIPTIONS => {
+            paint_inscriptions(painter, outline, region_path, seed);
+        }
+        bit::FOOTPRINTS => {
+            paint_footprints(painter, outline, region_path, seed);
+        }
+        // Wildcard sentinel arm — keeps the magenta safety net
+        // for any future additive minor-bumps that add bits past
+        // the registry above.
         _ => {
             let paint = Paint::solid(stub_color(bit_value));
             painter.fill_path(region_path, &paint, FillRule::Winding);
@@ -823,11 +1194,7 @@ mod tests {
     /// the clip envelope — distinct shape, easy to catch.
     #[test]
     fn every_bit_paints_inside_clipped_envelope() {
-        for bit_value in [
-            bit::GRID_LINES, bit::CRACKS, bit::SCRATCHES,
-            bit::RIPPLES, bit::LAVA_CRACKS,
-            bit::MOSS, bit::BLOOD, bit::ASH, bit::PUDDLES,
-        ] {
+        for &bit_value in bit::ALL {
             let painter = run(&build_stamp_op(bit_value));
             let kinds: Vec<&str> = painter
                 .calls

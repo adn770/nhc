@@ -33,6 +33,16 @@ BIT_MOSS = 1 << 5
 BIT_BLOOD = 1 << 6
 BIT_ASH = 1 << 7
 BIT_PUDDLES = 1 << 8
+# Post-Phase-5 deferred-polish additions.
+BIT_FROST = 1 << 9
+BIT_MOLD = 1 << 10
+BIT_LEAVES = 1 << 11
+BIT_SNOW = 1 << 12
+BIT_SAND_DRIFT = 1 << 13
+BIT_POLLEN = 1 << 14
+BIT_STAINS = 1 << 15
+BIT_INSCRIPTIONS = 1 << 16
+BIT_FOOTPRINTS = 1 << 17
 
 
 def _wrap(stamp_op: StampOpT) -> OpEntryT:
