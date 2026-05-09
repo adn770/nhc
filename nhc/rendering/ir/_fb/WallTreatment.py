@@ -13,3 +13,5 @@ class WallTreatment(object):
     WattleAndDaub = 7
     Iron = 8
     PostAndRail = 9
+    Hedge = 10
+    DrystoneLowWall = 11

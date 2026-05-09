@@ -1159,6 +1159,168 @@ fn paint_horse_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
     );
 }
 
+// ── Static farm structures — top-down silhouettes ─────────────
+
+const HAY_BASE: Color = Color::rgba(0xD8, 0xB8, 0x60, 1.0);
+const HAY_SHADOW: Color = Color::rgba(0xA8, 0x8C, 0x40, 1.0);
+
+/// Hayrick — round haystack viewed from above. Outer ring of
+/// straw colour + inner ring slightly darker to suggest the
+/// peaked top profile compressing toward the centre.
+fn paint_hayrick_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    painter.fill_circle(
+        cx as f32, cy as f32, (CELL * 0.30) as f32,
+        &Paint::solid(HAY_BASE),
+    );
+    painter.fill_circle(
+        cx as f32, cy as f32, (CELL * 0.20) as f32,
+        &Paint::solid(HAY_SHADOW),
+    );
+    painter.fill_circle(
+        cx as f32, cy as f32, (CELL * 0.10) as f32,
+        &Paint::solid(HAY_BASE),
+    );
+}
+
+const TROUGH_WOOD: Color = Color::rgba(0x6B, 0x47, 0x28, 1.0);
+const TROUGH_WATER: Color = Color::rgba(0x6E, 0x9E, 0xC4, 1.0);
+
+/// Trough — long rectangular wooden trough viewed from above
+/// with a translucent water rectangle inset. ``variant == 1``
+/// drops the water and renders a feed trough (filled with
+/// straw-coloured contents instead).
+fn paint_trough_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let outer_x0 = px + CELL * 0.12;
+    let outer_x1 = px + CELL * 0.88;
+    let outer_y0 = py + CELL * 0.40;
+    let outer_y1 = py + CELL * 0.60;
+    rect_fill(painter, outer_x0, outer_y0, outer_x1, outer_y1, TROUGH_WOOD);
+    let inset = CELL * 0.04;
+    let fill_color = if a.variant() == 1 { HAY_BASE } else { TROUGH_WATER };
+    rect_fill(painter,
+        outer_x0 + inset, outer_y0 + inset,
+        outer_x1 - inset, outer_y1 - inset,
+        fill_color,
+    );
+}
+
+const HIVE_STRAW: Color = Color::rgba(0xC8, 0xA0, 0x60, 1.0);
+const HIVE_BAND: Color = Color::rgba(0x8C, 0x6E, 0x38, 1.0);
+
+/// Beehive — round straw-skep beehive viewed from above. Outer
+/// straw circle + 2 darker concentric bands suggesting the
+/// stacked straw rings of a traditional skep.
+fn paint_beehive_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let r_outer = CELL * 0.22;
+    painter.fill_circle(
+        cx as f32, cy as f32, r_outer as f32,
+        &Paint::solid(HIVE_STRAW),
+    );
+    // Two darker concentric bands.
+    let band_stroke = Stroke {
+        width: 0.7, line_cap: LineCap::Butt, line_join: LineJoin::Miter,
+    };
+    let band_paint = Paint::solid(HIVE_BAND);
+    for ring_r in [r_outer * 0.65, r_outer * 0.32] {
+        let mut path = PathOps::new();
+        let n = 24;
+        for i in 0..=n {
+            let theta = (i as f64) * 2.0 * PI / (n as f64);
+            let pxx = cx + ring_r * theta.cos();
+            let pyy = cy + ring_r * theta.sin();
+            if i == 0 {
+                path.move_to(Vec2::new(pxx as f32, pyy as f32));
+            } else {
+                path.line_to(Vec2::new(pxx as f32, pyy as f32));
+            }
+        }
+        painter.stroke_path(&path, &band_paint, &band_stroke);
+    }
+}
+
+const SCARECROW_POLE: Color = Color::rgba(0x4F, 0x3A, 0x22, 1.0);
+const SCARECROW_HAT: Color = Color::rgba(0x32, 0x24, 0x14, 1.0);
+const SCARECROW_STRAW: Color = Color::rgba(0xD8, 0xB8, 0x60, 1.0);
+
+/// Scarecrow — top-down view of a cross-shape (vertical pole
+/// + horizontal arms) with a circular straw hat at the top.
+fn paint_scarecrow_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let arm_w = CELL * 0.44;
+    let pole_w = CELL * 0.06;
+    // Horizontal arms (cross beam).
+    rect_fill(painter,
+        cx - arm_w * 0.5, cy - pole_w * 0.5,
+        cx + arm_w * 0.5, cy + pole_w * 0.5,
+        SCARECROW_POLE,
+    );
+    // Vertical pole.
+    rect_fill(painter,
+        cx - pole_w * 0.5, cy - CELL * 0.30,
+        cx + pole_w * 0.5, cy + CELL * 0.30,
+        SCARECROW_POLE,
+    );
+    // Hat — circular straw cap at the top of the pole.
+    let hat_cy = cy - CELL * 0.30;
+    painter.fill_circle(
+        cx as f32, hat_cy as f32,
+        (CELL * 0.10) as f32,
+        &Paint::solid(SCARECROW_STRAW),
+    );
+    painter.fill_circle(
+        cx as f32, hat_cy as f32,
+        (CELL * 0.05) as f32,
+        &Paint::solid(SCARECROW_HAT),
+    );
+}
+
+const PLOUGH_BLADE: Color = Color::rgba(0x88, 0x88, 0x90, 1.0);
+const PLOUGH_HANDLE: Color = Color::rgba(0x6B, 0x47, 0x28, 1.0);
+
+/// Plough — top-down silhouette of a horse-drawn plough: angled
+/// metal blade triangle + two trailing wooden handles.
+fn paint_plough_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    // Blade — pointed triangle pointing +x (the plough's
+    // furrowing direction).
+    let mut blade = PathOps::new();
+    blade.move_to(Vec2::new((cx + CELL * 0.32) as f32, cy as f32));
+    blade.line_to(Vec2::new(
+        (cx - CELL * 0.05) as f32, (cy - CELL * 0.13) as f32,
+    ));
+    blade.line_to(Vec2::new(
+        (cx - CELL * 0.05) as f32, (cy + CELL * 0.13) as f32,
+    ));
+    blade.close();
+    painter.fill_path(&blade, &Paint::solid(PLOUGH_BLADE), FillRule::Winding);
+    // Handles — two diagonal wooden bars trailing back from
+    // the blade.
+    let handle = Stroke {
+        width: 1.4, line_cap: LineCap::Round, line_join: LineJoin::Miter,
+    };
+    let handle_paint = Paint::solid(PLOUGH_HANDLE);
+    for sign in [-1.0_f64, 1.0] {
+        let mut path = PathOps::new();
+        path.move_to(Vec2::new(
+            (cx - CELL * 0.05) as f32,
+            (cy + CELL * 0.05 * sign) as f32,
+        ));
+        path.line_to(Vec2::new(
+            (cx - CELL * 0.30) as f32,
+            (cy + CELL * 0.20 * sign) as f32,
+        ));
+        painter.stroke_path(&path, &handle_paint, &handle);
+    }
+}
+
 /// Convenience axis-aligned rectangle fill via fill_path. Used
 /// by the per-anchor painters above instead of fill_rect so the
 /// SVG painter renders a single ``<path>`` rather than mixing
@@ -1395,6 +1557,32 @@ pub fn draw<'a>(
                 paint_horse_anchor(painter, &anchors.get(i), op.seed());
             }
         }
+        // Static farm structures.
+        FixtureKind::Hayrick => {
+            for i in 0..anchors.len() {
+                paint_hayrick_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Trough => {
+            for i in 0..anchors.len() {
+                paint_trough_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Beehive => {
+            for i in 0..anchors.len() {
+                paint_beehive_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Scarecrow => {
+            for i in 0..anchors.len() {
+                paint_scarecrow_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Plough => {
+            for i in 0..anchors.len() {
+                paint_plough_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
         _ => {
             // Defensive — unknown kinds (forward-compat enum
             // variants) hit the wildcard. Magenta sentinel fill so
@@ -1583,6 +1771,28 @@ mod tests {
                 painter.calls.len() > 1,
                 "kind {kind:?}: expected multi-call lifted painter, got {}",
                 painter.calls.len()
+            );
+        }
+    }
+
+    /// Farm static-structure kinds (Hayrick / Trough / Beehive
+    /// / Scarecrow / Plough) each dispatch to their per-anchor
+    /// painter and emit multi-call output. Pin so a future enum
+    /// addition that forgets the dispatch arm surfaces here as
+    /// a single magenta-sentinel call.
+    #[test]
+    fn farm_structure_kinds_dispatch_to_their_painters() {
+        for kind in [
+            FixtureKind::Hayrick, FixtureKind::Trough,
+            FixtureKind::Beehive, FixtureKind::Scarecrow,
+            FixtureKind::Plough,
+        ] {
+            let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+            let painter = run(&build_fixture_op(kind, &anchors));
+            assert!(
+                painter.calls.len() > 1,
+                "kind {kind:?}: expected multi-call painter, got {}",
+                painter.calls.len(),
             );
         }
     }

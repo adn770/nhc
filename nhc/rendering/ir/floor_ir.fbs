@@ -190,7 +190,17 @@ enum WallTreatment : ubyte {
   // palette for colour, so callers can render natural-wood
   // fences (Wood family) or painted-white pickets (Plain family
   // / pale stone style) without needing a separate enum.
-  PostAndRail   = 9,
+  PostAndRail     = 9,
+  // ``Hedge`` — sparse greenery dots along the polygon edges,
+  // reads as a clipped garden / pasture hedge. Uses the family
+  // palette for the dot colour (Earth / Plain families pick up
+  // green-ish bases naturally; callers can pin a specific
+  // green via Earth.Grass).
+  Hedge           = 10,
+  // ``DrystoneLowWall`` — short stacked stones, no mortar,
+  // lower height than full ``Drystone``. Per-edge chain of
+  // small ovals along the polygon outline.
+  DrystoneLowWall = 11,
 }
 
 enum PathStyle : ubyte {
@@ -243,6 +253,12 @@ enum FixtureKind : ubyte {
   Chicken     = 27,
   Goat        = 28,
   Horse       = 29,
+  // Static farm structures — top-down silhouettes.
+  Hayrick     = 30,
+  Trough      = 31,
+  Beehive     = 32,
+  Scarecrow   = 33,
+  Plough      = 34,
 }
 
 // RoofOp dispatches geometry directly off ``style`` (today's

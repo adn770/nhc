@@ -603,10 +603,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for MaterialFamily {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_WALL_TREATMENT: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_WALL_TREATMENT: u8 = 9;
+pub const ENUM_MAX_WALL_TREATMENT: u8 = 11;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_WALL_TREATMENT: [WallTreatment; 10] = [
+pub const ENUM_VALUES_WALL_TREATMENT: [WallTreatment; 12] = [
   WallTreatment::PlainStroke,
   WallTreatment::Masonry,
   WallTreatment::Partition,
@@ -617,6 +617,8 @@ pub const ENUM_VALUES_WALL_TREATMENT: [WallTreatment; 10] = [
   WallTreatment::WattleAndDaub,
   WallTreatment::Iron,
   WallTreatment::PostAndRail,
+  WallTreatment::Hedge,
+  WallTreatment::DrystoneLowWall,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -634,9 +636,11 @@ impl WallTreatment {
   pub const WattleAndDaub: Self = Self(7);
   pub const Iron: Self = Self(8);
   pub const PostAndRail: Self = Self(9);
+  pub const Hedge: Self = Self(10);
+  pub const DrystoneLowWall: Self = Self(11);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 9;
+  pub const ENUM_MAX: u8 = 11;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::PlainStroke,
     Self::Masonry,
@@ -648,6 +652,8 @@ impl WallTreatment {
     Self::WattleAndDaub,
     Self::Iron,
     Self::PostAndRail,
+    Self::Hedge,
+    Self::DrystoneLowWall,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -662,6 +668,8 @@ impl WallTreatment {
       Self::WattleAndDaub => Some("WattleAndDaub"),
       Self::Iron => Some("Iron"),
       Self::PostAndRail => Some("PostAndRail"),
+      Self::Hedge => Some("Hedge"),
+      Self::DrystoneLowWall => Some("DrystoneLowWall"),
       _ => None,
     }
   }
@@ -823,10 +831,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for PathStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_FIXTURE_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_FIXTURE_KIND: u8 = 29;
+pub const ENUM_MAX_FIXTURE_KIND: u8 = 34;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 30] = [
+pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 35] = [
   FixtureKind::Web,
   FixtureKind::Skull,
   FixtureKind::Bone,
@@ -857,6 +865,11 @@ pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 30] = [
   FixtureKind::Chicken,
   FixtureKind::Goat,
   FixtureKind::Horse,
+  FixtureKind::Hayrick,
+  FixtureKind::Trough,
+  FixtureKind::Beehive,
+  FixtureKind::Scarecrow,
+  FixtureKind::Plough,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -894,9 +907,14 @@ impl FixtureKind {
   pub const Chicken: Self = Self(27);
   pub const Goat: Self = Self(28);
   pub const Horse: Self = Self(29);
+  pub const Hayrick: Self = Self(30);
+  pub const Trough: Self = Self(31);
+  pub const Beehive: Self = Self(32);
+  pub const Scarecrow: Self = Self(33);
+  pub const Plough: Self = Self(34);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 29;
+  pub const ENUM_MAX: u8 = 34;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Web,
     Self::Skull,
@@ -928,6 +946,11 @@ impl FixtureKind {
     Self::Chicken,
     Self::Goat,
     Self::Horse,
+    Self::Hayrick,
+    Self::Trough,
+    Self::Beehive,
+    Self::Scarecrow,
+    Self::Plough,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -962,6 +985,11 @@ impl FixtureKind {
       Self::Chicken => Some("Chicken"),
       Self::Goat => Some("Goat"),
       Self::Horse => Some("Horse"),
+      Self::Hayrick => Some("Hayrick"),
+      Self::Trough => Some("Trough"),
+      Self::Beehive => Some("Beehive"),
+      Self::Scarecrow => Some("Scarecrow"),
+      Self::Plough => Some("Plough"),
       _ => None,
     }
   }

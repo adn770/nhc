@@ -32,5 +32,10 @@ export enum FixtureKind {
   Pig = 26,
   Chicken = 27,
   Goat = 28,
-  Horse = 29
+  Horse = 29,
+  Hayrick = 30,
+  Trough = 31,
+  Beehive = 32,
+  Scarecrow = 33,
+  Plough = 34
 }

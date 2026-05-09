@@ -170,6 +170,28 @@ pub fn draw<'a>(
             );
             return true;
         }
+        (WallTreatment::Hedge, Some(poly)) => {
+            let dot_color = substance_color(
+                family, wm.style(), wm.tone(), PaletteRole::Base,
+            );
+            let shadow_color = substance_color(
+                family, wm.style(), wm.tone(), PaletteRole::Shadow,
+            );
+            render_hedge_polygon(poly, dot_color, shadow_color, painter);
+            return true;
+        }
+        (WallTreatment::DrystoneLowWall, Some(poly)) => {
+            let stone_color = substance_color(
+                family, wm.style(), wm.tone(), PaletteRole::Base,
+            );
+            let shadow_color = substance_color(
+                family, wm.style(), wm.tone(), PaletteRole::Shadow,
+            );
+            render_drystone_low_wall_polygon(
+                poly, stone_color, shadow_color, painter,
+            );
+            return true;
+        }
         _ => {}
     }
 
@@ -260,6 +282,106 @@ fn render_post_and_rail_polygon(
                     POST_HALF * 2.0, POST_HALF * 2.0),
                 &post_paint,
             );
+        }
+    }
+}
+
+/// Hedge — sparse greenery along the polygon edges, viewed
+/// from above. Walks each edge and stamps a chain of small
+/// circles (alternating base + shadow tones for visual depth)
+/// at a tight 4 px pitch. Reads as a clipped garden / pasture
+/// hedge at the gameplay zoom.
+fn render_hedge_polygon(
+    polygon: &[(f32, f32)],
+    leaf_color: Color,
+    shadow_color: Color,
+    painter: &mut dyn Painter,
+) {
+    if polygon.len() < 2 {
+        return;
+    }
+    const PITCH: f32 = 4.0;
+    const RADIUS: f32 = 2.2;
+    let leaf_paint = Paint::solid(leaf_color);
+    let shadow_paint = Paint::solid(shadow_color);
+    let n = polygon.len();
+    let mut step = 0_i32;
+    for i in 0..n {
+        let (ax, ay) = polygon[i];
+        let (bx, by) = polygon[(i + 1) % n];
+        let dx = bx - ax;
+        let dy = by - ay;
+        let len = (dx * dx + dy * dy).sqrt();
+        if len < 1e-3 {
+            continue;
+        }
+        let n_dots = (len / PITCH).floor() as i32;
+        for j in 0..=n_dots {
+            let t = (j as f32) * PITCH / len;
+            if t > 1.0 {
+                break;
+            }
+            let cx = ax + dx * t;
+            let cy = ay + dy * t;
+            // Alternate base + shadow per stamp so the hedge
+            // reads as foliage clumps rather than a uniform
+            // ring.
+            let paint = if step.rem_euclid(2) == 0 {
+                &leaf_paint
+            } else {
+                &shadow_paint
+            };
+            painter.fill_circle(cx, cy, RADIUS, paint);
+            step += 1;
+        }
+    }
+}
+
+/// DrystoneLowWall — short stacked stones, no mortar, lower
+/// height than the full ``Drystone`` masonry-stroke treatment.
+/// Walks each edge and stamps a chain of small horizontal
+/// ovals along the polygon outline; alternating base + shadow
+/// tones suggest the rough fitted-stone texture.
+fn render_drystone_low_wall_polygon(
+    polygon: &[(f32, f32)],
+    stone_color: Color,
+    shadow_color: Color,
+    painter: &mut dyn Painter,
+) {
+    if polygon.len() < 2 {
+        return;
+    }
+    const PITCH: f32 = 5.0;
+    const RX: f32 = 2.6;
+    const RY: f32 = 1.7;
+    let stone_paint = Paint::solid(stone_color);
+    let shadow_paint = Paint::solid(shadow_color);
+    let n = polygon.len();
+    let mut step = 0_i32;
+    for i in 0..n {
+        let (ax, ay) = polygon[i];
+        let (bx, by) = polygon[(i + 1) % n];
+        let dx = bx - ax;
+        let dy = by - ay;
+        let len = (dx * dx + dy * dy).sqrt();
+        if len < 1e-3 {
+            continue;
+        }
+        let n_stones = (len / PITCH).floor() as i32;
+        for j in 0..=n_stones {
+            let t = (j as f32) * PITCH / len;
+            if t > 1.0 {
+                break;
+            }
+            let cx = ax + dx * t;
+            let cy = ay + dy * t;
+            let paint = if step.rem_euclid(3) == 0 {
+                &shadow_paint
+            } else {
+                &stone_paint
+            };
+            painter.fill_ellipse(cx, cy, RX, RY, paint);
+            step += 1;
         }
     }
 }
@@ -685,6 +807,69 @@ mod tests {
                 ),
             }
         }
+    }
+
+    /// Hedge stamps small circles along every polygon edge at
+    /// a tight 4 px pitch — a 4-edge 64×64 polygon = 4 × ~16
+    /// circles per edge ≈ 64 fill_circle calls.
+    #[test]
+    fn hedge_treatment_emits_circle_chain_along_edges() {
+        let buf = build_stroke_op_with_region(
+            MaterialFamily::Earth,
+            1, // EARTH_GRASS for naturally green dots
+            WallTreatment::Hedge,
+        );
+        let fir = root_as_floor_ir(&buf).expect("parse");
+        let regions = fir.regions().expect("regions");
+        let op = fir
+            .ops()
+            .expect("ops")
+            .get(0)
+            .op_as_stroke_op()
+            .expect("stroke op");
+        let mut painter = MockPainter::default();
+        assert!(draw(op, regions, &mut painter));
+        let circles = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillCircle(_, _, _, _)))
+            .count();
+        assert!(
+            circles >= 32,
+            "Hedge should emit many fill_circles along edges, got {circles}",
+        );
+    }
+
+    /// DrystoneLowWall stamps small ovals along every polygon
+    /// edge at a 5 px pitch — a 4-edge 64×64 polygon ≈ 4 × ~13
+    /// ovals per edge. Emits fill_ellipse, no fill_circle, no
+    /// stroke_path.
+    #[test]
+    fn drystone_low_wall_treatment_emits_ellipse_chain_along_edges() {
+        let buf = build_stroke_op_with_region(
+            MaterialFamily::Stone,
+            0,
+            WallTreatment::DrystoneLowWall,
+        );
+        let fir = root_as_floor_ir(&buf).expect("parse");
+        let regions = fir.regions().expect("regions");
+        let op = fir
+            .ops()
+            .expect("ops")
+            .get(0)
+            .op_as_stroke_op()
+            .expect("stroke op");
+        let mut painter = MockPainter::default();
+        assert!(draw(op, regions, &mut painter));
+        let ellipses = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillEllipse(_, _, _, _, _)))
+            .count();
+        assert!(
+            ellipses >= 32,
+            "DrystoneLowWall should emit many fill_ellipses along edges, got {ellipses}",
+        );
     }
 
     /// PostAndRail dispatches to the dedicated farm-fence
