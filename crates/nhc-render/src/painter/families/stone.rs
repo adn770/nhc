@@ -73,6 +73,8 @@
 //! All nine Stone styles now have lifted layouts; Phase 2.4 is
 //! complete.
 
+use std::f64::consts::FRAC_PI_4;
+
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64Mcg;
 
@@ -144,6 +146,16 @@ const CRAZY_PAVING: StonePalette = entry(0xBFB6A6, 0xD0C8B8, 0x807358);
 /// Ashlar — dressed cut stone with thin even joints.
 const ASHLAR: StonePalette = entry(0xD0C7B6, 0xE2DBCB, 0x988D7A);
 
+/// OpusReticulatum — small square stones laid as diamonds in a
+/// diagonal grid (Roman netting). Pale sandstone over shadow
+/// mortar so the diagonal seams read clearly.
+const OPUS_RETICULATUM: StonePalette = entry(0xD8C8A8, 0xE8DCC0, 0x8A7A5A);
+
+/// OpusSpicatum — herringbone pattern of ±45° rotated bricks
+/// (Roman ``ear of wheat``). Terracotta over deep-red mortar so
+/// the chevron seams stay visible.
+const OPUS_SPICATUM: StonePalette = entry(0xC0654E, 0xDC8970, 0x95523C);
+
 const SENTINEL: StonePalette = entry(0xFF00FF, 0xFF00FF, 0xFF00FF);
 
 pub(crate) fn palette(style: u8) -> StonePalette {
@@ -157,6 +169,8 @@ pub(crate) fn palette(style: u8) -> StonePalette {
         6 => HOPSCOTCH,
         7 => CRAZY_PAVING,
         8 => ASHLAR,
+        9 => OPUS_RETICULATUM,
+        10 => OPUS_SPICATUM,
         _ => SENTINEL,
     }
 }
@@ -175,11 +189,15 @@ pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, materi
             3 => paint_cobblestone_mosaic(painter, region_path, pal, material.seed),
             _ => fill_region(painter, region_path, pal.base),
         },
-        // Brick — 3 bonds landed at Phase 2.4b.
+        // Brick — 5 bonds. RunningBond / EnglishBond / FlemishBond
+        // landed at Phase 2.4b; HeaderBond + StackBond are the
+        // post-Phase-5 deferred-polish additions.
         1 => match material.sub_pattern {
             0 => paint_brick_running_bond(painter, region_path, pal, material.seed),
             1 => paint_brick_english_bond(painter, region_path, pal, material.seed),
             2 => paint_brick_flemish_bond(painter, region_path, pal, material.seed),
+            3 => paint_brick_header_bond(painter, region_path, pal, material.seed),
+            4 => paint_brick_stack_bond(painter, region_path, pal, material.seed),
             _ => fill_region(painter, region_path, pal.base),
         },
         // Flagstone — single layout, no sub-patterns (Phase 2.4c).
@@ -206,6 +224,13 @@ pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, materi
             1 => paint_ashlar_staggered(painter, region_path, pal, material.seed),
             _ => fill_region(painter, region_path, pal.base),
         },
+        // OpusReticulatum — Roman netting; small diamond stones
+        // tessellating in a regular diagonal grid (post-Phase-5
+        // deferred polish).
+        9 => paint_opus_reticulatum(painter, region_path, pal, material.seed),
+        // OpusSpicatum — Roman ``ear of wheat`` herringbone of
+        // ±45° rotated bricks (post-Phase-5 deferred polish).
+        10 => paint_opus_spicatum(painter, region_path, pal, material.seed),
         // Forward-compat for unknown styles falls back to flat fill.
         _ => fill_region(painter, region_path, pal.base),
     }
@@ -656,6 +681,101 @@ fn paint_brick_flemish_bond<P: Painter + ?Sized>(
         }
         y += row_h;
         row += 1;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
+/// HeaderBond — every brick is a header (square brick face,
+/// ``BRICK_H × BRICK_H``); successive rows offset by half a
+/// header-width for the same staggered visual cadence as
+/// RunningBond, but at the finer resolution headers afford. The
+/// uniform header courses read as a tighter, denser masonry
+/// surface than RunningBond's stretchers — useful when the
+/// region wants a busier dressed-stone look without graduating
+/// all the way to Ashlar.
+fn paint_brick_header_bond<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(BRICK_GROUP_OPACITY);
+    let header_w = BRICK_H + BRICK_GAP;
+    let row_h = BRICK_H + BRICK_GAP;
+    let base_paint = Paint::solid(pal.base);
+    let mut row = 0_i32;
+    let mut y = f64::from(y0);
+    while y < f64::from(y1) {
+        let row_offset = if (row & 1) == 0 { 0.0 } else { -BRICK_H * 0.5 };
+        let mut x = f64::from(x0) + row_offset - header_w;
+        while x < f64::from(x1) {
+            painter.fill_rect(
+                Rect::new(
+                    x as f32,
+                    y as f32,
+                    (BRICK_H - BRICK_GAP) as f32,
+                    (BRICK_H - BRICK_GAP) as f32,
+                ),
+                &base_paint,
+            );
+            x += header_w;
+        }
+        y += row_h;
+        row += 1;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
+/// StackBond — stretchers stacked directly atop each other with
+/// no row offset, so both axes carry visible mortar lines. The
+/// resulting strict grid is the most modern / industrial of the
+/// brick bonds; in the game it works well as inside-walls of
+/// recently-built keeps where the masonry hasn't been weathered
+/// into the staggered courses RunningBond shows. Identical
+/// brick face dimensions to RunningBond — only the row offset
+/// drops to zero.
+fn paint_brick_stack_bond<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(BRICK_GROUP_OPACITY);
+    let row_h = BRICK_H + BRICK_GAP;
+    let col_w = BRICK_W + BRICK_GAP;
+    let base_paint = Paint::solid(pal.base);
+    let mut y = f64::from(y0);
+    while y < f64::from(y1) {
+        let mut x = f64::from(x0);
+        while x < f64::from(x1) {
+            painter.fill_rect(
+                Rect::new(
+                    x as f32,
+                    y as f32,
+                    (BRICK_W - BRICK_GAP) as f32,
+                    (BRICK_H - BRICK_GAP) as f32,
+                ),
+                &base_paint,
+            );
+            x += col_w;
+        }
+        y += row_h;
     }
     painter.end_group();
     painter.pop_clip();
@@ -1231,6 +1351,113 @@ fn paint_ashlar_inner<P: Painter + ?Sized>(
     painter.pop_clip();
 }
 
+// ── OpusReticulatum (no sub-patterns) ──────────────────────────
+
+const RETICULATUM_HALF_DIAG: f64 = 3.5;
+const RETICULATUM_GAP: f64 = 0.6;
+const RETICULATUM_PITCH: f64 =
+    2.0 * RETICULATUM_HALF_DIAG + RETICULATUM_GAP;
+const RETICULATUM_GROUP_OPACITY: f32 = 0.9;
+
+/// OpusReticulatum — Roman netting. Small square stones laid at
+/// 45° (so each face appears as a diamond) tessellate over the
+/// region in a regular diagonal grid. The diagonal mortar seams
+/// between diamonds form the characteristic ``X``-mesh that the
+/// Roman walls of Pompeii and Ostia carry. RNG-free.
+fn paint_opus_reticulatum<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(RETICULATUM_GROUP_OPACITY);
+    let base_paint = Paint::solid(pal.base);
+    let d = RETICULATUM_HALF_DIAG;
+    let mut y = f64::from(y0);
+    while y < f64::from(y1) + RETICULATUM_PITCH {
+        let mut x = f64::from(x0);
+        while x < f64::from(x1) + RETICULATUM_PITCH {
+            let cx = x + RETICULATUM_PITCH * 0.5;
+            let cy = y + RETICULATUM_PITCH * 0.5;
+            let pts = [
+                Vec2::new(cx as f32, (cy - d) as f32),
+                Vec2::new((cx + d) as f32, cy as f32),
+                Vec2::new(cx as f32, (cy + d) as f32),
+                Vec2::new((cx - d) as f32, cy as f32),
+            ];
+            painter.fill_polygon(&pts, &base_paint, FillRule::Winding);
+            x += RETICULATUM_PITCH;
+        }
+        y += RETICULATUM_PITCH;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
+// ── OpusSpicatum (no sub-patterns) ─────────────────────────────
+
+const SPICATUM_W: f64 = 12.0;
+const SPICATUM_H: f64 = 4.0;
+const SPICATUM_STRIDE: f64 = 6.0;
+const SPICATUM_GROUP_OPACITY: f32 = 0.9;
+
+/// OpusSpicatum — Roman ``ear of wheat`` herringbone of ±45°
+/// rotated bricks. Per ``(row, col)`` parity flips the brick
+/// angle so the pattern reads as a chevron weave. Same idiom as
+/// the Wood family's Herringbone sub-pattern; the brick face
+/// fills with palette.base over the palette.shadow mortar bed.
+/// RNG-free.
+fn paint_opus_spicatum<P: Painter + ?Sized>(
+    painter: &mut P,
+    region_path: &PathOps,
+    pal: StonePalette,
+    _seed: u64,
+) {
+    let (x0, y0, x1, y1) = path_bounds(region_path);
+    if !(x1 > x0 && y1 > y0) {
+        fill_region(painter, region_path, pal.base);
+        return;
+    }
+    painter.push_clip(region_path, FillRule::Winding);
+    fill_region(painter, region_path, pal.shadow);
+    painter.begin_group(SPICATUM_GROUP_OPACITY);
+    let base_paint = Paint::solid(pal.base);
+    let mut row = 0_i32;
+    let mut y = f64::from(y0) - SPICATUM_W;
+    while y < f64::from(y1) + SPICATUM_W {
+        let mut col = 0_i32;
+        let mut x = f64::from(x0) - SPICATUM_W;
+        while x < f64::from(x1) + SPICATUM_W {
+            let angle = if (row + col).rem_euclid(2) == 0 {
+                FRAC_PI_4
+            } else {
+                -FRAC_PI_4
+            };
+            let path = rotated_rect_path(
+                x + SPICATUM_W * 0.5,
+                y + SPICATUM_H * 0.5,
+                SPICATUM_W,
+                SPICATUM_H,
+                angle,
+            );
+            painter.fill_path(&path, &base_paint, FillRule::Winding);
+            x += SPICATUM_STRIDE;
+            col += 1;
+        }
+        y += SPICATUM_STRIDE;
+        row += 1;
+    }
+    painter.end_group();
+    painter.pop_clip();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1263,7 +1490,7 @@ mod tests {
     #[test]
     fn each_style_has_a_distinct_base_colour() {
         let mut bases = Vec::new();
-        for style in 0..9u8 {
+        for style in 0..11u8 {
             let p = palette(style);
             let key = (p.base.r, p.base.g, p.base.b);
             assert!(!bases.contains(&key), "style {style} reuses base {key:?}");
@@ -1273,7 +1500,7 @@ mod tests {
 
     #[test]
     fn each_style_has_distinct_highlight_and_shadow_from_base() {
-        for style in 0..9u8 {
+        for style in 0..11u8 {
             let p = palette(style);
             assert_ne!(p.base, p.highlight, "style {style}: highlight==base");
             assert_ne!(p.base, p.shadow, "style {style}: shadow==base");
@@ -1286,7 +1513,7 @@ mod tests {
     #[test]
     fn highlight_is_brighter_and_shadow_is_darker_than_base() {
         let brightness = |c: Color| c.r as u32 + c.g as u32 + c.b as u32;
-        for style in 0..9u8 {
+        for style in 0..11u8 {
             let p = palette(style);
             let b = brightness(p.base);
             let h = brightness(p.highlight);
@@ -1298,7 +1525,9 @@ mod tests {
 
     /// Out-of-range Stone style values fall back to flat fill
     /// rather than emitting a magenta sentinel block. Every Stone
-    /// style 0–8 has a lifted layout per Phase 2.4a–2.4i.
+    /// style 0–10 has a lifted layout (0–8 from Phase 2.4a–2.4i;
+    /// 9 OpusReticulatum + 10 OpusSpicatum from the post-Phase-5
+    /// deferred polish).
     #[test]
     fn out_of_range_style_falls_back_to_flat_fill() {
         let path = one_tile_path();
@@ -1307,6 +1536,108 @@ mod tests {
         paint(&mut p, &path, &m);
         assert_eq!(p.calls.len(), 1);
         assert!(matches!(p.calls[0], PainterCall::FillPath(_, _, _)));
+    }
+
+    /// OpusReticulatum (style=9) tessellates the region with
+    /// diamond stones via fill_polygon. The diamonds are the
+    /// painter's only stamp kind — no fill_rect, no stroke.
+    #[test]
+    fn opus_reticulatum_emits_diamond_polygons_with_clip_envelope() {
+        let path = four_tile_path();
+        let mut p = MockPainter::default();
+        paint(
+            &mut p, &path,
+            &Material::new(Family::Stone, 9, 0, 0, 0xCAFE),
+        );
+        assert_eq!(count_pushed_clips(&p.calls), 1, "expected 1 push_clip");
+        assert_eq!(count_begin_groups(&p.calls), 1, "expected 1 begin_group");
+        let polygons = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillPolygon(_, _, _)))
+            .count();
+        let rects = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+            .count();
+        let strokes = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::StrokePath(_, _, _)))
+            .count();
+        assert!(
+            polygons > 100,
+            "expected many diamond polygons, got {polygons}",
+        );
+        assert_eq!(rects, 0, "OpusReticulatum should not emit fill_rect");
+        assert_eq!(strokes, 0, "OpusReticulatum should not emit strokes");
+    }
+
+    /// Each OpusReticulatum diamond polygon has exactly four
+    /// vertices (top / right / bottom / left) and the bounding
+    /// box of those vertices forms a square — the diagonal
+    /// rotation of the underlying ``2 * RETICULATUM_HALF_DIAG``
+    /// square.
+    #[test]
+    fn opus_reticulatum_diamond_vertices_are_axis_symmetric() {
+        let path = four_tile_path();
+        let mut p = MockPainter::default();
+        paint(
+            &mut p, &path,
+            &Material::new(Family::Stone, 9, 0, 0, 0xCAFE),
+        );
+        let first_polygon = p
+            .calls
+            .iter()
+            .find_map(|c| match c {
+                PainterCall::FillPolygon(verts, _, _) => Some(verts.clone()),
+                _ => None,
+            })
+            .expect("at least one diamond polygon");
+        assert_eq!(first_polygon.len(), 4);
+        // Top + bottom share x; left + right share y; both share
+        // a centre. Confirm the rotated-square shape.
+        assert_eq!(first_polygon[0].x, first_polygon[2].x);
+        assert_eq!(first_polygon[1].y, first_polygon[3].y);
+    }
+
+    /// OpusSpicatum (style=10) emits ±45° rotated brick stamps
+    /// via fill_path (one path per brick). No fill_rect, no
+    /// stroke, all decoration inside one clip + group envelope.
+    #[test]
+    fn opus_spicatum_emits_rotated_brick_paths_with_clip_envelope() {
+        let path = four_tile_path();
+        let mut p = MockPainter::default();
+        paint(
+            &mut p, &path,
+            &Material::new(Family::Stone, 10, 0, 0, 0xCAFE),
+        );
+        assert_eq!(count_pushed_clips(&p.calls), 1, "expected 1 push_clip");
+        assert_eq!(count_begin_groups(&p.calls), 1, "expected 1 begin_group");
+        // First fill_path is the mortar bed (the region itself);
+        // every subsequent fill_path is a rotated brick stamp.
+        let fill_paths = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillPath(_, _, _)))
+            .count();
+        let rects = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+            .count();
+        let strokes = p
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::StrokePath(_, _, _)))
+            .count();
+        assert!(
+            fill_paths > 100,
+            "expected many rotated brick paths, got {fill_paths}",
+        );
+        assert_eq!(rects, 0, "OpusSpicatum should not emit fill_rect");
+        assert_eq!(strokes, 0, "OpusSpicatum should not emit strokes");
     }
 
     /// Flagstone (style=2, no sub-patterns) wraps decoration in a
@@ -1799,7 +2130,7 @@ mod tests {
     #[test]
     fn every_brick_sub_pattern_emits_clip_and_group_envelopes() {
         let path = four_tile_path();
-        for sub in 0..3u8 {
+        for sub in 0..5u8 {
             let mut p = MockPainter::default();
             let m = Material::new(Family::Stone, 1, sub, 0, 0xCAFE);
             paint(&mut p, &path, &m);
@@ -1836,7 +2167,7 @@ mod tests {
     #[test]
     fn brick_sub_patterns_emit_only_fill_rect_decoration() {
         let path = four_tile_path();
-        for sub in 0..3u8 {
+        for sub in 0..5u8 {
             let mut p = MockPainter::default();
             paint(
                 &mut p, &path,
@@ -1864,6 +2195,65 @@ mod tests {
                 "brick sub_pattern {sub}: expected no stroke calls",
             );
         }
+    }
+
+    /// HeaderBond (every brick a header) and StackBond (stretchers
+    /// stacked with no row offset) are the post-Phase-5
+    /// deferred-polish additions. Header rows pack roughly one
+    /// brick per ``BRICK_H`` rather than per ``BRICK_W``, so
+    /// HeaderBond stamps notably more bricks than RunningBond on
+    /// the same region. StackBond uses RunningBond's stretcher
+    /// dimensions but drops the half-row offset; per-row stamp
+    /// counts match RunningBond's even rows but differ from its
+    /// odd rows (which are shifted left by half a brick), so the
+    /// total still diverges from RunningBond on most regions.
+    #[test]
+    fn header_bond_stamps_more_bricks_than_running_bond() {
+        let path = four_tile_path();
+        let count_rects = |sub: u8| -> usize {
+            let mut p = MockPainter::default();
+            paint(
+                &mut p, &path,
+                &Material::new(Family::Stone, 1, sub, 0, 0xCAFE),
+            );
+            p.calls
+                .iter()
+                .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+                .count()
+        };
+        let running = count_rects(0);
+        let header = count_rects(3);
+        // Headers are ``BRICK_H`` wide vs. RunningBond's
+        // ``BRICK_W`` (3.6 vs 16 effective pitch), so HeaderBond
+        // packs many more bricks per row at the same region size.
+        assert!(
+            header > running * 2,
+            "HeaderBond ({header}) should pack more bricks than \
+             RunningBond ({running})",
+        );
+    }
+
+    #[test]
+    fn stack_bond_diverges_from_running_bond_on_offset_rows() {
+        let path = four_tile_path();
+        let count_rects = |sub: u8| -> usize {
+            let mut p = MockPainter::default();
+            paint(
+                &mut p, &path,
+                &Material::new(Family::Stone, 1, sub, 0, 0xCAFE),
+            );
+            p.calls
+                .iter()
+                .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+                .count()
+        };
+        let running = count_rects(0);
+        let stack = count_rects(4);
+        assert_ne!(
+            running, stack,
+            "RunningBond ({running}) and StackBond ({stack}) \
+             should produce distinct stamp counts",
+        );
     }
 
     /// The three Brick bonds emit distinct stamp counts on the same
