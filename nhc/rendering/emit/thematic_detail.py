@@ -36,14 +36,23 @@ _THEM_KIND_TO_V5: dict[int, int] = {
 
 def _make_anchor(
     x: int, y: int, *, variant: int = 0, orientation: int = 0,
+    cx_off: int = 0, cy_off: int = 0,
 ) -> AnchorT:
+    """Thematic-detail anchor builder. ``cx_off`` / ``cy_off``
+    populate the v5 sub-tile offset fields when the caller
+    pre-computes a placement; default ``0, 0`` keeps the
+    painter on its anchor_rng fallback path. See
+    ``floor_ir.fbs::Anchor`` for the wire-format contract.
+    """
     a = AnchorT()
     a.x = x
     a.y = y
     a.variant = variant
     a.orientation = orientation
     a.scale = 0
+    a.cxOff = cx_off
     a.groupId = 0
+    a.cyOff = cy_off
     return a
 
 

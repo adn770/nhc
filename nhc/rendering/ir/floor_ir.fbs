@@ -210,17 +210,34 @@ table WallMaterial {
 }
 
 // Per-fixture anchor placement. Field semantics are kind-specific
-// (see design/map_ir_v5.md §7). ``pad0`` aligns ``group_id`` to a
-// 4-byte boundary; FlatBuffers struct alignment matches the
-// largest field (``group_id``: uint32).
+// (see design/map_ir_v5.md §7).
+//
+// ``cx_off`` / ``cy_off`` carry sub-tile fractional offsets in
+// 1/256 units: the painter computes the anchor's pixel-space
+// position as ``(x + cx_off / 256.0, y + cy_off / 256.0) * CELL``.
+// This pre-bakes the per-anchor placement decision in the IR so
+// every renderer (Skia / SVG / Canvas) agrees on sub-tile
+// coordinates without each one having to re-derive them through
+// its own RNG. ``cx_off = cy_off = 0`` is the back-compat sentinel
+// that asks the painter to fall back to ``anchor_rng``-derived
+// placement (matches the v5 cut behaviour); any non-zero value on
+// either axis switches to the explicit-position path.
+//
+// Layout sized to 16 bytes total — same wire footprint as the
+// pre-#3 anchor. ``group_id`` shrinks from uint32 to uint16
+// (group IDs are clusters within a single FixtureOp; even
+// dense scenes stay well under 65 K), which frees the two bytes
+// the new offsets need without growing the struct.
 struct Anchor {
   x:           int32;
   y:           int32;
   variant:     uint8;
   orientation: uint8;
   scale:       uint8;
+  cx_off:      uint8 = 0;
+  group_id:    uint16;
+  cy_off:      uint8 = 0;
   pad0:        uint8 = 0;
-  group_id:    uint32;
 }
 
 // Region carries parent_id and cuts directly. Tooling reads ``id``

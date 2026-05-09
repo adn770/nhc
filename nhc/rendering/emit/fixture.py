@@ -27,14 +27,27 @@ from nhc.rendering.ir._fb.OpEntry import OpEntryT
 def _make_anchor(
     x: int, y: int, *, variant: int = 0, orientation: int = 0,
     scale: int = 0, group_id: int = 0,
+    cx_off: int = 0, cy_off: int = 0,
 ) -> AnchorT:
+    """Build an AnchorT with the v5 schema fields populated.
+
+    ``cx_off`` / ``cy_off`` are optional sub-tile fractional
+    offsets in 1/256 units (0..255 → 0..0.996 fractional position
+    within the tile). Default ``0, 0`` is the back-compat sentinel
+    that asks the painter to fall back to its anchor_rng-derived
+    placement; setting either non-zero switches the painter to
+    the explicit-position path. See ``floor_ir.fbs::Anchor`` for
+    the wire-format contract.
+    """
     a = AnchorT()
     a.x = x
     a.y = y
     a.variant = variant
     a.orientation = orientation
     a.scale = scale
+    a.cxOff = cx_off
     a.groupId = group_id
+    a.cyOff = cy_off
     return a
 
 

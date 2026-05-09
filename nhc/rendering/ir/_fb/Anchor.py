@@ -28,14 +28,20 @@ class Anchor(object):
     # Anchor
     def Scale(self): return self._tab.Get(flatbuffers.number_types.Uint8Flags, self._tab.Pos + flatbuffers.number_types.UOffsetTFlags.py_type(10))
     # Anchor
-    def Pad0(self): return self._tab.Get(flatbuffers.number_types.Uint8Flags, self._tab.Pos + flatbuffers.number_types.UOffsetTFlags.py_type(11))
+    def CxOff(self): return self._tab.Get(flatbuffers.number_types.Uint8Flags, self._tab.Pos + flatbuffers.number_types.UOffsetTFlags.py_type(11))
     # Anchor
-    def GroupId(self): return self._tab.Get(flatbuffers.number_types.Uint32Flags, self._tab.Pos + flatbuffers.number_types.UOffsetTFlags.py_type(12))
+    def GroupId(self): return self._tab.Get(flatbuffers.number_types.Uint16Flags, self._tab.Pos + flatbuffers.number_types.UOffsetTFlags.py_type(12))
+    # Anchor
+    def CyOff(self): return self._tab.Get(flatbuffers.number_types.Uint8Flags, self._tab.Pos + flatbuffers.number_types.UOffsetTFlags.py_type(14))
+    # Anchor
+    def Pad0(self): return self._tab.Get(flatbuffers.number_types.Uint8Flags, self._tab.Pos + flatbuffers.number_types.UOffsetTFlags.py_type(15))
 
-def CreateAnchor(builder, x, y, variant, orientation, scale, pad0, groupId):
+def CreateAnchor(builder, x, y, variant, orientation, scale, cxOff, groupId, cyOff, pad0):
     builder.Prep(4, 16)
-    builder.PrependUint32(groupId)
     builder.PrependUint8(pad0)
+    builder.PrependUint8(cyOff)
+    builder.PrependUint16(groupId)
+    builder.PrependUint8(cxOff)
     builder.PrependUint8(scale)
     builder.PrependUint8(orientation)
     builder.PrependUint8(variant)
@@ -54,16 +60,20 @@ class AnchorT(object):
         variant = 0,
         orientation = 0,
         scale = 0,
-        pad0 = 0,
+        cxOff = 0,
         groupId = 0,
+        cyOff = 0,
+        pad0 = 0,
     ):
         self.x = x  # type: int
         self.y = y  # type: int
         self.variant = variant  # type: int
         self.orientation = orientation  # type: int
         self.scale = scale  # type: int
-        self.pad0 = pad0  # type: int
+        self.cxOff = cxOff  # type: int
         self.groupId = groupId  # type: int
+        self.cyOff = cyOff  # type: int
+        self.pad0 = pad0  # type: int
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -91,9 +101,11 @@ class AnchorT(object):
         self.variant = anchor.Variant()
         self.orientation = anchor.Orientation()
         self.scale = anchor.Scale()
-        self.pad0 = anchor.Pad0()
+        self.cxOff = anchor.CxOff()
         self.groupId = anchor.GroupId()
+        self.cyOff = anchor.CyOff()
+        self.pad0 = anchor.Pad0()
 
     # AnchorT
     def Pack(self, builder):
-        return CreateAnchor(builder, self.x, self.y, self.variant, self.orientation, self.scale, self.pad0, self.groupId)
+        return CreateAnchor(builder, self.x, self.y, self.variant, self.orientation, self.scale, self.cxOff, self.groupId, self.cyOff, self.pad0)

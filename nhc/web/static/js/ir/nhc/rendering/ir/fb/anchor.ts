@@ -33,22 +33,32 @@ scale():number {
   return this.bb!.readUint8(this.bb_pos + 10);
 }
 
-pad0():number {
+cxOff():number {
   return this.bb!.readUint8(this.bb_pos + 11);
 }
 
 groupId():number {
-  return this.bb!.readUint32(this.bb_pos + 12);
+  return this.bb!.readUint16(this.bb_pos + 12);
+}
+
+cyOff():number {
+  return this.bb!.readUint8(this.bb_pos + 14);
+}
+
+pad0():number {
+  return this.bb!.readUint8(this.bb_pos + 15);
 }
 
 static sizeOf():number {
   return 16;
 }
 
-static createAnchor(builder:flatbuffers.Builder, x: number, y: number, variant: number, orientation: number, scale: number, pad0: number, group_id: number):flatbuffers.Offset {
+static createAnchor(builder:flatbuffers.Builder, x: number, y: number, variant: number, orientation: number, scale: number, cx_off: number, group_id: number, cy_off: number, pad0: number):flatbuffers.Offset {
   builder.prep(4, 16);
-  builder.writeInt32(group_id);
   builder.writeInt8(pad0);
+  builder.writeInt8(cy_off);
+  builder.writeInt16(group_id);
+  builder.writeInt8(cx_off);
   builder.writeInt8(scale);
   builder.writeInt8(orientation);
   builder.writeInt8(variant);

@@ -83,6 +83,35 @@ fn anchor_rng(seed: u64, x: i32, y: i32) -> Pcg64Mcg {
     Pcg64Mcg::seed_from_u64(key)
 }
 
+/// Resolve an anchor's pixel-space centre using the IR's sub-tile
+/// offsets when present, falling back to ``tile-centre +
+/// rng.gen_range(±jitter_radius)`` when both ``cx_off`` and
+/// ``cy_off`` are zero (the back-compat sentinel — see
+/// ``floor_ir.fbs::Anchor`` for the encoding contract).
+///
+/// The fallback path always advances the RNG by exactly two
+/// `gen_range` draws regardless of the chosen branch, so any
+/// downstream rng usage in the same painter sees the same rng
+/// state whether or not the IR carries explicit offsets.
+fn anchor_center_or_jitter(
+    a: &Anchor,
+    rng: &mut Pcg64Mcg,
+    jitter_radius: f64,
+) -> (f64, f64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let jx: f64 = rng.gen_range(-jitter_radius..jitter_radius);
+    let jy: f64 = rng.gen_range(-jitter_radius..jitter_radius);
+    if a.cx_off() != 0 || a.cy_off() != 0 {
+        (
+            px + CELL * f64::from(a.cx_off()) / 256.0,
+            py + CELL * f64::from(a.cy_off()) / 256.0,
+        )
+    } else {
+        (px + CELL * 0.5 + jx, py + CELL * 0.5 + jy)
+    }
+}
+
 /// Web — radiating spokes from a corner + concentric ring threads.
 /// ``orientation`` picks the corner (0=NW, 1=NE, 2=SE, 3=SW).
 fn paint_web_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
@@ -144,10 +173,7 @@ fn paint_web_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
 /// glyph slightly for visual variety; scale picks the size.
 fn paint_skull_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
     let mut rng = anchor_rng(seed, a.x(), a.y());
-    let px = f64::from(a.x()) * CELL;
-    let py = f64::from(a.y()) * CELL;
-    let cx = px + CELL * 0.5 + rng.gen_range(-(CELL * 0.10)..(CELL * 0.10));
-    let cy = py + CELL * 0.5 + rng.gen_range(-(CELL * 0.10)..(CELL * 0.10));
+    let (cx, cy) = anchor_center_or_jitter(a, &mut rng, CELL * 0.10);
     let s: f64 = match a.scale() {
         0 => 1.0,
         1 => 0.85,
@@ -522,7 +548,7 @@ fn collect_tiles(anchors: &Vector<'_, Anchor>) -> Vec<(i32, i32)> {
 /// of `(x, y)` tile coords keyed by `group_id`.
 fn split_by_group(anchors: &Vector<'_, Anchor>) -> (Vec<(i32, i32)>, Vec<Vec<(i32, i32)>>) {
     let mut free = Vec::new();
-    let mut groups: BTreeMap<u32, Vec<(i32, i32)>> = BTreeMap::new();
+    let mut groups: BTreeMap<u16, Vec<(i32, i32)>> = BTreeMap::new();
     for i in 0..anchors.len() {
         let a = anchors.get(i);
         if a.group_id() == 0 {
@@ -725,7 +751,7 @@ mod tests {
     /// reaches the lifted painter rather than the legacy circle stub.
     #[test]
     fn draw_routes_tree_kind_to_paint_tree() {
-        let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0)];
+        let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
         let painter = run(&build_fixture_op(FixtureKind::Tree, &anchors));
         // The legacy stub emitted exactly one FillCircle per anchor.
         // The lifted painter emits multiple calls (trunk, shadow,
@@ -745,9 +771,9 @@ mod tests {
     #[test]
     fn tree_anchors_with_same_group_id_fuse_into_grove() {
         let anchors = [
-            Anchor::new(2, 3, 0, 0, 0, 7, 0),
-            Anchor::new(3, 3, 0, 0, 0, 7, 0),
-            Anchor::new(4, 3, 0, 0, 0, 7, 0),
+            Anchor::new(2, 3, 0, 0, 0, 7, 0, 0, 0),
+            Anchor::new(3, 3, 0, 0, 0, 7, 0, 0, 0),
+            Anchor::new(4, 3, 0, 0, 0, 7, 0, 0, 0),
         ];
         let painter = run(&build_fixture_op(FixtureKind::Tree, &anchors));
         // Grove painter emits a unified canopy path — pin that we
@@ -762,7 +788,7 @@ mod tests {
 
     #[test]
     fn draw_routes_bush_kind_to_paint_bush() {
-        let anchors = [Anchor::new(5, 5, 0, 0, 0, 0, 0)];
+        let anchors = [Anchor::new(5, 5, 0, 0, 0, 0, 0, 0, 0)];
         let painter = run(&build_fixture_op(FixtureKind::Bush, &anchors));
         // The legacy stub emitted exactly one FillCircle.
         // The bush painter emits a closed PathOps fill via fill_path
@@ -776,7 +802,7 @@ mod tests {
 
     #[test]
     fn draw_routes_well_kind_to_paint_well() {
-        let anchors = [Anchor::new(3, 4, 0, 0, 0, 0, 0)];
+        let anchors = [Anchor::new(3, 4, 0, 0, 0, 0, 0, 0, 0)];
         let painter = run(&build_fixture_op(FixtureKind::Well, &anchors));
         // Well painter emits multiple primitives (rim, water, mortar).
         // Multi-call signal pins the dispatch.
@@ -785,7 +811,7 @@ mod tests {
 
     #[test]
     fn draw_routes_fountain_kind_to_paint_fountain() {
-        let anchors = [Anchor::new(6, 6, 0, 0, 0, 0, 0)];
+        let anchors = [Anchor::new(6, 6, 0, 0, 0, 0, 0, 0, 0)];
         let painter = run(&build_fixture_op(FixtureKind::Fountain, &anchors));
         assert!(painter.calls.len() > 1);
     }
@@ -793,7 +819,7 @@ mod tests {
     #[test]
     fn draw_routes_stair_kind_to_paint_stairs() {
         // Direction = 0 (up).
-        let anchors = [Anchor::new(7, 7, 0, 0, 0, 0, 0)];
+        let anchors = [Anchor::new(7, 7, 0, 0, 0, 0, 0, 0, 0)];
         let painter = run(&build_fixture_op(FixtureKind::Stair, &anchors));
         assert!(painter.calls.len() > 1);
     }
@@ -815,7 +841,7 @@ mod tests {
             FixtureKind::Sign,
             FixtureKind::Mushroom,
         ] {
-            let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0)];
+            let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
             let painter = run(&build_fixture_op(kind, &anchors));
             assert!(
                 painter.calls.len() > 1,
@@ -832,8 +858,8 @@ mod tests {
     /// assert the painter call output diverges.
     #[test]
     fn per_anchor_rng_diverges_across_tiles() {
-        let anchors_a = [Anchor::new(2, 3, 0, 0, 0, 0, 0)];
-        let anchors_b = [Anchor::new(7, 8, 0, 0, 0, 0, 0)];
+        let anchors_a = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+        let anchors_b = [Anchor::new(7, 8, 0, 0, 0, 0, 0, 0, 0)];
         let painter_a = run(&build_fixture_op(FixtureKind::Bone, &anchors_a));
         let painter_b = run(&build_fixture_op(FixtureKind::Bone, &anchors_b));
         // Bone painter consumes 1-2 random samples per sub-style;
@@ -864,9 +890,9 @@ mod tests {
     #[test]
     fn mushroom_anchors_with_same_group_id_emit_cluster_patch() {
         let anchors = [
-            Anchor::new(2, 3, 0, 0, 0, 0, 5),
-            Anchor::new(3, 3, 0, 0, 0, 0, 5),
-            Anchor::new(4, 3, 0, 0, 0, 0, 5),
+            Anchor::new(2, 3, 0, 0, 0, 0, 5, 0, 0),
+            Anchor::new(3, 3, 0, 0, 0, 0, 5, 0, 0),
+            Anchor::new(4, 3, 0, 0, 0, 0, 5, 0, 0),
         ];
         let painter = run(&build_fixture_op(FixtureKind::Mushroom, &anchors));
         let has_begin_group = painter
@@ -883,7 +909,7 @@ mod tests {
     /// — only per-anchor stamps emit, with no group envelope.
     #[test]
     fn standalone_mushroom_emits_no_cluster_envelope() {
-        let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0)];
+        let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
         let painter = run(&build_fixture_op(FixtureKind::Mushroom, &anchors));
         let has_begin_group = painter
             .calls
@@ -901,8 +927,8 @@ mod tests {
     #[test]
     fn gravestone_anchors_with_same_group_id_emit_cluster_plot() {
         let anchors = [
-            Anchor::new(2, 3, 0, 0, 0, 0, 8),
-            Anchor::new(3, 3, 0, 0, 0, 0, 8),
+            Anchor::new(2, 3, 0, 0, 0, 0, 8, 0, 0),
+            Anchor::new(3, 3, 0, 0, 0, 0, 8, 0, 0),
         ];
         let painter = run(&build_fixture_op(FixtureKind::Gravestone, &anchors));
         let has_begin_group = painter
@@ -919,7 +945,7 @@ mod tests {
     /// — only per-anchor stamps emit, with no group envelope.
     #[test]
     fn standalone_gravestone_emits_no_cluster_envelope() {
-        let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0)];
+        let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
         let painter = run(&build_fixture_op(FixtureKind::Gravestone, &anchors));
         let has_begin_group = painter
             .calls
