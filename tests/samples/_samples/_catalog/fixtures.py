@@ -230,4 +230,46 @@ register_catalog_page(CatalogPageSpec(
 ))
 
 
+# ── Dwelling interior fixtures ─────────────────────────────────
+
+
+register_catalog_page(CatalogPageSpec(
+    name="dwelling-interior-1",
+    category="synthetic/fixtures",
+    description=(
+        "Dwelling interior set 1 — Table (rectangular dining "
+        "table along +x; variant=1 swaps to round), Chair (small "
+        "seat + back-rest on the -y edge), Bed (frame + mattress "
+        "+ pillow at +x head end). Top-down silhouettes."
+    ),
+    columns=[
+        ColumnSpec("Table", fixture_factory(kind=FixtureKind.Table)),
+        ColumnSpec("Chair", fixture_factory(kind=FixtureKind.Chair)),
+        ColumnSpec("Bed", fixture_factory(kind=FixtureKind.Bed)),
+    ],
+    seed=7,
+    params={"axis": "dwelling-interior-1"},
+))
+
+
+register_catalog_page(CatalogPageSpec(
+    name="dwelling-interior-2",
+    category="synthetic/fixtures",
+    description=(
+        "Dwelling interior set 2 — Bookshelf (frame + 8 vertical "
+        "book-spine stripes cycling 4 hues), Hearth (stone "
+        "fireplace + dark interior + flame; variant=1 paints a "
+        "cold hearth), Cauldron (round black pot + dark rim + "
+        "bright green bubble; variant=1 omits the bubble)."
+    ),
+    columns=[
+        ColumnSpec("Bookshelf", fixture_factory(kind=FixtureKind.Bookshelf)),
+        ColumnSpec("Hearth", fixture_factory(kind=FixtureKind.Hearth)),
+        ColumnSpec("Cauldron", fixture_factory(kind=FixtureKind.Cauldron)),
+    ],
+    seed=7,
+    params={"axis": "dwelling-interior-2"},
+))
+
+
 __all__ = []

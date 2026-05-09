@@ -831,10 +831,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for PathStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_FIXTURE_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_FIXTURE_KIND: u8 = 34;
+pub const ENUM_MAX_FIXTURE_KIND: u8 = 40;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 35] = [
+pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 41] = [
   FixtureKind::Web,
   FixtureKind::Skull,
   FixtureKind::Bone,
@@ -870,6 +870,12 @@ pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 35] = [
   FixtureKind::Beehive,
   FixtureKind::Scarecrow,
   FixtureKind::Plough,
+  FixtureKind::Table,
+  FixtureKind::Chair,
+  FixtureKind::Bed,
+  FixtureKind::Bookshelf,
+  FixtureKind::Hearth,
+  FixtureKind::Cauldron,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -912,9 +918,15 @@ impl FixtureKind {
   pub const Beehive: Self = Self(32);
   pub const Scarecrow: Self = Self(33);
   pub const Plough: Self = Self(34);
+  pub const Table: Self = Self(35);
+  pub const Chair: Self = Self(36);
+  pub const Bed: Self = Self(37);
+  pub const Bookshelf: Self = Self(38);
+  pub const Hearth: Self = Self(39);
+  pub const Cauldron: Self = Self(40);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 34;
+  pub const ENUM_MAX: u8 = 40;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Web,
     Self::Skull,
@@ -951,6 +963,12 @@ impl FixtureKind {
     Self::Beehive,
     Self::Scarecrow,
     Self::Plough,
+    Self::Table,
+    Self::Chair,
+    Self::Bed,
+    Self::Bookshelf,
+    Self::Hearth,
+    Self::Cauldron,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -990,6 +1008,12 @@ impl FixtureKind {
       Self::Beehive => Some("Beehive"),
       Self::Scarecrow => Some("Scarecrow"),
       Self::Plough => Some("Plough"),
+      Self::Table => Some("Table"),
+      Self::Chair => Some("Chair"),
+      Self::Bed => Some("Bed"),
+      Self::Bookshelf => Some("Bookshelf"),
+      Self::Hearth => Some("Hearth"),
+      Self::Cauldron => Some("Cauldron"),
       _ => None,
     }
   }

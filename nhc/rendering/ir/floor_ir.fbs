@@ -259,6 +259,16 @@ enum FixtureKind : ubyte {
   Beehive     = 32,
   Scarecrow   = 33,
   Plough      = 34,
+  // Dwelling interior — top-down silhouettes for tavern /
+  // dwelling / mage's study / witch hut scenes. ``Table`` and
+  // ``Hearth`` carry meaningful ``Anchor.variant`` axes (Table:
+  // 0 rectangular, 1 round; Hearth: 0 lit with flame, 1 cold).
+  Table       = 35,
+  Chair       = 36,
+  Bed         = 37,
+  Bookshelf   = 38,
+  Hearth      = 39,
+  Cauldron    = 40,
 }
 
 // RoofOp dispatches geometry directly off ``style`` (today's

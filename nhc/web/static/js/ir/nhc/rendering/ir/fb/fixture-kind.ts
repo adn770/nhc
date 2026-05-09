@@ -37,5 +37,11 @@ export enum FixtureKind {
   Trough = 31,
   Beehive = 32,
   Scarecrow = 33,
-  Plough = 34
+  Plough = 34,
+  Table = 35,
+  Chair = 36,
+  Bed = 37,
+  Bookshelf = 38,
+  Hearth = 39,
+  Cauldron = 40
 }

@@ -1321,6 +1321,209 @@ fn paint_plough_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
     }
 }
 
+// ── Dwelling interior — top-down silhouettes ──────────────────
+
+const TABLE_TOP: Color = Color::rgba(0x8C, 0x6A, 0x42, 1.0);
+const TABLE_EDGE: Color = Color::rgba(0x4F, 0x36, 0x1E, 1.0);
+
+/// Table — wooden table viewed from above. ``variant == 1``
+/// renders a circular table; default is a long rectangular
+/// dining table extending along the +x axis.
+fn paint_table_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let edge_paint = Paint::solid(TABLE_EDGE);
+    let top_paint = Paint::solid(TABLE_TOP);
+    if a.variant() == 1 {
+        // Round table — outer dark ring + inner top.
+        painter.fill_circle(
+            cx as f32, cy as f32, (CELL * 0.30) as f32, &edge_paint,
+        );
+        painter.fill_circle(
+            cx as f32, cy as f32, (CELL * 0.27) as f32, &top_paint,
+        );
+    } else {
+        // Rectangular table — outer dark frame + inner top.
+        let half_w = CELL * 0.34;
+        let half_h = CELL * 0.18;
+        rect_fill(painter,
+            cx - half_w, cy - half_h,
+            cx + half_w, cy + half_h,
+            TABLE_EDGE,
+        );
+        rect_fill(painter,
+            cx - half_w + CELL * 0.025, cy - half_h + CELL * 0.025,
+            cx + half_w - CELL * 0.025, cy + half_h - CELL * 0.025,
+            TABLE_TOP,
+        );
+    }
+}
+
+const CHAIR_SEAT: Color = Color::rgba(0x8C, 0x6A, 0x42, 1.0);
+const CHAIR_BACK: Color = Color::rgba(0x4F, 0x36, 0x1E, 1.0);
+
+/// Chair — small square seat with a thin back-rest along one
+/// edge. Back-rest sits on the ``-y`` (north) side of the seat
+/// since chairs typically face the +y direction (away from a
+/// table to the north). Caller can rotate via Anchor.orientation
+/// once orientation handling lands.
+fn paint_chair_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let half = CELL * 0.13;
+    rect_fill(painter,
+        cx - half, cy - half, cx + half, cy + half, CHAIR_SEAT,
+    );
+    // Back-rest — thin dark strip along the seat's -y edge.
+    rect_fill(painter,
+        cx - half, cy - half - CELL * 0.04,
+        cx + half, cy - half,
+        CHAIR_BACK,
+    );
+}
+
+const BED_FRAME: Color = Color::rgba(0x6B, 0x47, 0x28, 1.0);
+const BED_MATTRESS: Color = Color::rgba(0xE8, 0xDA, 0xBE, 1.0);
+const BED_PILLOW: Color = Color::rgba(0xF6, 0xEE, 0xD8, 1.0);
+
+/// Bed — long rectangular wooden frame with a lighter mattress
+/// inside and a small pillow at the +x end (the head of the
+/// bed; mirrors the head-at-+x convention from the farm-animal
+/// batch).
+fn paint_bed_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let half_w = CELL * 0.36;
+    let half_h = CELL * 0.18;
+    let frame_inset = CELL * 0.025;
+    rect_fill(painter,
+        cx - half_w, cy - half_h, cx + half_w, cy + half_h, BED_FRAME,
+    );
+    rect_fill(painter,
+        cx - half_w + frame_inset, cy - half_h + frame_inset,
+        cx + half_w - frame_inset, cy + half_h - frame_inset,
+        BED_MATTRESS,
+    );
+    // Pillow — small brighter rect at the +x end (head).
+    rect_fill(painter,
+        cx + half_w * 0.55, cy - half_h * 0.65,
+        cx + half_w - frame_inset * 1.2, cy + half_h * 0.65,
+        BED_PILLOW,
+    );
+}
+
+const SHELF_FRAME: Color = Color::rgba(0x4F, 0x36, 0x1E, 1.0);
+const SHELF_BOOK_A: Color = Color::rgba(0x88, 0x35, 0x35, 1.0);
+const SHELF_BOOK_B: Color = Color::rgba(0x35, 0x55, 0x88, 1.0);
+const SHELF_BOOK_C: Color = Color::rgba(0x55, 0x88, 0x35, 1.0);
+const SHELF_BOOK_D: Color = Color::rgba(0x88, 0x70, 0x35, 1.0);
+
+/// Bookshelf — narrow rectangular wooden frame viewed from
+/// above with a row of vertical book-spine stripes inside.
+/// Book colours rotate through 4 hues so every shelf reads as
+/// a colourful library at a glance.
+fn paint_bookshelf_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let half_w = CELL * 0.30;
+    let half_h = CELL * 0.10;
+    rect_fill(painter,
+        cx - half_w, cy - half_h, cx + half_w, cy + half_h, SHELF_FRAME,
+    );
+    // Books — 8 thin vertical stripes inside the frame, hues
+    // cycle through the 4 spine colours.
+    let books = 8;
+    let book_w = (half_w * 2.0 - CELL * 0.04) / (books as f64);
+    let inner_y0 = cy - half_h + CELL * 0.015;
+    let inner_y1 = cy + half_h - CELL * 0.015;
+    let palette = [
+        SHELF_BOOK_A, SHELF_BOOK_B, SHELF_BOOK_C, SHELF_BOOK_D,
+    ];
+    for i in 0..books {
+        let bx0 = cx - half_w + CELL * 0.02 + book_w * (i as f64);
+        let bx1 = bx0 + book_w * 0.85;
+        let color = palette[(i as usize) % palette.len()];
+        rect_fill(painter, bx0, inner_y0, bx1, inner_y1, color);
+    }
+}
+
+const HEARTH_STONE: Color = Color::rgba(0x8C, 0x88, 0x80, 1.0);
+const HEARTH_INTERIOR: Color = Color::rgba(0x1A, 0x14, 0x10, 1.0);
+const HEARTH_FLAME: Color = Color::rgba(0xFF, 0xA0, 0x40, 1.0);
+const HEARTH_FLAME_CORE: Color = Color::rgba(0xFF, 0xE0, 0x60, 1.0);
+
+/// Hearth — square stone fireplace with a dark interior.
+/// Default (variant=0) renders a flame inside; variant=1
+/// renders a cold hearth with no flame.
+fn paint_hearth_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let half = CELL * 0.30;
+    let inset = CELL * 0.08;
+    rect_fill(painter,
+        cx - half, cy - half, cx + half, cy + half, HEARTH_STONE,
+    );
+    rect_fill(painter,
+        cx - half + inset, cy - half + inset,
+        cx + half - inset, cy + half - inset,
+        HEARTH_INTERIOR,
+    );
+    if a.variant() != 1 {
+        // Lit hearth — flame teardrop with a brighter core.
+        let base_y = cy + CELL * 0.05;
+        let mut flame = PathOps::new();
+        flame.move_to(Vec2::new(
+            (cx - CELL * 0.10) as f32, base_y as f32,
+        ));
+        flame.quad_to(
+            Vec2::new(cx as f32, (base_y - CELL * 0.20) as f32),
+            Vec2::new(cx as f32, (base_y - CELL * 0.26) as f32),
+        );
+        flame.quad_to(
+            Vec2::new(cx as f32, (base_y - CELL * 0.20) as f32),
+            Vec2::new((cx + CELL * 0.10) as f32, base_y as f32),
+        );
+        flame.close();
+        painter.fill_path(
+            &flame, &Paint::solid(HEARTH_FLAME), FillRule::Winding,
+        );
+        painter.fill_ellipse(
+            cx as f32, (base_y - CELL * 0.08) as f32,
+            (CELL * 0.035) as f32, (CELL * 0.08) as f32,
+            &Paint::solid(HEARTH_FLAME_CORE),
+        );
+    }
+}
+
+const CAULDRON_POT: Color = Color::rgba(0x32, 0x32, 0x32, 1.0);
+const CAULDRON_RIM: Color = Color::rgba(0x18, 0x18, 0x18, 1.0);
+const CAULDRON_BUBBLE: Color = Color::rgba(0x6E, 0xC0, 0x70, 1.0);
+
+/// Cauldron — round black pot viewed from above, with a slim
+/// darker rim ring and a bright green bubble dot suggesting an
+/// active brew. ``variant == 1`` paints a cold cauldron (no
+/// bubble — just the pot).
+fn paint_cauldron_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let cx = f64::from(a.x()) * CELL + CELL * 0.5;
+    let cy = f64::from(a.y()) * CELL + CELL * 0.5;
+    let r_outer = CELL * 0.22;
+    let r_rim = CELL * 0.18;
+    painter.fill_circle(
+        cx as f32, cy as f32, r_outer as f32,
+        &Paint::solid(CAULDRON_POT),
+    );
+    painter.fill_circle(
+        cx as f32, cy as f32, r_rim as f32,
+        &Paint::solid(CAULDRON_RIM),
+    );
+    if a.variant() != 1 {
+        painter.fill_circle(
+            cx as f32, cy as f32, (CELL * 0.06) as f32,
+            &Paint::solid(CAULDRON_BUBBLE),
+        );
+    }
+}
+
 /// Convenience axis-aligned rectangle fill via fill_path. Used
 /// by the per-anchor painters above instead of fill_rect so the
 /// SVG painter renders a single ``<path>`` rather than mixing
@@ -1583,6 +1786,37 @@ pub fn draw<'a>(
                 paint_plough_anchor(painter, &anchors.get(i), op.seed());
             }
         }
+        // Dwelling interior.
+        FixtureKind::Table => {
+            for i in 0..anchors.len() {
+                paint_table_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Chair => {
+            for i in 0..anchors.len() {
+                paint_chair_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Bed => {
+            for i in 0..anchors.len() {
+                paint_bed_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Bookshelf => {
+            for i in 0..anchors.len() {
+                paint_bookshelf_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Hearth => {
+            for i in 0..anchors.len() {
+                paint_hearth_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Cauldron => {
+            for i in 0..anchors.len() {
+                paint_cauldron_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
         _ => {
             // Defensive — unknown kinds (forward-compat enum
             // variants) hit the wildcard. Magenta sentinel fill so
@@ -1773,6 +2007,80 @@ mod tests {
                 painter.calls.len()
             );
         }
+    }
+
+    /// Dwelling-interior kinds (Table / Chair / Bed / Bookshelf
+    /// / Hearth / Cauldron) each dispatch to their per-anchor
+    /// painter and emit multi-call output. Pin so a future enum
+    /// addition that forgets the dispatch arm surfaces here as
+    /// a single magenta-sentinel call.
+    #[test]
+    fn dwelling_interior_kinds_dispatch_to_their_painters() {
+        for kind in [
+            FixtureKind::Table, FixtureKind::Chair, FixtureKind::Bed,
+            FixtureKind::Bookshelf, FixtureKind::Hearth,
+            FixtureKind::Cauldron,
+        ] {
+            let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+            let painter = run(&build_fixture_op(kind, &anchors));
+            assert!(
+                painter.calls.len() > 1,
+                "kind {kind:?}: expected multi-call painter, got {}",
+                painter.calls.len(),
+            );
+        }
+    }
+
+    /// Table.variant=1 (round) renders a circle (fill_circle);
+    /// variant=0 (rectangular, default) renders rectangles
+    /// (fill_path only). Pin the variant axis so a future
+    /// painter tweak doesn't accidentally collapse the two
+    /// shapes to identical output.
+    #[test]
+    fn table_round_variant_diverges_from_rectangular() {
+        let rect_anchor = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+        let round_anchor = [Anchor::new(2, 3, 1, 0, 0, 0, 0, 0, 0)];
+        let p_rect = run(&build_fixture_op(FixtureKind::Table, &rect_anchor));
+        let p_round = run(&build_fixture_op(FixtureKind::Table, &round_anchor));
+        let rect_circles = p_rect
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillCircle(_, _, _, _)))
+            .count();
+        let round_circles = p_round
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillCircle(_, _, _, _)))
+            .count();
+        assert_eq!(rect_circles, 0, "rectangular table should emit no circles");
+        assert!(round_circles >= 2, "round table should emit ≥ 2 circles");
+    }
+
+    /// Hearth.variant=1 (cold) skips the flame; variant=0
+    /// (default, lit) emits a flame fill_path + bright core
+    /// fill_ellipse. Pin the variant axis.
+    #[test]
+    fn hearth_cold_variant_skips_flame_path() {
+        let lit_anchor = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+        let cold_anchor = [Anchor::new(2, 3, 1, 0, 0, 0, 0, 0, 0)];
+        let p_lit = run(&build_fixture_op(FixtureKind::Hearth, &lit_anchor));
+        let p_cold = run(&build_fixture_op(FixtureKind::Hearth, &cold_anchor));
+        let lit_paths = p_lit
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillPath(_, _, _)))
+            .count();
+        let cold_paths = p_cold
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillPath(_, _, _)))
+            .count();
+        // Lit hearth emits the flame fill_path on top of the
+        // stone + interior rect_fill paths; cold hearth skips it.
+        assert!(
+            lit_paths > cold_paths,
+            "lit hearth ({lit_paths} fill_paths) must emit > cold ({cold_paths})",
+        );
     }
 
     /// Farm static-structure kinds (Hayrick / Trough / Beehive
