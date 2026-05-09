@@ -63,12 +63,27 @@ web-sys = { version = "0.3", features = [
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
-# Disable wasm-opt for Phase 5.1 — the host's installed
-# wasm-opt (Homebrew) is older than what wasm-bindgen 0.2's
-# bulk-memory output needs (``memory.copy`` validation fails
-# without ``--enable-bulk-memory-opt``). Bundle-size hygiene is
-# Phase 5.5 territory; that phase will pin a wasm-opt version
-# and re-enable optimisation. The unoptimised bundle still
-# functions end-to-end.
+# Phase 5.5 bundle hygiene — run wasm-opt with the wasm-bindgen
+# 0.2 + Rust 1.95 feature set explicitly enabled so the
+# validator accepts the cargo output across wasm-opt versions.
+# ``-O1`` is the empirical sweet spot for *gzipped* size on this
+# crate: -O / -Os / -Oz all produce smaller raw .wasm but
+# slightly larger after gzip (a 4-5 KB swing). The web serves
+# the bundle gzipped, so we optimise for the on-the-wire size
+# the player actually downloads.
+#
+# The repo-root profile.release already sets ``opt-level = "z"``,
+# ``lto = "fat"``, ``codegen-units = 1``, ``strip = true``, and
+# ``panic = "abort"`` so the cargo-side bundle is already lean
+# before wasm-opt runs.
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = false
+wasm-opt = [
+    "-O1",
+    "--enable-bulk-memory",
+    "--enable-bulk-memory-opt",
+    "--enable-mutable-globals",
+    "--enable-sign-ext",
+    "--enable-nontrapping-float-to-int",
+    "--enable-multivalue",
+    "--enable-reference-types",
+]

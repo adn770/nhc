@@ -18,8 +18,12 @@ members = ["crates/*"]
 # Optimise wheel + WASM size; the rendering primitives are CPU-
 # bound but small, so size > speed pays at the wire layer. Lives
 # at the workspace root because cargo only honours profile keys
-# from the root manifest.
+# from the root manifest. ``panic = "abort"`` drops unwinding
+# infrastructure (Phase 5.5 bundle hygiene); the PyO3 wheel
+# never relied on Rust unwinding to surface failures so the
+# behavioural change is invisible on the Python side.
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
 strip = true
+panic = "abort"
