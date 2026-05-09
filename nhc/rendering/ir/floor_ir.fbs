@@ -82,6 +82,18 @@ enum CutStyle : ubyte {
   DoorStone = 4,
   DoorIron = 5,
   DoorSecret = 6,
+  // Post-Phase-5 deferred-polish additions. Today the renderer
+  // only checks ``style != None`` to decide whether a cut bears
+  // a gate; per-style visuals (banded iron straps for
+  // ``DoorIronBanded``, glowing runes for ``DoorMagical``, etc.)
+  // are deferred to a follow-up pass on the door-rect helper.
+  // Game logic / level metadata can already use these to carry
+  // richer cut typing without waiting on the visual lift.
+  Archway        = 7,
+  DoorWoodOak    = 8,
+  DoorIronBanded = 9,
+  DoorMagical    = 10,
+  DoorBronze     = 11,
 }
 
 table Cut {
@@ -178,6 +190,18 @@ enum WallTreatment : ubyte {
 enum PathStyle : ubyte {
   CartTracks = 0,
   OreVein    = 1,
+  // Post-Phase-5 deferred-polish additions:
+  // ``RailLine`` — clean steel rail (no ties / no double-rail
+  //               weight that CartTracks carries).
+  // ``Vines``    — sinuous green tendrils through the tile run.
+  // ``RootSystem`` — branching brown / grey root segments.
+  // ``RiverBed`` — flowing-water channel with subtle ripples.
+  // ``LavaSeam`` — glowing molten crack with bright core.
+  RailLine   = 2,
+  Vines      = 3,
+  RootSystem = 4,
+  RiverBed   = 5,
+  LavaSeam   = 6,
 }
 
 enum FixtureKind : ubyte {

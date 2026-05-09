@@ -5,3 +5,8 @@
 class PathStyle(object):
     CartTracks = 0
     OreVein = 1
+    RailLine = 2
+    Vines = 3
+    RootSystem = 4
+    RiverBed = 5
+    LavaSeam = 6

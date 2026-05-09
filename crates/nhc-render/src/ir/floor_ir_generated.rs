@@ -19,10 +19,10 @@ pub mod _fb {
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_CUT_STYLE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_CUT_STYLE: u8 = 6;
+pub const ENUM_MAX_CUT_STYLE: u8 = 11;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_CUT_STYLE: [CutStyle; 7] = [
+pub const ENUM_VALUES_CUT_STYLE: [CutStyle; 12] = [
   CutStyle::None,
   CutStyle::WoodGate,
   CutStyle::PortcullisGate,
@@ -30,6 +30,11 @@ pub const ENUM_VALUES_CUT_STYLE: [CutStyle; 7] = [
   CutStyle::DoorStone,
   CutStyle::DoorIron,
   CutStyle::DoorSecret,
+  CutStyle::Archway,
+  CutStyle::DoorWoodOak,
+  CutStyle::DoorIronBanded,
+  CutStyle::DoorMagical,
+  CutStyle::DoorBronze,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -44,9 +49,14 @@ impl CutStyle {
   pub const DoorStone: Self = Self(4);
   pub const DoorIron: Self = Self(5);
   pub const DoorSecret: Self = Self(6);
+  pub const Archway: Self = Self(7);
+  pub const DoorWoodOak: Self = Self(8);
+  pub const DoorIronBanded: Self = Self(9);
+  pub const DoorMagical: Self = Self(10);
+  pub const DoorBronze: Self = Self(11);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 6;
+  pub const ENUM_MAX: u8 = 11;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::WoodGate,
@@ -55,6 +65,11 @@ impl CutStyle {
     Self::DoorStone,
     Self::DoorIron,
     Self::DoorSecret,
+    Self::Archway,
+    Self::DoorWoodOak,
+    Self::DoorIronBanded,
+    Self::DoorMagical,
+    Self::DoorBronze,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -66,6 +81,11 @@ impl CutStyle {
       Self::DoorStone => Some("DoorStone"),
       Self::DoorIron => Some("DoorIron"),
       Self::DoorSecret => Some("DoorSecret"),
+      Self::Archway => Some("Archway"),
+      Self::DoorWoodOak => Some("DoorWoodOak"),
+      Self::DoorIronBanded => Some("DoorIronBanded"),
+      Self::DoorMagical => Some("DoorMagical"),
+      Self::DoorBronze => Some("DoorBronze"),
       _ => None,
     }
   }
@@ -695,12 +715,17 @@ impl ::flatbuffers::SimpleToVerifyInSlice for WallTreatment {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_PATH_STYLE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_PATH_STYLE: u8 = 1;
+pub const ENUM_MAX_PATH_STYLE: u8 = 6;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_PATH_STYLE: [PathStyle; 2] = [
+pub const ENUM_VALUES_PATH_STYLE: [PathStyle; 7] = [
   PathStyle::CartTracks,
   PathStyle::OreVein,
+  PathStyle::RailLine,
+  PathStyle::Vines,
+  PathStyle::RootSystem,
+  PathStyle::RiverBed,
+  PathStyle::LavaSeam,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -710,18 +735,33 @@ pub struct PathStyle(pub u8);
 impl PathStyle {
   pub const CartTracks: Self = Self(0);
   pub const OreVein: Self = Self(1);
+  pub const RailLine: Self = Self(2);
+  pub const Vines: Self = Self(3);
+  pub const RootSystem: Self = Self(4);
+  pub const RiverBed: Self = Self(5);
+  pub const LavaSeam: Self = Self(6);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 1;
+  pub const ENUM_MAX: u8 = 6;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::CartTracks,
     Self::OreVein,
+    Self::RailLine,
+    Self::Vines,
+    Self::RootSystem,
+    Self::RiverBed,
+    Self::LavaSeam,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
     match self {
       Self::CartTracks => Some("CartTracks"),
       Self::OreVein => Some("OreVein"),
+      Self::RailLine => Some("RailLine"),
+      Self::Vines => Some("Vines"),
+      Self::RootSystem => Some("RootSystem"),
+      Self::RiverBed => Some("RiverBed"),
+      Self::LavaSeam => Some("LavaSeam"),
       _ => None,
     }
   }

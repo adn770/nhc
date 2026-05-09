@@ -9,5 +9,10 @@ export enum CutStyle {
   DoorWood = 3,
   DoorStone = 4,
   DoorIron = 5,
-  DoorSecret = 6
+  DoorSecret = 6,
+  Archway = 7,
+  DoorWoodOak = 8,
+  DoorIronBanded = 9,
+  DoorMagical = 10,
+  DoorBronze = 11
 }
