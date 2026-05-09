@@ -55,6 +55,37 @@ const BASALT: CavePalette = CavePalette {
     shadow: Color::rgba(0x3C, 0x36, 0x33, 1.0),
 };
 
+// Post-Phase-5 deferred-polish additions.
+
+/// Crystal — pale blue-violet mineral cavern.
+const CRYSTAL: CavePalette = CavePalette {
+    base: Color::rgba(0xC8, 0xC8, 0xE8, 1.0),
+    highlight: Color::rgba(0xE0, 0xE0, 0xF8, 1.0),
+    shadow: Color::rgba(0x90, 0x90, 0xB8, 1.0),
+};
+
+/// Coral — pinkish-orange sea-cave coral.
+const CORAL: CavePalette = CavePalette {
+    base: Color::rgba(0xE8, 0x98, 0x78, 1.0),
+    highlight: Color::rgba(0xF8, 0xB0, 0x98, 1.0),
+    shadow: Color::rgba(0xB0, 0x70, 0x50, 1.0),
+};
+
+/// Ice — frozen blue-white walls of an ice cavern.
+const ICE: CavePalette = CavePalette {
+    base: Color::rgba(0xE8, 0xF0, 0xF8, 1.0),
+    highlight: Color::rgba(0xFF, 0xFF, 0xFF, 1.0),
+    shadow: Color::rgba(0xB0, 0xC0, 0xD0, 1.0),
+};
+
+/// LavaRock — blackened volcanic basalt with red glow at the
+/// shadow tone (suggests cooling lava cracks at the depths).
+const LAVA_ROCK: CavePalette = CavePalette {
+    base: Color::rgba(0x4A, 0x28, 0x20, 1.0),
+    highlight: Color::rgba(0x8C, 0x38, 0x20, 1.0),
+    shadow: Color::rgba(0x28, 0x10, 0x08, 1.0),
+};
+
 /// Sentinel magenta — flags un-implemented styles in visual review.
 const SENTINEL: CavePalette = CavePalette {
     base: Color::rgba(0xFF, 0x00, 0xFF, 1.0),
@@ -68,6 +99,10 @@ pub(crate) fn palette(style: u8) -> CavePalette {
         1 => GRANITE,
         2 => SANDSTONE,
         3 => BASALT,
+        4 => CRYSTAL,
+        5 => CORAL,
+        6 => ICE,
+        7 => LAVA_ROCK,
         _ => SENTINEL,
     }
 }
@@ -135,7 +170,7 @@ mod tests {
     #[test]
     fn each_style_picks_a_distinct_base_colour() {
         let mut seen = Vec::new();
-        for style in 0..4u8 {
+        for style in 0..8u8 {
             let p = palette(style);
             let key = (p.base.r, p.base.g, p.base.b);
             assert!(
@@ -157,7 +192,7 @@ mod tests {
 
     #[test]
     fn each_style_has_distinct_highlight_and_shadow_from_base() {
-        for style in 0..4u8 {
+        for style in 0..8u8 {
             let p = palette(style);
             assert_ne!(p.base, p.highlight, "style {style}: highlight==base");
             assert_ne!(p.base, p.shadow, "style {style}: shadow==base");

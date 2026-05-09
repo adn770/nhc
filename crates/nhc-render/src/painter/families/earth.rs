@@ -41,6 +41,37 @@ const MUD: EarthPalette = EarthPalette {
     shadow: Color::rgba(0x36, 0x28, 0x1A, 1.0),
 };
 
+// Post-Phase-5 deferred-polish additions.
+
+/// Snow — pure white with faint blue tint for the cool surface.
+const SNOW: EarthPalette = EarthPalette {
+    base: Color::rgba(0xF0, 0xF0, 0xF8, 1.0),
+    highlight: Color::rgba(0xFF, 0xFF, 0xFF, 1.0),
+    shadow: Color::rgba(0xC0, 0xC0, 0xC8, 1.0),
+};
+
+/// Gravel — mottled gray-brown loose surface.
+const GRAVEL: EarthPalette = EarthPalette {
+    base: Color::rgba(0x9C, 0x8E, 0x78, 1.0),
+    highlight: Color::rgba(0xBC, 0xAA, 0x90, 1.0),
+    shadow: Color::rgba(0x6E, 0x5F, 0x50, 1.0),
+};
+
+/// CobbleDirt — rough beaten dirt with cobble pebbles.
+const COBBLE_DIRT: EarthPalette = EarthPalette {
+    base: Color::rgba(0x7A, 0x60, 0x48, 1.0),
+    highlight: Color::rgba(0x9C, 0x7E, 0x5C, 1.0),
+    shadow: Color::rgba(0x4F, 0x38, 0x26, 1.0),
+};
+
+/// CropField — tilled brown soil with a hint of greenish chaff
+/// in the highlight tone (suggests young sprouts).
+const CROP_FIELD: EarthPalette = EarthPalette {
+    base: Color::rgba(0x6E, 0x5C, 0x42, 1.0),
+    highlight: Color::rgba(0x8C, 0x88, 0x56, 1.0),
+    shadow: Color::rgba(0x4A, 0x37, 0x28, 1.0),
+};
+
 const SENTINEL: EarthPalette = EarthPalette {
     base: Color::rgba(0xFF, 0x00, 0xFF, 1.0),
     highlight: Color::rgba(0xFF, 0x00, 0xFF, 1.0),
@@ -53,6 +84,10 @@ pub(crate) fn palette(style: u8) -> EarthPalette {
         1 => GRASS,
         2 => SAND,
         3 => MUD,
+        4 => SNOW,
+        5 => GRAVEL,
+        6 => COBBLE_DIRT,
+        7 => CROP_FIELD,
         _ => SENTINEL,
     }
 }
@@ -81,7 +116,7 @@ mod tests {
     #[test]
     fn each_style_has_a_distinct_base_colour() {
         let mut seen = Vec::new();
-        for style in 0..4u8 {
+        for style in 0..8u8 {
             let p = palette(style);
             let key = (p.base.r, p.base.g, p.base.b);
             assert!(!seen.contains(&key), "style {style} reuses base {key:?}");
@@ -91,7 +126,7 @@ mod tests {
 
     #[test]
     fn each_style_has_distinct_highlight_and_shadow_from_base() {
-        for style in 0..4u8 {
+        for style in 0..8u8 {
             let p = palette(style);
             assert_ne!(p.base, p.highlight, "style {style}: highlight==base");
             assert_ne!(p.base, p.shadow, "style {style}: shadow==base");
@@ -106,6 +141,10 @@ mod tests {
             (1, GRASS.base),
             (2, SAND.base),
             (3, MUD.base),
+            (4, SNOW.base),
+            (5, GRAVEL.base),
+            (6, COBBLE_DIRT.base),
+            (7, CROP_FIELD.base),
         ] {
             let mut p = MockPainter::default();
             let m = Material::new(Family::Earth, style, 0, 0, 0);

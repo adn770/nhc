@@ -33,6 +33,37 @@ const LAVA: LiquidPalette = LiquidPalette {
     shadow: Color::rgba(0xA0, 0x40, 0x30, 1.0),
 };
 
+// Post-Phase-5 deferred-polish additions.
+
+/// Acid — bright caustic yellow-green; reads as toxic at first
+/// glance. Highlight goes paler to suggest fizz / vapour.
+const ACID: LiquidPalette = LiquidPalette {
+    base: Color::rgba(0xA0, 0xD8, 0x50, 1.0),
+    highlight: Color::rgba(0xC8, 0xF0, 0x70, 1.0),
+    shadow: Color::rgba(0x70, 0xA0, 0x30, 1.0),
+};
+
+/// Slime — opaque dark green ooze.
+const SLIME: LiquidPalette = LiquidPalette {
+    base: Color::rgba(0x4F, 0x80, 0x48, 1.0),
+    highlight: Color::rgba(0x6F, 0xA8, 0x68, 1.0),
+    shadow: Color::rgba(0x35, 0x50, 0x28, 1.0),
+};
+
+/// Tar — viscous black with a lighter sheen for the highlight.
+const TAR: LiquidPalette = LiquidPalette {
+    base: Color::rgba(0x20, 0x20, 0x20, 1.0),
+    highlight: Color::rgba(0x40, 0x40, 0x40, 1.0),
+    shadow: Color::rgba(0x08, 0x08, 0x08, 1.0),
+};
+
+/// Brackish — muddy estuary water; a green-brown swamp wash.
+const BRACKISH: LiquidPalette = LiquidPalette {
+    base: Color::rgba(0x6F, 0x78, 0x58, 1.0),
+    highlight: Color::rgba(0x8E, 0x98, 0x70, 1.0),
+    shadow: Color::rgba(0x4A, 0x50, 0x40, 1.0),
+};
+
 const SENTINEL: LiquidPalette = LiquidPalette {
     base: Color::rgba(0xFF, 0x00, 0xFF, 1.0),
     highlight: Color::rgba(0xFF, 0x00, 0xFF, 1.0),
@@ -43,6 +74,10 @@ pub(crate) fn palette(style: u8) -> LiquidPalette {
     match style {
         0 => WATER,
         1 => LAVA,
+        2 => ACID,
+        3 => SLIME,
+        4 => TAR,
+        5 => BRACKISH,
         _ => SENTINEL,
     }
 }
@@ -75,9 +110,27 @@ mod tests {
         assert_ne!(WATER.shadow, LAVA.shadow);
     }
 
+    /// Every Liquid style picks a distinct base colour — pins
+    /// the post-Phase-5 deferred-polish additions (Acid / Slime
+    /// / Tar / Brackish) don't accidentally collide with each
+    /// other or with Water / Lava.
+    #[test]
+    fn each_style_has_a_distinct_base_colour() {
+        let mut seen = Vec::new();
+        for style in 0..6u8 {
+            let p = palette(style);
+            let key = (p.base.r, p.base.g, p.base.b);
+            assert!(
+                !seen.contains(&key),
+                "style {style} reuses base colour {key:?}"
+            );
+            seen.push(key);
+        }
+    }
+
     #[test]
     fn each_style_has_distinct_highlight_and_shadow_from_base() {
-        for style in 0..2u8 {
+        for style in 0..6u8 {
             let p = palette(style);
             assert_ne!(p.base, p.highlight, "style {style}: highlight==base");
             assert_ne!(p.base, p.shadow, "style {style}: shadow==base");
