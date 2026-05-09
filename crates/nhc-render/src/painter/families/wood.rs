@@ -1,10 +1,13 @@
 //! `Family::Wood` painter — species / tone / sub-pattern dispatch.
 //!
-//! 5 species (Oak, Walnut, Cherry, Pine, Weathered) × 4 tones
-//! (Light, Medium, Dark, Charred) × 4 sub-patterns (Plank,
-//! BasketWeave, Parquet, Herringbone) = 80 wood combinations. The
-//! palette holds 60 colour entries (5 species × 4 tones × 3 roles
-//! [base, highlight, shadow]); sub-patterns are algorithm-side, not
+//! 12 species (Oak, Walnut, Cherry, Pine, Weathered + the
+//! post-Phase-5 deferred-polish additions Mahogany, Ebony, Ash,
+//! Maple, Birch, Teak, Bamboo) × 4 tones (Light, Medium, Dark,
+//! Charred) × 6 sub-patterns (Plank, BasketWeave, Parquet,
+//! Herringbone + the post-Phase-5 deferred-polish additions
+//! Chevron, Brick) = 288 wood combinations. The palette holds
+//! 144 colour entries (12 species × 4 tones × 3 roles [base,
+//! highlight, shadow]); sub-patterns are algorithm-side, not
 //! palette-side.
 //!
 //! Phase 2.3a–d of `plans/nhc_pure_ir_v5_migration_plan.md`. The
@@ -67,7 +70,7 @@ const fn hex_to_color(rgb: u32) -> Color {
     Color::rgba(r, g, b, 1.0)
 }
 
-const N_SPECIES: usize = 5;
+const N_SPECIES: usize = 12;
 const N_TONES: usize = 4;
 
 /// 5 species × 4 tones × 3 roles. Light / Medium / Dark are lifted
@@ -112,6 +115,55 @@ const WOOD_PALETTE: [[WoodToneEntry; N_TONES]; N_SPECIES] = [
         entry(0x544F46, 0x6E695F, 0x3D3932),
         entry(0x201C18, 0x322E28, 0x100C0A),
     ],
+    // Mahogany — deep red-brown, classic furniture wood.
+    [
+        entry(0xB85843, 0xC86F58, 0x8E3F2E),
+        entry(0x9C4530, 0xB85843, 0x762E1E),
+        entry(0x7A3320, 0x923F2A, 0x592216),
+        entry(0x2C1208, 0x401D14, 0x180A04),
+    ],
+    // Ebony — near-black with subtle warm tint.
+    [
+        entry(0x4D3E32, 0x5E4E40, 0x3A2D24),
+        entry(0x3A2D24, 0x4D3E32, 0x271E16),
+        entry(0x271E16, 0x3A2D24, 0x180F0A),
+        entry(0x0E0805, 0x1A1108, 0x080402),
+    ],
+    // Ash — pale, creamy with subtle grain.
+    [
+        entry(0xD8CCB4, 0xE6DCC4, 0xAA9D88),
+        entry(0xC1B498, 0xD8CCB4, 0x988A70),
+        entry(0x9D907A, 0xB2A38B, 0x7A6F58),
+        entry(0x3E3424, 0x504432, 0x2C2418),
+    ],
+    // Maple — warm light beige.
+    [
+        entry(0xE6CFA0, 0xF0DDB6, 0xB8A074),
+        entry(0xC8B080, 0xE6CFA0, 0xA08D5C),
+        entry(0xA48E68, 0xBCA47C, 0x806842),
+        entry(0x382818, 0x4C3A24, 0x261810),
+    ],
+    // Birch — very pale with hint of pink-cream.
+    [
+        entry(0xE8DEC2, 0xF2EAD2, 0xC0B294),
+        entry(0xD2C5A6, 0xE8DEC2, 0xA89A78),
+        entry(0xB0A488, 0xC8BCA0, 0x847656),
+        entry(0x322820, 0x443830, 0x1F1A12),
+    ],
+    // Teak — warm golden-brown with mid-saturation.
+    [
+        entry(0xC68C5C, 0xD49E72, 0x986C40),
+        entry(0xA77548, 0xC68C5C, 0x82582C),
+        entry(0x866038, 0x9E7244, 0x624222),
+        entry(0x382410, 0x4C3018, 0x281808),
+    ],
+    // Bamboo — pale yellow-tan with linear grain feel.
+    [
+        entry(0xDDC988, 0xE6D7A4, 0xB59E60),
+        entry(0xC4AB68, 0xDDC988, 0xA08848),
+        entry(0xA08544, 0xB89C5C, 0x7A642C),
+        entry(0x302410, 0x402F18, 0x1E1708),
+    ],
 ];
 
 const SENTINEL: WoodToneEntry = WoodToneEntry {
@@ -141,10 +193,16 @@ const WOOD_PARQUET_CELL: f64 = 16.0;
 const WOOD_HERRINGBONE_W: f64 = 24.0;
 const WOOD_HERRINGBONE_H: f64 = 6.0;
 const WOOD_HERRINGBONE_STRIDE: f64 = 12.0;
+// Chevron reuses the herringbone plank dimensions. The pattern
+// switches the angle on column-parity only (vs. herringbone's
+// (row + col) parity), so each row stacks identical V-units
+// vertically rather than interlocking diagonals.
+const WOOD_BRICK_W: f64 = 24.0;
+const WOOD_BRICK_H: f64 = 8.0;
 
 pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, material: &Material) {
     let entry = palette(material.style, material.tone);
-    if material.sub_pattern > 3 {
+    if material.sub_pattern > 5 {
         // Forward-compat: unknown sub-patterns paint base fill only.
         fill_region(painter, region_path, entry.base);
         return;
@@ -161,6 +219,8 @@ pub fn paint<P: Painter + ?Sized>(painter: &mut P, region_path: &PathOps, materi
         1 => paint_basket_weave(painter, x0, y0, x1, y1, entry),
         2 => paint_parquet(painter, x0, y0, x1, y1, entry),
         3 => paint_herringbone(painter, x0, y0, x1, y1, entry),
+        4 => paint_chevron(painter, x0, y0, x1, y1, entry),
+        5 => paint_brick(painter, x0, y0, x1, y1, entry),
         _ => unreachable!(),
     }
     painter.pop_clip();
@@ -525,6 +585,106 @@ fn paint_herringbone<P: Painter + ?Sized>(
     painter.end_group();
 }
 
+// ── Chevron (sub_pattern = 4) ──────────────────────────────────
+
+/// Chevron — ±45° rotated planks with the angle alternating on
+/// column-parity only (independent of row), so each row stacks
+/// identical V-units vertically. The result reads as a clean
+/// chevron march, distinct from Herringbone's interlocking
+/// diagonal weave (where the angle flips on (row + col) parity).
+/// Same plank dimensions as Herringbone; RNG-free.
+fn paint_chevron<P: Painter + ?Sized>(
+    painter: &mut P,
+    x0: f32, y0: f32, x1: f32, y1: f32,
+    entry: WoodToneEntry,
+) {
+    let shadow_paint = Paint::solid(entry.shadow);
+    let stroke = seam_stroke();
+    painter.begin_group(WOOD_SEAM_OPACITY);
+    let bx0 = f64::from(x0);
+    let by0 = f64::from(y0);
+    let bx1 = f64::from(x1);
+    let by1 = f64::from(y1);
+    let mut y = by0 - WOOD_HERRINGBONE_W;
+    while y < by1 + WOOD_HERRINGBONE_W {
+        let mut col = 0_i32;
+        let mut x = bx0 - WOOD_HERRINGBONE_W;
+        while x < bx1 + WOOD_HERRINGBONE_W {
+            let angle = if col.rem_euclid(2) == 0 {
+                FRAC_PI_4
+            } else {
+                -FRAC_PI_4
+            };
+            let path = rotated_rect_path(
+                x + WOOD_HERRINGBONE_W * 0.5,
+                y + WOOD_HERRINGBONE_H * 0.5,
+                WOOD_HERRINGBONE_W,
+                WOOD_HERRINGBONE_H,
+                angle,
+            );
+            painter.stroke_path(&path, &shadow_paint, &stroke);
+            x += WOOD_HERRINGBONE_STRIDE;
+            col += 1;
+        }
+        y += WOOD_HERRINGBONE_STRIDE;
+    }
+    painter.end_group();
+}
+
+// ── Brick (sub_pattern = 5) ────────────────────────────────────
+
+/// Brick — wooden block bond. Rectangular ``WOOD_BRICK_W ×
+/// WOOD_BRICK_H`` blocks laid in a half-bond stagger (alternating
+/// rows offset by half a brick). Strokes the row boundaries
+/// horizontal + per-block vertical seams in palette.shadow over
+/// the dispatcher's base fill — no per-block fill_rect since the
+/// base shows through the stroked outlines and reads as clean
+/// wood-block masonry. RNG-free.
+fn paint_brick<P: Painter + ?Sized>(
+    painter: &mut P,
+    x0: f32, y0: f32, x1: f32, y1: f32,
+    entry: WoodToneEntry,
+) {
+    let shadow_paint = Paint::solid(entry.shadow);
+    let stroke = seam_stroke();
+    painter.begin_group(WOOD_SEAM_OPACITY);
+    let bx0 = f64::from(x0);
+    let by0 = f64::from(y0);
+    let bx1 = f64::from(x1);
+    let by1 = f64::from(y1);
+    let mut row = 0_i32;
+    let mut y = by0;
+    while y < by1 {
+        // Row boundary horizontal — skip the very top edge so the
+        // dispatcher's base fill carries the surface there.
+        if y > by0 {
+            painter.stroke_path(
+                &line_path(bx0, y, bx1, y),
+                &shadow_paint,
+                &stroke,
+            );
+        }
+        let row_offset = if (row & 1) == 0 { 0.0 } else { -WOOD_BRICK_W * 0.5 };
+        let mut x = bx0 + row_offset;
+        // Skip the partial brick that pokes off the left edge on
+        // odd rows — its right vertical lands inside the region
+        // and we want it to render. Walk in normal step.
+        while x < bx1 {
+            if x > bx0 {
+                painter.stroke_path(
+                    &line_path(x, y, x, (y + WOOD_BRICK_H).min(by1)),
+                    &shadow_paint,
+                    &stroke,
+                );
+            }
+            x += WOOD_BRICK_W;
+        }
+        y += WOOD_BRICK_H;
+        row += 1;
+    }
+    painter.end_group();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -552,7 +712,7 @@ mod tests {
     }
 
     #[test]
-    fn palette_holds_sixty_distinct_colour_entries() {
+    fn every_palette_entry_has_distinct_base_colour() {
         let mut bases = Vec::with_capacity(N_SPECIES * N_TONES);
         for s in 0..N_SPECIES as u8 {
             for t in 0..N_TONES as u8 {
@@ -622,7 +782,7 @@ mod tests {
     #[test]
     fn every_sub_pattern_emits_clip_and_group_envelopes() {
         let path = four_tile_path();
-        for sub in 0..4u8 {
+        for sub in 0..6u8 {
             let mut p = MockPainter::default();
             let m = Material::new(Family::Wood, 0, sub, 0, 0xCAFE);
             paint(&mut p, &path, &m);
@@ -657,7 +817,7 @@ mod tests {
     #[test]
     fn every_sub_pattern_emits_stroke_path_decoration() {
         let path = four_tile_path();
-        for sub in 0..4u8 {
+        for sub in 0..6u8 {
             let mut p = MockPainter::default();
             paint(
                 &mut p, &path,
@@ -688,7 +848,7 @@ mod tests {
         assert_ne!(a.calls, b.calls, "Plank must be seed-aware");
 
         // Other sub-patterns are RNG-free.
-        for sub in [1u8, 2u8, 3u8] {
+        for sub in [1u8, 2u8, 3u8, 4u8, 5u8] {
             let mut a = MockPainter::default();
             let mut b = MockPainter::default();
             paint(&mut a, &path, &Material::new(Family::Wood, 0, sub, 0, 333));
@@ -707,7 +867,7 @@ mod tests {
     fn sub_patterns_pairwise_diverge() {
         let path = four_tile_path();
         let mut shapes: Vec<Vec<PainterCall>> = Vec::new();
-        for sub in 0..4u8 {
+        for sub in 0..6u8 {
             let mut p = MockPainter::default();
             paint(
                 &mut p, &path,
