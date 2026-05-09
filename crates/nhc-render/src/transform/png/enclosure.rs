@@ -318,6 +318,67 @@ fn corner_shape(
         painter.pop_transform();
         return;
     }
+    if corner_style == CornerStyle::Round {
+        // Round — a single filled circle with a thin outline so
+        // the corner reads as a tower bartizan instead of a
+        // flat patch.
+        let radius = size / 2.0;
+        if radius <= 0.0 {
+            return;
+        }
+        let fill = rgb_paint(FORTIF_CORNER_RGB);
+        let stroke = thin_stroke(FORTIF_STROKE_WIDTH);
+        let stroke_paint = rgb_paint(FORTIF_STROKE_RGB);
+        painter.fill_circle(x, y, radius, &fill);
+        // Circumference outline — sample 24 segments around the
+        // circle for a smooth ring at FORTIF_SIZE without
+        // pulling in the painter's bezier-arc stroke API.
+        let mut path = PathOps::new();
+        let n = 24;
+        for i in 0..n {
+            let theta = (i as f32) * std::f32::consts::TAU / (n as f32);
+            let px = x + radius * theta.cos();
+            let py = y + radius * theta.sin();
+            if i == 0 {
+                path.move_to(Vec2::new(px, py));
+            } else {
+                path.line_to(Vec2::new(px, py));
+            }
+        }
+        path.close();
+        painter.stroke_path(&path, &stroke_paint, &stroke);
+        return;
+    }
+    if corner_style == CornerStyle::Crow {
+        // Crow — crow-step gable. Three stacked squares of
+        // shrinking size, each offset toward the wall corner so
+        // the silhouette reads as a stair-step ascending toward
+        // the peak. ``CornerStyle::Crow`` ignores wall direction
+        // — the steps point ``(+, +)`` (down-right) since the
+        // fortification renderer issues corner_shape calls
+        // unaware of which corner of the polygon they're on.
+        let half = size / 2.0;
+        if half <= 0.0 {
+            return;
+        }
+        let step = size / 3.0;
+        for i in 0..3 {
+            let off = (i as f32) * step * 0.5;
+            let s = size - (i as f32) * step * 0.6;
+            if s <= 0.0 {
+                break;
+            }
+            fortif_rect(
+                x + off,
+                y + off,
+                s,
+                s,
+                FORTIF_CORNER_RGB,
+                painter,
+            );
+        }
+        return;
+    }
     fortif_rect(x, y, size, size, FORTIF_CORNER_RGB, painter);
 }
 
@@ -561,5 +622,89 @@ mod tests {
         let mut rng = EncRng::new(1234);
         let u = rng.inner.next_u64();
         assert_eq!(u, 0xbb0cf61b2f181cdb);
+    }
+
+    /// Round corner emits a single fill_circle stamp plus its
+    /// circumference outline; Merlon would emit a fill_rect
+    /// instead, and Diamond a transformed fill_rect. Pin the
+    /// shape so a future change to corner geometry surfaces as
+    /// a clear failure.
+    #[test]
+    fn round_corner_emits_filled_circle_with_outline() {
+        let mut painter = crate::painter::test_util::MockPainter::default();
+        corner_shape(50.0, 60.0, CornerStyle::Round, &mut painter);
+        let circles = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(
+                c,
+                crate::painter::test_util::PainterCall::FillCircle(_, _, _, _),
+            ))
+            .count();
+        let strokes = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(
+                c,
+                crate::painter::test_util::PainterCall::StrokePath(_, _, _),
+            ))
+            .count();
+        let rects = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(
+                c,
+                crate::painter::test_util::PainterCall::FillRect(_, _),
+            ))
+            .count();
+        assert_eq!(circles, 1, "Round corner should emit one fill_circle");
+        assert_eq!(strokes, 1, "Round corner should emit one outline stroke");
+        assert_eq!(rects, 0, "Round corner should not emit fill_rect");
+    }
+
+    /// Crow corner emits 3 stacked rectangles for the crow-step
+    /// gable silhouette; Merlon emits 1, Diamond emits 1
+    /// (transformed). Pin the multi-step count so a future tweak
+    /// to step depth surfaces as a clear failure.
+    #[test]
+    fn crow_corner_emits_three_stair_step_rects() {
+        let mut painter = crate::painter::test_util::MockPainter::default();
+        corner_shape(50.0, 60.0, CornerStyle::Crow, &mut painter);
+        let rects = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(
+                c,
+                crate::painter::test_util::PainterCall::FillRect(_, _),
+            ))
+            .count();
+        assert_eq!(rects, 3, "Crow corner should emit 3 stair-step fill_rects");
+    }
+
+    /// Merlon (default) stays at one fill_rect per corner — pins
+    /// the post-#3 / #4 additions don't accidentally regress the
+    /// existing default behaviour.
+    #[test]
+    fn merlon_corner_emits_single_fill_rect() {
+        let mut painter = crate::painter::test_util::MockPainter::default();
+        corner_shape(50.0, 60.0, CornerStyle::Merlon, &mut painter);
+        let rects = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(
+                c,
+                crate::painter::test_util::PainterCall::FillRect(_, _),
+            ))
+            .count();
+        let circles = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(
+                c,
+                crate::painter::test_util::PainterCall::FillCircle(_, _, _, _),
+            ))
+            .count();
+        assert_eq!(rects, 1, "Merlon corner should emit 1 fill_rect");
+        assert_eq!(circles, 0, "Merlon corner should not emit fill_circle");
     }
 }

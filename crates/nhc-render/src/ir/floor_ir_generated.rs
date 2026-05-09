@@ -383,13 +383,15 @@ impl ::flatbuffers::SimpleToVerifyInSlice for HatchKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_CORNER_STYLE: i8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_CORNER_STYLE: i8 = 2;
+pub const ENUM_MAX_CORNER_STYLE: i8 = 4;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_CORNER_STYLE: [CornerStyle; 3] = [
+pub const ENUM_VALUES_CORNER_STYLE: [CornerStyle; 5] = [
   CornerStyle::Merlon,
   CornerStyle::Diamond,
   CornerStyle::Tower,
+  CornerStyle::Round,
+  CornerStyle::Crow,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -400,13 +402,17 @@ impl CornerStyle {
   pub const Merlon: Self = Self(0);
   pub const Diamond: Self = Self(1);
   pub const Tower: Self = Self(2);
+  pub const Round: Self = Self(3);
+  pub const Crow: Self = Self(4);
 
   pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 2;
+  pub const ENUM_MAX: i8 = 4;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Merlon,
     Self::Diamond,
     Self::Tower,
+    Self::Round,
+    Self::Crow,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -414,6 +420,8 @@ impl CornerStyle {
       Self::Merlon => Some("Merlon"),
       Self::Diamond => Some("Diamond"),
       Self::Tower => Some("Tower"),
+      Self::Round => Some("Round"),
+      Self::Crow => Some("Crow"),
       _ => None,
     }
   }
@@ -575,15 +583,19 @@ impl ::flatbuffers::SimpleToVerifyInSlice for MaterialFamily {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_WALL_TREATMENT: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_WALL_TREATMENT: u8 = 4;
+pub const ENUM_MAX_WALL_TREATMENT: u8 = 8;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_WALL_TREATMENT: [WallTreatment; 5] = [
+pub const ENUM_VALUES_WALL_TREATMENT: [WallTreatment; 9] = [
   WallTreatment::PlainStroke,
   WallTreatment::Masonry,
   WallTreatment::Partition,
   WallTreatment::Palisade,
   WallTreatment::Fortification,
+  WallTreatment::Drystone,
+  WallTreatment::Adobe,
+  WallTreatment::WattleAndDaub,
+  WallTreatment::Iron,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -596,15 +608,23 @@ impl WallTreatment {
   pub const Partition: Self = Self(2);
   pub const Palisade: Self = Self(3);
   pub const Fortification: Self = Self(4);
+  pub const Drystone: Self = Self(5);
+  pub const Adobe: Self = Self(6);
+  pub const WattleAndDaub: Self = Self(7);
+  pub const Iron: Self = Self(8);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 4;
+  pub const ENUM_MAX: u8 = 8;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::PlainStroke,
     Self::Masonry,
     Self::Partition,
     Self::Palisade,
     Self::Fortification,
+    Self::Drystone,
+    Self::Adobe,
+    Self::WattleAndDaub,
+    Self::Iron,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -614,6 +634,10 @@ impl WallTreatment {
       Self::Partition => Some("Partition"),
       Self::Palisade => Some("Palisade"),
       Self::Fortification => Some("Fortification"),
+      Self::Drystone => Some("Drystone"),
+      Self::Adobe => Some("Adobe"),
+      Self::WattleAndDaub => Some("WattleAndDaub"),
+      Self::Iron => Some("Iron"),
       _ => None,
     }
   }

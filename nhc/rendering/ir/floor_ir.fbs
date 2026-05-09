@@ -131,11 +131,16 @@ enum HatchKind: byte {
 // Corner block geometry on Fortification enclosures (WallMaterial
 // with treatment == Fortification). Merlon is the default
 // (axis-aligned black square); Diamond rotates 45°; Tower is
-// forward-compat. Palisade-style enclosures ignore this enum.
+// forward-compat. Round + Crow are post-Phase-5 deferred-polish
+// additions: Round draws a circular corner; Crow draws a
+// crow-step gable (stacked ascending squares). Palisade-style
+// enclosures ignore this enum.
 enum CornerStyle: byte {
   Merlon = 0,
   Diamond = 1,
   Tower = 2,
+  Round = 3,
+  Crow = 4,
 }
 
 // ── v5 material taxonomy (canonical) ────────────────────────
@@ -159,6 +164,15 @@ enum WallTreatment : ubyte {
   Partition     = 2,
   Palisade      = 3,
   Fortification = 4,
+  // Post-Phase-5 deferred-polish additions:
+  // ``Drystone`` — irregular stacked stones, no mortar.
+  // ``Adobe`` — smooth mud-brick, soft rounded edges.
+  // ``WattleAndDaub`` — woven wattle frame embedded in daub.
+  // ``Iron`` — metal plating with periodic rivets.
+  Drystone      = 5,
+  Adobe         = 6,
+  WattleAndDaub = 7,
+  Iron          = 8,
 }
 
 enum PathStyle : ubyte {

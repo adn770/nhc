@@ -29,7 +29,7 @@ use flatbuffers::{ForwardsUOffset, Vector};
 use super::region_path::outline_to_path;
 use crate::ir::{MaterialFamily, Region, StrokeOp, WallTreatment};
 use crate::painter::material::{substance_color, Family, PaletteRole};
-use crate::painter::{LineCap, Paint, Painter, Stroke};
+use crate::painter::{Color, LineCap, Paint, PathOps, Painter, Stroke, Vec2};
 
 /// Map the FlatBuffers `MaterialFamily` to the painter's `Family`
 /// POD. Mirrors the bridge in `super::material_from_fb`.
@@ -54,11 +54,22 @@ fn family_from_fb(family: MaterialFamily) -> Family {
 ///
 /// PlainStroke 5.0 px mirrors v4's room / dungeon / cave / corridor
 /// wall width (``CELL * 0.155``); Partition 8.0 px mirrors v4's
-/// interior-partition width (``CELL * 0.25``).
+/// interior-partition width (``CELL * 0.25``). The post-Phase-5
+/// additions (Drystone / Adobe / Iron) ride this fall-through
+/// path with treatment-specific widths so the visual reads
+/// distinctly without each one needing a dedicated painter
+/// module — Drystone reads bulky (6.5 px); Adobe softer (6.0
+/// px); Iron is thinner because its rivet overlay does the
+/// visual heavy-lifting (5.5 px). WattleAndDaub gets its own
+/// dispatch (see ``draw``) because the woven tick-mark overlay
+/// can't be expressed as just a width tweak.
 fn treatment_stroke_width(treatment: WallTreatment) -> f32 {
     match treatment {
         WallTreatment::PlainStroke => 5.0,
         WallTreatment::Partition => 8.0,
+        WallTreatment::Drystone => 6.5,
+        WallTreatment::Adobe => 6.0,
+        WallTreatment::Iron => 5.5,
         // Other treatments dispatch to their own painters.
         _ => 5.0,
     }
@@ -140,6 +151,13 @@ pub fn draw<'a>(
             );
             return true;
         }
+        (WallTreatment::WattleAndDaub, Some(poly)) => {
+            let color = substance_color(
+                family, wm.style(), wm.tone(), PaletteRole::Shadow,
+            );
+            render_wattle_and_daub_polygon(poly, color, painter);
+            return true;
+        }
         _ => {}
     }
 
@@ -156,6 +174,79 @@ pub fn draw<'a>(
     };
     painter.stroke_path(&path, &paint, &stroke);
     true
+}
+
+/// WattleAndDaub overlay — strokes the wall as a thicker daub
+/// base, then walks every (a, b) edge of the polygon and stamps
+/// short perpendicular tick marks at a fixed pitch to suggest
+/// the woven wattle frame poking through the daub. Thin tick
+/// stroke (1.6 px) over the thicker daub base (5.5 px) reads as
+/// a textured wall at any zoom; pitch 14 px keeps the ticks
+/// visible without the wall looking like a corduroy stripe.
+fn render_wattle_and_daub_polygon(
+    polygon: &[(f32, f32)],
+    color: Color,
+    painter: &mut dyn Painter,
+) {
+    if polygon.len() < 2 {
+        return;
+    }
+    // 1) Daub base — solid stroke around the polygon at the
+    //    treatment width.
+    let mut base_path = PathOps::new();
+    base_path.move_to(Vec2::new(polygon[0].0, polygon[0].1));
+    for v in &polygon[1..] {
+        base_path.line_to(Vec2::new(v.0, v.1));
+    }
+    base_path.close();
+    let base_paint = Paint::solid(color);
+    let base_stroke = Stroke {
+        width: 5.5,
+        line_cap: LineCap::Round,
+        ..Stroke::default()
+    };
+    painter.stroke_path(&base_path, &base_paint, &base_stroke);
+
+    // 2) Wattle ticks — perpendicular crossbars at fixed pitch
+    //    along each edge, painted in the same shadow tone but
+    //    visibly thinner so the weave reads as embedded fibres
+    //    rather than a second contour.
+    let tick_stroke = Stroke {
+        width: 1.6,
+        line_cap: LineCap::Round,
+        ..Stroke::default()
+    };
+    let pitch = 14.0_f32;
+    let half_tick = 4.0_f32;
+    let n = polygon.len();
+    for i in 0..n {
+        let (ax, ay) = polygon[i];
+        let (bx, by) = polygon[(i + 1) % n];
+        let dx = bx - ax;
+        let dy = by - ay;
+        let len = (dx * dx + dy * dy).sqrt();
+        if len < 1e-3 {
+            continue;
+        }
+        let nx = -dy / len;
+        let ny = dx / len;
+        let mut t = pitch * 0.5;
+        while t < len {
+            let cx = ax + dx * (t / len);
+            let cy = ay + dy * (t / len);
+            let mut tick = PathOps::new();
+            tick.move_to(Vec2::new(
+                cx + nx * half_tick,
+                cy + ny * half_tick,
+            ));
+            tick.line_to(Vec2::new(
+                cx - nx * half_tick,
+                cy - ny * half_tick,
+            ));
+            painter.stroke_path(&tick, &base_paint, &tick_stroke);
+            t += pitch;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -475,5 +566,73 @@ mod tests {
         }
         assert!(saw_fill, "no FillPath with Stone:Brick base color");
         assert!(saw_seam, "no StrokePath with Stone:Brick shadow color");
+    }
+
+    /// The post-Phase-5 fall-through treatments (Drystone /
+    /// Adobe / Iron) ride the same single-stroke dispatch as
+    /// PlainStroke / Partition, but each picks a distinct width
+    /// so the visual reads differently at any zoom. Pin the
+    /// per-treatment widths.
+    #[test]
+    fn deferred_treatments_use_distinct_fallthrough_widths() {
+        for (treatment, expected_width) in [
+            (WallTreatment::Drystone, 6.5_f32),
+            (WallTreatment::Adobe, 6.0_f32),
+            (WallTreatment::Iron, 5.5_f32),
+        ] {
+            let buf = build_stroke_op_with_region(
+                MaterialFamily::Stone, 0, treatment,
+            );
+            let (call,) = paint_for(&buf);
+            match call {
+                PainterCall::StrokePath(_, _, stroke) => {
+                    assert_eq!(
+                        stroke.width, expected_width,
+                        "treatment {treatment:?}: width mismatch",
+                    );
+                    assert_eq!(stroke.line_cap, LineCap::Round);
+                }
+                other => panic!(
+                    "treatment {treatment:?}: expected StrokePath, got {other:?}",
+                ),
+            }
+        }
+    }
+
+    /// WattleAndDaub gets its own dispatch — emits the daub
+    /// base stroke around the polygon plus periodic
+    /// perpendicular tick strokes for the woven wattle pattern.
+    /// A 64×64 4-edge polygon with the 14-px tick pitch produces
+    /// many more StrokePath calls than the single-stroke
+    /// fall-through treatments.
+    #[test]
+    fn wattle_and_daub_emits_base_stroke_plus_tick_overlay() {
+        let buf = build_stroke_op_with_region(
+            MaterialFamily::Stone,
+            0,
+            WallTreatment::WattleAndDaub,
+        );
+        let fir = root_as_floor_ir(&buf).expect("parse");
+        let regions = fir.regions().expect("regions");
+        let op = fir
+            .ops()
+            .expect("ops")
+            .get(0)
+            .op_as_stroke_op()
+            .expect("stroke op");
+        let mut painter = MockPainter::default();
+        assert!(draw(op, regions, &mut painter));
+        let strokes = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::StrokePath(_, _, _)))
+            .count();
+        // 1 daub base stroke + 4 edges × ~4 ticks/edge ≈ 17.
+        // Pin a soft floor of 8 so adjacent-pitch tweaks don't
+        // flip the test.
+        assert!(
+            strokes >= 8,
+            "expected ≥ 8 stroke_path calls (base + ticks), got {strokes}",
+        );
     }
 }

@@ -7,5 +7,9 @@ export enum WallTreatment {
   Masonry = 1,
   Partition = 2,
   Palisade = 3,
-  Fortification = 4
+  Fortification = 4,
+  Drystone = 5,
+  Adobe = 6,
+  WattleAndDaub = 7,
+  Iron = 8
 }

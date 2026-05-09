@@ -5,5 +5,7 @@
 export enum CornerStyle {
   Merlon = 0,
   Diamond = 1,
-  Tower = 2
+  Tower = 2,
+  Round = 3,
+  Crow = 4
 }
