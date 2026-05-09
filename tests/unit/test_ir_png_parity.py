@@ -73,8 +73,21 @@ _FIXTURE_ROOT = (
 
 # Default cross-rasteriser threshold per design/map_ir.md §9.4.
 # Tightenable per-(rasteriser, fixture) pair if measurements show
-# headroom; loosenable for WASM Canvas at Phase 11 (~30 dB).
-PSNR_THRESHOLD_DB: float = 35.0
+# headroom; loosenable for WASM Canvas at Phase 5.6 (30 dB) where
+# Cairo's anti-aliasing diverges from tiny-skia's.
+#
+# Phase 5 polish-ladder #9 — tightened from 35.0 → 50.0 once
+# #5/#6 (per-style stone + wood layouts) shipped and the
+# v5-vs-v4 PSNR drift settled. Live measurements at the cut:
+# tiny-skia is inf across every fixture (the reference IS the
+# tiny-skia output, so the gate is purely a wheel-drift sentinel),
+# and resvg lands 64-84 dB on every fixture — lowest being
+# ``synthetic_roof_circle`` at 64.08 dB. 50 dB leaves ~14 dB of
+# safety margin on the tightest fixture; further tightening to
+# the original ≥ 50 dB / inf split waits on the polish-ladder
+# #3 sub-tile parity work (additive Anchor cx_off / cy_off
+# floats; flagged for user decision).
+PSNR_THRESHOLD_DB: float = 50.0
 
 
 # Per-fixture relaxations.
@@ -275,11 +288,16 @@ def test_ir_svg_structural_sanity(emitted) -> None:
 # ── Synthetic-IR roof gate (Phase 8.1c.2) ──────────────────────
 
 
-# Tighter than the cross-rasteriser default (35 dB) per the plan:
-# synthetic IRs paint exactly one Building + one RoofOp on a clean
-# background, so any per-pixel divergence is structural rather
-# than absorbed in compositing noise.
-ROOF_PSNR_THRESHOLD_DB: float = 40.0
+# Tighter than the cross-rasteriser default (50 dB) per the plan:
+# synthetic IRs paint exactly one primitive on a clean background,
+# so any per-pixel divergence is structural rather than absorbed
+# in compositing noise. Phase 5 polish-ladder #9 raised this from
+# 40.0 → 55.0 alongside the default bump 35.0 → 50.0; live
+# measurements show the lowest synthetic-rasteriser PSNR is
+# ``synthetic_roof_circle`` at 64.08 dB (curved-edge antialiasing
+# divergence between resvg and tiny-skia), giving the new
+# threshold ~9 dB of safety margin on the tightest fixture.
+ROOF_PSNR_THRESHOLD_DB: float = 55.0
 
 
 _SYNTHETIC_ROOF_DESCRIPTORS: tuple[str, ...] = (
