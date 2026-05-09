@@ -14,5 +14,17 @@ export enum FixtureKind {
   Stair = 8,
   Gravestone = 9,
   Sign = 10,
-  Mushroom = 11
+  Mushroom = 11,
+  Chest = 12,
+  Crate = 13,
+  Barrel = 14,
+  Altar = 15,
+  Brazier = 16,
+  Statue = 17,
+  Pillar = 18,
+  Pedestal = 19,
+  Ladder = 20,
+  Trapdoor = 21,
+  Footprint = 22,
+  ChalkCircle = 23
 }

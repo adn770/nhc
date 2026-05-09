@@ -819,10 +819,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for PathStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_FIXTURE_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_FIXTURE_KIND: u8 = 11;
+pub const ENUM_MAX_FIXTURE_KIND: u8 = 23;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 12] = [
+pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 24] = [
   FixtureKind::Web,
   FixtureKind::Skull,
   FixtureKind::Bone,
@@ -835,6 +835,18 @@ pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 12] = [
   FixtureKind::Gravestone,
   FixtureKind::Sign,
   FixtureKind::Mushroom,
+  FixtureKind::Chest,
+  FixtureKind::Crate,
+  FixtureKind::Barrel,
+  FixtureKind::Altar,
+  FixtureKind::Brazier,
+  FixtureKind::Statue,
+  FixtureKind::Pillar,
+  FixtureKind::Pedestal,
+  FixtureKind::Ladder,
+  FixtureKind::Trapdoor,
+  FixtureKind::Footprint,
+  FixtureKind::ChalkCircle,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -854,9 +866,21 @@ impl FixtureKind {
   pub const Gravestone: Self = Self(9);
   pub const Sign: Self = Self(10);
   pub const Mushroom: Self = Self(11);
+  pub const Chest: Self = Self(12);
+  pub const Crate: Self = Self(13);
+  pub const Barrel: Self = Self(14);
+  pub const Altar: Self = Self(15);
+  pub const Brazier: Self = Self(16);
+  pub const Statue: Self = Self(17);
+  pub const Pillar: Self = Self(18);
+  pub const Pedestal: Self = Self(19);
+  pub const Ladder: Self = Self(20);
+  pub const Trapdoor: Self = Self(21);
+  pub const Footprint: Self = Self(22);
+  pub const ChalkCircle: Self = Self(23);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 11;
+  pub const ENUM_MAX: u8 = 23;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Web,
     Self::Skull,
@@ -870,6 +894,18 @@ impl FixtureKind {
     Self::Gravestone,
     Self::Sign,
     Self::Mushroom,
+    Self::Chest,
+    Self::Crate,
+    Self::Barrel,
+    Self::Altar,
+    Self::Brazier,
+    Self::Statue,
+    Self::Pillar,
+    Self::Pedestal,
+    Self::Ladder,
+    Self::Trapdoor,
+    Self::Footprint,
+    Self::ChalkCircle,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -886,6 +922,18 @@ impl FixtureKind {
       Self::Gravestone => Some("Gravestone"),
       Self::Sign => Some("Sign"),
       Self::Mushroom => Some("Mushroom"),
+      Self::Chest => Some("Chest"),
+      Self::Crate => Some("Crate"),
+      Self::Barrel => Some("Barrel"),
+      Self::Altar => Some("Altar"),
+      Self::Brazier => Some("Brazier"),
+      Self::Statue => Some("Statue"),
+      Self::Pillar => Some("Pillar"),
+      Self::Pedestal => Some("Pedestal"),
+      Self::Ladder => Some("Ladder"),
+      Self::Trapdoor => Some("Trapdoor"),
+      Self::Footprint => Some("Footprint"),
+      Self::ChalkCircle => Some("ChalkCircle"),
       _ => None,
     }
   }

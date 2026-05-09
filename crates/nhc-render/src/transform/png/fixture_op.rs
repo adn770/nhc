@@ -533,6 +533,463 @@ fn paint_gravestone_cluster_plot(
     painter.end_group();
 }
 
+// ── Post-Phase-5 deferred-polish per-anchor painters ───────────
+//
+// Twelve new ``FixtureKind`` variants. Each painter is RNG-free
+// and takes a single anchor + the FixtureOp seed (currently
+// unused — kept on the signature so per-anchor jitter can land
+// without re-threading the dispatcher). Variants drive small
+// stylistic tweaks (e.g. ``Chest`` open / closed) where useful.
+
+const CHEST_BODY: Color = Color::rgba(0x6B, 0x47, 0x28, 1.0);
+const CHEST_LID: Color = Color::rgba(0x4A, 0x32, 0x1C, 1.0);
+const CHEST_BAND: Color = Color::rgba(0x32, 0x24, 0x14, 1.0);
+const CHEST_LOCK: Color = Color::rgba(0xC8, 0xB0, 0x40, 1.0);
+
+/// Chest — wooden coffer with two iron bands and a brass lock
+/// in the middle. ``variant == 1`` paints the lid raised by a
+/// small angle (open chest).
+fn paint_chest_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let body_x0 = px + CELL * 0.18;
+    let body_x1 = px + CELL * 0.82;
+    let body_y0 = py + CELL * 0.45;
+    let body_y1 = py + CELL * 0.85;
+    let lid_y0 = py + CELL * 0.30;
+    let lid_y1 = body_y0;
+    rect_fill(painter, body_x0, body_y0, body_x1, body_y1, CHEST_BODY);
+    rect_fill(painter, body_x0, lid_y0, body_x1, lid_y1, CHEST_LID);
+    // Two iron bands across the body.
+    let band_w = CELL * 0.04;
+    let b1_x = px + CELL * 0.30;
+    let b2_x = px + CELL * 0.62;
+    rect_fill(painter, b1_x, body_y0, b1_x + band_w, body_y1, CHEST_BAND);
+    rect_fill(painter, b2_x, body_y0, b2_x + band_w, body_y1, CHEST_BAND);
+    // Brass lock at the lid / body seam centre.
+    painter.fill_circle(
+        ((body_x0 + body_x1) * 0.5) as f32, body_y0 as f32,
+        (CELL * 0.06) as f32,
+        &Paint::solid(CHEST_LOCK),
+    );
+    if a.variant() == 1 {
+        // Open lid — small triangular wedge above the body to
+        // suggest the lid raised forward.
+        let mut wedge = PathOps::new();
+        wedge.move_to(Vec2::new(body_x0 as f32, lid_y0 as f32));
+        wedge.line_to(Vec2::new(body_x1 as f32, lid_y0 as f32));
+        wedge.line_to(Vec2::new(
+            ((body_x0 + body_x1) * 0.5) as f32,
+            (lid_y0 - CELL * 0.10) as f32,
+        ));
+        wedge.close();
+        painter.fill_path(&wedge, &Paint::solid(CHEST_LID), FillRule::Winding);
+    }
+}
+
+const CRATE_BODY: Color = Color::rgba(0x8B, 0x6A, 0x42, 1.0);
+const CRATE_BRACE: Color = Color::rgba(0x4F, 0x36, 0x1E, 1.0);
+
+/// Crate — square wooden box with diagonal cross-bracing on the
+/// front face, suggesting reinforced shipping construction.
+fn paint_crate_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let x0 = px + CELL * 0.20;
+    let x1 = px + CELL * 0.80;
+    let y0 = py + CELL * 0.25;
+    let y1 = py + CELL * 0.85;
+    rect_fill(painter, x0, y0, x1, y1, CRATE_BODY);
+    let brace = Stroke {
+        width: 1.4, line_cap: LineCap::Round, line_join: LineJoin::Miter,
+    };
+    let brace_paint = Paint::solid(CRATE_BRACE);
+    let mut diag = PathOps::new();
+    diag.move_to(Vec2::new(x0 as f32, y0 as f32));
+    diag.line_to(Vec2::new(x1 as f32, y1 as f32));
+    painter.stroke_path(&diag, &brace_paint, &brace);
+    let mut anti = PathOps::new();
+    anti.move_to(Vec2::new(x1 as f32, y0 as f32));
+    anti.line_to(Vec2::new(x0 as f32, y1 as f32));
+    painter.stroke_path(&anti, &brace_paint, &brace);
+    let mut frame = PathOps::new();
+    frame.move_to(Vec2::new(x0 as f32, y0 as f32));
+    frame.line_to(Vec2::new(x1 as f32, y0 as f32));
+    frame.line_to(Vec2::new(x1 as f32, y1 as f32));
+    frame.line_to(Vec2::new(x0 as f32, y1 as f32));
+    frame.close();
+    painter.stroke_path(&frame, &brace_paint, &brace);
+}
+
+const BARREL_BODY: Color = Color::rgba(0x7A, 0x55, 0x30, 1.0);
+const BARREL_HOOP: Color = Color::rgba(0x3A, 0x28, 0x14, 1.0);
+
+/// Barrel — vertical oval body with three iron hoops at the
+/// top, middle, and bottom.
+fn paint_barrel_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let cx = px + CELL * 0.5;
+    let cy = py + CELL * 0.55;
+    let rx = CELL * 0.27;
+    let ry = CELL * 0.32;
+    painter.fill_ellipse(
+        cx as f32, cy as f32, rx as f32, ry as f32,
+        &Paint::solid(BARREL_BODY),
+    );
+    let hoop_paint = Paint::solid(BARREL_HOOP);
+    for offset in [-0.65_f64, 0.0, 0.65] {
+        let hy = cy + ry * offset;
+        let hx_half = (rx * rx * (1.0 - offset * offset)).sqrt();
+        let mut hoop = PathOps::new();
+        hoop.move_to(Vec2::new((cx - hx_half) as f32, hy as f32));
+        hoop.line_to(Vec2::new((cx + hx_half) as f32, hy as f32));
+        painter.stroke_path(
+            &hoop, &hoop_paint,
+            &Stroke {
+                width: 1.2, line_cap: LineCap::Butt, line_join: LineJoin::Miter,
+            },
+        );
+    }
+}
+
+const ALTAR_STONE: Color = Color::rgba(0x9C, 0x9C, 0x9C, 1.0);
+const ALTAR_TOP: Color = Color::rgba(0xC8, 0xC8, 0xC8, 1.0);
+const ALTAR_INK: Color = Color::rgba(0x4F, 0x4F, 0x4F, 1.0);
+
+/// Altar — short stone slab with a raised top plate. ``variant
+/// == 1`` adds a small dark blood smear on the top to suggest a
+/// sacrificial altar.
+fn paint_altar_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let body_x0 = px + CELL * 0.22;
+    let body_x1 = px + CELL * 0.78;
+    let body_y0 = py + CELL * 0.50;
+    let body_y1 = py + CELL * 0.85;
+    let top_x0 = px + CELL * 0.16;
+    let top_x1 = px + CELL * 0.84;
+    let top_y0 = py + CELL * 0.42;
+    let top_y1 = body_y0;
+    rect_fill(painter, body_x0, body_y0, body_x1, body_y1, ALTAR_STONE);
+    rect_fill(painter, top_x0, top_y0, top_x1, top_y1, ALTAR_TOP);
+    if a.variant() == 1 {
+        let stain = Color::rgba(0x66, 0x10, 0x10, 1.0);
+        painter.fill_ellipse(
+            ((top_x0 + top_x1) * 0.5) as f32,
+            ((top_y0 + top_y1) * 0.5) as f32,
+            (CELL * 0.10) as f32, (CELL * 0.04) as f32,
+            &Paint::solid(stain),
+        );
+    }
+    // Thin shadow line under the top.
+    let mut sep = PathOps::new();
+    sep.move_to(Vec2::new(top_x0 as f32, top_y1 as f32));
+    sep.line_to(Vec2::new(top_x1 as f32, top_y1 as f32));
+    painter.stroke_path(
+        &sep, &Paint::solid(ALTAR_INK),
+        &Stroke {
+            width: 0.6, line_cap: LineCap::Butt, line_join: LineJoin::Miter,
+        },
+    );
+}
+
+const BRAZIER_BOWL: Color = Color::rgba(0x4F, 0x33, 0x18, 1.0);
+const BRAZIER_RIM: Color = Color::rgba(0x2A, 0x1C, 0x10, 1.0);
+const BRAZIER_FLAME: Color = Color::rgba(0xFF, 0x9A, 0x30, 1.0);
+const BRAZIER_FLAME_CORE: Color = Color::rgba(0xFF, 0xE0, 0x60, 1.0);
+
+/// Brazier — small footed bowl with a flickering flame above.
+fn paint_brazier_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let cx = px + CELL * 0.5;
+    let bowl_cy = py + CELL * 0.65;
+    let bowl_rx = CELL * 0.22;
+    let bowl_ry = CELL * 0.10;
+    // Foot — short rect under the bowl.
+    rect_fill(painter,
+        cx - CELL * 0.08, bowl_cy + bowl_ry,
+        cx + CELL * 0.08, py + CELL * 0.85,
+        BRAZIER_BOWL,
+    );
+    // Bowl — wide ellipse.
+    painter.fill_ellipse(
+        cx as f32, bowl_cy as f32,
+        bowl_rx as f32, bowl_ry as f32,
+        &Paint::solid(BRAZIER_BOWL),
+    );
+    // Bowl rim — darker thin ellipse on top.
+    painter.fill_ellipse(
+        cx as f32, (bowl_cy - bowl_ry * 0.6) as f32,
+        bowl_rx as f32, (bowl_ry * 0.4) as f32,
+        &Paint::solid(BRAZIER_RIM),
+    );
+    // Flame — orange teardrop + brighter core.
+    let mut flame = PathOps::new();
+    let base_y = bowl_cy - bowl_ry * 0.6;
+    flame.move_to(Vec2::new(
+        (cx - CELL * 0.12) as f32, base_y as f32,
+    ));
+    flame.quad_to(
+        Vec2::new(cx as f32, (base_y - CELL * 0.25) as f32),
+        Vec2::new(cx as f32, (base_y - CELL * 0.32) as f32),
+    );
+    flame.quad_to(
+        Vec2::new(cx as f32, (base_y - CELL * 0.25) as f32),
+        Vec2::new((cx + CELL * 0.12) as f32, base_y as f32),
+    );
+    flame.close();
+    painter.fill_path(&flame, &Paint::solid(BRAZIER_FLAME), FillRule::Winding);
+    painter.fill_ellipse(
+        cx as f32, (base_y - CELL * 0.10) as f32,
+        (CELL * 0.04) as f32, (CELL * 0.10) as f32,
+        &Paint::solid(BRAZIER_FLAME_CORE),
+    );
+}
+
+const STATUE_STONE: Color = Color::rgba(0xB0, 0xAC, 0xA0, 1.0);
+const STATUE_INK: Color = Color::rgba(0x55, 0x52, 0x4A, 1.0);
+
+/// Statue — humanoid silhouette on a small base. Body is a
+/// vertical capsule + circular head.
+fn paint_statue_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let cx = px + CELL * 0.5;
+    let base_y = py + CELL * 0.85;
+    let base_x0 = cx - CELL * 0.25;
+    let base_x1 = cx + CELL * 0.25;
+    rect_fill(painter,
+        base_x0, base_y - CELL * 0.06, base_x1, base_y,
+        STATUE_INK,
+    );
+    // Body — vertical pill.
+    let body_x0 = cx - CELL * 0.10;
+    let body_x1 = cx + CELL * 0.10;
+    let body_y0 = py + CELL * 0.30;
+    let body_y1 = base_y - CELL * 0.06;
+    rect_fill(painter, body_x0, body_y0, body_x1, body_y1, STATUE_STONE);
+    // Head — circle above the body.
+    painter.fill_circle(
+        cx as f32, (body_y0 - CELL * 0.06) as f32,
+        (CELL * 0.10) as f32,
+        &Paint::solid(STATUE_STONE),
+    );
+}
+
+const PILLAR_STONE: Color = Color::rgba(0xC4, 0xBE, 0xA8, 1.0);
+const PILLAR_DARK: Color = Color::rgba(0x88, 0x82, 0x70, 1.0);
+
+/// Pillar — round column with a small base and capital plate.
+fn paint_pillar_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let cx = px + CELL * 0.5;
+    let base_y = py + CELL * 0.82;
+    let cap_y = py + CELL * 0.20;
+    let col_x0 = cx - CELL * 0.10;
+    let col_x1 = cx + CELL * 0.10;
+    rect_fill(painter, col_x0, cap_y, col_x1, base_y, PILLAR_STONE);
+    // Capital plate — wider rect at top.
+    let plate_x0 = cx - CELL * 0.18;
+    let plate_x1 = cx + CELL * 0.18;
+    rect_fill(painter, plate_x0, cap_y - CELL * 0.06, plate_x1, cap_y, PILLAR_DARK);
+    // Base plate — wider rect at bottom.
+    rect_fill(painter, plate_x0, base_y, plate_x1, base_y + CELL * 0.06, PILLAR_DARK);
+}
+
+const PEDESTAL_STONE: Color = Color::rgba(0xA8, 0xA0, 0x88, 1.0);
+const PEDESTAL_TOP: Color = Color::rgba(0xC8, 0xC0, 0xA8, 1.0);
+
+/// Pedestal — short circular plinth, top plate raised.
+fn paint_pedestal_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let cx = px + CELL * 0.5;
+    let base_cy = py + CELL * 0.72;
+    let body_rx = CELL * 0.20;
+    let body_ry = CELL * 0.08;
+    painter.fill_ellipse(
+        cx as f32, base_cy as f32,
+        body_rx as f32, body_ry as f32,
+        &Paint::solid(PEDESTAL_STONE),
+    );
+    rect_fill(painter,
+        cx - body_rx, base_cy - CELL * 0.20,
+        cx + body_rx, base_cy,
+        PEDESTAL_STONE,
+    );
+    let top_cy = base_cy - CELL * 0.20;
+    painter.fill_ellipse(
+        cx as f32, top_cy as f32,
+        body_rx as f32, body_ry as f32,
+        &Paint::solid(PEDESTAL_TOP),
+    );
+}
+
+const LADDER_RAIL: Color = Color::rgba(0x6B, 0x47, 0x28, 1.0);
+
+/// Ladder — two vertical rails + 4 horizontal rungs.
+fn paint_ladder_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let cx = px + CELL * 0.5;
+    let rail_x_l = cx - CELL * 0.16;
+    let rail_x_r = cx + CELL * 0.16;
+    let top_y = py + CELL * 0.15;
+    let bot_y = py + CELL * 0.85;
+    let rail_w = CELL * 0.04;
+    rect_fill(painter,
+        rail_x_l - rail_w * 0.5, top_y, rail_x_l + rail_w * 0.5, bot_y,
+        LADDER_RAIL,
+    );
+    rect_fill(painter,
+        rail_x_r - rail_w * 0.5, top_y, rail_x_r + rail_w * 0.5, bot_y,
+        LADDER_RAIL,
+    );
+    let rung_h = CELL * 0.04;
+    for i in 0..4 {
+        let t = (i as f64 + 0.5) / 4.0;
+        let ry = top_y + (bot_y - top_y) * t;
+        rect_fill(painter,
+            rail_x_l, ry - rung_h * 0.5, rail_x_r, ry + rung_h * 0.5,
+            LADDER_RAIL,
+        );
+    }
+}
+
+const TRAPDOOR_PLANK: Color = Color::rgba(0x6B, 0x47, 0x28, 1.0);
+const TRAPDOOR_OUTLINE: Color = Color::rgba(0x32, 0x24, 0x14, 1.0);
+const TRAPDOOR_HINGE: Color = Color::rgba(0x4F, 0x4F, 0x4F, 1.0);
+
+/// Trapdoor — square wooden hatch with a diagonal brace and a
+/// circular hinge / handle dot.
+fn paint_trapdoor_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let x0 = px + CELL * 0.25;
+    let x1 = px + CELL * 0.75;
+    let y0 = py + CELL * 0.25;
+    let y1 = py + CELL * 0.75;
+    rect_fill(painter, x0, y0, x1, y1, TRAPDOOR_PLANK);
+    let outline = Stroke {
+        width: 1.0, line_cap: LineCap::Butt, line_join: LineJoin::Miter,
+    };
+    let outline_paint = Paint::solid(TRAPDOOR_OUTLINE);
+    let mut frame = PathOps::new();
+    frame.move_to(Vec2::new(x0 as f32, y0 as f32));
+    frame.line_to(Vec2::new(x1 as f32, y0 as f32));
+    frame.line_to(Vec2::new(x1 as f32, y1 as f32));
+    frame.line_to(Vec2::new(x0 as f32, y1 as f32));
+    frame.close();
+    painter.stroke_path(&frame, &outline_paint, &outline);
+    let mut diag = PathOps::new();
+    diag.move_to(Vec2::new(x0 as f32, y0 as f32));
+    diag.line_to(Vec2::new(x1 as f32, y1 as f32));
+    painter.stroke_path(&diag, &outline_paint, &outline);
+    // Hinge dot at top-left, handle at bottom-right.
+    painter.fill_circle(
+        (x0 + CELL * 0.04) as f32, (y0 + CELL * 0.04) as f32,
+        (CELL * 0.025) as f32,
+        &Paint::solid(TRAPDOOR_HINGE),
+    );
+    painter.fill_circle(
+        (x1 - CELL * 0.04) as f32, (y1 - CELL * 0.04) as f32,
+        (CELL * 0.025) as f32,
+        &Paint::solid(TRAPDOOR_HINGE),
+    );
+}
+
+const FOOTPRINT_INK: Color = Color::rgba(0x4A, 0x35, 0x25, 1.0);
+
+/// Footprint fixture — single boot-shape stamp at the anchor
+/// (sole + heel ellipses). Distinct from the per-tile-decorator
+/// ``Footprints`` bit by being a one-shot fixture rather than a
+/// scattered density.
+fn paint_footprint_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let cx = px + CELL * 0.5;
+    let cy = py + CELL * 0.5;
+    let fill = Paint::solid(FOOTPRINT_INK);
+    painter.fill_ellipse(
+        cx as f32, cy as f32,
+        (CELL * 0.10) as f32, (CELL * 0.18) as f32,
+        &fill,
+    );
+    painter.fill_ellipse(
+        cx as f32, (cy + CELL * 0.13) as f32,
+        (CELL * 0.07) as f32, (CELL * 0.05) as f32,
+        &fill,
+    );
+}
+
+const CHALK_INK: Color = Color::rgba(0xF0, 0xF0, 0xE8, 1.0);
+
+/// ChalkCircle — pale chalk ring with a few inscribed marks
+/// (radial dashes) inside; reads as an arcane summoning circle.
+fn paint_chalk_circle_anchor(painter: &mut dyn Painter, a: &Anchor, _seed: u64) {
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let cx = px + CELL * 0.5;
+    let cy = py + CELL * 0.5;
+    let r_outer = CELL * 0.36;
+    let r_inner = CELL * 0.28;
+    let stroke = Stroke {
+        width: 0.9, line_cap: LineCap::Round, line_join: LineJoin::Round,
+    };
+    let paint = Paint::solid(CHALK_INK);
+    // Outer + inner rings — sample 32 segments for a smooth circle.
+    for radius in [r_outer, r_inner] {
+        let mut path = PathOps::new();
+        let n = 32;
+        for i in 0..=n {
+            let theta = (i as f64) * 2.0 * PI / (n as f64);
+            let pxx = cx + radius * theta.cos();
+            let pyy = cy + radius * theta.sin();
+            if i == 0 {
+                path.move_to(Vec2::new(pxx as f32, pyy as f32));
+            } else {
+                path.line_to(Vec2::new(pxx as f32, pyy as f32));
+            }
+        }
+        painter.stroke_path(&path, &paint, &stroke);
+    }
+    // Six radial inscribed dashes between the rings.
+    for i in 0..6 {
+        let theta = (i as f64) * PI / 3.0;
+        let mut dash = PathOps::new();
+        dash.move_to(Vec2::new(
+            (cx + r_inner * theta.cos()) as f32,
+            (cy + r_inner * theta.sin()) as f32,
+        ));
+        dash.line_to(Vec2::new(
+            (cx + r_outer * theta.cos()) as f32,
+            (cy + r_outer * theta.sin()) as f32,
+        ));
+        painter.stroke_path(&dash, &paint, &stroke);
+    }
+}
+
+/// Convenience axis-aligned rectangle fill via fill_path. Used
+/// by the per-anchor painters above instead of fill_rect so the
+/// SVG painter renders a single ``<path>`` rather than mixing
+/// ``<rect>`` + ``<path>`` elements in the same fixture.
+fn rect_fill(
+    painter: &mut dyn Painter,
+    x0: f64, y0: f64, x1: f64, y1: f64,
+    color: Color,
+) {
+    let mut path = PathOps::new();
+    path.move_to(Vec2::new(x0 as f32, y0 as f32));
+    path.line_to(Vec2::new(x1 as f32, y0 as f32));
+    path.line_to(Vec2::new(x1 as f32, y1 as f32));
+    path.line_to(Vec2::new(x0 as f32, y1 as f32));
+    path.close();
+    painter.fill_path(&path, &Paint::solid(color), FillRule::Winding);
+}
+
 fn collect_tiles(anchors: &Vector<'_, Anchor>) -> Vec<(i32, i32)> {
     (0..anchors.len())
         .map(|i| {
@@ -657,6 +1114,67 @@ pub fn draw<'a>(
             }
             for i in 0..anchors.len() {
                 paint_mushroom_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        // Post-Phase-5 deferred-polish kinds.
+        FixtureKind::Chest => {
+            for i in 0..anchors.len() {
+                paint_chest_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Crate => {
+            for i in 0..anchors.len() {
+                paint_crate_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Barrel => {
+            for i in 0..anchors.len() {
+                paint_barrel_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Altar => {
+            for i in 0..anchors.len() {
+                paint_altar_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Brazier => {
+            for i in 0..anchors.len() {
+                paint_brazier_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Statue => {
+            for i in 0..anchors.len() {
+                paint_statue_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Pillar => {
+            for i in 0..anchors.len() {
+                paint_pillar_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Pedestal => {
+            for i in 0..anchors.len() {
+                paint_pedestal_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Ladder => {
+            for i in 0..anchors.len() {
+                paint_ladder_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Trapdoor => {
+            for i in 0..anchors.len() {
+                paint_trapdoor_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::Footprint => {
+            for i in 0..anchors.len() {
+                paint_footprint_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
+        FixtureKind::ChalkCircle => {
+            for i in 0..anchors.len() {
+                paint_chalk_circle_anchor(painter, &anchors.get(i), op.seed());
             }
         }
         _ => {
@@ -847,6 +1365,36 @@ mod tests {
                 painter.calls.len() > 1,
                 "kind {kind:?}: expected multi-call lifted painter, got {}",
                 painter.calls.len()
+            );
+        }
+    }
+
+    /// Each post-Phase-5 deferred-polish kind dispatches to its
+    /// per-anchor painter and emits multiple paint calls (none
+    /// fall through to the magenta-sentinel wildcard arm).
+    #[test]
+    fn deferred_fixture_kinds_dispatch_to_their_painters() {
+        for kind in [
+            FixtureKind::Chest, FixtureKind::Crate, FixtureKind::Barrel,
+            FixtureKind::Altar, FixtureKind::Brazier, FixtureKind::Statue,
+            FixtureKind::Pillar, FixtureKind::Pedestal,
+            FixtureKind::Ladder, FixtureKind::Trapdoor,
+            FixtureKind::Footprint, FixtureKind::ChalkCircle,
+        ] {
+            let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+            let painter = run(&build_fixture_op(kind, &anchors));
+            assert!(
+                painter.calls.len() > 1,
+                "kind {kind:?}: expected multi-call painter, got {}",
+                painter.calls.len()
+            );
+            // The wildcard sentinel arm emits exactly one
+            // FillCircle in magenta — pin that none of the new
+            // kinds collapse to that single call.
+            let only_one_call = painter.calls.len() == 1;
+            assert!(
+                !only_one_call,
+                "kind {kind:?}: collapsed to sentinel single-FillCircle"
             );
         }
     }
