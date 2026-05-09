@@ -40,6 +40,8 @@ register_catalog_page(CatalogPageSpec(
         )),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "creature-scale"},
 ))
 
@@ -63,6 +65,8 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Bush", fixture_factory(kind=FixtureKind.Bush)),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "objects-1"},
 ))
 
@@ -88,6 +92,8 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Sign", fixture_factory(kind=FixtureKind.Sign)),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "objects-2"},
 ))
 
@@ -111,6 +117,8 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Trough", fixture_factory(kind=FixtureKind.Trough)),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "containers"},
 ))
 
@@ -133,6 +141,8 @@ register_catalog_page(CatalogPageSpec(
         )),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "ritual"},
 ))
 
@@ -157,6 +167,8 @@ register_catalog_page(CatalogPageSpec(
         )),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "architecture"},
 ))
 
@@ -179,6 +191,8 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Pig", fixture_factory(kind=FixtureKind.Pig)),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "farm-animals-1"},
 ))
 
@@ -198,6 +212,8 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Horse", fixture_factory(kind=FixtureKind.Horse)),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "farm-animals-2"},
 ))
 
@@ -226,6 +242,8 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Plough", fixture_factory(kind=FixtureKind.Plough)),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "farm-structures"},
 ))
 
@@ -248,6 +266,8 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Bed", fixture_factory(kind=FixtureKind.Bed)),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "dwelling-interior-1"},
 ))
 
@@ -268,6 +288,8 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Cauldron", fixture_factory(kind=FixtureKind.Cauldron)),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "dwelling-interior-2"},
 ))
 
@@ -291,6 +313,8 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Logs", fixture_factory(kind=FixtureKind.Logs)),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "outdoor-camp-1"},
 ))
 
@@ -310,6 +334,8 @@ register_catalog_page(CatalogPageSpec(
         ColumnSpec("Boulder", fixture_factory(kind=FixtureKind.Boulder)),
     ],
     seed=7,
+    rows=("",),
+    cell_shape="rect",
     params={"axis": "outdoor-camp-2"},
 ))
 
