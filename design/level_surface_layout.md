@@ -93,6 +93,18 @@ For non-enclosure sites (`tower / farm / mansion / temple /
 cottage / mage_residence`), drop step 2's enclosure inner pad
 and skip the palisade in step 4.
 
+**Site surface relaxation:** the strict 1-tile VOID margin is
+intentionally relaxed for `site:*` surfaces. Settlements and
+sub-hex feature sites use the canvas edge for the outer grass
+ring (`nhc/sites/_site.py::paint_outer_grass_ring`,
+`town.py::config.grass_ring_width`) so the surface reads "site
+sits in countryside" rather than "framed art on paper".
+`tests/unit/test_level_surface_invariant.py` opts site-prefixed
+entries into `_RELAX_BBOX_TO_CANVAS_EDGE`; dungeon / template /
+theme / building-floor levels keep the strict invariant. See
+`design/sites.md` §"Settlement architecture" for the full
+settlement allocation model.
+
 ### Dungeon / template / underworld generators
 
 These already place rooms inside a pre-sized grid; the bug here

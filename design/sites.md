@@ -214,10 +214,12 @@ it once they migrate their populator-style spawning.
   Set on entry to any site, cleared on exit. Used by
   `current_view`, `_is_site_edge_exit`, and
   `_leave_site_narration_key`.
-- `_active_site_sub: HexCoord | None` — the sub-hex coord for a
+- `_active_site_sub: HexCoord | None` — sub-hex coord for a
   sub-hex site entry. Replaces the pre-M5 `_active_sub_hex`
-  field. None for macro entries (until M6d-3 introduces
-  `_active_site_macro` for the macro discriminator).
+  field. None for macro entries.
+- `_active_site_macro: HexCoord | None` — macro coord for a
+  macro site entry. None for sub-hex entries. Pair with
+  `_active_site_sub` to discriminate site origin.
 - `_active_descent_building` / `_active_descent_return_tile` /
   `_active_cave_cluster` — separate dungeon-system markers,
   unchanged by the site unification.
@@ -237,13 +239,10 @@ The macro's `cell.feature` and `cell.dungeon` are *derived from*
 hexmap is a visual summary of whichever site sits at the
 flower's feature_cell.
 
-Today (post-M6c) the data is *duplicated* — generators write
-the feature + DungeonRef onto both the macro `HexCell` and the
-flower's feature_cell sub-hex at generation time
-(`nhc/hexcrawl/_flowers.py:833-844`). M6e turns
-`HexCell.feature` and `HexCell.dungeon` into `@property`-derived
-accessors that read from the feature_cell, completing the
-flower-primary migration.
+Since M6e (`54945d9c`), `HexCell.feature` and `HexCell.dungeon`
+are `@property`-derived accessors that read from the
+feature_cell sub-hex; no duplication. Generators write only the
+flower's feature_cell.
 
 ## How a sub-hex site is built (the canonical path)
 
@@ -280,8 +279,10 @@ Each per-kind branch in `enter_site` provides:
   SubHexPopulation` closure.
 - `faction` — optional creature-faction override.
 
-Macro kinds fall through to the legacy `_enter_*_site` helpers
-today; once M6d-3 lands they will share the same pattern.
+Macro kinds flow through the `_enter_*_site` helpers
+(`_enter_walled_site`, `_enter_tower_site`, `_enter_mansion_site`,
+`_enter_farm_site`); they share the cache wiring on
+`SiteCacheManager` since M6d-3.
 
 ## What the player sees
 
@@ -330,13 +331,97 @@ through `_enter_sub_hex_assembled`.
 - **M6d-1 / M6d-2** (`e36855e`, `6148e0a`):
   `SubHexCacheManager` → `SiteCacheManager`; manager accepts
   `("sub", …)` and `("site", …)` keys.
-- **M6d-3** (in progress): macro entries write their surface to
+- **M6d-3** (`c9f9df82`): macro entries write their surface to
   `SiteCacheManager` with `_active_site_macro` discriminator.
-- **M6e** (planned): flower-primary data migration; macro
-  `cell.feature` / `cell.dungeon` become `@property`-derived.
+- **M6d-4** (`16bc7853`): site-scoped mutation handler renames.
+- **M6e** (`54945d9c`): flower-primary data migration; macro
+  `cell.feature` / `cell.dungeon` derive from feature_cell.
 
-The full handover plan for M6d-3 / M6d-4 / M6e lives at
-`~/src/nhc_sites_unification_m6_remaining.md`.
+## Settlement architecture (post-M6 town redesign)
+
+`town.py::assemble_town` produces all four settlement size_classes
+(hamlet, village, town, city). The size_class config drives every
+dimensional and material decision.
+
+### Size class config (`nhc/sites/town.py`)
+
+| size_class | buildings | outer dims | enclosure          | streets       | ring |
+|------------|-----------|------------|--------------------|---------------|------|
+| hamlet     | 3-4       | 56×40      | none               | FieldStone    | 1    |
+| village    | 5-7       | 72×58      | palisade           | Cobble Rubble | 2    |
+| town       | 8-10      | 88×72      | palisade           | Flagstone     | 2    |
+| city       | 40-48     | 104×86     | fortification +    | Flagstone +   | 2    |
+|            |           |            | paved courtyard    | Ashlar plaza  |      |
+
+`_TownSizeConfig` carries `enclosure_kind` (`"palisade"` /
+`"fortification"`), `paved_courtyard` (cities only),
+`grass_ring_width` (1 for hamlet, 2 for the rest), centerpiece
+size, and street/pavement material triples.
+
+### Surface allocation: palisade rect inset
+
+Surface size is `palisade_outer + 2`. `_palisade_outer_rect`
+insets the palisade rect by `config.grass_ring_width` so a
+`ring=2` settlement has its palisade at `(2, 2)` to
+`(outer_w, outer_h)`, leaving a 2-tile grass apron between the
+wall and the canvas edge. Relaxes the strict 1-tile VOID margin
+contract for site surfaces — see
+`design/level_surface_layout.md` §3.
+
+### Per-region material override
+
+`LevelMetadata` carries `street_material` and `pavement_material`
+(each a `(family, style, sub_pattern)` int triple). When set,
+`emit_paint`'s stone-decorator loop overrides the default region
+material on the matching prefix:
+
+- `street_material` → applied to `paved.*` regions (the routed
+  STREET network).
+- `pavement_material` → applied to `pavement.*` regions
+  (city-only Ashlar plaza inside the fortification).
+
+Defaults stay the same for keep / mansion / synthetic fixtures
+that don't set the override. Plumbing lives in
+`nhc/rendering/emit/paint.py:227+` (override branch) and
+`nhc/sites/town.py:1246+` (stamp on the LevelMetadata).
+
+### `SurfaceType.PAVEMENT`
+
+`SurfaceType.PAVEMENT` (`nhc/dungeon/model.py`) is distinct from
+`STREET`. Cities stamp GARDEN / FIELD inside the fortification →
+PAVEMENT via `_pave_courtyard_post_pass`
+(`town.py:1268`). PAVEMENT tiles collect into the `pavement.*`
+region, keeping the routed STREET network on a separate
+`paved.*` region.
+
+### Door↔street connectivity
+
+`connect_doors_to_street_network` (`_town_streets.py:339`) runs
+in `assemble_town` after door placement. For every entry in
+`site.building_doors`, checks the door tile has a STREET
+4-neighbour; if not, A*-routes a path from a walkable side-tile
+to the nearest existing STREET and stamps the path. The door
+tile itself is never overwritten — door-bias semantics
+(L-block elbow → GARDEN, courtyard E/W → GARDEN) survive.
+
+For doors trapped in cluster-packing pockets that A* can't
+escape, falls back to a single-tile STREET stub on the side
+neighbour. Pinned by
+`tests/unit/sites/test_door_street_connectivity.py`: strict —
+every door has a STREET 4-neighbour; soft — ≥50% of doors land
+adjacent to the largest STREET component. Some doors stay
+isolated in dense city pockets; full fix requires the cluster
+packer to avoid enclosing walkable pockets.
+
+### Grass-ring perimeter
+
+`paint_outer_grass_ring(level, ring_width)` shared helper in
+`nhc/sites/_site.py:435`. Called from `assemble_site` for every
+non-town kind (`ring_width=1`) and from `town._build_town_surface`
+with `config.grass_ring_width`. Replaces the historic 1-tile
+VOID buffer at the canvas edge with renderable GRASS / FIELD so
+the canvas reads "site sits in countryside" rather than "framed
+art on paper".
 
 ## See also
 
