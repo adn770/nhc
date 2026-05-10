@@ -1,23 +1,20 @@
-//! RoofOp consumer — projection-geometry shingled roof.
+//! RoofOp consumer — projection-geometry roof.
 //!
 //! Phase 3.1 follow-on of `plans/nhc_pure_ir_v5_migration_plan.md`.
 //! Bridges the v5 ``RoofOp`` to the polygon-driven inner painter
-//! `super::roof::draw_roof_polygon` lifted from the v4 RoofOp
-//! handler. The dispatch shape:
+//! `super::roof::draw_roof_polygon`. The dispatch shape:
 //!
 //! 1. Look up the building region in ``v5_regions[]`` by
 //!    ``op.region_ref``.
-//! 2. Extract the polygon vertex list + shape_tag from the v5
-//!    region's outline.
-//! 3. Pull tint + seed from the RoofOp; build a clip path from
-//!    the region's outline (EvenOdd rule for multi-ring outlines).
-//! 4. Hand off to the polygon-driven inner painter — the same
-//!    code path the v4 dispatch reaches.
-//!
-//! The v5 Material model (RoofStyle / tone) is currently unused
-//! by the inner painter; that pipeline picks geometry mode from
-//! ``shape_tag`` alone. Style / tone integration rides a Phase 5+
-//! follow-on once the painter grows a tone-aware palette table.
+//! 2. Extract the polygon vertex list from the v5 region's
+//!    outline.
+//! 3. Pull style + tint + seed from the RoofOp; build a clip
+//!    path from the region's outline (EvenOdd rule for multi-ring
+//!    outlines).
+//! 4. Hand off to the polygon-driven inner painter, which
+//!    dispatches per-style: `Simple` (flat tint), `Pyramid`
+//!    (centroid spokes), `Gable` (long-axis ridge), `Dome`
+//!    (concentric rings), `WitchHat` (offset apex).
 
 use flatbuffers::{ForwardsUOffset, Vector};
 
@@ -46,13 +43,12 @@ pub fn draw<'a>(
         _ => return false,
     };
     let polygon: Vec<(f32, f32)> = verts.iter().map(|p| (p.x(), p.y())).collect();
-    let shape_tag = region.shape_tag().unwrap_or("");
     let tint = op.tint().filter(|s| !s.is_empty()).unwrap_or("#8A7A5A");
     let clip = build_clip_pathops(&outline);
     super::roof::draw_roof_polygon(
         painter,
         &polygon,
-        shape_tag,
+        op.style(),
         tint,
         op.seed(),
         clip.as_ref(),
@@ -115,9 +111,8 @@ mod tests {
     };
     use crate::painter::test_util::{MockPainter, PainterCall};
 
-    fn build_roof_op(shape_tag: &str) -> Vec<u8> {
+    fn build_roof_op(shape_tag: &str, style: RoofStyle) -> Vec<u8> {
         let mut fbb = FlatBufferBuilder::new();
-        // Square polygon for shape_tag = "rect" → pyramid roof.
         let verts = fbb.create_vector(&[
             FbVec2::new(64.0, 64.0),
             FbVec2::new(192.0, 64.0),
@@ -151,7 +146,7 @@ mod tests {
             &mut fbb,
             &RoofOpArgs {
                 region_ref: Some(region_ref),
-                style: RoofStyle::Simple,
+                style,
                 tone: 1,
                 tint: Some(tint),
                 seed: 0xCAFE_F00D,
@@ -198,32 +193,110 @@ mod tests {
         painter
     }
 
-    /// Rect roof routes through the polygon painter — pyramid mode,
-    /// emits multiple shingle paths inside a clip envelope.
-    #[test]
-    fn rect_shape_tag_routes_to_pyramid_roof() {
-        let painter = run(&build_roof_op("rect"));
-        // Pyramid emits N triangular sides; each side draws several
-        // shingle rows. Multi-call output pins the dispatch.
-        assert!(painter.calls.len() > 1);
-        let pushed = painter
+    fn fill_path_count(painter: &MockPainter) -> usize {
+        painter
             .calls
             .iter()
-            .any(|c| matches!(c, PainterCall::PushClip(_, _)));
-        assert!(pushed, "rect roof should push a clip envelope");
+            .filter(|c| matches!(c, PainterCall::FillPath(_, _, _)))
+            .count()
     }
 
-    /// Wide-rect roof uses gable mode (longer axis ridge). The
-    /// polygon painter dispatches via shape_tag + dimensions.
-    #[test]
-    fn wide_rect_uses_gable_mode_via_inner_painter() {
-        let painter = run(&build_roof_op("rect"));
-        // Both modes emit closed paths; pin that the call set
-        // contains fill_path (shingle quads).
-        let has_fill = painter
+    fn fill_circle_count(painter: &MockPainter) -> usize {
+        painter
             .calls
             .iter()
-            .any(|c| matches!(c, PainterCall::FillPath(_, _, _)));
-        assert!(has_fill);
+            .filter(|c| matches!(c, PainterCall::FillCircle(_, _, _, _)))
+            .count()
+    }
+
+    fn fill_rect_count(painter: &MockPainter) -> usize {
+        painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::FillRect(_, _)))
+            .count()
+    }
+
+    /// Every style still wraps painting in a clip envelope so
+    /// shingles / fills stay inside the building outline.
+    #[test]
+    fn every_style_wraps_in_clip_envelope() {
+        for style in [
+            RoofStyle::Simple,
+            RoofStyle::Pyramid,
+            RoofStyle::Gable,
+            RoofStyle::Dome,
+            RoofStyle::WitchHat,
+        ] {
+            let painter = run(&build_roof_op("rect", style));
+            let pushed = painter
+                .calls
+                .iter()
+                .any(|c| matches!(c, PainterCall::PushClip(_, _)));
+            assert!(pushed, "{style:?}: missing PushClip envelope");
+        }
+    }
+
+    /// `Simple` → single flat-tint fill_path. No shingle rows, no
+    /// ridge spokes. The catalog's Simple column renders this.
+    #[test]
+    fn simple_style_emits_single_flat_fill() {
+        let painter = run(&build_roof_op("rect", RoofStyle::Simple));
+        // Exactly one FillPath (the flat polygon fill).
+        assert_eq!(fill_path_count(&painter), 1);
+        // No shingle FillRects, no apex disc.
+        assert_eq!(fill_rect_count(&painter), 0);
+        assert_eq!(fill_circle_count(&painter), 0);
+    }
+
+    /// `Pyramid` → centroid spokes; one fill_path per polygon
+    /// edge plus a single multi-segment ridge stroke. No apex
+    /// disc.
+    #[test]
+    fn pyramid_style_emits_centroid_pyramid_sides() {
+        let painter = run(&build_roof_op("rect", RoofStyle::Pyramid));
+        // Square polygon has 4 edges → 4 FillPath calls (one per
+        // triangular side).
+        assert_eq!(fill_path_count(&painter), 4);
+        assert_eq!(fill_circle_count(&painter), 0);
+    }
+
+    /// `Gable` → fills shingle rows via FillRect (long-axis
+    /// ridge). Distinct from Pyramid (no FillRect calls).
+    #[test]
+    fn gable_style_emits_shingle_rect_rows() {
+        let painter = run(&build_roof_op("rect", RoofStyle::Gable));
+        // Many shingles → many FillRect calls.
+        assert!(
+            fill_rect_count(&painter) > 4,
+            "Gable should emit shingle rows via FillRect"
+        );
+    }
+
+    /// `Dome` → concentric inset polygons, no spoke ridge stroke.
+    /// Pin: at least 4 FillPath calls (one per ring) and zero
+    /// FillRect / FillCircle calls.
+    #[test]
+    fn dome_style_emits_concentric_rings() {
+        let painter = run(&build_roof_op("rect", RoofStyle::Dome));
+        assert!(
+            fill_path_count(&painter) >= 4,
+            "Dome should emit concentric ring fills"
+        );
+        assert_eq!(fill_rect_count(&painter), 0);
+        assert_eq!(fill_circle_count(&painter), 0);
+    }
+
+    /// `WitchHat` → pyramid-style sides plus a small bright apex
+    /// disc. Pin: at least one FillCircle for the apex tip.
+    #[test]
+    fn witch_hat_style_renders_offset_apex_disc() {
+        let painter = run(&build_roof_op("rect", RoofStyle::WitchHat));
+        assert_eq!(
+            fill_circle_count(&painter), 1,
+            "WitchHat should overlay a bright apex disc"
+        );
+        // Spoked sides too.
+        assert!(fill_path_count(&painter) >= 4);
     }
 }

@@ -53,6 +53,40 @@ def _decode_id(value: Any) -> str:
     return value.decode() if isinstance(value, bytes) else (value or "")
 
 
+def _pick_style(region: Any) -> int:
+    """Pick the RoofStyle that matches the legacy shape-driven
+    geometry dispatch byte-for-byte.
+
+    The Rust roof painter used to ignore RoofStyle and pick
+    Pyramid vs Gable from ``shape_tag`` + bbox dimensions:
+
+    - ``l_shape_*`` → Gable
+    - ``rect`` with square bbox → Pyramid; wide / tall → Gable
+    - everything else (octagon / circle / unknown) → Pyramid
+
+    Now the painter dispatches per-style, so the emit layer has
+    to stamp the corresponding RoofStyle. Producing the same
+    style the painter would auto-pick keeps every existing roof
+    pixel-identical with the legacy output.
+    """
+    shape_tag = _decode_id(getattr(region, "shapeTag", "") or "")
+    if shape_tag.startswith("l_shape"):
+        return RoofStyle.Gable
+    if shape_tag == "rect":
+        outline = getattr(region, "outline", None)
+        verts = getattr(outline, "vertices", None) if outline else None
+        if verts:
+            xs = [float(v.x) for v in verts]
+            ys = [float(v.y) for v in verts]
+            w = max(xs) - min(xs)
+            h = max(ys) - min(ys)
+            if abs(w - h) < 1e-6:
+                return RoofStyle.Pyramid
+            return RoofStyle.Gable
+        return RoofStyle.Pyramid
+    return RoofStyle.Pyramid
+
+
 def emit_roofs(builder: Any) -> list[OpEntryT]:
     """Walk builder.regions for Building regions and emit V5RoofOps.
 
@@ -81,7 +115,7 @@ def emit_roofs(builder: Any) -> list[OpEntryT]:
         tint = _ROOF_TINTS[_splitmix64_first(tint_seed) % len(_ROOF_TINTS)]
         v5 = RoofOpT()
         v5.regionRef = f"building.{i}"
-        v5.style = RoofStyle.Simple
+        v5.style = _pick_style(region)
         v5.tone = 1
         v5.tint = tint
         v5.seed = rng_seed

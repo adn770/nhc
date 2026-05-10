@@ -19,7 +19,7 @@
 //! handler-only ports of `terrain_detail` (Phase 2.12) and the
 //! wood-floor branch of `floor_detail` (Phase 2.15a).
 
-use crate::ir::{FloorIR, OpEntry, Region, RoofOp};
+use crate::ir::{FloorIR, OpEntry, Region, RoofOp, RoofStyle};
 use crate::painter::{
     Color, FillRule, LineCap, Paint, Painter, PathOps, Rect as PRect,
     Stroke, Vec2,
@@ -109,33 +109,30 @@ fn shade_palette(tint: &str, sunlit: bool) -> [(u8, u8, u8); 3] {
 // ── Geometry mode picker ───────────────────────────────────────
 
 
+/// Drawing mode dispatched from `RoofStyle`. The emit pipeline
+/// (`nhc/rendering/emit/roof.py`) picks the style per-shape so
+/// that the production roof rendering stays byte-identical to
+/// the legacy shape-driven dispatch — square / octagon / circle
+/// footprints get `Pyramid`, wide rect / L-shape get `Gable`.
+/// `Simple`, `Dome`, `WitchHat` are catalog-only styles today.
 enum Mode {
-    Gable,
+    Simple,
     Pyramid,
+    Gable,
+    Dome,
+    WitchHat,
 }
 
-fn geometry_mode(shape_tag: &str, polygon: &[(f32, f32)]) -> Mode {
-    if shape_tag.starts_with("l_shape") {
-        return Mode::Gable;
+fn mode_for_style(style: RoofStyle) -> Mode {
+    match style {
+        RoofStyle::Pyramid => Mode::Pyramid,
+        RoofStyle::Gable => Mode::Gable,
+        RoofStyle::Dome => Mode::Dome,
+        RoofStyle::WitchHat => Mode::WitchHat,
+        // Simple + any unknown trailing variant fall through to
+        // the flat-tint fallback.
+        _ => Mode::Simple,
     }
-    if shape_tag == "rect" {
-        let (mut min_x, mut max_x) = (f32::INFINITY, f32::NEG_INFINITY);
-        let (mut min_y, mut max_y) = (f32::INFINITY, f32::NEG_INFINITY);
-        for &(x, y) in polygon {
-            if x < min_x { min_x = x; }
-            if x > max_x { max_x = x; }
-            if y < min_y { min_y = y; }
-            if y > max_y { max_y = y; }
-        }
-        let w = max_x - min_x;
-        let h = max_y - min_y;
-        return if (w - h).abs() < 1e-6 {
-            Mode::Pyramid
-        } else {
-            Mode::Gable
-        };
-    }
-    Mode::Pyramid // octagon / circle / unknown
 }
 
 
@@ -281,6 +278,145 @@ fn draw_gable_sides(
     }
 }
 
+/// `Mode::Simple` — flat single-tint fill matching the design
+/// doc's "flat tint over the building footprint (default)" entry.
+/// One closed `fill_path` over the polygon, no shingle rows, no
+/// ridge spokes. Production roofs never go through this path
+/// (the emit layer picks Pyramid / Gable per shape); it's the
+/// default fallback for unknown styles and the shape that the
+/// catalog `synthetic/roofs/styles_seed7.png` Simple column
+/// renders.
+fn draw_simple_flat(
+    polygon: &[(f32, f32)],
+    sunlit: &[(u8, u8, u8); 3],
+    painter: &mut dyn Painter,
+) {
+    if polygon.len() < 3 {
+        return;
+    }
+    let mut path = PathOps::new();
+    for (i, &(x, y)) in polygon.iter().enumerate() {
+        let p = Vec2::new(x, y);
+        if i == 0 {
+            path.move_to(p);
+        } else {
+            path.line_to(p);
+        }
+    }
+    path.close();
+    // Mid-tone of the sunlit palette — same colour the gable /
+    // pyramid algos use for the brighter side. Reads as a clean
+    // "single-tint roof tile" against the parchment background.
+    let fill = rgb_paint(sunlit[1], 1.0);
+    painter.fill_path(&path, &fill, FillRule::Winding);
+}
+
+/// `Mode::Dome` — concentric tonal rings reading as a top-down
+/// hemisphere. No spokes; each successive ring shrinks toward the
+/// centroid and brightens to suggest a lit-from-above curvature.
+fn draw_dome_rings(
+    polygon: &[(f32, f32)],
+    bbox: (f32, f32, f32, f32),
+    sunlit: &[(u8, u8, u8); 3],
+    shadow: &[(u8, u8, u8); 3],
+    painter: &mut dyn Painter,
+) {
+    let (min_x, min_y, pw, ph) = bbox;
+    let cx = min_x + pw / 2.0;
+    let cy = min_y + ph / 2.0;
+    // Outer-to-inner: dark → bright. Using shadow[1], shadow[0],
+    // sunlit[0], sunlit[2] gives a 4-stop gradient with the
+    // brightest highlight at the top of the dome (centre).
+    let stops: [(f32, (u8, u8, u8)); 4] = [
+        (1.00, shadow[1]),
+        (0.78, shadow[0]),
+        (0.55, sunlit[0]),
+        (0.30, sunlit[2]),
+    ];
+    let stroke_paint = rgb_paint((0, 0, 0), SHINGLE_STROKE_OPACITY);
+    let stroke = shingle_stroke();
+    for (scale, shade) in stops {
+        let mut path = PathOps::new();
+        for (i, &(x, y)) in polygon.iter().enumerate() {
+            let p = Vec2::new(
+                cx + (x - cx) * scale,
+                cy + (y - cy) * scale,
+            );
+            if i == 0 {
+                path.move_to(p);
+            } else {
+                path.line_to(p);
+            }
+        }
+        path.close();
+        let fill = rgb_paint(shade, 1.0);
+        painter.fill_path(&path, &fill, FillRule::Winding);
+        painter.stroke_path(&path, &stroke_paint, &stroke);
+    }
+}
+
+/// `Mode::WitchHat` — tall narrow conical hat. Same radial-side
+/// layout as `Pyramid`, but the apex is shifted upward by 30 % of
+/// the bbox height so the silhouette reads as an asymmetric cone.
+/// A small bright disc at the apex stands in for the tip
+/// poking up through the top-down view.
+fn draw_witch_hat_sides(
+    polygon: &[(f32, f32)],
+    bbox: (f32, f32, f32, f32),
+    sunlit: &[(u8, u8, u8); 3],
+    shadow: &[(u8, u8, u8); 3],
+    rng: &mut RoofRng,
+    painter: &mut dyn Painter,
+) {
+    let n = polygon.len();
+    if n == 0 {
+        return;
+    }
+    let (_, _, pw, ph) = bbox;
+    let avg_x = polygon.iter().map(|p| p.0).sum::<f32>() / n as f32;
+    let avg_y = polygon.iter().map(|p| p.1).sum::<f32>() / n as f32;
+    let apex_x = avg_x;
+    // Apex sits 30 % of the bbox height above the polygon
+    // centroid — gives the cone a tall, leaning-up silhouette
+    // distinct from `Pyramid`'s centroid-aligned spine.
+    let apex_y = avg_y - ph * 0.30;
+    let stroke_paint = rgb_paint((0, 0, 0), SHINGLE_STROKE_OPACITY);
+    let stroke = shingle_stroke();
+    for i in 0..n {
+        let a = polygon[i];
+        let b = polygon[(i + 1) % n];
+        let mx = (a.0 + b.0) / 2.0;
+        let my = (a.1 + b.1) / 2.0;
+        let is_shadow = my < avg_y - 1e-3
+            || (mx < avg_x - 1e-3 && my < avg_y + 1e-3);
+        let palette = if is_shadow { shadow } else { sunlit };
+        let fill_rgb = *rng.choice(palette);
+        let mut path = PathOps::new();
+        path.move_to(Vec2::new(a.0, a.1));
+        path.line_to(Vec2::new(b.0, b.1));
+        path.line_to(Vec2::new(apex_x, apex_y));
+        path.close();
+        let fill = rgb_paint(fill_rgb, 1.0);
+        painter.fill_path(&path, &fill, FillRule::Winding);
+        painter.stroke_path(&path, &stroke_paint, &stroke);
+    }
+    // Spokes from each vertex to the offset apex.
+    let ridge_paint = rgb_paint((0, 0, 0), 1.0);
+    let ridge_stroke_def = ridge_stroke();
+    let mut path = PathOps::new();
+    for &(vx, vy) in polygon {
+        path.move_to(Vec2::new(apex_x, apex_y));
+        path.line_to(Vec2::new(vx, vy));
+    }
+    painter.stroke_path(&path, &ridge_paint, &ridge_stroke_def);
+    // Bright apex disc — radius is 8 % of the smaller bbox
+    // dimension so it stays proportional across cell sizes.
+    let disc_r = pw.min(ph) * 0.08;
+    let bright = sunlit[2];
+    let disc_paint = rgb_paint(bright, 1.0);
+    painter.fill_circle(apex_x, apex_y, disc_r, &disc_paint);
+}
+
 fn draw_pyramid_sides(
     polygon: &[(f32, f32)],
     sunlit: &[(u8, u8, u8); 3],
@@ -395,12 +531,19 @@ fn build_clip_pathops(region: &Region<'_>) -> Option<PathOps> {
 
 /// Polygon-driven inner roof painter — invoked by the canonical
 /// RoofOp dispatch (`super::roof_op::draw`). The caller looks the
-/// region up in `regions`, extracts the polygon + shape_tag + tint
-/// + seed, builds a clip path, and calls here.
+/// region up in `regions`, extracts the polygon + shape_tag +
+/// style + tint + seed, builds a clip path, and calls here.
+///
+/// `style` selects the per-style geometry. The emit pipeline
+/// picks `Pyramid` for square / octagon / circle and `Gable` for
+/// wide-rect / L-shape footprints, matching the legacy
+/// shape-driven dispatch byte-for-byte. `Simple` / `Dome` /
+/// `WitchHat` are catalog-only styles for now — generators have
+/// to opt into them explicitly.
 pub(super) fn draw_roof_polygon(
     painter: &mut dyn Painter,
     polygon: &[(f32, f32)],
-    shape_tag: &str,
+    style: RoofStyle,
     tint: &str,
     seed: u64,
     clip: Option<&PathOps>,
@@ -411,7 +554,7 @@ pub(super) fn draw_roof_polygon(
     let mut rng = RoofRng::new(seed);
     let sunlit = shade_palette(tint, true);
     let shadow = shade_palette(tint, false);
-    let mode = geometry_mode(shape_tag, polygon);
+    let mode = mode_for_style(style);
     let (mut min_x, mut max_x) = (f32::INFINITY, f32::NEG_INFINITY);
     let (mut min_y, mut max_y) = (f32::INFINITY, f32::NEG_INFINITY);
     for &(x, y) in polygon {
@@ -422,6 +565,7 @@ pub(super) fn draw_roof_polygon(
     }
     let pw = max_x - min_x;
     let ph = max_y - min_y;
+    let bbox = (min_x, min_y, pw, ph);
 
     let pushed = if let Some(clip_path) = clip {
         painter.push_clip(clip_path, FillRule::EvenOdd);
@@ -430,12 +574,19 @@ pub(super) fn draw_roof_polygon(
         false
     };
     match mode {
+        Mode::Simple => draw_simple_flat(polygon, &sunlit, painter),
+        Mode::Pyramid => draw_pyramid_sides(
+            polygon, &sunlit, &shadow, &mut rng, painter,
+        ),
         Mode::Gable => draw_gable_sides(
             min_x, min_y, pw, ph, pw >= ph,
             &sunlit, &shadow, &mut rng, painter,
         ),
-        Mode::Pyramid => draw_pyramid_sides(
-            polygon, &sunlit, &shadow, &mut rng, painter,
+        Mode::Dome => draw_dome_rings(
+            polygon, bbox, &sunlit, &shadow, painter,
+        ),
+        Mode::WitchHat => draw_witch_hat_sides(
+            polygon, bbox, &sunlit, &shadow, &mut rng, painter,
         ),
     }
     if pushed {
@@ -467,15 +618,12 @@ mod tests {
     }
 
     #[test]
-    fn geometry_mode_dispatches_by_shape_tag() {
-        let square = vec![(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
-        let wide = vec![(0.0, 0.0), (20.0, 0.0), (20.0, 5.0), (0.0, 5.0)];
-        assert!(matches!(geometry_mode("rect", &square), Mode::Pyramid));
-        assert!(matches!(geometry_mode("rect", &wide), Mode::Gable));
-        assert!(matches!(geometry_mode("octagon", &square), Mode::Pyramid));
-        assert!(matches!(geometry_mode("circle", &wide), Mode::Pyramid));
-        assert!(matches!(geometry_mode("l_shape_nw", &square), Mode::Gable));
-        assert!(matches!(geometry_mode("unknown", &square), Mode::Pyramid));
+    fn mode_for_style_dispatches_per_roof_style() {
+        assert!(matches!(mode_for_style(RoofStyle::Simple), Mode::Simple));
+        assert!(matches!(mode_for_style(RoofStyle::Pyramid), Mode::Pyramid));
+        assert!(matches!(mode_for_style(RoofStyle::Gable), Mode::Gable));
+        assert!(matches!(mode_for_style(RoofStyle::Dome), Mode::Dome));
+        assert!(matches!(mode_for_style(RoofStyle::WitchHat), Mode::WitchHat));
     }
 
     #[test]
