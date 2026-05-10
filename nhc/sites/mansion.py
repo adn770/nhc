@@ -215,6 +215,7 @@ def _build_mage_tower(
         interior_wall_material=(
             ARCHETYPE_CONFIG["tower_circle"].interior_wall_material
         ),
+        roof_material="slate",
     )
     building.stair_links = stair_links
     return building
@@ -299,6 +300,7 @@ def _build_mansion_building(
         interior_wall_material=(
             ARCHETYPE_CONFIG["mansion"].interior_wall_material
         ),
+        roof_material="slate",
     )
     building.stair_links = stair_links
     return building

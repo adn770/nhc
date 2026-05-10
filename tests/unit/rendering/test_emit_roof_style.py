@@ -155,3 +155,58 @@ class TestPickSubPattern:
             _pick_sub_pattern(_building(wall_material="ice"))
             == RoofTilePattern.Plain
         )
+
+    def test_thatch_roof_material_maps_to_thatch_pattern(self) -> None:
+        # Explicit semantic roof_material wins over wall_material.
+        assert (
+            _pick_sub_pattern(_building(
+                wall_material="brick", roof_material="thatch",
+            ))
+            == RoofTilePattern.Thatch
+        )
+
+    def test_slate_roof_material_maps_to_slate_pattern(self) -> None:
+        assert (
+            _pick_sub_pattern(_building(
+                wall_material="stone", roof_material="slate",
+            ))
+            == RoofTilePattern.Slate
+        )
+
+    def test_tile_roof_material_maps_to_pantile_pattern(self) -> None:
+        assert (
+            _pick_sub_pattern(_building(
+                wall_material="stone", roof_material="tile",
+            ))
+            == RoofTilePattern.Pantile
+        )
+
+    def test_fishscale_roof_material_maps_to_fishscale_pattern(self) -> None:
+        assert (
+            _pick_sub_pattern(_building(
+                wall_material="stone", roof_material="fishscale",
+            ))
+            == RoofTilePattern.Fishscale
+        )
+
+    def test_wood_roof_material_does_not_apply_overlay(self) -> None:
+        # roof_material="wood" already drives the WitchHat geometry
+        # override; the overlay falls through to the wall_material
+        # default (brick → Plain) so the wooden cap reads cleanly
+        # without a competing tile texture.
+        assert (
+            _pick_sub_pattern(_building(
+                wall_material="brick", roof_material="wood",
+            ))
+            == RoofTilePattern.Plain
+        )
+
+    def test_roof_material_overrides_wall_material(self) -> None:
+        # An explicit roof_material wins over the wall_material
+        # fallback even when both would map to a pattern.
+        assert (
+            _pick_sub_pattern(_building(
+                wall_material="adobe", roof_material="slate",
+            ))
+            == RoofTilePattern.Slate
+        )

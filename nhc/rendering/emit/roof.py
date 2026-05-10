@@ -99,8 +99,8 @@ def _pick_style(region: Any, building: Any | None = None) -> int:
     return RoofStyle.Pyramid
 
 
-# Material → tile-pattern overlay. Brick / stone / dungeon all
-# map to Plain so default-biome production roofs stay byte-
+# wall_material → tile-pattern overlay. Brick / stone / dungeon
+# all map to Plain so default-biome production roofs stay byte-
 # identical with the legacy no-overlay output (the seed-7 town
 # parity fixture has no biome → all buildings brick or stone).
 # Adobe (drylands towns) and wood walls (marsh towns) opt into
@@ -112,18 +112,43 @@ _WALL_MATERIAL_TO_PATTERN: dict[str, int] = {
 }
 
 
-def _pick_sub_pattern(building: Any | None) -> int:
-    """Pick the RoofTilePattern overlay from a building's
-    ``wall_material``.
+# Semantic roof_material → pattern. Generators set this on a
+# Building when they want an explicit roof texture independent
+# of the wall material — e.g. a stone-walled mansion with a
+# slate roof, or a brick cottage with thatch on top. The
+# mapping wins over the wall_material fallback. ``"wood"`` is
+# reserved as the geometry hint for forest watchtowers (drives
+# RoofStyle.WitchHat in :func:`_pick_style`) and intentionally
+# does NOT map to a pattern — the wooden cap reads cleanest
+# without a competing tile texture.
+_ROOF_MATERIAL_TO_PATTERN: dict[str, int] = {
+    "thatch": RoofTilePattern.Thatch,
+    "tile": RoofTilePattern.Pantile,
+    "slate": RoofTilePattern.Slate,
+    "fishscale": RoofTilePattern.Fishscale,
+}
 
-    Returns ``Plain`` (no overlay) for the default brick / stone /
-    dungeon walls, so production roofs in the default biome stay
-    byte-identical with the pre-axis output. Drylands (adobe) and
-    marsh (wood) biomes opt into Pantile and Thatch overlays
-    respectively.
+
+def _pick_sub_pattern(building: Any | None) -> int:
+    """Pick the RoofTilePattern overlay for a building.
+
+    Resolution order:
+    1. If ``Building.roof_material`` matches a semantic key
+       (``"thatch"`` / ``"tile"`` / ``"slate"`` / ``"fishscale"``)
+       use the explicit pattern. ``"wood"`` is the geometry-only
+       hint for forest watchtowers and falls through here.
+    2. Otherwise fall back to ``wall_material``: ``adobe`` →
+       Pantile (drylands biome), ``wood`` → Thatch (marsh biome).
+    3. Default biome materials (brick / stone / dungeon) map to
+       Plain so existing renders stay byte-identical with the
+       pre-axis output.
     """
     if building is None:
         return RoofTilePattern.Plain
+    roof_material = getattr(building, "roof_material", None) or ""
+    explicit = _ROOF_MATERIAL_TO_PATTERN.get(roof_material)
+    if explicit is not None:
+        return explicit
     wall_material = getattr(building, "wall_material", None) or ""
     return _WALL_MATERIAL_TO_PATTERN.get(
         wall_material, RoofTilePattern.Plain,

@@ -238,6 +238,7 @@ def _build_cottage_building(
         interior_wall_material=(
             ARCHETYPE_CONFIG["cottage"].interior_wall_material
         ),
+        roof_material="thatch",
     )
     building.stair_links = stair_links
     return building

@@ -175,6 +175,7 @@ def _build_temple_building(
         interior_wall_material=(
             ARCHETYPE_CONFIG["temple"].interior_wall_material
         ),
+        roof_material="fishscale",
     )
     building.stair_links = stair_links
     return building
