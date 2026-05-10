@@ -78,13 +78,19 @@ def _build_underworld(
 # ── Settlements (town surface at each size class) ──────────────────
 
 
-def _build_settlement(seed: int, *, size_class: str) -> BuildResult:
+def _build_settlement(
+    seed: int, *, size_class: str, biome: str | None = None,
+) -> BuildResult:
+    from nhc.hexcrawl.model import Biome
     from nhc.sites.town import assemble_town
 
+    biome_arg = Biome(biome) if biome else None
+    suffix = f"{size_class}_{biome}" if biome else size_class
     site = assemble_town(
-        f"settlement_{size_class}_seed{seed}",
+        f"settlement_{suffix}_seed{seed}",
         _stdrandom.Random(seed),
         size_class=size_class,
+        biome=biome_arg,
     )
     buf = build_floor_ir(site.surface, seed=seed, site=site)
     return BuildResult(buf=buf, level=site.surface, site=site)
@@ -170,6 +176,32 @@ for _size in ("hamlet", "village", "town", "city"):
         description=f"Town surface at {_size} size class.",
         params=_seed_only(size_class=_size, generator="assemble_town"),
         build=(lambda s, sc=_size: _build_settlement(s, size_class=sc)),
+    ))
+
+# Biome-variant towns — exercise the wall_material -> RoofTilePattern
+# mapping in emit_roofs (drylands -> Pantile via adobe walls; marsh
+# -> Thatch via wood walls; mountain -> Plain via stone walls).
+# Town size_class is fixed at "town" so the variants stay
+# comparable; seeds are shared so the underlying layout is
+# stable across biomes.
+for _biome in ("drylands", "marsh", "mountain"):
+    CATALOG.append(SampleSpec(
+        name=f"town_{_biome}",
+        category="generators/settlements",
+        description=(
+            f"Town surface in {_biome} biome — exercises the "
+            f"biome-driven wall_material override and the "
+            f"resulting RoofTilePattern overlay."
+        ),
+        params=_seed_only(
+            size_class="town", biome=_biome,
+            generator="assemble_town",
+        ),
+        build=(
+            lambda s, b=_biome: _build_settlement(
+                s, size_class="town", biome=b,
+            )
+        ),
     ))
 
 # Sites: macro surface for each kind (skip "town" — covered by
