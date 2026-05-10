@@ -645,15 +645,40 @@ stays distinct):
 
 | value | meaning |
 | --- | --- |
-| `Simple` | flat tint over the building footprint (default) |
+| `Simple` | flat tint over the building footprint (catalog default) |
 | `Pyramid` | central spine peaks at the centroid; N-gon footprints |
 | `Gable` | linear ridge along longer axis; rect / L footprints |
-| `Dome` | reserved (forward-compat) |
-| `WitchHat` | reserved (forward-compat) |
+| `Dome` | concentric tonal rings (top-down hemisphere) |
+| `WitchHat` | tall asymmetric cone with apex offset above the centroid |
+
+The emit pipeline (`nhc/rendering/emit/roof.py::_pick_style`)
+picks `Pyramid` for square / octagon / circle and `Gable` for
+wide-rect / L-shape so production roofs read as the legacy
+shape-driven dispatch. `Simple` / `Dome` / `WitchHat` are
+catalog-only today — generators have to opt into them
+explicitly.
 
 Tonal axis is `RoofOp.tone: uint8` (`Light = 0`, `Medium = 1`,
 `Dark = 2`, `Aged = 3`). The painter palette resolves tone to
 shingle base + highlight + shadow colours.
+
+`RoofOp.sub_pattern: RoofTilePattern` is an optional tile-pattern
+overlay layered on top of the geometry chosen by `style`:
+
+| value | meaning |
+| --- | --- |
+| `Plain` | no overlay (default; byte-identical legacy output) |
+| `Fishscale` | overlapping scallop tiles in offset rows |
+| `Thatch` | short randomised vertical strands |
+| `Pantile` | wavy horizontal Mediterranean S-curve bands |
+| `Slate` | small rectangular tiles in a tight running-bond |
+
+Pattern dispatch is orthogonal to geometry: `(style,
+sub_pattern)` is a 5×5 matrix. The overlay paints over the
+polygon clip envelope so the geometry's silhouette stays intact.
+Production roofs always set `Plain`; catalog pages opt into the
+non-Plain patterns. Adding a new pattern is a forward-compat
+schema append (no major bump).
 
 ### 4.9 WallMaterial: WallTreatment + CornerStyle
 

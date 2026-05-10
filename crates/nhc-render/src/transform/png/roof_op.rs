@@ -49,6 +49,7 @@ pub fn draw<'a>(
         painter,
         &polygon,
         op.style(),
+        op.sub_pattern(),
         tint,
         op.seed(),
         clip.as_ref(),
@@ -107,11 +108,19 @@ mod tests {
         finish_floor_ir_buffer, root_as_floor_ir, FloorIR, FloorIRArgs, Outline,
         OutlineArgs, OutlineKind, OpEntry, OpEntryArgs, Op,
         Region as FbRegion, RegionArgs, RoofOp as FbRoofOp,
-        RoofOpArgs, RoofStyle, Vec2 as FbVec2,
+        RoofOpArgs, RoofStyle, RoofTilePattern, Vec2 as FbVec2,
     };
     use crate::painter::test_util::{MockPainter, PainterCall};
 
     fn build_roof_op(shape_tag: &str, style: RoofStyle) -> Vec<u8> {
+        build_roof_op_with_pattern(shape_tag, style, RoofTilePattern::Plain)
+    }
+
+    fn build_roof_op_with_pattern(
+        shape_tag: &str,
+        style: RoofStyle,
+        sub_pattern: RoofTilePattern,
+    ) -> Vec<u8> {
         let mut fbb = FlatBufferBuilder::new();
         let verts = fbb.create_vector(&[
             FbVec2::new(64.0, 64.0),
@@ -150,6 +159,7 @@ mod tests {
                 tone: 1,
                 tint: Some(tint),
                 seed: 0xCAFE_F00D,
+                sub_pattern,
             },
         );
         let op_entry = OpEntry::create(
@@ -298,5 +308,84 @@ mod tests {
         );
         // Spoked sides too.
         assert!(fill_path_count(&painter) >= 4);
+    }
+
+    fn stroke_path_count(painter: &MockPainter) -> usize {
+        painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::StrokePath(_, _, _)))
+            .count()
+    }
+
+    /// `Plain` is the no-op overlay — paint output is byte-identical
+    /// to the same style without any pattern. Pinning Plain ==
+    /// today's behavior is the parity-gate's foundation.
+    #[test]
+    fn plain_pattern_paints_no_overlay() {
+        let bare = run(&build_roof_op("rect", RoofStyle::Pyramid));
+        let plain = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, RoofTilePattern::Plain,
+        ));
+        assert_eq!(bare.calls.len(), plain.calls.len());
+    }
+
+    /// `Fishscale` → many `FillCircle` calls (one per scallop
+    /// tile) on top of the geometry's base. A pyramid-only render
+    /// emits zero FillCircles, so any FillCircle count > 0 is
+    /// the fishscale overlay.
+    #[test]
+    fn fishscale_pattern_overlays_circles() {
+        let painter = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, RoofTilePattern::Fishscale,
+        ));
+        assert!(
+            fill_circle_count(&painter) > 4,
+            "Fishscale should paint many scallops"
+        );
+    }
+
+    /// `Thatch` → many short `StrokePath` strands. The base
+    /// pyramid emits 1 multi-segment ridge stroke; thatch adds
+    /// many independent strands, so the StrokePath count climbs.
+    #[test]
+    fn thatch_pattern_overlays_short_strands() {
+        let bare = run(&build_roof_op("rect", RoofStyle::Pyramid));
+        let thatch = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, RoofTilePattern::Thatch,
+        ));
+        assert!(
+            stroke_path_count(&thatch) > stroke_path_count(&bare) + 10,
+            "Thatch should add many strand strokes"
+        );
+    }
+
+    /// `Pantile` → wavy `FillPath` bands. Each band is a closed
+    /// sinusoidal path. Pyramid alone emits N triangular FillPath
+    /// calls; pantile overlays additional band fills.
+    #[test]
+    fn pantile_pattern_overlays_sinusoidal_bands() {
+        let bare = run(&build_roof_op("rect", RoofStyle::Pyramid));
+        let pant = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, RoofTilePattern::Pantile,
+        ));
+        assert!(
+            fill_path_count(&pant) > fill_path_count(&bare),
+            "Pantile should add band FillPaths"
+        );
+    }
+
+    /// `Slate` → many small `FillRect` tiles. Pyramid alone emits
+    /// zero FillRects, so any positive count is the slate
+    /// overlay.
+    #[test]
+    fn slate_pattern_overlays_small_rect_tiles() {
+        let painter = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, RoofTilePattern::Slate,
+        ));
+        assert!(
+            fill_rect_count(&painter) > 4,
+            "Slate should paint many rect tiles"
+        );
     }
 }

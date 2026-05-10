@@ -63,8 +63,15 @@ class RoofOp(object):
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return 0
 
+    # RoofOp
+    def SubPattern(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
+        return 0
+
 def RoofOpStart(builder):
-    builder.StartObject(5)
+    builder.StartObject(6)
 
 def Start(builder):
     RoofOpStart(builder)
@@ -99,6 +106,12 @@ def RoofOpAddSeed(builder, seed):
 def AddSeed(builder, seed):
     RoofOpAddSeed(builder, seed)
 
+def RoofOpAddSubPattern(builder, subPattern):
+    builder.PrependUint8Slot(5, subPattern, 0)
+
+def AddSubPattern(builder, subPattern):
+    RoofOpAddSubPattern(builder, subPattern)
+
 def RoofOpEnd(builder):
     return builder.EndObject()
 
@@ -116,12 +129,14 @@ class RoofOpT(object):
         tone = 0,
         tint = None,
         seed = 0,
+        subPattern = 0,
     ):
         self.regionRef = regionRef  # type: Optional[str]
         self.style = style  # type: int
         self.tone = tone  # type: int
         self.tint = tint  # type: Optional[str]
         self.seed = seed  # type: int
+        self.subPattern = subPattern  # type: int
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -149,6 +164,7 @@ class RoofOpT(object):
         self.tone = roofOp.Tone()
         self.tint = roofOp.Tint()
         self.seed = roofOp.Seed()
+        self.subPattern = roofOp.SubPattern()
 
     # RoofOpT
     def Pack(self, builder):
@@ -164,5 +180,6 @@ class RoofOpT(object):
         if self.tint is not None:
             RoofOpAddTint(builder, tint)
         RoofOpAddSeed(builder, self.seed)
+        RoofOpAddSubPattern(builder, self.subPattern)
         roofOp = RoofOpEnd(builder)
         return roofOp

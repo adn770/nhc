@@ -571,15 +571,19 @@ def cell_center_tile(col_idx: int, row_idx: int) -> tuple[int, int]:
     return ((tx0 + tx1) // 2, (ty0 + ty1) // 2)
 
 
-def roof_factory(*, style: int, tone: int = 0):
+def roof_factory(
+    *, style: int, tone: int = 0, sub_pattern: int = 0,
+):
     """Column op_factory emitting a base PaintOp (Plain) + RoofOp.
 
     The RoofOp consumes the cell's region outline; pairing it with
-    a Plain base fill gives a clear roof silhouette.
+    a Plain base fill gives a clear roof silhouette. ``sub_pattern``
+    selects an optional ``RoofTilePattern`` overlay (0 = Plain, the
+    no-op default).
     """
     def factory(region_id, page_seed, col_idx, row_idx):
         seed = derive_cell_seed(
-            page_seed, col_idx, row_idx, style, tone,
+            page_seed, col_idx, row_idx, style, tone, sub_pattern,
         )
         op = RoofOpT()
         op.regionRef = region_id
@@ -587,6 +591,7 @@ def roof_factory(*, style: int, tone: int = 0):
         op.tone = tone
         op.tint = ""
         op.seed = seed
+        op.subPattern = sub_pattern
         return [
             _make_paint_op(region_id, material_plain(seed=seed)),
             _wrap_roof(op),

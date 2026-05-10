@@ -1185,6 +1185,102 @@ impl<'a> ::flatbuffers::Verifiable for RoofStyle {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for RoofStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_ROOF_TILE_PATTERN: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_ROOF_TILE_PATTERN: u8 = 4;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_ROOF_TILE_PATTERN: [RoofTilePattern; 5] = [
+  RoofTilePattern::Plain,
+  RoofTilePattern::Fishscale,
+  RoofTilePattern::Thatch,
+  RoofTilePattern::Pantile,
+  RoofTilePattern::Slate,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct RoofTilePattern(pub u8);
+#[allow(non_upper_case_globals)]
+impl RoofTilePattern {
+  pub const Plain: Self = Self(0);
+  pub const Fishscale: Self = Self(1);
+  pub const Thatch: Self = Self(2);
+  pub const Pantile: Self = Self(3);
+  pub const Slate: Self = Self(4);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 4;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Plain,
+    Self::Fishscale,
+    Self::Thatch,
+    Self::Pantile,
+    Self::Slate,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Plain => Some("Plain"),
+      Self::Fishscale => Some("Fishscale"),
+      Self::Thatch => Some("Thatch"),
+      Self::Pantile => Some("Pantile"),
+      Self::Slate => Some("Slate"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for RoofTilePattern {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for RoofTilePattern {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for RoofTilePattern {
+    type Output = RoofTilePattern;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for RoofTilePattern {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for RoofTilePattern {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for RoofTilePattern {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_OP: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_OP: u8 = 8;
@@ -4192,6 +4288,7 @@ impl<'a> RoofOp<'a> {
   pub const VT_TONE: ::flatbuffers::VOffsetT = 8;
   pub const VT_TINT: ::flatbuffers::VOffsetT = 10;
   pub const VT_SEED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SUB_PATTERN: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4206,6 +4303,7 @@ impl<'a> RoofOp<'a> {
     builder.add_seed(args.seed);
     if let Some(x) = args.tint { builder.add_tint(x); }
     if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_sub_pattern(args.sub_pattern);
     builder.add_tone(args.tone);
     builder.add_style(args.style);
     builder.finish()
@@ -4247,6 +4345,13 @@ impl<'a> RoofOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(RoofOp::VT_SEED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn sub_pattern(&self) -> RoofTilePattern {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<RoofTilePattern>(RoofOp::VT_SUB_PATTERN, Some(RoofTilePattern::Plain)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RoofOp<'_> {
@@ -4260,6 +4365,7 @@ impl ::flatbuffers::Verifiable for RoofOp<'_> {
      .visit_field::<u8>("tone", Self::VT_TONE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("tint", Self::VT_TINT, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .visit_field::<RoofTilePattern>("sub_pattern", Self::VT_SUB_PATTERN, false)?
      .finish();
     Ok(())
   }
@@ -4270,6 +4376,7 @@ pub struct RoofOpArgs<'a> {
     pub tone: u8,
     pub tint: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub seed: u64,
+    pub sub_pattern: RoofTilePattern,
 }
 impl<'a> Default for RoofOpArgs<'a> {
   #[inline]
@@ -4280,6 +4387,7 @@ impl<'a> Default for RoofOpArgs<'a> {
       tone: 0,
       tint: None,
       seed: 0,
+      sub_pattern: RoofTilePattern::Plain,
     }
   }
 }
@@ -4310,6 +4418,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RoofOpBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(RoofOp::VT_SEED, seed, 0);
   }
   #[inline]
+  pub fn add_sub_pattern(&mut self, sub_pattern: RoofTilePattern) {
+    self.fbb_.push_slot::<RoofTilePattern>(RoofOp::VT_SUB_PATTERN, sub_pattern, RoofTilePattern::Plain);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RoofOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoofOpBuilder {
@@ -4332,6 +4444,7 @@ impl ::core::fmt::Debug for RoofOp<'_> {
       ds.field("tone", &self.tone());
       ds.field("tint", &self.tint());
       ds.field("seed", &self.seed());
+      ds.field("sub_pattern", &self.sub_pattern());
       ds.finish()
   }
 }

@@ -19,7 +19,7 @@
 //! handler-only ports of `terrain_detail` (Phase 2.12) and the
 //! wood-floor branch of `floor_detail` (Phase 2.15a).
 
-use crate::ir::{FloorIR, OpEntry, Region, RoofOp, RoofStyle};
+use crate::ir::{FloorIR, OpEntry, Region, RoofOp, RoofStyle, RoofTilePattern};
 use crate::painter::{
     Color, FillRule, LineCap, Paint, Painter, PathOps, Rect as PRect,
     Stroke, Vec2,
@@ -156,6 +156,158 @@ fn shingle_stroke() -> Stroke {
         width: SHINGLE_STROKE_WIDTH,
         line_cap: LineCap::Butt,
         ..Stroke::default()
+    }
+}
+
+
+// ── Tile-pattern overlays (RoofTilePattern axis) ───────────────
+//
+// Each `paint_<pattern>` paints a tile texture across the
+// polygon's bbox. The caller pushes the polygon clip envelope
+// before calling; anything painted outside the outline is
+// clipped automatically. The geometry's per-side / per-half
+// shading paints first, so the pattern reads as a textured
+// overlay on top of the building's silhouette.
+
+
+/// `Fishscale` — overlapping half-discs (scallops) in offset
+/// rows. Each tile is a full circle; adjacent rows offset by
+/// half-tile horizontally and the rows tile tightly enough that
+/// only the lower curve of each scale stays visible.
+fn paint_fishscale(
+    bbox: (f32, f32, f32, f32),
+    palette: &[(u8, u8, u8); 3],
+    rng: &mut RoofRng,
+    painter: &mut dyn Painter,
+) {
+    let (min_x, min_y, w, h) = bbox;
+    let pitch_x: f32 = 12.0;
+    let pitch_y: f32 = 8.0;
+    let radius: f32 = 7.0;
+    let mut row: i32 = 0;
+    let mut cy = min_y - radius;
+    while cy < min_y + h + radius {
+        let off = if row & 1 == 0 { 0.0 } else { pitch_x / 2.0 };
+        let mut cx = min_x - radius + off;
+        while cx < min_x + w + radius {
+            let shade = *rng.choice(palette);
+            painter.fill_circle(cx, cy, radius, &rgb_paint(shade, 1.0));
+            cx += pitch_x;
+        }
+        cy += pitch_y;
+        row += 1;
+    }
+}
+
+/// `Thatch` — short randomised vertical strands. Many thin
+/// strokes with horizontal jitter and per-strand tone variance
+/// read as straw. The strands stop short of the bbox so the
+/// underlying geometry's silhouette stays visible at the edges.
+fn paint_thatch(
+    bbox: (f32, f32, f32, f32),
+    palette: &[(u8, u8, u8); 3],
+    rng: &mut RoofRng,
+    painter: &mut dyn Painter,
+) {
+    let (min_x, min_y, w, h) = bbox;
+    let stroke = Stroke {
+        width: 0.5,
+        line_cap: LineCap::Butt,
+        ..Stroke::default()
+    };
+    let row_pitch: f32 = 3.0;
+    let strand_pitch: f32 = 1.6;
+    let mut y = min_y;
+    while y < min_y + h {
+        let mut x = min_x;
+        while x < min_x + w {
+            let len = 3.0 + rng.uniform(0.0, 4.0);
+            let jx = rng.uniform(-1.5, 1.5);
+            let shade = *rng.choice(palette);
+            let mut path = PathOps::new();
+            path.move_to(Vec2::new(x + jx, y));
+            path.line_to(Vec2::new(x + jx, y + len));
+            painter.stroke_path(&path, &rgb_paint(shade, 0.85), &stroke);
+            x += strand_pitch + rng.uniform(-0.4, 0.4);
+        }
+        y += row_pitch;
+    }
+}
+
+/// `Pantile` — wavy horizontal bands suggesting Mediterranean
+/// S-curve tiles. Each row paints a sinusoidal band alternating
+/// between palette tones; the wave amplitude is small relative
+/// to band height so the bands read as ridge-and-valley tiles.
+fn paint_pantile(
+    bbox: (f32, f32, f32, f32),
+    palette: &[(u8, u8, u8); 3],
+    _rng: &mut RoofRng,
+    painter: &mut dyn Painter,
+) {
+    let (min_x, min_y, w, h) = bbox;
+    let band_h: f32 = 8.0;
+    let amp: f32 = 1.6;
+    let waves_per_band: f32 = 6.0;
+    let segments: i32 = 32;
+    let mut row: i32 = 0;
+    let mut top = min_y;
+    while top < min_y + h {
+        let shade = if row & 1 == 0 { palette[0] } else { palette[1] };
+        let mut path = PathOps::new();
+        for i in 0..=segments {
+            let t = i as f32 / segments as f32;
+            let x = min_x + t * w;
+            let y = top + ((t * waves_per_band)
+                * std::f32::consts::PI).sin() * amp;
+            let p = Vec2::new(x, y);
+            if i == 0 {
+                path.move_to(p);
+            } else {
+                path.line_to(p);
+            }
+        }
+        for i in (0..=segments).rev() {
+            let t = i as f32 / segments as f32;
+            let x = min_x + t * w;
+            let y = top + ((t * waves_per_band)
+                * std::f32::consts::PI).sin() * amp + band_h;
+            path.line_to(Vec2::new(x, y));
+        }
+        path.close();
+        painter.fill_path(&path, &rgb_paint(shade, 1.0), FillRule::Winding);
+        top += band_h;
+        row += 1;
+    }
+}
+
+/// `Slate` — small rectangular tiles in a tight running-bond.
+/// Smaller than `draw_shingle_region`'s default shingles
+/// (8 × 6 instead of 14 × 5) so the texture reads visibly
+/// distinct from a Plain Gable when overlaid.
+fn paint_slate(
+    bbox: (f32, f32, f32, f32),
+    palette: &[(u8, u8, u8); 3],
+    rng: &mut RoofRng,
+    painter: &mut dyn Painter,
+) {
+    let (min_x, min_y, w, h) = bbox;
+    let tile_w: f32 = 8.0;
+    let tile_h: f32 = 6.0;
+    let mut row: i32 = 0;
+    let mut cy = min_y;
+    while cy < min_y + h {
+        let off = if row & 1 == 0 { 0.0 } else { tile_w / 2.0 };
+        let mut x = min_x - tile_w + off;
+        while x < min_x + w + tile_w {
+            let shade = *rng.choice(palette);
+            painter.fill_rect(
+                PRect::new(x, cy, tile_w - 0.6, tile_h - 0.6),
+                &rgb_paint(shade, 1.0),
+            );
+            x += tile_w;
+        }
+        cy += tile_h;
+        row += 1;
     }
 }
 
@@ -532,7 +684,8 @@ fn build_clip_pathops(region: &Region<'_>) -> Option<PathOps> {
 /// Polygon-driven inner roof painter — invoked by the canonical
 /// RoofOp dispatch (`super::roof_op::draw`). The caller looks the
 /// region up in `regions`, extracts the polygon + shape_tag +
-/// style + tint + seed, builds a clip path, and calls here.
+/// style + sub_pattern + tint + seed, builds a clip path, and
+/// calls here.
 ///
 /// `style` selects the per-style geometry. The emit pipeline
 /// picks `Pyramid` for square / octagon / circle and `Gable` for
@@ -540,10 +693,17 @@ fn build_clip_pathops(region: &Region<'_>) -> Option<PathOps> {
 /// shape-driven dispatch byte-for-byte. `Simple` / `Dome` /
 /// `WitchHat` are catalog-only styles for now — generators have
 /// to opt into them explicitly.
+///
+/// `sub_pattern` is the optional `RoofTilePattern` overlay.
+/// `Plain` (default) is byte-identical to the legacy output —
+/// no overlay paints. The four non-Plain patterns (Fishscale /
+/// Thatch / Pantile / Slate) paint a tile texture on top of the
+/// geometry's base, sharing the same polygon clip envelope.
 pub(super) fn draw_roof_polygon(
     painter: &mut dyn Painter,
     polygon: &[(f32, f32)],
     style: RoofStyle,
+    sub_pattern: RoofTilePattern,
     tint: &str,
     seed: u64,
     clip: Option<&PathOps>,
@@ -588,6 +748,26 @@ pub(super) fn draw_roof_polygon(
         Mode::WitchHat => draw_witch_hat_sides(
             polygon, bbox, &sunlit, &shadow, &mut rng, painter,
         ),
+    }
+    // Tile-pattern overlay — Plain is the no-op default; the
+    // four non-Plain patterns paint over the polygon's bbox
+    // (clipped to the outline by the active push_clip envelope).
+    match sub_pattern {
+        RoofTilePattern::Fishscale => {
+            paint_fishscale(bbox, &sunlit, &mut rng, painter);
+        }
+        RoofTilePattern::Thatch => {
+            paint_thatch(bbox, &sunlit, &mut rng, painter);
+        }
+        RoofTilePattern::Pantile => {
+            paint_pantile(bbox, &sunlit, &mut rng, painter);
+        }
+        RoofTilePattern::Slate => {
+            paint_slate(bbox, &sunlit, &mut rng, painter);
+        }
+        // Plain + any unknown trailing variant leave the geometry
+        // untouched.
+        _ => {}
     }
     if pushed {
         painter.pop_clip();

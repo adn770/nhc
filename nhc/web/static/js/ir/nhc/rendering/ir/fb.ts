@@ -25,6 +25,7 @@ export { Polygon } from './fb/polygon.js';
 export { Region } from './fb/region.js';
 export { RoofOp } from './fb/roof-op.js';
 export { RoofStyle } from './fb/roof-style.js';
+export { RoofTilePattern } from './fb/roof-tile-pattern.js';
 export { ShadowKind } from './fb/shadow-kind.js';
 export { ShadowOp } from './fb/shadow-op.js';
 export { StampOp } from './fb/stamp-op.js';

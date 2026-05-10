@@ -5,6 +5,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { RoofStyle } from '../../../../nhc/rendering/ir/fb/roof-style.js';
+import { RoofTilePattern } from '../../../../nhc/rendering/ir/fb/roof-tile-pattern.js';
 
 
 export class RoofOp {
@@ -54,8 +55,13 @@ seed():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+subPattern():RoofTilePattern {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : RoofTilePattern.Plain;
+}
+
 static startRoofOp(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(6);
 }
 
 static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
@@ -78,18 +84,23 @@ static addSeed(builder:flatbuffers.Builder, seed:bigint) {
   builder.addFieldInt64(4, seed, BigInt('0'));
 }
 
+static addSubPattern(builder:flatbuffers.Builder, subPattern:RoofTilePattern) {
+  builder.addFieldInt8(5, subPattern, RoofTilePattern.Plain);
+}
+
 static endRoofOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createRoofOp(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset, style:RoofStyle, tone:number, tintOffset:flatbuffers.Offset, seed:bigint):flatbuffers.Offset {
+static createRoofOp(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset, style:RoofStyle, tone:number, tintOffset:flatbuffers.Offset, seed:bigint, subPattern:RoofTilePattern):flatbuffers.Offset {
   RoofOp.startRoofOp(builder);
   RoofOp.addRegionRef(builder, regionRefOffset);
   RoofOp.addStyle(builder, style);
   RoofOp.addTone(builder, tone);
   RoofOp.addTint(builder, tintOffset);
   RoofOp.addSeed(builder, seed);
+  RoofOp.addSubPattern(builder, subPattern);
   return RoofOp.endRoofOp(builder);
 }
 }

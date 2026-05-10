@@ -290,6 +290,18 @@ enum RoofStyle : ubyte {
   WitchHat = 4,
 }
 
+// Tile pattern overlaid on the geometry chosen by ``RoofStyle``.
+// Plain (default) keeps each style's built-in shingle / spoke /
+// ring layout — the production roof pipeline never sets a
+// non-Plain pattern today; catalog pages opt into the others.
+enum RoofTilePattern : ubyte {
+  Plain     = 0,
+  Fishscale = 1,
+  Thatch    = 2,
+  Pantile   = 3,
+  Slate     = 4,
+}
+
 table Material {
   family       : MaterialFamily;
   style        : uint8;
@@ -411,12 +423,16 @@ table HatchOp {
 
 // RoofOp carries an explicit tone axis and a per-op seed. Style
 // enum extended with Pyramid / Gable to make geometry explicit.
+// ``sub_pattern`` is the tile-pattern overlay (Plain default
+// preserves byte-identical legacy output); appended at the end
+// of the table so old buffers without the field still parse.
 table RoofOp {
   region_ref: string;
   style: RoofStyle = Simple;
   tone: uint8;
   tint: string;
   seed: uint64;
+  sub_pattern: RoofTilePattern = Plain;
 }
 
 // ── Op union ────────────────────────────────────────────────

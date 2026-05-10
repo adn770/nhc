@@ -79,6 +79,16 @@ def test_roof_style_enum_extends_v4_simple_dome_witchhat() -> None:
     assert RoofStyle.WitchHat == 4
 
 
+def test_roof_tile_pattern_enum_pins_canonical_values() -> None:
+    from nhc.rendering.ir._fb.RoofTilePattern import RoofTilePattern
+
+    assert RoofTilePattern.Plain == 0
+    assert RoofTilePattern.Fishscale == 1
+    assert RoofTilePattern.Thatch == 2
+    assert RoofTilePattern.Pantile == 3
+    assert RoofTilePattern.Slate == 4
+
+
 # ── Material / WallMaterial round-trip ─────────────────────────
 
 
@@ -341,6 +351,7 @@ def test_hatch_op_uses_subtract_region_refs() -> None:
 def test_roof_op_carries_tone_seed_and_extended_styles() -> None:
     from nhc.rendering.ir._fb.RoofOp import RoofOp, RoofOpT
     from nhc.rendering.ir._fb.RoofStyle import RoofStyle
+    from nhc.rendering.ir._fb.RoofTilePattern import RoofTilePattern
 
     src = RoofOpT()
     src.regionRef = "building.3"
@@ -359,6 +370,32 @@ def test_roof_op_carries_tone_seed_and_extended_styles() -> None:
     assert out.tone == 2
     assert out.tint.decode() == "#A07050"
     assert out.seed == 0xCAFE0003
+    # sub_pattern defaults to Plain when not set — preserves
+    # forward-compat with buffers written before the field was
+    # appended to the table.
+    assert out.subPattern == RoofTilePattern.Plain
+
+
+def test_roof_op_round_trips_explicit_sub_pattern() -> None:
+    from nhc.rendering.ir._fb.RoofOp import RoofOp, RoofOpT
+    from nhc.rendering.ir._fb.RoofStyle import RoofStyle
+    from nhc.rendering.ir._fb.RoofTilePattern import RoofTilePattern
+
+    src = RoofOpT()
+    src.regionRef = "building.7"
+    src.style = RoofStyle.Gable
+    src.tone = 1
+    src.tint = "#7A5A3A"
+    src.seed = 0xDEAD0007
+    src.subPattern = RoofTilePattern.Fishscale
+
+    builder = flatbuffers.Builder(0)
+    builder.Finish(src.Pack(builder))
+    parsed = RoofOp.GetRootAs(builder.Output(), 0)
+    out = RoofOpT.InitFromObj(parsed)
+
+    assert out.style == RoofStyle.Gable
+    assert out.subPattern == RoofTilePattern.Fishscale
 
 
 # ── Op union — canonical 8-variant v5 set ─────────────────────
