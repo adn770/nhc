@@ -210,3 +210,33 @@ class TestPickSubPattern:
             ))
             == RoofTilePattern.Slate
         )
+
+
+class TestTownRoleRoofMaterial:
+    """Pin the town role → roof_material mapping that gives a
+    town skyline its per-building variety (commit
+    38606e88-ish ladder)."""
+
+    def test_residential_keeps_default_roof_material(self) -> None:
+        # The bulk of a town is residential — Plain overlay so
+        # the legacy default look stays dominant.
+        from nhc.sites.town import _TOWN_ROLE_TO_ROOF
+
+        assert _TOWN_ROLE_TO_ROOF.get("residential") is None
+
+    def test_temple_role_picks_fishscale(self) -> None:
+        from nhc.sites.town import _TOWN_ROLE_TO_ROOF
+
+        assert _TOWN_ROLE_TO_ROOF["temple"] == "fishscale"
+
+    def test_inn_and_stable_pick_thatch(self) -> None:
+        from nhc.sites.town import _TOWN_ROLE_TO_ROOF
+
+        assert _TOWN_ROLE_TO_ROOF["inn"] == "thatch"
+        assert _TOWN_ROLE_TO_ROOF["stable"] == "thatch"
+
+    def test_shop_and_training_pick_slate(self) -> None:
+        from nhc.sites.town import _TOWN_ROLE_TO_ROOF
+
+        assert _TOWN_ROLE_TO_ROOF["shop"] == "slate"
+        assert _TOWN_ROLE_TO_ROOF["training"] == "slate"

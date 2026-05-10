@@ -209,6 +209,22 @@ TOWN_GATE_LENGTH_TILES = 2
 # entry; stable and training stay empty (reserved slots).
 SERVICE_ROLES_WITH_NPCS: tuple[str, ...] = ("shop", "inn", "temple")
 SERVICE_ROLES_RESERVED: tuple[str, ...] = ("stable", "training")
+
+# Per-role roof_material so a town's skyline reads as a mix of
+# building functions at a glance. Residential buildings (the
+# bulk) stay roof_material=None → Plain overlay → byte-identical
+# default roof. Service buildings get distinctive textures:
+# temple → fishscale (consistent with the macro temple site),
+# inn / stable → thatch (cozy hospitality + rural utility),
+# shop / training → slate (formal commercial + civic).
+_TOWN_ROLE_TO_ROOF: dict[str, str] = {
+    "temple": "fishscale",
+    "inn": "thatch",
+    "stable": "thatch",
+    "shop": "slate",
+    "training": "slate",
+}
+
 SERVICE_ROLES: tuple[str, ...] = (
     SERVICE_ROLES_WITH_NPCS + SERVICE_ROLES_RESERVED
 )
@@ -796,6 +812,7 @@ def _build_town_building(
         interior_wall_material=(
             ARCHETYPE_CONFIG[archetype].interior_wall_material
         ),
+        roof_material=_TOWN_ROLE_TO_ROOF.get(archetype),
     )
     building.stair_links = stair_links
     return building
