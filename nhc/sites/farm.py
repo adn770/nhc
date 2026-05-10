@@ -274,6 +274,7 @@ def _build_farm_building(
         interior_wall_material=(
             ARCHETYPE_CONFIG["farm_main"].interior_wall_material
         ),
+        roof_material="thatch",
     )
     building.stair_links = stair_links
     _place_entry_door(building, rng)

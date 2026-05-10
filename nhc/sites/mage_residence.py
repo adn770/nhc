@@ -112,6 +112,7 @@ def assemble_mage_residence(
         wall_material="stone",
         interior_floor="stone",
         interior_wall_material=spec.interior_wall_material,
+        roof_material="tile",
     )
     building.stair_links = stair_links
     door_xy = _place_entry_door(building, rng)

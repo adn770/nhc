@@ -325,6 +325,7 @@ def _build_keep_building(
         interior_wall_material=(
             ARCHETYPE_CONFIG["keep"].interior_wall_material
         ),
+        roof_material="slate",
     )
     building.stair_links = stair_links
     return building
