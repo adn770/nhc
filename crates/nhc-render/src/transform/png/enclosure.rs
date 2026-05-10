@@ -109,26 +109,67 @@ fn project_cuts_onto_polygon(
     polygon: &[(f32, f32)],
     cuts: Option<Vector<'_, ForwardsUOffset<Cut<'_>>>>,
 ) -> (Vec<Vec<(f32, f32)>>, Vec<Vec<f32>>) {
+    let cuts = match cuts {
+        Some(c) => c,
+        None => return (
+            vec![Vec::new(); polygon.len()],
+            vec![Vec::new(); polygon.len()],
+        ),
+    };
+    let cuts_iter: Vec<((f32, f32), (f32, f32), bool)> = (0..cuts.len())
+        .filter_map(|ci| {
+            let cut = cuts.get(ci);
+            let (cs, ce) = match (cut.start(), cut.end()) {
+                (Some(s), Some(e)) => ((s.x(), s.y()), (e.x(), e.y())),
+                _ => return None,
+            };
+            let bears_gate = cut.style() != CutStyle::None;
+            Some((cs, ce, bears_gate))
+        })
+        .collect();
+    project_cuts_onto_polygon_pure(polygon, &cuts_iter)
+}
+
+/// Cut projection contract. Each cut is ``(cs, ce, bears_gate)``:
+/// the pixel-space endpoints plus a flag for whether the cut
+/// hosts a gate visual (CutStyle != None). Returns
+/// ``(by_edge, midpoints)``:
+/// - ``by_edge[i]`` is the merged list of ``(t_lo, t_hi)`` cut
+///   intervals along polygon edge ``i``.
+/// - ``midpoints[i]`` collects the per-cut centre ``t`` values
+///   for gate-bearing cuts (used by the door-rect overlay).
+///
+/// Two paths feed the result:
+/// 1. **Single-edge fast path** (legacy logic). A cut whose
+///    endpoints both project onto the same polygon edge with low
+///    perpendicular error contributes one ``(t_lo, t_hi)`` to
+///    that edge. Preserves byte-identical output for the
+///    rect / octagon cases the legacy parity gates lock.
+/// 2. **Multi-edge fallback**. When no single edge fits (e.g. a
+///    cut spanning the top of a polygonised circle, where the
+///    endpoints land on different short edges), find the edge
+///    nearest each endpoint and stamp partial cuts along the
+///    arc of edges between them. The gate-visual midpoint then
+///    lands on whichever edge is closest to the cut's pixel-
+///    space centre.
+fn project_cuts_onto_polygon_pure(
+    polygon: &[(f32, f32)],
+    cuts: &[((f32, f32), (f32, f32), bool)],
+) -> (Vec<Vec<(f32, f32)>>, Vec<Vec<f32>>) {
     let n = polygon.len();
     let mut by_edge: Vec<Vec<(f32, f32)>> = vec![Vec::new(); n];
     let mut midpoints: Vec<Vec<f32>> = vec![Vec::new(); n];
-    let cuts = match cuts {
-        Some(c) => c,
-        None => return (by_edge, midpoints),
-    };
     const PERP_TOLERANCE: f32 = 4.0;
     const T_TOLERANCE: f32 = 1e-3;
-    for ci in 0..cuts.len() {
-        let cut = cuts.get(ci);
-        let (cs, ce) = match (cut.start(), cut.end()) {
-            (Some(s), Some(e)) => ((s.x(), s.y()), (e.x(), e.y())),
-            _ => continue,
-        };
-        // Find best-fit edge by combined projection error.
-        let mut best_edge: Option<usize> = None;
-        let mut best_err = f32::INFINITY;
-        let mut best_lo = 0.0_f32;
-        let mut best_hi = 0.0_f32;
+    for &(cs, ce, bears_gate) in cuts {
+        // Single-edge fast path: same logic as the legacy
+        // implementation. Find the best-fit edge where both
+        // endpoints project inside [0, 1] with a small
+        // perpendicular error budget.
+        let mut best_single_edge: Option<usize> = None;
+        let mut best_single_err = f32::INFINITY;
+        let mut best_single_lo = 0.0_f32;
+        let mut best_single_hi = 0.0_f32;
         for i in 0..n {
             let (ax, ay) = polygon[i];
             let (bx, by) = polygon[(i + 1) % n];
@@ -140,35 +181,85 @@ fn project_cuts_onto_polygon(
             }
             let t_s = ((cs.0 - ax) * dx + (cs.1 - ay) * dy) / len_sq;
             let t_e = ((ce.0 - ax) * dx + (ce.1 - ay) * dy) / len_sq;
-            // Perpendicular distance from edge to each endpoint.
             let proj_s = (ax + dx * t_s, ay + dy * t_s);
             let proj_e = (ax + dx * t_e, ay + dy * t_e);
-            let perp_s = ((cs.0 - proj_s.0).powi(2) + (cs.1 - proj_s.1).powi(2)).sqrt();
-            let perp_e = ((ce.0 - proj_e.0).powi(2) + (ce.1 - proj_e.1).powi(2)).sqrt();
+            let perp_s = ((cs.0 - proj_s.0).powi(2)
+                + (cs.1 - proj_s.1).powi(2)).sqrt();
+            let perp_e = ((ce.0 - proj_e.0).powi(2)
+                + (ce.1 - proj_e.1).powi(2)).sqrt();
             let perp_err = perp_s + perp_e;
             if perp_err > PERP_TOLERANCE {
                 continue;
             }
-            // Both endpoints must land roughly inside the edge.
             if t_s < -T_TOLERANCE || t_s > 1.0 + T_TOLERANCE {
                 continue;
             }
             if t_e < -T_TOLERANCE || t_e > 1.0 + T_TOLERANCE {
                 continue;
             }
-            if perp_err < best_err {
-                best_err = perp_err;
-                best_edge = Some(i);
-                best_lo = t_s.min(t_e).clamp(0.0, 1.0);
-                best_hi = t_s.max(t_e).clamp(0.0, 1.0);
+            if perp_err < best_single_err {
+                best_single_err = perp_err;
+                best_single_edge = Some(i);
+                best_single_lo = t_s.min(t_e).clamp(0.0, 1.0);
+                best_single_hi = t_s.max(t_e).clamp(0.0, 1.0);
             }
         }
-        if let Some(i) = best_edge {
-            if best_hi > best_lo {
-                by_edge[i].push((best_lo, best_hi));
-                if cut.style() != CutStyle::None {
-                    midpoints[i].push((best_lo + best_hi) * 0.5);
+        if let Some(i) = best_single_edge {
+            if best_single_hi > best_single_lo {
+                by_edge[i].push((best_single_lo, best_single_hi));
+                if bears_gate {
+                    midpoints[i].push(
+                        (best_single_lo + best_single_hi) * 0.5,
+                    );
                 }
+            }
+            continue;
+        }
+        // Multi-edge fallback: no single edge took the cut.
+        // Stamp partial intervals along the arc spanning the
+        // edges nearest each endpoint.
+        let (i_s, t_on_s) = match nearest_edge(polygon, cs, PERP_TOLERANCE) {
+            Some(x) => x,
+            None => continue,
+        };
+        let (i_e, t_on_e) = match nearest_edge(polygon, ce, PERP_TOLERANCE) {
+            Some(x) => x,
+            None => continue,
+        };
+        if i_s == i_e {
+            // Degenerate — both endpoints land on the same edge
+            // but failed the single-edge perp budget. Skip
+            // rather than smear the cut over the entire polygon.
+            continue;
+        }
+        // Pick the shorter arc by edge count.
+        let fwd_len = (i_e + n - i_s) % n;
+        let bwd_len = (i_s + n - i_e) % n;
+        let (start_edge, start_t, end_edge, end_t) = if fwd_len <= bwd_len {
+            (i_s, t_on_s, i_e, t_on_e)
+        } else {
+            (i_e, t_on_e, i_s, t_on_s)
+        };
+        // First edge: partial cut from the endpoint projection
+        // to the edge's end.
+        by_edge[start_edge].push((start_t, 1.0));
+        // Intermediate edges (if any): full coverage.
+        let mut idx = (start_edge + 1) % n;
+        while idx != end_edge {
+            by_edge[idx].push((0.0, 1.0));
+            idx = (idx + 1) % n;
+        }
+        // Last edge: partial cut from edge start to the
+        // endpoint projection.
+        by_edge[end_edge].push((0.0, end_t));
+        // Gate midpoint: place the door-rect overlay on the
+        // edge nearest the cut's geometric centre.
+        if bears_gate {
+            let mid_px = ((cs.0 + ce.0) * 0.5, (cs.1 + ce.1) * 0.5);
+            if let Some((mid_edge, mid_t)) =
+                nearest_edge(polygon, mid_px, PERP_TOLERANCE * 4.0)
+            {
+                midpoints[mid_edge].push(mid_t);
             }
         }
     }
@@ -190,6 +281,43 @@ fn project_cuts_onto_polygon(
         *cuts = merged;
     }
     (by_edge, midpoints)
+}
+
+/// Find the polygon edge nearest to a pixel-space point.
+/// Returns ``(edge_index, t_along_edge)`` when the perpendicular
+/// distance is within ``tolerance``, otherwise ``None``. The
+/// returned ``t`` is clamped to ``[0, 1]`` so the caller can
+/// stamp it as an interval bound without further clipping.
+fn nearest_edge(
+    polygon: &[(f32, f32)],
+    point: (f32, f32),
+    tolerance: f32,
+) -> Option<(usize, f32)> {
+    let n = polygon.len();
+    let mut best: Option<(usize, f32, f32)> = None;
+    for i in 0..n {
+        let (ax, ay) = polygon[i];
+        let (bx, by) = polygon[(i + 1) % n];
+        let dx = bx - ax;
+        let dy = by - ay;
+        let len_sq = dx * dx + dy * dy;
+        if len_sq < 1e-9 {
+            continue;
+        }
+        let t = (((point.0 - ax) * dx + (point.1 - ay) * dy)
+            / len_sq).clamp(0.0, 1.0);
+        let proj = (ax + dx * t, ay + dy * t);
+        let perp = ((point.0 - proj.0).powi(2)
+            + (point.1 - proj.1).powi(2)).sqrt();
+        match best {
+            None => best = Some((i, t, perp)),
+            Some((_, _, e)) if perp < e => best = Some((i, t, perp)),
+            _ => {}
+        }
+    }
+    best.and_then(|(i, t, perp)| {
+        if perp <= tolerance { Some((i, t)) } else { None }
+    })
 }
 
 
@@ -603,6 +731,144 @@ mod tests {
     fn subsegments_with_no_cuts_returns_full_segment() {
         let subs = subsegments((0.0, 0.0), (10.0, 0.0), &[]);
         assert_eq!(subs, vec![((0.0, 0.0), (10.0, 0.0))]);
+    }
+
+    /// Single-edge fast path — a cut sitting cleanly on one edge
+    /// of a square contributes one interval to that edge. Pins
+    /// the legacy behavior the parity gate locks.
+    fn approx_eq(a: f32, b: f32, eps: f32) -> bool {
+        (a - b).abs() < eps
+    }
+
+    #[test]
+    fn cut_projects_onto_single_top_edge_of_square() {
+        let square: Vec<(f32, f32)> = vec![
+            (0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0),
+        ];
+        let cuts = vec![((30.0, 0.0), (60.0, 0.0), true)];
+        let (by_edge, mids) =
+            project_cuts_onto_polygon_pure(&square, &cuts);
+        assert_eq!(by_edge[0].len(), 1);
+        let (lo, hi) = by_edge[0][0];
+        assert!(approx_eq(lo, 0.30, 1e-4), "lo was {lo}");
+        assert!(approx_eq(hi, 0.60, 1e-4), "hi was {hi}");
+        assert!(by_edge[1].is_empty());
+        assert!(by_edge[2].is_empty());
+        assert!(by_edge[3].is_empty());
+        assert_eq!(mids[0].len(), 1);
+        assert!(approx_eq(mids[0][0], 0.45, 1e-4));
+    }
+
+    /// Multi-edge fallback — a cut spanning the topmost vertex
+    /// of a polygonised circle splits the interval across the
+    /// two short edges adjacent to that vertex. Pins the
+    /// `synthetic/walls/cuts-single-gate_seed7.png` fix: before
+    /// the change the cut was silently dropped because no
+    /// single edge accepted both endpoints within the perp
+    /// budget.
+    #[test]
+    fn cut_spanning_two_edges_at_polygon_vertex_lands_on_both() {
+        // A 32-gon approximating a circle of radius 32 centred
+        // at (50, 50). Vertex 0 sits at the topmost point
+        // (50, 18); vertex 1 is to the right of it, vertex 31
+        // to the left.
+        let n: usize = 32;
+        let cx = 50.0_f32;
+        let cy = 50.0_f32;
+        let r = 32.0_f32;
+        let polygon: Vec<(f32, f32)> = (0..n)
+            .map(|i| {
+                let angle = -std::f32::consts::FRAC_PI_2
+                    + (i as f32) * std::f32::consts::TAU
+                    / (n as f32);
+                (cx + r * angle.cos(), cy + r * angle.sin())
+            })
+            .collect();
+        // Cut along the bbox top (y = cy - r = 18.0), from
+        // x = 46 to x = 54 — symmetric around the topmost
+        // vertex (50, 18). Vertex 31 sits at (43.76, 18.61)
+        // and vertex 1 at (56.24, 18.61), so cs / ce land on
+        // edge 31 (vertex 31 → vertex 0) and edge 0 (vertex 0
+        // → vertex 1) respectively.
+        let cs = (46.0_f32, 18.0_f32);
+        let ce = (54.0_f32, 18.0_f32);
+        let (by_edge, mids) = project_cuts_onto_polygon_pure(
+            &polygon, &[(cs, ce, true)],
+        );
+        // edge 31 (vertex 31 → vertex 0) and edge 0 (vertex 0 →
+        // vertex 1) must both receive a partial cut. No other
+        // edge should — the legacy fallback would smear the cut
+        // across the whole polygon otherwise.
+        assert!(
+            !by_edge[31].is_empty(),
+            "edge 31 (top-left) should receive a cut interval"
+        );
+        assert!(
+            !by_edge[0].is_empty(),
+            "edge 0 (top-right) should receive a cut interval"
+        );
+        // edge 31 partial goes from some t_lo to 1.0 (ends at
+        // the topmost vertex). edge 0 partial goes from 0.0 to
+        // some t_hi (starts at the topmost vertex).
+        assert_eq!(by_edge[31][0].1, 1.0, "edge 31 cut should run to its end");
+        assert_eq!(by_edge[0][0].0, 0.0, "edge 0 cut should start at its beginning");
+        // No other edge should have received the cut.
+        for i in 1..31 {
+            assert!(
+                by_edge[i].is_empty(),
+                "edge {i} should be untouched (cut shouldn't span here)"
+            );
+        }
+        // Gate midpoint lands on one of the two affected edges.
+        let total_mids: usize = mids.iter().map(|v| v.len()).sum();
+        assert_eq!(total_mids, 1, "exactly one midpoint for one gate cut");
+    }
+
+    /// Wider cuts spanning more than two edges fill the
+    /// intermediate edges with full-coverage intervals (0..1).
+    /// Exercises the inner-arc loop of the multi-edge fallback.
+    /// Geometry matches the production catalog circle (radius
+    /// 64, 32 segments) so the perp budget is comfortably met
+    /// even at the wider cut endpoints.
+    #[test]
+    fn wide_cut_spanning_three_edges_marks_middle_edge_fully() {
+        let n: usize = 32;
+        let cx = 88.0_f32;
+        let cy = 384.0_f32;
+        let r = 64.0_f32;
+        let polygon: Vec<(f32, f32)> = (0..n)
+            .map(|i| {
+                let angle = -std::f32::consts::FRAC_PI_2
+                    + (i as f32) * std::f32::consts::TAU
+                    / (n as f32);
+                (cx + r * angle.cos(), cy + r * angle.sin())
+            })
+            .collect();
+        // Cut from (70, 320) to (106, 320) — extends past
+        // vertex 31 (75.52, 321.22) on the left and vertex 1
+        // (100.48, 321.22) on the right of the topmost vertex,
+        // so it must span ≥3 edges: edge 30 (partial), 31
+        // (full), and edge 0 (partial — or further).
+        let cs = (70.0_f32, 320.0_f32);
+        let ce = (106.0_f32, 320.0_f32);
+        let (by_edge, _mids) = project_cuts_onto_polygon_pure(
+            &polygon, &[(cs, ce, true)],
+        );
+        let touched: Vec<usize> = (0..n)
+            .filter(|&i| !by_edge[i].is_empty())
+            .collect();
+        assert!(
+            touched.len() >= 3,
+            "wide top-spanning cut should touch ≥3 edges, got {touched:?}"
+        );
+        // At least one middle edge should be fully covered.
+        let full_count = (0..n)
+            .filter(|&i| by_edge[i].iter().any(|&(lo, hi)| lo == 0.0 && hi == 1.0))
+            .count();
+        assert!(
+            full_count >= 1,
+            "wide cut should fully cover at least one intermediate edge"
+        );
     }
 
     #[test]
