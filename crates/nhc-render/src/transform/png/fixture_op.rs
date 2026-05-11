@@ -37,7 +37,8 @@ use rand_pcg::Pcg64Mcg;
 
 use crate::ir::{Anchor, FixtureKind, FixtureOp, Region};
 use crate::painter::{
-    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Stroke, Vec2,
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Stroke,
+    Transform, Vec2,
 };
 use crate::primitives::bush::paint_bush;
 use crate::primitives::fountain::paint_fountain;
@@ -1823,6 +1824,36 @@ pub fn draw<'a>(
         _ => return false,
     };
     let kind = op.kind();
+    // Optional painter-space scale around the first anchor's
+    // tile centre. Production FixtureOps always set scale=1.0
+    // (the schema default) so the transform stack stays empty
+    // and the per-kind dispatch is byte-identical with the
+    // pre-scale output. The catalog uses larger values to
+    // overlay a zoomed copy of a single-tile fixture.
+    let scale = op.scale();
+    let scaled = (scale - 1.0).abs() > 1e-6;
+    if scaled {
+        let first = anchors.get(0);
+        let pivot_x = (f64::from(first.x()) + 0.5) * CELL;
+        let pivot_y = (f64::from(first.y()) + 0.5) * CELL;
+        let xform = Transform::translate(pivot_x as f32, pivot_y as f32)
+            .pre_concat(Transform::scale(scale, scale))
+            .pre_concat(Transform::translate(-pivot_x as f32, -pivot_y as f32));
+        painter.push_transform(xform);
+    }
+    let painted = draw_fixture_kind(kind, anchors, op, painter);
+    if scaled {
+        painter.pop_transform();
+    }
+    painted
+}
+
+fn draw_fixture_kind<'a>(
+    kind: FixtureKind,
+    anchors: Vector<'a, Anchor>,
+    op: FixtureOp<'a>,
+    painter: &mut dyn Painter,
+) -> bool {
     match kind {
         FixtureKind::Tree => {
             let (free, groves) = split_by_group(&anchors);
@@ -2117,6 +2148,12 @@ mod tests {
     use crate::painter::test_util::{MockPainter, PainterCall};
 
     fn build_fixture_op(kind: FixtureKind, anchors: &[Anchor]) -> Vec<u8> {
+        build_fixture_op_with_scale(kind, anchors, 1.0)
+    }
+
+    fn build_fixture_op_with_scale(
+        kind: FixtureKind, anchors: &[Anchor], scale: f32,
+    ) -> Vec<u8> {
         let mut fbb = FlatBufferBuilder::new();
         let anchors_vec = fbb.create_vector(anchors);
         let region_ref = fbb.create_string("");
@@ -2127,6 +2164,7 @@ mod tests {
                 kind,
                 anchors: Some(anchors_vec),
                 seed: 0xBEEF,
+                scale,
             },
         );
         let op_entry = OpEntry::create(
@@ -2177,6 +2215,50 @@ mod tests {
     /// primitives/tree.rs §2.14c). One isolated tree anchor (group_id
     /// = 0) emits multiple painter calls — pin that the dispatcher
     /// reaches the lifted painter rather than the legacy circle stub.
+    /// FixtureOp.scale = 1.0 (default) emits no push_transform /
+    /// pop_transform pair, keeping the per-kind dispatch byte-
+    /// identical with the pre-scale output. A non-unit scale
+    /// wraps the dispatch in exactly one transform envelope so
+    /// the catalog can render a zoomed copy of a single-tile
+    /// fixture without touching the primitive's draw code.
+    #[test]
+    fn scale_default_emits_no_transform_envelope() {
+        let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+        let painter = run(&build_fixture_op(FixtureKind::Chest, &anchors));
+        let pushes = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::PushTransform(_)))
+            .count();
+        let pops = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::PopTransform))
+            .count();
+        assert_eq!(pushes, 0, "scale=1.0 must not push a transform");
+        assert_eq!(pops, 0, "scale=1.0 must not pop a transform");
+    }
+
+    #[test]
+    fn scale_non_unit_pushes_and_pops_one_transform() {
+        let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];
+        let painter = run(&build_fixture_op_with_scale(
+            FixtureKind::Chest, &anchors, 3.0,
+        ));
+        let pushes = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::PushTransform(_)))
+            .count();
+        let pops = painter
+            .calls
+            .iter()
+            .filter(|c| matches!(c, PainterCall::PopTransform))
+            .count();
+        assert_eq!(pushes, 1, "scale=3.0 must push exactly one transform");
+        assert_eq!(pops, 1, "scale=3.0 must pop exactly one transform");
+    }
+
     #[test]
     fn draw_routes_tree_kind_to_paint_tree() {
         let anchors = [Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)];

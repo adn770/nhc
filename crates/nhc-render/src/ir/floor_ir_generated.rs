@@ -3597,6 +3597,7 @@ impl<'a> FixtureOp<'a> {
   pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
   pub const VT_ANCHORS: ::flatbuffers::VOffsetT = 8;
   pub const VT_SEED: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SCALE: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3609,6 +3610,7 @@ impl<'a> FixtureOp<'a> {
   ) -> ::flatbuffers::WIPOffset<FixtureOp<'bldr>> {
     let mut builder = FixtureOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    builder.add_scale(args.scale);
     if let Some(x) = args.anchors { builder.add_anchors(x); }
     if let Some(x) = args.region_ref { builder.add_region_ref(x); }
     builder.add_kind(args.kind);
@@ -3644,6 +3646,13 @@ impl<'a> FixtureOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(FixtureOp::VT_SEED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn scale(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FixtureOp::VT_SCALE, Some(1.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FixtureOp<'_> {
@@ -3656,6 +3665,7 @@ impl ::flatbuffers::Verifiable for FixtureOp<'_> {
      .visit_field::<FixtureKind>("kind", Self::VT_KIND, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Anchor>>>("anchors", Self::VT_ANCHORS, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .visit_field::<f32>("scale", Self::VT_SCALE, false)?
      .finish();
     Ok(())
   }
@@ -3665,6 +3675,7 @@ pub struct FixtureOpArgs<'a> {
     pub kind: FixtureKind,
     pub anchors: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Anchor>>>,
     pub seed: u64,
+    pub scale: f32,
 }
 impl<'a> Default for FixtureOpArgs<'a> {
   #[inline]
@@ -3674,6 +3685,7 @@ impl<'a> Default for FixtureOpArgs<'a> {
       kind: FixtureKind::Web,
       anchors: None,
       seed: 0,
+      scale: 1.0,
     }
   }
 }
@@ -3700,6 +3712,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FixtureOpBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(FixtureOp::VT_SEED, seed, 0);
   }
   #[inline]
+  pub fn add_scale(&mut self, scale: f32) {
+    self.fbb_.push_slot::<f32>(FixtureOp::VT_SCALE, scale, 1.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FixtureOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FixtureOpBuilder {
@@ -3721,6 +3737,7 @@ impl ::core::fmt::Debug for FixtureOp<'_> {
       ds.field("kind", &self.kind());
       ds.field("anchors", &self.anchors());
       ds.field("seed", &self.seed());
+      ds.field("scale", &self.scale());
       ds.finish()
   }
 }

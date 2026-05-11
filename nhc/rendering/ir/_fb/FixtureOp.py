@@ -73,8 +73,15 @@ class FixtureOp(object):
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return 0
 
+    # FixtureOp
+    def Scale(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
+        return 1.0
+
 def FixtureOpStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(5)
 
 def Start(builder):
     FixtureOpStart(builder)
@@ -109,6 +116,12 @@ def FixtureOpAddSeed(builder, seed):
 def AddSeed(builder, seed):
     FixtureOpAddSeed(builder, seed)
 
+def FixtureOpAddScale(builder, scale):
+    builder.PrependFloat32Slot(4, scale, 1.0)
+
+def AddScale(builder, scale):
+    FixtureOpAddScale(builder, scale)
+
 def FixtureOpEnd(builder):
     return builder.EndObject()
 
@@ -130,11 +143,13 @@ class FixtureOpT(object):
         kind = 0,
         anchors = None,
         seed = 0,
+        scale = 1.0,
     ):
         self.regionRef = regionRef  # type: Optional[str]
         self.kind = kind  # type: int
         self.anchors = anchors  # type: Optional[List[nhc.rendering.ir._fb.Anchor.AnchorT]]
         self.seed = seed  # type: int
+        self.scale = scale  # type: float
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -168,6 +183,7 @@ class FixtureOpT(object):
                     anchor_ = nhc.rendering.ir._fb.Anchor.AnchorT.InitFromObj(fixtureOp.Anchors(i))
                     self.anchors.append(anchor_)
         self.seed = fixtureOp.Seed()
+        self.scale = fixtureOp.Scale()
 
     # FixtureOpT
     def Pack(self, builder):
@@ -185,5 +201,6 @@ class FixtureOpT(object):
         if self.anchors is not None:
             FixtureOpAddAnchors(builder, anchors)
         FixtureOpAddSeed(builder, self.seed)
+        FixtureOpAddScale(builder, self.scale)
         fixtureOp = FixtureOpEnd(builder)
         return fixtureOp

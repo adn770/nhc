@@ -389,6 +389,12 @@ table FixtureOp {
   kind: FixtureKind;
   anchors: [Anchor];
   seed: uint64;
+  // Painter-space uniform scale around the FIRST anchor's tile
+  // centre. Defaults to 1.0 (no transform) so production
+  // FixtureOps stay byte-identical. The catalog opts in to
+  // larger values (e.g. 3.0) to render a zoomed copy of a
+  // single-tile fixture inside the same cell.
+  scale: float = 1.0;
 }
 
 table StrokeOp {

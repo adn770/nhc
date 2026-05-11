@@ -53,8 +53,13 @@ seed():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+scale():number {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 1.0;
+}
+
 static startFixtureOp(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
@@ -77,17 +82,22 @@ static addSeed(builder:flatbuffers.Builder, seed:bigint) {
   builder.addFieldInt64(3, seed, BigInt('0'));
 }
 
+static addScale(builder:flatbuffers.Builder, scale:number) {
+  builder.addFieldFloat32(4, scale, 1.0);
+}
+
 static endFixtureOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createFixtureOp(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset, kind:FixtureKind, anchorsOffset:flatbuffers.Offset, seed:bigint):flatbuffers.Offset {
+static createFixtureOp(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset, kind:FixtureKind, anchorsOffset:flatbuffers.Offset, seed:bigint, scale:number):flatbuffers.Offset {
   FixtureOp.startFixtureOp(builder);
   FixtureOp.addRegionRef(builder, regionRefOffset);
   FixtureOp.addKind(builder, kind);
   FixtureOp.addAnchors(builder, anchorsOffset);
   FixtureOp.addSeed(builder, seed);
+  FixtureOp.addScale(builder, scale);
   return FixtureOp.endFixtureOp(builder);
 }
 }

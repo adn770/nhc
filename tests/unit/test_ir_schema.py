@@ -376,6 +376,46 @@ def test_roof_op_carries_tone_seed_and_extended_styles() -> None:
     assert out.subPattern == RoofTilePattern.Plain
 
 
+def test_fixture_op_scale_defaults_to_unit() -> None:
+    from nhc.rendering.ir._fb.Anchor import AnchorT
+    from nhc.rendering.ir._fb.FixtureKind import FixtureKind
+    from nhc.rendering.ir._fb.FixtureOp import FixtureOp, FixtureOpT
+
+    src = FixtureOpT()
+    src.regionRef = "cell.0.0"
+    src.kind = FixtureKind.Chest
+    src.seed = 0xC0FFEE
+    src.anchors = [AnchorT()]
+
+    builder = flatbuffers.Builder(0)
+    builder.Finish(src.Pack(builder))
+    parsed = FixtureOp.GetRootAs(builder.Output(), 0)
+    out = FixtureOpT.InitFromObj(parsed)
+
+    # Forward-compat default — unset scale reads as 1.0.
+    assert out.scale == 1.0
+
+
+def test_fixture_op_round_trips_explicit_scale() -> None:
+    from nhc.rendering.ir._fb.Anchor import AnchorT
+    from nhc.rendering.ir._fb.FixtureKind import FixtureKind
+    from nhc.rendering.ir._fb.FixtureOp import FixtureOp, FixtureOpT
+
+    src = FixtureOpT()
+    src.regionRef = "cell.1.2"
+    src.kind = FixtureKind.Pillar
+    src.seed = 0xDEAD0001
+    src.anchors = [AnchorT()]
+    src.scale = 3.0
+
+    builder = flatbuffers.Builder(0)
+    builder.Finish(src.Pack(builder))
+    parsed = FixtureOp.GetRootAs(builder.Output(), 0)
+    out = FixtureOpT.InitFromObj(parsed)
+
+    assert out.scale == 3.0
+
+
 def test_roof_op_round_trips_explicit_sub_pattern() -> None:
     from nhc.rendering.ir._fb.RoofOp import RoofOp, RoofOpT
     from nhc.rendering.ir._fb.RoofStyle import RoofStyle

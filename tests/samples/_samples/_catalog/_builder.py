@@ -680,6 +680,69 @@ def fixture_factory(
     return factory
 
 
+def small_fixture_factory(
+    *,
+    kind: int,
+    variant: int = 0,
+    orientation: int = 0,
+    scale_byte: int = 0,
+    zoom: float = 3.0,
+    base: "Callable[[], Any] | None" = None,
+):
+    """Column op_factory rendering the SAME single-tile fixture
+    twice in one cell:
+
+    1. A natural-size copy anchored at the cell's top-left tile
+       — exactly the pixel footprint the primitive draws in
+       production.
+    2. A zoomed copy anchored in the cell's centre, painted via
+       ``FixtureOp.scale`` (catalog-only forward-compat field).
+       Default zoom 3× lifts a 32-pixel primitive to 96 pixels —
+       roughly the 3×3 remaining area of a 4-tile cell after the
+       top-left preview tile.
+
+    Suitable for fixtures whose drawn footprint stays within one
+    tile (Chest, Crate, Pillar, etc.). Multi-tile primitives
+    (Fountain, Well, Bed) should keep using ``fixture_factory``
+    with a ``tile_offset`` instead.
+    """
+    def factory(region_id, page_seed, col_idx, row_idx):
+        seed = derive_cell_seed(
+            page_seed, col_idx, row_idx, kind, variant,
+        )
+        tx0, ty0, _, _ = cell_tile_bounds(col_idx, row_idx)
+        small_anchor = make_anchor(
+            x=tx0, y=ty0,
+            variant=variant, orientation=orientation, scale=scale_byte,
+        )
+        cx, cy = cell_center_tile(col_idx, row_idx)
+        zoom_anchor = make_anchor(
+            x=cx, y=cy,
+            variant=variant, orientation=orientation, scale=scale_byte,
+        )
+        small_op = FixtureOpT()
+        small_op.regionRef = region_id
+        small_op.kind = kind
+        small_op.anchors = [small_anchor]
+        small_op.seed = seed
+        zoom_op = FixtureOpT()
+        zoom_op.regionRef = region_id
+        zoom_op.kind = kind
+        zoom_op.anchors = [zoom_anchor]
+        zoom_op.seed = seed
+        zoom_op.scale = zoom
+
+        base_material = (
+            base() if base is not None else material_plain(seed=seed)
+        )
+        return [
+            _make_paint_op(region_id, base_material),
+            _wrap_fixture(small_op),
+            _wrap_fixture(zoom_op),
+        ]
+    return factory
+
+
 def stamp_factory(
     *,
     decorator_mask: int,
@@ -889,7 +952,7 @@ __all__ = [
     "ColumnSpec", "CatalogPageSpec", "DEFAULT_ROWS",
     "build_catalog_buffer",
     "cell_bbox", "cell_content_bbox", "page_pixel_dimensions",
-    "derive_cell_seed",
+    "derive_cell_seed", "small_fixture_factory",
     "stone_factory", "wood_factory",
     "earth_factory", "liquid_factory", "special_factory",
     "cave_factory", "plain_factory",
