@@ -642,9 +642,18 @@ def fixture_factory(
     orientation: int = 0,
     scale: int = 0,
     base: "Callable[[], Any] | None" = None,
+    tile_offset: tuple[int, int] = (0, 0),
 ):
     """Column op_factory emitting a base PaintOp + FixtureOp with
     one anchor at the cell centre.
+
+    ``tile_offset = (dx, dy)`` shifts the anchor by ``(dx, dy)``
+    tiles from ``cell_center_tile``. Most fixture primitives read
+    ``Anchor.x, y`` as the *top-left* tile of a multi-tile
+    footprint (2×2 fountain, 3×3 fountain, Cross fountain), so a
+    centred placement needs an offset of ``(-N//2, -N//2)`` where
+    ``N`` is the footprint side. Single-tile fixtures stay at the
+    default ``(0, 0)``.
     """
     def factory(region_id, page_seed, col_idx, row_idx):
         seed = derive_cell_seed(
@@ -652,7 +661,7 @@ def fixture_factory(
         )
         cx, cy = cell_center_tile(col_idx, row_idx)
         anchor = make_anchor(
-            x=cx, y=cy,
+            x=cx + tile_offset[0], y=cy + tile_offset[1],
             variant=variant, orientation=orientation, scale=scale,
         )
         fop = FixtureOpT()

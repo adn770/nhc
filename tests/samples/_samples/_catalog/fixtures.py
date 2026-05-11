@@ -59,11 +59,29 @@ register_catalog_page(CatalogPageSpec(
 # Well's smaller variant set visible at a glance.
 
 
+# Fountain primitives interpret ``Anchor.x, y`` as the *top-left*
+# tile of a multi-tile footprint, so a centred placement needs a
+# tile_offset that puts the footprint's centre at the cell's
+# centre. Variants 0/1 are 2×2; 2/3/4 are 3×3 (Cross too). With
+# a 4-tile catalog cell the 2×2 anchor lands one tile up-left of
+# cell_center_tile; the 3×3 anchor lands one tile up-left and
+# accepts a half-tile right-bias (integer-tile arithmetic can't
+# perfectly centre an odd-side footprint in an even-side cell).
+_FOUNTAIN_TILE_OFFSETS: dict[int, tuple[int, int]] = {
+    0: (-1, -1),  # circle 2×2 — perfectly centred
+    1: (-1, -1),  # square 2×2 — perfectly centred
+    2: (-1, -1),  # circle 3×3 — half-tile right-bias
+    3: (-1, -1),  # square 3×3 — half-tile right-bias
+    4: (-1, -1),  # cross — half-tile right-bias
+}
+
+
 def _well_or_fountain_factory(variant: int):
     """Row 0 → Well (only variants 0-1 valid; higher variants
     render a blank Plain rect). Row 1 → Fountain (all 5 valid)."""
     fountain = fixture_factory(
         kind=FixtureKind.Fountain, variant=variant,
+        tile_offset=_FOUNTAIN_TILE_OFFSETS[variant],
     )
     if variant < 2:
         well = fixture_factory(
