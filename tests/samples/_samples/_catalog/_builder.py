@@ -66,14 +66,20 @@ MAX_COLS = 6
 CELL_TILES = 4
 CELL_PX = CELL_TILES * CELL  # 128
 
-# Gutter between adjacent cells in pixels. Half a tile is enough to
-# read the cell boundary without wasting canvas space.
-GUTTER_PX = CELL // 2  # 16
+# Gutter between adjacent cells in pixels. One full tile so every
+# cell starts at a tile-aligned pixel — without this, fixtures
+# anchored at the cell's "top-left tile" (which ``cell_tile_bounds``
+# rounds down from a non-tile-aligned pixel) drift outside the
+# cell rect and bleed onto the parchment margin.
+GUTTER_PX = CELL  # 32
 
 # Margins for axis labels: left for shape names (rotated 90°), top
 # for column header (material name), right + bottom modest padding.
-LEFT_MARGIN_PX = 24
-TOP_MARGIN_PX = 32
+# LEFT_MARGIN_PX must be a multiple of CELL for the same tile-
+# alignment reason as ``GUTTER_PX``; the right + bottom margins
+# don't constrain any cell origin so they stay small.
+LEFT_MARGIN_PX = CELL  # 32
+TOP_MARGIN_PX = CELL   # 32
 RIGHT_MARGIN_PX = 16
 BOTTOM_MARGIN_PX = 16
 
