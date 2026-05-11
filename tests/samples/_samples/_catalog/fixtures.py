@@ -1,13 +1,12 @@
-"""Fixture catalog pages — 12 FixtureKind variants split into
-three pages of 4 columns each, sweeping rect / octagon / circle
-shape rows.
+"""Fixture catalog pages — FixtureKind variants grouped by axis.
 
 - ``creature-scale`` — small per-tile stamps (Web, Skull, Bone,
   LooseStone) typically scattered as room dressing.
-- ``objects-1`` — large objects (Well, Fountain, Tree, Bush)
-  occupying central tile.
+- ``objects-1`` — wells + fountains, all 7 variants in a single
+  page (2 well + 5 fountain shapes across two rows).
 - ``objects-2`` — narrative objects (Stair, Mushroom, Gravestone,
   Sign) occupying central tile.
+- ``vegetation`` — Tree + Bush.
 """
 
 from __future__ import annotations
@@ -49,25 +48,86 @@ register_catalog_page(CatalogPageSpec(
 # ── Object fixtures (set 1) ─────────────────────────────────────
 
 
+# Well + Fountain share a "shape" axis on Anchor.variant — Well
+# implements variants 0 (Circle) and 1 (Square); Fountain extends
+# that to 2 (Circle 3×3), 3 (Square 3×3), and 4 (Cross). The page
+# lays variants 0..4 along the column axis with Well in the top
+# row + Fountain in the bottom row, so the column header reads
+# as the *shape* and each row reads as the *fixture kind*.
+# Cells where the fixture kind has no matching variant (Well
+# rows 2..4) render a blank Plain rect by intent — the gap makes
+# Well's smaller variant set visible at a glance.
+
+
+def _well_or_fountain_factory(variant: int):
+    """Row 0 → Well (only variants 0-1 valid; higher variants
+    render a blank Plain rect). Row 1 → Fountain (all 5 valid)."""
+    fountain = fixture_factory(
+        kind=FixtureKind.Fountain, variant=variant,
+    )
+    if variant < 2:
+        well = fixture_factory(
+            kind=FixtureKind.Well, variant=variant,
+        )
+    else:
+        # Sentinel — empty cell. The page builder still
+        # populates the cell's Region; returning an empty op
+        # list leaves the canvas parchment-coloured under the
+        # cell, so the absence reads as a deliberate gap.
+        well = None
+
+    def factory(region_id, page_seed, col_idx, row_idx):
+        if row_idx == 0:
+            if well is None:
+                return []
+            return well(region_id, page_seed, col_idx, row_idx)
+        return fountain(region_id, page_seed, col_idx, row_idx)
+
+    return factory
+
+
 register_catalog_page(CatalogPageSpec(
     name="objects-1",
     category="synthetic/fixtures",
     description=(
-        "Object fixtures — Well, Fountain, Tree, Bush — stamped at "
-        "the centre tile of each cell. Wells / fountains carry "
-        "shape variants via Anchor.variant; trees + bushes lift "
-        "their canopies from the v4 primitives."
+        "Wells + Fountains — every Anchor.variant the Rust "
+        "primitives implement. Well has 2 variants (Circle, "
+        "Square) shown in the top row; Fountain has 5 variants "
+        "(Circle 2×2, Square 2×2, Circle 3×3, Square 3×3, Cross) "
+        "in the bottom row. Columns 2-4 on the Well row stay "
+        "intentionally blank — Well doesn't host the wider "
+        "shapes."
     ),
     columns=[
-        ColumnSpec("Well", fixture_factory(kind=FixtureKind.Well)),
-        ColumnSpec("Fountain", fixture_factory(kind=FixtureKind.Fountain)),
+        ColumnSpec("Circle 2×2", _well_or_fountain_factory(0)),
+        ColumnSpec("Square 2×2", _well_or_fountain_factory(1)),
+        ColumnSpec("Circle 3×3", _well_or_fountain_factory(2)),
+        ColumnSpec("Square 3×3", _well_or_fountain_factory(3)),
+        ColumnSpec("Cross", _well_or_fountain_factory(4)),
+    ],
+    seed=7,
+    rows=("Well", "Fountain"),
+    cell_shape="rect",
+    params={"axis": "wells-fountains"},
+))
+
+
+register_catalog_page(CatalogPageSpec(
+    name="vegetation",
+    category="synthetic/fixtures",
+    description=(
+        "Vegetation fixtures — Tree (broadleaf canopy + trunk) "
+        "and Bush (low foliage clump). Stamped at the centre "
+        "tile of each cell."
+    ),
+    columns=[
         ColumnSpec("Tree", fixture_factory(kind=FixtureKind.Tree)),
         ColumnSpec("Bush", fixture_factory(kind=FixtureKind.Bush)),
     ],
     seed=7,
     rows=("",),
     cell_shape="rect",
-    params={"axis": "objects-1"},
+    params={"axis": "vegetation"},
 ))
 
 
