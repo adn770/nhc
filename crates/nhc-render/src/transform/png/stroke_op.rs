@@ -199,6 +199,38 @@ pub fn draw<'a>(
         Some(p) => p,
         None => return false,
     };
+    // Cave regions get their organic boundary back. The PaintOp
+    // sibling fills with ``cave_path_from_outline`` over the
+    // same raw polygon; if the stroke walks the raw tile-
+    // boundary vertices instead, the wall reads as a blocky
+    // stair-step outline drawn on top of an organic fill. Mirror
+    // the paint-side smoothing here so the stroke follows the
+    // same buffered + jittered + smoothed curve. The seed
+    // contract: PaintOp's ``material_cave(seed=0)`` and
+    // StrokeOp's ``wall_material_plain_stroke()`` (which also
+    // defaults seed=0) walk the same RNG stream, so the curves
+    // align byte-for-byte.
+    let cave_path: Option<PathOps> = match (op.region_ref(), polygon.as_ref()) {
+        (Some(rr), Some(poly)) if !rr.is_empty() => {
+            let shape_tag = super::find_region(regions, rr)
+                .and_then(|r| r.shape_tag())
+                .unwrap_or("");
+            if shape_tag == "cave" {
+                let coords: Vec<(f64, f64)> = poly
+                    .iter()
+                    .map(|(x, y)| (f64::from(*x), f64::from(*y)))
+                    .collect();
+                let smoothed = crate::geometry::cave_path_from_outline(
+                    &coords, wm.seed(),
+                );
+                if smoothed.is_empty() { None } else { Some(smoothed) }
+            } else {
+                None
+            }
+        }
+        _ => None,
+    };
+    let stroke_path = cave_path.as_ref().unwrap_or(&path);
     let color = substance_color(family, wm.style(), wm.tone(), PaletteRole::Shadow);
     let paint = Paint::solid(color);
     let stroke = Stroke {
@@ -206,7 +238,7 @@ pub fn draw<'a>(
         line_cap: LineCap::Round,
         ..Stroke::default()
     };
-    painter.stroke_path(&path, &paint, &stroke);
+    painter.stroke_path(stroke_path, &paint, &stroke);
     true
 }
 
