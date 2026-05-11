@@ -143,6 +143,13 @@ class CatalogPageSpec:
     # Static recipe echoed into the .json sidecar.
     params: dict[str, Any] = field(default_factory=dict)
     cell_shape: str | None = None
+    # Optional inset applied to the cell's shape polygon (px on
+    # every side). The cell GRID layout (cell_bbox) stays fixed,
+    # only the shape outline shrinks. Pages whose painters can
+    # overhang the cell rect (e.g. fortification corners) bump
+    # this so adjacent cells' overhangs don't collide in the
+    # 16-px gutter.
+    cell_inset_px: int = 0
 
 
 # ── Page geometry ────────────────────────────────────────────────
@@ -172,12 +179,35 @@ def page_pixel_dimensions(n_cols: int, n_rows: int) -> tuple[int, int]:
 def cell_bbox(col: int, row: int) -> tuple[int, int, int, int]:
     """Pixel bbox ``(x0, y0, x1, y1)`` of the cell at ``(col, row)``.
 
-    Coordinates are in the page's content space (PADDING is added
-    by the renderer's outer transform).
+    The LAYOUT bbox — independent of any per-page inset. Labels
+    + grid-positioning callers use this so they sit relative to
+    the visible cell grid, not the (possibly insetted) wall
+    polygon. Coordinates are in the page's content space (PADDING
+    is added by the renderer's outer transform).
     """
     x0 = LEFT_MARGIN_PX + col * (CELL_PX + GUTTER_PX)
     y0 = TOP_MARGIN_PX + row * (CELL_PX + GUTTER_PX)
     return x0, y0, x0 + CELL_PX, y0 + CELL_PX
+
+
+# Per-page cell inset, set by ``_build_page`` before walking the
+# cell grid and reset back to 0 afterwards. ``cell_content_bbox``
+# reads this so painters that overhang the cell rect (e.g.
+# fortification corners) can opt their page into a smaller inner
+# bbox without threading a spec through every closure.
+_active_cell_inset: int = 0
+
+
+def cell_content_bbox(col: int, row: int) -> tuple[int, int, int, int]:
+    """Pixel bbox of the cell's content area at ``(col, row)``.
+
+    Applies the page's ``cell_inset_px`` so the wall polygon /
+    cuts / fill stay inside the cell rect. Defaults to
+    ``cell_bbox`` when no inset is active.
+    """
+    x0, y0, x1, y1 = cell_bbox(col, row)
+    inset = _active_cell_inset
+    return x0 + inset, y0 + inset, x1 - inset, y1 - inset
 
 
 def _ceil_div(a: int, b: int) -> int:
@@ -206,44 +236,50 @@ def build_catalog_buffer(spec: CatalogPageSpec) -> bytes:
     regions: list[RegionT] = []
     ops: list[OpEntryT] = []
 
-    for col_idx, column in enumerate(spec.columns):
-        for row_idx, row_label in enumerate(spec.rows):
-            shape_key = spec.cell_shape if spec.cell_shape else row_label
-            shape_builder = SHAPE_BUILDERS.get(shape_key)
-            if shape_builder is None:
-                raise ValueError(
-                    f"unknown shape {shape_key!r} "
-                    f"(row label {row_label!r}, cell_shape {spec.cell_shape!r})"
+    global _active_cell_inset
+    prev_inset = _active_cell_inset
+    _active_cell_inset = spec.cell_inset_px
+    try:
+        for col_idx, column in enumerate(spec.columns):
+            for row_idx, row_label in enumerate(spec.rows):
+                shape_key = spec.cell_shape if spec.cell_shape else row_label
+                shape_builder = SHAPE_BUILDERS.get(shape_key)
+                if shape_builder is None:
+                    raise ValueError(
+                        f"unknown shape {shape_key!r} "
+                        f"(row label {row_label!r}, cell_shape {spec.cell_shape!r})"
+                    )
+                x0, y0, x1, y1 = cell_content_bbox(col_idx, row_idx)
+                outline = shape_builder(x0, y0, x1, y1)
+                region_id = f"cell.{col_idx}.{row_idx}"
+
+                region = RegionT()
+                region.id = region_id
+                region.outline = outline
+                region.parentId = ""
+                region.cuts = []
+                region.shapeTag = row_label
+                regions.append(region)
+
+                op_result = column.op_factory(
+                    region_id, spec.seed, col_idx, row_idx,
                 )
-            x0, y0, x1, y1 = cell_bbox(col_idx, row_idx)
-            outline = shape_builder(x0, y0, x1, y1)
-            region_id = f"cell.{col_idx}.{row_idx}"
-
-            region = RegionT()
-            region.id = region_id
-            region.outline = outline
-            region.parentId = ""
-            region.cuts = []
-            region.shapeTag = row_label
-            regions.append(region)
-
-            op_result = column.op_factory(
-                region_id, spec.seed, col_idx, row_idx,
-            )
-            # Multi-region cells return ``(extra_regions, ops)``;
-            # the cell's main region is already in ``regions``.
-            # Single-op or list-of-op returns just contribute ops.
-            if (
-                isinstance(op_result, tuple) and len(op_result) == 2
-                and isinstance(op_result[0], list)
-            ):
-                extra_regions, extra_ops = op_result
-                regions.extend(extra_regions)
-                ops.extend(extra_ops)
-            elif isinstance(op_result, list):
-                ops.extend(op_result)
-            else:
-                ops.append(op_result)
+                # Multi-region cells return ``(extra_regions, ops)``;
+                # the cell's main region is already in ``regions``.
+                # Single-op or list-of-op returns just contribute ops.
+                if (
+                    isinstance(op_result, tuple) and len(op_result) == 2
+                    and isinstance(op_result[0], list)
+                ):
+                    extra_regions, extra_ops = op_result
+                    regions.extend(extra_regions)
+                    ops.extend(extra_ops)
+                elif isinstance(op_result, list):
+                    ops.extend(op_result)
+                else:
+                    ops.append(op_result)
+    finally:
+        _active_cell_inset = prev_inset
 
     fir = FloorIRT()
     fir.major = _SCHEMA_MAJOR
@@ -843,7 +879,7 @@ __all__ = [
     "MAX_COLS",
     "ColumnSpec", "CatalogPageSpec", "DEFAULT_ROWS",
     "build_catalog_buffer",
-    "cell_bbox", "page_pixel_dimensions",
+    "cell_bbox", "cell_content_bbox", "page_pixel_dimensions",
     "derive_cell_seed",
     "stone_factory", "wood_factory",
     "earth_factory", "liquid_factory", "special_factory",

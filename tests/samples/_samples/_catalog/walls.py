@@ -18,7 +18,7 @@ from nhc.rendering.ir._fb.CutStyle import CutStyle
 
 from ._builder import (
     CELL_PX, CatalogPageSpec, ColumnSpec,
-    cell_bbox, make_cut, register_catalog_page, wall_factory,
+    cell_content_bbox, make_cut, register_catalog_page, wall_factory,
 )
 
 
@@ -148,7 +148,7 @@ def _top_edge_cut_factory(*, frac_lo: float, frac_hi: float, style: int):
     painted. Cell column 0 receives the smaller cut, etc.
     """
     def cuts_for_cell(_page_seed: int, col: int = 0, row: int = 0):
-        x0, y0, x1, _ = cell_bbox(col, row)
+        x0, y0, x1, _ = cell_content_bbox(col, row)
         cx_lo = x0 + (x1 - x0) * frac_lo
         cx_hi = x0 + (x1 - x0) * frac_hi
         return [make_cut((cx_lo, y0), (cx_hi, y0), style=style)]
@@ -165,7 +165,7 @@ def _wall_with_top_cut(*, frac_lo: float, frac_hi: float, style: int):
         # Re-build a temporary wall_factory inline so we can pass
         # the col/row-aware cut list. Keeps ``wall_factory``'s
         # simple ``cuts: (seed) -> list[Cut]`` signature.
-        x0, y0, x1, _ = cell_bbox(col_idx, row_idx)
+        x0, y0, x1, _ = cell_content_bbox(col_idx, row_idx)
         cx_lo = x0 + (x1 - x0) * frac_lo
         cx_hi = x0 + (x1 - x0) * frac_hi
 
@@ -218,7 +218,7 @@ def _wall_with_two_cuts(
 ):
     """Wall factory with one cut on the top edge + one on the bottom."""
     def factory(region_id, page_seed, col_idx, row_idx):
-        x0, y0, x1, y1 = cell_bbox(col_idx, row_idx)
+        x0, y0, x1, y1 = cell_content_bbox(col_idx, row_idx)
         top_lo_px = x0 + (x1 - x0) * top_lo
         top_hi_px = x0 + (x1 - x0) * top_hi
         bot_lo_px = x0 + (x1 - x0) * bottom_lo
@@ -252,7 +252,7 @@ def _wall_with_three_cuts(
     / ``"left"``.
     """
     def factory(region_id, page_seed, col_idx, row_idx):
-        x0, y0, x1, y1 = cell_bbox(col_idx, row_idx)
+        x0, y0, x1, y1 = cell_content_bbox(col_idx, row_idx)
 
         def coords_for_edge(edge: str, lo: float, hi: float):
             if edge == "top":

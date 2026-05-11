@@ -28,7 +28,7 @@ from nhc.rendering._svg_helpers import CELL
 
 from ._builder import (
     CatalogPageSpec, ColumnSpec,
-    cell_bbox, derive_cell_seed,
+    cell_content_bbox, derive_cell_seed,
     hatch_factory, make_tile_coord, plain_factory,
     register_catalog_page, shadow_factory,
 )
@@ -169,7 +169,7 @@ def _twin_overlap_factory(*, extent_tiles: float, gap_frac: float):
         seed = derive_cell_seed(
             page_seed, col_idx, row_idx, int(extent_tiles * 100),
         )
-        x0, y0, x1, y1 = cell_bbox(col_idx, row_idx)
+        x0, y0, x1, y1 = cell_content_bbox(col_idx, row_idx)
         cw = x1 - x0
         gap = cw * gap_frac
         mid_x = (x0 + x1) / 2.0

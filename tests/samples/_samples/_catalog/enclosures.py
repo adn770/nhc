@@ -21,7 +21,7 @@ from nhc.rendering.ir._fb.CutStyle import CutStyle
 
 from ._builder import (
     CatalogPageSpec, ColumnSpec,
-    cell_bbox, make_cut, register_catalog_page, wall_factory,
+    cell_content_bbox, make_cut, register_catalog_page, wall_factory,
 )
 
 
@@ -37,7 +37,7 @@ def _build_cuts(col_idx: int, row_idx: int, edges: list[tuple[str, float, float,
     edge length. Pixel coords are derived from the cell bbox at
     op-factory time.
     """
-    x0, y0, x1, y1 = cell_bbox(col_idx, row_idx)
+    x0, y0, x1, y1 = cell_content_bbox(col_idx, row_idx)
     cuts = []
     for edge, lo, hi, style in edges:
         if edge == "top":
@@ -243,6 +243,12 @@ register_catalog_page(CatalogPageSpec(
     cell_shape="rect",
     seed=7,
     params={"treatment": "Fortification", "axis": "corner-styles × gates"},
+    # Corner shapes (especially Diamond + Tower) extend past the
+    # cell rect; without an inset they meet the neighbours' corners
+    # in the gutter and read as one continuous mega-grid rather
+    # than 12 distinct cells. 12 px on every side keeps adjacent
+    # cells visually separated.
+    cell_inset_px=12,
 ))
 
 
