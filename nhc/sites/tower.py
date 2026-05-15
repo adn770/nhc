@@ -20,11 +20,11 @@ from nhc.dungeon.interior._floor import build_building_floor
 from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
 from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RectShape, RoomShape,
-    Terrain,
+    SurfaceType, Terrain, Tile,
 )
 from nhc.sites._site import (
     Site, is_clipped_corner_tile, outside_neighbour,
-    stamp_building_door,
+    paint_surface_doors, stamp_building_door,
 )
 from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import Biome, DungeonRef
@@ -37,6 +37,30 @@ TOWER_FLOOR_COUNT_RANGE = (2, 6)
 TOWER_DESCENT_PROBABILITY = 0.3
 TOWER_DESCENT_TEMPLATE = "procedural:crypt"
 TOWER_SHAPE_POOL = ("circle", "octagon", "square")
+
+# Tiles of FIELD periphery on every side of the tower footprint.
+# Sized to give tree / bush scatter visible room without making
+# the macro view feel empty.
+TOWER_SURFACE_PADDING = 6
+
+# (tree_density, bush_density) per biome. Forest watchtowers carry
+# the densest canopy; sand / ice / dead variants stay nearly bare
+# so the macro view reads as inhospitable. ``None`` is the default
+# when no biome is supplied.
+TOWER_VEGETATION_BY_BIOME: dict[Biome | None, tuple[float, float]] = {
+    Biome.FOREST: (0.18, 0.20),
+    Biome.GREENLANDS: (0.06, 0.10),
+    Biome.HILLS: (0.05, 0.09),
+    Biome.MOUNTAIN: (0.02, 0.04),
+    Biome.DRYLANDS: (0.01, 0.06),
+    Biome.SANDLANDS: (0.005, 0.02),
+    Biome.ICELANDS: (0.005, 0.02),
+    Biome.DEADLANDS: (0.005, 0.01),
+    Biome.MARSH: (0.05, 0.12),
+    Biome.SWAMP: (0.07, 0.14),
+}
+TOWER_DEFAULT_VEGETATION: tuple[float, float] = (0.06, 0.10)
+TOWER_BUSH_NEIGHBOUR_BIAS_MULT = 2.5
 
 
 def assemble_tower(
@@ -80,11 +104,13 @@ def assemble_tower(
     else:
         shape_key = rng.choice(TOWER_SHAPE_POOL)
     size = rng.randint(*TOWER_SIZE_RANGE)
-    # Place the tower's base rect at (2, 2) so the 1-tile decoration
-    # overhang sits at (1, 1)-(size+2, size+2) — that gives a 1-tile
-    # VOID margin against every canvas edge per
-    # ``design/level_surface_layout.md``.
-    base_rect = Rect(2, 2, size, size)
+    # Place the tower with ``TOWER_SURFACE_PADDING`` tiles of buffer
+    # on every side; the surrounding ring is FIELD/GRASS so trees
+    # and bushes have room to scatter. The 1-tile VOID margin per
+    # ``design/level_surface_layout.md`` is preserved by the
+    # surface builder skipping the outermost row / column.
+    pad = TOWER_SURFACE_PADDING
+    base_rect = Rect(pad, pad, size, size)
 
     base_shape: RoomShape
     if shape_key == "circle":
@@ -156,13 +182,11 @@ def assemble_tower(
     door_xy = _place_entry_door(building, rng)
     building.validate()
 
-    surface = Level.create_empty(
-        f"{site_id}_surface", f"{site_id} surface", 0,
-        base_rect.x + base_rect.width + 2,
-        base_rect.y + base_rect.height + 2,
+    surface = _build_tower_surface(
+        f"{site_id}_surface", building,
+        base_rect.x + base_rect.width + pad,
+        base_rect.y + base_rect.height + pad,
     )
-    surface.metadata.theme = "tower"
-    surface.metadata.prerevealed = True
 
     site = Site(
         id=site_id,
@@ -177,9 +201,128 @@ def assemble_tower(
             site.building_doors[neighbour] = (
                 building.id, door_xy[0], door_xy[1],
             )
+    paint_surface_doors(site, SurfaceType.FIELD)
+    _scatter_tower_trees(site, rng, biome)
+    _scatter_tower_bushes(site, rng, biome)
     if mage_variant:
         _stamp_mage_teleporters(building, rng)
     return site
+
+
+def _build_tower_surface(
+    surface_id: str, building: Building, width: int, height: int,
+) -> Level:
+    """Paint the macro surface around the tower footprint.
+
+    The footprint stays VOID (the building renderer owns those
+    tiles); the outermost row / column stays VOID for the 1-tile
+    margin contract; every other tile becomes GRASS+FIELD so the
+    vegetation scatter has somewhere to land.
+    """
+    surface = Level.create_empty(
+        surface_id, surface_id, 0, width, height,
+    )
+    surface.metadata.theme = "tower"
+    surface.metadata.prerevealed = True
+
+    blocked = set(
+        building.base_shape.floor_tiles(building.base_rect),
+    )
+    for y in range(1, surface.height - 1):
+        for x in range(1, surface.width - 1):
+            if (x, y) in blocked:
+                continue
+            surface.tiles[y][x] = Tile(
+                terrain=Terrain.GRASS,
+                surface_type=SurfaceType.FIELD,
+            )
+    return surface
+
+
+def _scatter_tower_trees(
+    site: Site, rng: random.Random, biome: Biome | None,
+) -> None:
+    """Scatter ``tree`` features across the FIELD periphery.
+
+    Mirrors the cottage / farm predicate: FIELD tile, no existing
+    feature, not in the door 4-ring, not 4-adjacent to the tower
+    footprint (so canopies stay clear of the wall + roof).
+    """
+    tree_p, _ = TOWER_VEGETATION_BY_BIOME.get(
+        biome, TOWER_DEFAULT_VEGETATION,
+    )
+    if tree_p <= 0:
+        return
+    surface = site.surface
+    footprints: set[tuple[int, int]] = set()
+    for b in site.buildings:
+        footprints |= b.base_shape.floor_tiles(b.base_rect)
+    door_ring: set[tuple[int, int]] = set()
+    for sx, sy in site.building_doors:
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            door_ring.add((sx + dx, sy + dy))
+    for y, row in enumerate(surface.tiles):
+        for x, tile in enumerate(row):
+            if tile.terrain is not Terrain.GRASS:
+                continue
+            if tile.surface_type != SurfaceType.FIELD:
+                continue
+            if tile.feature is not None:
+                continue
+            if (x, y) in door_ring:
+                continue
+            adj_to_footprint = any(
+                (x + dx, y + dy) in footprints
+                for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1))
+            )
+            if adj_to_footprint:
+                continue
+            if rng.random() < tree_p:
+                tile.feature = "tree"
+
+
+def _scatter_tower_bushes(
+    site: Site, rng: random.Random, biome: Biome | None,
+) -> None:
+    """Scatter ``bush`` features after the tree pass.
+
+    Bushes may sit adjacent to the footprint -- the canopy stays
+    inside its own tile so it never bleeds onto the wall. The
+    neighbour bias mirrors the cottage / farm pass to encourage
+    small clumps over a uniform sprinkle.
+    """
+    _, bush_p = TOWER_VEGETATION_BY_BIOME.get(
+        biome, TOWER_DEFAULT_VEGETATION,
+    )
+    if bush_p <= 0:
+        return
+    surface = site.surface
+    door_ring: set[tuple[int, int]] = set()
+    for sx, sy in site.building_doors:
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            door_ring.add((sx + dx, sy + dy))
+    bush_set: set[tuple[int, int]] = set()
+    for y, row in enumerate(surface.tiles):
+        for x, tile in enumerate(row):
+            if tile.terrain is not Terrain.GRASS:
+                continue
+            if tile.surface_type != SurfaceType.FIELD:
+                continue
+            if tile.feature is not None:
+                continue
+            if (x, y) in door_ring:
+                continue
+            has_bush_nb = (
+                (x - 1, y) in bush_set or (x, y - 1) in bush_set
+            )
+            prob = (
+                bush_p * TOWER_BUSH_NEIGHBOUR_BIAS_MULT
+                if has_bush_nb
+                else bush_p
+            )
+            if rng.random() < prob:
+                tile.feature = "bush"
+                bush_set.add((x, y))
 
 
 def _stamp_mage_teleporters(

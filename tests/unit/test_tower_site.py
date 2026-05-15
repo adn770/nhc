@@ -14,12 +14,14 @@ import random
 import pytest
 
 from nhc.dungeon.model import (
-    CircleShape, Level, OctagonShape, RectShape, Terrain,
+    CircleShape, Level, OctagonShape, RectShape, SurfaceType, Terrain,
 )
+from nhc.hexcrawl.model import Biome
 from nhc.sites._site import Enclosure, Site
 from nhc.sites.tower import (
     TOWER_DESCENT_PROBABILITY,
     TOWER_FLOOR_COUNT_RANGE,
+    TOWER_SURFACE_PADDING,
     assemble_tower,
 )
 
@@ -285,6 +287,121 @@ class TestTowerDescent:
             )
             return
         pytest.skip("No descent tower in 200 seeds")
+
+
+class TestTowerSurfaceSize:
+    """Macro surface gives a meaningful buffer around the tower so
+    trees and bushes have room to scatter outside the footprint."""
+
+    def test_surface_buffer_matches_padding_on_every_side(self):
+        for seed in range(10):
+            site = assemble_tower(
+                f"t{seed}", random.Random(seed),
+            )
+            b = site.buildings[0]
+            assert b.base_rect.x == TOWER_SURFACE_PADDING
+            assert b.base_rect.y == TOWER_SURFACE_PADDING
+            right_pad = site.surface.width - (
+                b.base_rect.x + b.base_rect.width
+            )
+            bottom_pad = site.surface.height - (
+                b.base_rect.y + b.base_rect.height
+            )
+            assert right_pad == TOWER_SURFACE_PADDING
+            assert bottom_pad == TOWER_SURFACE_PADDING
+
+    def test_surface_has_field_tiles_around_tower(self):
+        """The new surface paints GRASS+FIELD around the footprint
+        so the renderer has something to draw under the trees."""
+        for seed in range(5):
+            site = assemble_tower(
+                f"t{seed}", random.Random(seed),
+            )
+            field_count = sum(
+                1
+                for row in site.surface.tiles
+                for tile in row
+                if tile.terrain is Terrain.GRASS
+                and tile.surface_type is SurfaceType.FIELD
+            )
+            assert field_count > 0, (
+                f"seed={seed}: expected FIELD tiles around tower"
+            )
+
+    def test_outermost_ring_stays_void(self):
+        """The 1-tile VOID margin contract per
+        design/level_surface_layout.md must be preserved."""
+        site = assemble_tower("t1", random.Random(1))
+        w, h = site.surface.width, site.surface.height
+        for x in range(w):
+            assert (
+                site.surface.tiles[0][x].terrain is Terrain.VOID
+            )
+            assert (
+                site.surface.tiles[h - 1][x].terrain is Terrain.VOID
+            )
+        for y in range(h):
+            assert (
+                site.surface.tiles[y][0].terrain is Terrain.VOID
+            )
+            assert (
+                site.surface.tiles[y][w - 1].terrain is Terrain.VOID
+            )
+
+
+class TestTowerSurfaceVegetation:
+    """Trees and bushes scatter on the FIELD periphery; the per-
+    biome density table makes forest dense and desert sparse."""
+
+    def _count_feature(
+        self, biome: Biome | None, feature: str, n_seeds: int = 30,
+    ) -> int:
+        total = 0
+        for seed in range(n_seeds):
+            site = assemble_tower(
+                f"t{seed}", random.Random(seed), biome=biome,
+            )
+            for row in site.surface.tiles:
+                total += sum(1 for t in row if t.feature == feature)
+        return total
+
+    def test_some_trees_scatter_with_default_biome(self):
+        assert self._count_feature(None, "tree", n_seeds=20) > 0
+
+    def test_some_bushes_scatter_with_default_biome(self):
+        assert self._count_feature(None, "bush", n_seeds=20) > 0
+
+    def test_forest_has_more_trees_than_mountain(self):
+        forest = self._count_feature(Biome.FOREST, "tree")
+        mountain = self._count_feature(Biome.MOUNTAIN, "tree")
+        assert forest > 2 * mountain, (
+            f"forest={forest} trees vs mountain={mountain}"
+        )
+
+    def test_sandlands_has_few_trees(self):
+        """Desert variants stay nearly bare so the macro view reads
+        as inhospitable."""
+        sand = self._count_feature(Biome.SANDLANDS, "tree")
+        greenlands = self._count_feature(Biome.GREENLANDS, "tree")
+        assert sand < greenlands
+
+    def test_vegetation_avoids_door_ring(self):
+        """The 4-neighbour ring around the surface door tile stays
+        clear so the entry reads cleanly."""
+        for seed in range(10):
+            site = assemble_tower(
+                f"t{seed}", random.Random(seed),
+            )
+            for sx, sy in site.building_doors:
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = sx + dx, sy + dy
+                    if not site.surface.in_bounds(nx, ny):
+                        continue
+                    tile = site.surface.tiles[ny][nx]
+                    assert tile.feature not in ("tree", "bush"), (
+                        f"seed={seed}: vegetation at door-adjacent "
+                        f"({nx},{ny})"
+                    )
 
 
 class TestTowerDeterminism:
