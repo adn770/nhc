@@ -112,8 +112,16 @@ mod tests {
     };
     use crate::painter::test_util::{MockPainter, PainterCall};
 
+    /// Out-of-enum `RoofTilePattern` byte: hits the dispatch
+    /// catch-all so only the style geometry paints, no texture
+    /// overlay. `Plain` used to serve this role before the
+    /// roof-pattern redesign retired it; production never emits
+    /// an unknown pattern, so this stays a test-only baseline for
+    /// the geometry-isolation assertions below.
+    const GEOMETRY_ONLY: RoofTilePattern = RoofTilePattern(0xFF);
+
     fn build_roof_op(shape_tag: &str, style: RoofStyle) -> Vec<u8> {
-        build_roof_op_with_pattern(shape_tag, style, RoofTilePattern::Plain)
+        build_roof_op_with_pattern(shape_tag, style, GEOMETRY_ONLY)
     }
 
     fn build_roof_op_with_pattern(
@@ -324,16 +332,20 @@ mod tests {
             .count()
     }
 
-    /// `Plain` is the no-op overlay — paint output is byte-identical
-    /// to the same style without any pattern. Pinning Plain ==
-    /// today's behavior is the parity-gate's foundation.
+    /// An unknown `RoofTilePattern` byte hits the dispatch
+    /// catch-all and paints geometry only — no texture overlay.
+    /// Pyramid geometry emits FillPath facets + ridge strokes but
+    /// never FillRect / FillCircle, so the geometry-only baseline
+    /// must show zero of those. This pins the no-op fallback that
+    /// the geometry-isolation tests rely on now that `Plain` is
+    /// gone.
     #[test]
-    fn plain_pattern_paints_no_overlay() {
-        let bare = run(&build_roof_op("rect", RoofStyle::Pyramid));
-        let plain = run(&build_roof_op_with_pattern(
-            "rect", RoofStyle::Pyramid, RoofTilePattern::Plain,
+    fn unknown_pattern_paints_geometry_only() {
+        let geom = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, GEOMETRY_ONLY,
         ));
-        assert_eq!(bare.calls.len(), plain.calls.len());
+        assert_eq!(fill_rect_count(&geom), 0);
+        assert_eq!(fill_circle_count(&geom), 0);
     }
 
     /// `Fishscale` → many `FillCircle` calls (one per scallop

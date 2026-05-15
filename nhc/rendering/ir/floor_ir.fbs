@@ -291,19 +291,16 @@ enum RoofStyle : ubyte {
 }
 
 // Tile pattern overlaid on the geometry chosen by ``RoofStyle``.
-// Plain (default) keeps each style's built-in shingle / spoke /
-// ring layout — the production roof pipeline never sets a
-// non-Plain pattern today; catalog pages opt into the others.
+// Geometry owns only silhouette / planes / shading / ridge; every
+// roof carries a real surface texture from this layer. Shingle is
+// the organic running-bond default (FlatBuffers enum value 0) that
+// ordinary towns use; the others are explicit material overrides.
 enum RoofTilePattern : ubyte {
-  Plain     = 0,
+  Shingle   = 0,
   Fishscale = 1,
   Thatch    = 2,
   Pantile   = 3,
   Slate     = 4,
-  // Organic running-bond shingles. Appended (not renumbered) so
-  // Plain stays 0 until Phase 3 retires it; becomes the default
-  // once the schema is cleaned up.
-  Shingle   = 5,
 }
 
 table Material {
@@ -433,16 +430,16 @@ table HatchOp {
 
 // RoofOp carries an explicit tone axis and a per-op seed. Style
 // enum extended with Pyramid / Gable to make geometry explicit.
-// ``sub_pattern`` is the tile-pattern overlay (Plain default
-// preserves byte-identical legacy output); appended at the end
-// of the table so old buffers without the field still parse.
+// ``sub_pattern`` is the tile-pattern overlay; defaults to Shingle
+// (enum value 0, the organic running-bond) and is appended at the
+// end of the table so old buffers without the field still parse.
 table RoofOp {
   region_ref: string;
   style: RoofStyle = Simple;
   tone: uint8;
   tint: string;
   seed: uint64;
-  sub_pattern: RoofTilePattern = Plain;
+  sub_pattern: RoofTilePattern = Shingle;
 }
 
 // ── Op union ────────────────────────────────────────────────

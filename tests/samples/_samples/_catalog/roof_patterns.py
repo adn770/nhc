@@ -20,20 +20,19 @@ register_catalog_page(CatalogPageSpec(
     name="patterns",
     category="synthetic/roofs",
     description=(
-        "Five RoofTilePattern overlays - Plain, Fishscale, "
+        "Five RoofTilePattern overlays - Shingle, Fishscale, "
         "Thatch, Pantile, Slate - layered on the production-"
         "default Pyramid geometry across rect / octagon / circle "
-        "footprints. Plain is byte-identical to the legacy "
-        "no-overlay output; the four texture overlays paint on "
-        "top of the per-side palette so the pyramid silhouette "
-        "stays visible behind the tile pattern."
+        "footprints. Shingle is the organic running-bond default; "
+        "all five paint on top of the per-side palette so the "
+        "pyramid silhouette stays visible behind the tile pattern."
     ),
     columns=[
         ColumnSpec(
-            "Plain",
+            "Shingle",
             roof_factory(
                 style=RoofStyle.Pyramid,
-                sub_pattern=RoofTilePattern.Plain,
+                sub_pattern=RoofTilePattern.Shingle,
             ),
         ),
         ColumnSpec(

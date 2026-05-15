@@ -3,10 +3,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
 export enum RoofTilePattern {
-  Plain = 0,
+  Shingle = 0,
   Fishscale = 1,
   Thatch = 2,
   Pantile = 3,
-  Slate = 4,
-  Shingle = 5
+  Slate = 4
 }

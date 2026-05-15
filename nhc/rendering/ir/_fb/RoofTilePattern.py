@@ -3,9 +3,8 @@
 # namespace: _fb
 
 class RoofTilePattern(object):
-    Plain = 0
+    Shingle = 0
     Fishscale = 1
     Thatch = 2
     Pantile = 3
     Slate = 4
-    Shingle = 5

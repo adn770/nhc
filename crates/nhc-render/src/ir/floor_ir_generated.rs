@@ -1187,16 +1187,15 @@ impl ::flatbuffers::SimpleToVerifyInSlice for RoofStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_ROOF_TILE_PATTERN: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_ROOF_TILE_PATTERN: u8 = 5;
+pub const ENUM_MAX_ROOF_TILE_PATTERN: u8 = 4;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_ROOF_TILE_PATTERN: [RoofTilePattern; 6] = [
-  RoofTilePattern::Plain,
+pub const ENUM_VALUES_ROOF_TILE_PATTERN: [RoofTilePattern; 5] = [
+  RoofTilePattern::Shingle,
   RoofTilePattern::Fishscale,
   RoofTilePattern::Thatch,
   RoofTilePattern::Pantile,
   RoofTilePattern::Slate,
-  RoofTilePattern::Shingle,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1204,32 +1203,29 @@ pub const ENUM_VALUES_ROOF_TILE_PATTERN: [RoofTilePattern; 6] = [
 pub struct RoofTilePattern(pub u8);
 #[allow(non_upper_case_globals)]
 impl RoofTilePattern {
-  pub const Plain: Self = Self(0);
+  pub const Shingle: Self = Self(0);
   pub const Fishscale: Self = Self(1);
   pub const Thatch: Self = Self(2);
   pub const Pantile: Self = Self(3);
   pub const Slate: Self = Self(4);
-  pub const Shingle: Self = Self(5);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 5;
+  pub const ENUM_MAX: u8 = 4;
   pub const ENUM_VALUES: &'static [Self] = &[
-    Self::Plain,
+    Self::Shingle,
     Self::Fishscale,
     Self::Thatch,
     Self::Pantile,
     Self::Slate,
-    Self::Shingle,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
     match self {
-      Self::Plain => Some("Plain"),
+      Self::Shingle => Some("Shingle"),
       Self::Fishscale => Some("Fishscale"),
       Self::Thatch => Some("Thatch"),
       Self::Pantile => Some("Pantile"),
       Self::Slate => Some("Slate"),
-      Self::Shingle => Some("Shingle"),
       _ => None,
     }
   }
@@ -4371,7 +4367,7 @@ impl<'a> RoofOp<'a> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<RoofTilePattern>(RoofOp::VT_SUB_PATTERN, Some(RoofTilePattern::Plain)).unwrap()}
+    unsafe { self._tab.get::<RoofTilePattern>(RoofOp::VT_SUB_PATTERN, Some(RoofTilePattern::Shingle)).unwrap()}
   }
 }
 
@@ -4408,7 +4404,7 @@ impl<'a> Default for RoofOpArgs<'a> {
       tone: 0,
       tint: None,
       seed: 0,
-      sub_pattern: RoofTilePattern::Plain,
+      sub_pattern: RoofTilePattern::Shingle,
     }
   }
 }
@@ -4440,7 +4436,7 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RoofOpBuilder<'a, 'b, A> {
   }
   #[inline]
   pub fn add_sub_pattern(&mut self, sub_pattern: RoofTilePattern) {
-    self.fbb_.push_slot::<RoofTilePattern>(RoofOp::VT_SUB_PATTERN, sub_pattern, RoofTilePattern::Plain);
+    self.fbb_.push_slot::<RoofTilePattern>(RoofOp::VT_SUB_PATTERN, sub_pattern, RoofTilePattern::Shingle);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RoofOpBuilder<'a, 'b, A> {

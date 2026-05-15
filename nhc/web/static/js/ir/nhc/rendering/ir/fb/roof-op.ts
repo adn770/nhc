@@ -57,7 +57,7 @@ seed():bigint {
 
 subPattern():RoofTilePattern {
   const offset = this.bb!.__offset(this.bb_pos, 14);
-  return offset ? this.bb!.readUint8(this.bb_pos + offset) : RoofTilePattern.Plain;
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : RoofTilePattern.Shingle;
 }
 
 static startRoofOp(builder:flatbuffers.Builder) {
@@ -85,7 +85,7 @@ static addSeed(builder:flatbuffers.Builder, seed:bigint) {
 }
 
 static addSubPattern(builder:flatbuffers.Builder, subPattern:RoofTilePattern) {
-  builder.addFieldInt8(5, subPattern, RoofTilePattern.Plain);
+  builder.addFieldInt8(5, subPattern, RoofTilePattern.Shingle);
 }
 
 static endRoofOp(builder:flatbuffers.Builder):flatbuffers.Offset {

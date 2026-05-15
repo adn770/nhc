@@ -82,11 +82,15 @@ def test_roof_style_enum_extends_v4_simple_dome_witchhat() -> None:
 def test_roof_tile_pattern_enum_pins_canonical_values() -> None:
     from nhc.rendering.ir._fb.RoofTilePattern import RoofTilePattern
 
-    assert RoofTilePattern.Plain == 0
+    assert RoofTilePattern.Shingle == 0
     assert RoofTilePattern.Fishscale == 1
     assert RoofTilePattern.Thatch == 2
     assert RoofTilePattern.Pantile == 3
     assert RoofTilePattern.Slate == 4
+    # Plain was retired in the roof-pattern redesign Phase 3 —
+    # every roof now carries a real texture, Shingle is the
+    # FlatBuffers-default (0) organic running-bond.
+    assert not hasattr(RoofTilePattern, "Plain")
 
 
 # ── Material / WallMaterial round-trip ─────────────────────────
@@ -370,10 +374,10 @@ def test_roof_op_carries_tone_seed_and_extended_styles() -> None:
     assert out.tone == 2
     assert out.tint.decode() == "#A07050"
     assert out.seed == 0xCAFE0003
-    # sub_pattern defaults to Plain when not set — preserves
-    # forward-compat with buffers written before the field was
-    # appended to the table.
-    assert out.subPattern == RoofTilePattern.Plain
+    # sub_pattern defaults to Shingle (enum value 0) when not set
+    # — preserves forward-compat with buffers written before the
+    # field was appended to the table.
+    assert out.subPattern == RoofTilePattern.Shingle
 
 
 def test_fixture_op_scale_defaults_to_unit() -> None:

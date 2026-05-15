@@ -212,8 +212,9 @@ SERVICE_ROLES_RESERVED: tuple[str, ...] = ("stable", "training")
 
 # Per-role roof_material so a town's skyline reads as a mix of
 # building functions at a glance. Residential buildings (the
-# bulk) stay roof_material=None → Plain overlay → byte-identical
-# default roof. Service buildings get distinctive textures:
+# bulk) stay roof_material=None → Shingle overlay → the organic
+# running-bond default roof. Service buildings get distinctive
+# textures:
 # temple → fishscale (consistent with the macro temple site),
 # inn / stable → thatch (cozy hospitality + rural utility),
 # shop / training → slate (formal commercial + civic).

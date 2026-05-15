@@ -331,7 +331,7 @@ fn paint_pantile(
 /// `Slate` — small rectangular tiles in a tight running-bond.
 /// Smaller than `draw_shingle_region`'s default shingles
 /// (8 × 6 instead of 14 × 5) so the texture reads visibly
-/// distinct from a Plain Gable when overlaid.
+/// distinct from the Shingle default when overlaid.
 fn paint_slate(
     bbox: (f32, f32, f32, f32),
     palette: &[(u8, u8, u8); 3],
@@ -776,11 +776,12 @@ fn build_clip_pathops(region: &Region<'_>) -> Option<PathOps> {
 /// `WitchHat` are catalog-only styles for now — generators have
 /// to opt into them explicitly.
 ///
-/// `sub_pattern` is the optional `RoofTilePattern` overlay.
-/// `Plain` (default) is byte-identical to the legacy output —
-/// no overlay paints. The four non-Plain patterns (Fishscale /
-/// Thatch / Pantile / Slate) paint a tile texture on top of the
-/// geometry's base, sharing the same polygon clip envelope.
+/// `sub_pattern` is the `RoofTilePattern` texture overlay. The
+/// five patterns (Shingle — the default organic running-bond —
+/// plus Fishscale / Thatch / Pantile / Slate) paint a tile
+/// texture on top of the geometry's base, sharing the same
+/// polygon clip envelope. An unknown trailing byte falls through
+/// to a geometry-only render.
 pub(super) fn draw_roof_polygon(
     painter: &mut dyn Painter,
     polygon: &[(f32, f32)],
@@ -831,9 +832,9 @@ pub(super) fn draw_roof_polygon(
             polygon, bbox, &sunlit, &shadow, &mut rng, painter,
         ),
     }
-    // Tile-pattern overlay — Plain is the no-op default; the
-    // four non-Plain patterns paint over the polygon's bbox
-    // (clipped to the outline by the active push_clip envelope).
+    // Tile-pattern overlay — the five patterns paint over the
+    // polygon's bbox (clipped to the outline by the active
+    // push_clip envelope). Shingle is the production default.
     match sub_pattern {
         RoofTilePattern::Fishscale => {
             paint_fishscale(bbox, &sunlit, &mut rng, painter);
@@ -850,8 +851,8 @@ pub(super) fn draw_roof_polygon(
         RoofTilePattern::Shingle => {
             paint_shingle(bbox, &sunlit, &mut rng, painter);
         }
-        // Plain + any unknown trailing variant leave the geometry
-        // untouched.
+        // Any unknown trailing byte leaves the geometry untouched
+        // (geometry-only render — the test-suite baseline).
         _ => {}
     }
     if pushed {
