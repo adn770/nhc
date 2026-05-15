@@ -227,6 +227,15 @@ fn reflect_y(mid: f32) -> Transform {
     Transform { sx: 1.0, kx: 0.0, tx: 0.0, ky: 0.0, sy: -1.0, ty: 2.0 * mid }
 }
 
+/// Whether a facet whose edge midpoint is `(mx, my)` is on the
+/// shadow side of the centroid `(cx, cy)`. Identical to the
+/// inline test in `draw_pyramid_sides` / `draw_witch_hat_sides`
+/// so the pattern overlay shades each facet the same way the
+/// geometry does — keeping the textured roof's volume.
+fn facet_is_shadow(mx: f32, my: f32, cx: f32, cy: f32) -> bool {
+    my < cy - 1e-3 || (mx < cx - 1e-3 && my < cy + 1e-3)
+}
+
 
 // ── Tile-pattern overlays (RoofTilePattern axis) ───────────────
 //
@@ -847,6 +856,11 @@ fn is_textured(sub_pattern: RoofTilePattern) -> bool {
 /// at the ridge with no foreshortening. A vertical ridge
 /// (`!horizontal`) mirrors left↔right; a horizontal ridge mirrors
 /// top↔bottom.
+///
+/// Half A (the top / left side) takes the `shadow` palette and
+/// half B (bottom / right) the `sunlit` one — the same split
+/// `draw_gable_sides` shades the geometry with, so the opaque
+/// pattern carries the roof's volume instead of flattening it.
 fn paint_gable_pattern(
     sub_pattern: RoofTilePattern,
     min_x: f32,
@@ -854,7 +868,8 @@ fn paint_gable_pattern(
     pw: f32,
     ph: f32,
     horizontal: bool,
-    palette: &[(u8, u8, u8); 3],
+    sunlit: &[(u8, u8, u8); 3],
+    shadow: &[(u8, u8, u8); 3],
     seed: u64,
     painter: &mut dyn Painter,
 ) {
@@ -881,7 +896,7 @@ fn paint_gable_pattern(
         FillRule::Winding,
     );
     let mut rng_a = RoofRng::new(seed);
-    paint_pattern(sub_pattern, half_bbox, palette, &mut rng_a, painter);
+    paint_pattern(sub_pattern, half_bbox, shadow, &mut rng_a, painter);
     painter.pop_clip();
     // Half B — the mirror of A. Clip in screen space first (so the
     // window is the true opposite half), then reflect the drawing.
@@ -891,7 +906,7 @@ fn paint_gable_pattern(
     );
     painter.push_transform(mirror);
     let mut rng_b = RoofRng::new(seed);
-    paint_pattern(sub_pattern, half_bbox, palette, &mut rng_b, painter);
+    paint_pattern(sub_pattern, half_bbox, sunlit, &mut rng_b, painter);
     painter.pop_transform();
     painter.pop_clip();
 }
@@ -904,11 +919,17 @@ fn paint_gable_pattern(
 /// apex. The pattern is re-seeded identically per facet so the
 /// texture rotates face-by-face with radial consistency, clipped
 /// to the facet triangle. No foreshortening (uniform affine).
+///
+/// Each facet takes the `shadow` or `sunlit` palette by the same
+/// midpoint-vs-centroid test `draw_pyramid_sides` shades the
+/// geometry with (`facet_is_shadow`), so the opaque pattern keeps
+/// the roof's volume instead of flattening every face to one tint.
 fn paint_faceted_pattern(
     sub_pattern: RoofTilePattern,
     polygon: &[(f32, f32)],
     apex: (f32, f32),
-    palette: &[(u8, u8, u8); 3],
+    sunlit: &[(u8, u8, u8); 3],
+    shadow: &[(u8, u8, u8); 3],
     seed: u64,
     painter: &mut dyn Painter,
 ) {
@@ -938,6 +959,16 @@ fn paint_faceted_pattern(
         if facet_h < 1e-3 {
             continue;
         }
+        // Sun/shadow per facet, by the same edge-midpoint vs
+        // centroid test the geometry uses — gives the textured
+        // cone/pyramid its volume.
+        let mx = (a.0 + b.0) / 2.0;
+        let my = (a.1 + b.1) / 2.0;
+        let facet_palette = if facet_is_shadow(mx, my, apex.0, apex.1) {
+            shadow
+        } else {
+            sunlit
+        };
         // local (x, y) → screen: a + x·û + y·n̂.
         let frame = Transform {
             sx: ux,
@@ -947,18 +978,52 @@ fn paint_faceted_pattern(
             sy: ny,
             ty: a.1,
         };
+        // Clip to the facet triangle, slightly inflated about its
+        // own centroid so adjacent facets overlap across the
+        // shared apex edge. Without this, the geometry's ridge
+        // spoke drawn along that edge (bold full-black for
+        // WitchHat) leaks through the antialiased clip seam,
+        // turning a many-faceted cone into a dark sea-urchin. The
+        // overlap is a few px of identical re-seeded texture
+        // (invisible) and the outer silhouette envelope still
+        // bounds any eave overflow. The frame is unchanged, so
+        // orientation stays exact.
+        const FACET_CLIP_INFLATE: f32 = 1.10;
+        let gx = (a.0 + b.0 + apex.0) / 3.0;
+        let gy = (a.1 + b.1 + apex.1) / 3.0;
+        let infl = |p: (f32, f32)| -> Vec2 {
+            Vec2::new(
+                gx + (p.0 - gx) * FACET_CLIP_INFLATE,
+                gy + (p.1 - gy) * FACET_CLIP_INFLATE,
+            )
+        };
         let mut tri = PathOps::new();
-        tri.move_to(Vec2::new(a.0, a.1));
-        tri.line_to(Vec2::new(b.0, b.1));
-        tri.line_to(Vec2::new(apex.0, apex.1));
+        tri.move_to(infl(a));
+        tri.line_to(infl(b));
+        tri.line_to(infl(apex));
         tri.close();
         painter.push_clip(&tri, FillRule::Winding);
         painter.push_transform(frame);
         let mut rng = RoofRng::new(seed);
+        // Paint an oversized blanket, not just the exact
+        // eave_len × facet_h rectangle: the facet triangle tapers
+        // to a point at the apex, so tiles laid only to facet_h
+        // leave thin radial slivers along the converging spokes.
+        // Overshooting past the apex (and a little past both eave
+        // ends) lets the inflated triangle clip carve a fully
+        // covered facet, so the geometry's bold ridge spokes stay
+        // hidden. Clip + outer envelope bound the overflow.
+        const PAD: f32 = 0.15;
+        const APEX_OVERSHOOT: f32 = 1.6;
         paint_pattern(
             sub_pattern,
-            (0.0, 0.0, eave_len, facet_h),
-            palette,
+            (
+                -eave_len * PAD,
+                -facet_h * PAD,
+                eave_len * (1.0 + 2.0 * PAD),
+                facet_h * APEX_OVERSHOOT,
+            ),
+            facet_palette,
             &mut rng,
             painter,
         );
@@ -1004,11 +1069,17 @@ fn append_ring(path: &mut PathOps, ring: &[(f32, f32)]) {
 /// outer-minus-inner clip per band), and within each band the
 /// faceted frame lays the texture tangent to the rim so it
 /// curves around the dome instead of tiling a straight grid.
+///
+/// Volume comes from the band gradient: the two outer bands take
+/// the `shadow` palette and the two inner ones the `sunlit`
+/// palette, echoing the dark-rim → bright-centre tonal stops
+/// `draw_dome_rings` shades the geometry with.
 fn paint_dome_pattern(
     sub_pattern: RoofTilePattern,
     polygon: &[(f32, f32)],
     bbox: (f32, f32, f32, f32),
-    palette: &[(u8, u8, u8); 3],
+    sunlit: &[(u8, u8, u8); 3],
+    shadow: &[(u8, u8, u8); 3],
     seed: u64,
     painter: &mut dyn Painter,
 ) {
@@ -1031,9 +1102,14 @@ fn paint_dome_pattern(
             let inner = scaled_polygon(polygon, cx, cy, s_in);
             append_ring(&mut clip, &inner);
         }
+        // Outer bands shaded, inner bands lit — the dome's
+        // dark-rim → bright-centre gradient. Both palette args are
+        // the band tone so the per-facet split inside stays a
+        // uniform ring (the volume here is concentric, not radial).
+        let band = if w < 2 { shadow } else { sunlit };
         painter.push_clip(&clip, FillRule::EvenOdd);
         paint_faceted_pattern(
-            sub_pattern, &outer, (cx, cy), palette, seed, painter,
+            sub_pattern, &outer, (cx, cy), band, band, seed, painter,
         );
         painter.pop_clip();
     }
@@ -1118,29 +1194,31 @@ pub(super) fn draw_roof_polygon(
         match mode {
             Mode::Gable => paint_gable_pattern(
                 sub_pattern, min_x, min_y, pw, ph, pw >= ph,
-                &sunlit, seed, painter,
+                &sunlit, &shadow, seed, painter,
             ),
-            Mode::Pyramid => {
+            // Pyramid and WitchHat both fan the pattern from the
+            // polygon centroid. A centroid is interior, so the
+            // facet triangles partition the whole footprint and
+            // every facet is healthy — the pattern fully covers
+            // the geometry (including WitchHat's bold ridge
+            // spokes). WitchHat deliberately does NOT reuse its
+            // geometry's *offset* apex here: an apex pushed up by
+            // 0.30·ph leaves the near-apex facets degenerate, so
+            // those spokes punched through as a dark "sea-urchin".
+            // The witch-hat silhouette + spokes + apex disc still
+            // come from the geometry; the pattern just needs a
+            // clean even fan to blanket it.
+            Mode::Pyramid | Mode::WitchHat => {
                 let n = polygon.len() as f32;
                 let cx = polygon.iter().map(|p| p.0).sum::<f32>() / n;
                 let cy = polygon.iter().map(|p| p.1).sum::<f32>() / n;
                 paint_faceted_pattern(
-                    sub_pattern, polygon, (cx, cy), &sunlit, seed, painter,
-                );
-            }
-            Mode::WitchHat => {
-                let n = polygon.len() as f32;
-                let cx = polygon.iter().map(|p| p.0).sum::<f32>() / n;
-                let cy = polygon.iter().map(|p| p.1).sum::<f32>() / n;
-                // Apex offset matches draw_witch_hat_sides: 30 % of
-                // the bbox height above the centroid.
-                paint_faceted_pattern(
-                    sub_pattern, polygon, (cx, cy - ph * 0.30),
-                    &sunlit, seed, painter,
+                    sub_pattern, polygon, (cx, cy),
+                    &sunlit, &shadow, seed, painter,
                 );
             }
             Mode::Dome => paint_dome_pattern(
-                sub_pattern, polygon, bbox, &sunlit, seed, painter,
+                sub_pattern, polygon, bbox, &sunlit, &shadow, seed, painter,
             ),
             _ => paint_pattern(sub_pattern, bbox, &sunlit, &mut rng, painter),
         }
@@ -1171,6 +1249,17 @@ mod tests {
         // Shadow side is darker — middle entry maps to 50% of input.
         let s = shade_palette("#808080", false);
         assert_eq!(s[1], (0x40, 0x40, 0x40));
+    }
+
+    #[test]
+    fn facet_is_shadow_matches_geometry_quadrant_rule() {
+        // Centroid at the origin. Upper facets (my < cy) and the
+        // left-and-level facet are shadowed; lower / right facets
+        // are lit — the exact rule draw_pyramid_sides uses.
+        assert!(facet_is_shadow(0.0, -10.0, 0.0, 0.0), "top → shadow");
+        assert!(facet_is_shadow(-10.0, 0.0, 0.0, 0.0), "left-level → shadow");
+        assert!(!facet_is_shadow(0.0, 10.0, 0.0, 0.0), "bottom → lit");
+        assert!(!facet_is_shadow(10.0, 0.0, 0.0, 0.0), "right-level → lit");
     }
 
     #[test]

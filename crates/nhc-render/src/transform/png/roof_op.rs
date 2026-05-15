@@ -599,6 +599,42 @@ mod tests {
         assert!(fill_rect_count(&painter) > 4);
     }
 
+    fn fill_rect_luma_range(painter: &MockPainter) -> (f32, f32) {
+        let lum = |c: &crate::painter::Color| {
+            0.299 * c.r as f32 + 0.587 * c.g as f32 + 0.114 * c.b as f32
+        };
+        let mut lo = f32::INFINITY;
+        let mut hi = f32::NEG_INFINITY;
+        for c in &painter.calls {
+            if let PainterCall::FillRect(_, p) = c {
+                let l = lum(&p.color);
+                lo = lo.min(l);
+                hi = hi.max(l);
+            }
+        }
+        (lo, hi)
+    }
+
+    /// Phase 4 follow-up: the opaque pattern must carry the
+    /// geometry's sun/shadow volume, not flatten every facet to
+    /// one tint. A Pyramid + Shingle render shades shadow-side
+    /// facets with the darker palette, so the tile-fill luminance
+    /// spans far wider than a single sunlit palette could (its
+    /// 1.15 / 0.88 internal spread ≈ 1.3×); the shadow palette is
+    /// 0.5× the sunlit one, so the real spread clears 1.5×.
+    #[test]
+    fn faceted_pattern_carries_sun_shadow_volume() {
+        let painter = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, RoofTilePattern::Shingle,
+        ));
+        let (lo, hi) = fill_rect_luma_range(&painter);
+        assert!(
+            lo.is_finite() && hi > lo * 1.5,
+            "shadow-side facets must darken the tile fill \
+             (luma {lo:.1}..{hi:.1})"
+        );
+    }
+
     /// Geometry-only Dome paints no overlay → no ring-band
     /// scopes, no facet transforms.
     #[test]
