@@ -227,13 +227,48 @@ fn reflect_y(mid: f32) -> Transform {
     Transform { sx: 1.0, kx: 0.0, tx: 0.0, ky: 0.0, sy: -1.0, ty: 2.0 * mid }
 }
 
-/// Whether a facet whose edge midpoint is `(mx, my)` is on the
-/// shadow side of the centroid `(cx, cy)`. Identical to the
-/// inline test in `draw_pyramid_sides` / `draw_witch_hat_sides`
-/// so the pattern overlay shades each facet the same way the
-/// geometry does — keeping the textured roof's volume.
-fn facet_is_shadow(mx: f32, my: f32, cx: f32, cy: f32) -> bool {
-    my < cy - 1e-3 || (mx < cx - 1e-3 && my < cy + 1e-3)
+/// Smooth lit fraction in `[0, 1]` for a facet pointing
+/// `(dx, dy)` out from the centroid: `1` = fully sunlit, `0` =
+/// full shadow. The light is fixed toward screen lower-right
+/// (`+x, +y`, the same quadrant `draw_pyramid_sides`' binary
+/// rule lit), but here it varies *continuously* with the facet's
+/// angle so a pyramid / cone reads as a smooth radial gradient
+/// instead of hard sun/shadow wedges.
+fn facet_tone(dx: f32, dy: f32) -> f32 {
+    let len = (dx * dx + dy * dy).sqrt();
+    if len < 1e-6 {
+        return 0.5;
+    }
+    // Light unit vector toward lower-right.
+    const INV_SQRT2: f32 = 0.707_106_77;
+    let d = (dx * INV_SQRT2 + dy * INV_SQRT2) / len;
+    // Map cos∈[-1,1] → [0,1] but keep a floor/ceiling so the
+    // darkest facet still carries texture and the brightest does
+    // not blow out.
+    (0.5 + 0.5 * d).clamp(0.12, 0.95)
+}
+
+fn lerp_u8(a: u8, b: u8, t: f32) -> u8 {
+    (a as f32 + (b as f32 - a as f32) * t).round().clamp(0.0, 255.0) as u8
+}
+
+/// Per-entry blend of the `shadow` and `sunlit` palettes at lit
+/// fraction `t` — gives each facet / ring band its own tone on a
+/// continuous gradient rather than one of two fixed palettes.
+fn lerp_palette(
+    shadow: &[(u8, u8, u8); 3],
+    sunlit: &[(u8, u8, u8); 3],
+    t: f32,
+) -> [(u8, u8, u8); 3] {
+    let mut out = [(0u8, 0u8, 0u8); 3];
+    for i in 0..3 {
+        out[i] = (
+            lerp_u8(shadow[i].0, sunlit[i].0, t),
+            lerp_u8(shadow[i].1, sunlit[i].1, t),
+            lerp_u8(shadow[i].2, sunlit[i].2, t),
+        );
+    }
+    out
 }
 
 
@@ -959,16 +994,15 @@ fn paint_faceted_pattern(
         if facet_h < 1e-3 {
             continue;
         }
-        // Sun/shadow per facet, by the same edge-midpoint vs
-        // centroid test the geometry uses — gives the textured
-        // cone/pyramid its volume.
+        // Per-facet tone on a continuous gradient: blend the
+        // shadow → sunlit palettes by the facet's angle around
+        // the centroid. Adjacent facets differ only slightly, so
+        // the roof reads as a smooth radial gradient and the
+        // small clip overlap at seams is invisible.
         let mx = (a.0 + b.0) / 2.0;
         let my = (a.1 + b.1) / 2.0;
-        let facet_palette = if facet_is_shadow(mx, my, apex.0, apex.1) {
-            shadow
-        } else {
-            sunlit
-        };
+        let tone = facet_tone(mx - apex.0, my - apex.1);
+        let facet_palette = lerp_palette(shadow, sunlit, tone);
         // local (x, y) → screen: a + x·û + y·n̂.
         let frame = Transform {
             sx: ux,
@@ -978,29 +1012,27 @@ fn paint_faceted_pattern(
             sy: ny,
             ty: a.1,
         };
-        // Clip to the facet triangle, slightly inflated about its
-        // own centroid so adjacent facets overlap across the
-        // shared apex edge. Without this, the geometry's ridge
-        // spoke drawn along that edge (bold full-black for
-        // WitchHat) leaks through the antialiased clip seam,
-        // turning a many-faceted cone into a dark sea-urchin. The
-        // overlap is a few px of identical re-seeded texture
-        // (invisible) and the outer silhouette envelope still
-        // bounds any eave overflow. The frame is unchanged, so
+        // Clip to the facet triangle, with the eave corners
+        // pushed outward *from the apex* (the apex vertex stays
+        // pinned). This widens the facet enough that adjacent
+        // facets meet cleanly along the shared spoke while the
+        // apex is NOT extended past itself — inflating about the
+        // triangle centroid used to overshoot the true apex,
+        // producing a pinwheel of mis-shaped wedges right at the
+        // convergence point. The outer silhouette envelope still
+        // bounds the eave overflow; the frame is unchanged so
         // orientation stays exact.
-        const FACET_CLIP_INFLATE: f32 = 1.10;
-        let gx = (a.0 + b.0 + apex.0) / 3.0;
-        let gy = (a.1 + b.1 + apex.1) / 3.0;
+        const FACET_CLIP_INFLATE: f32 = 1.06;
         let infl = |p: (f32, f32)| -> Vec2 {
             Vec2::new(
-                gx + (p.0 - gx) * FACET_CLIP_INFLATE,
-                gy + (p.1 - gy) * FACET_CLIP_INFLATE,
+                apex.0 + (p.0 - apex.0) * FACET_CLIP_INFLATE,
+                apex.1 + (p.1 - apex.1) * FACET_CLIP_INFLATE,
             )
         };
         let mut tri = PathOps::new();
         tri.move_to(infl(a));
         tri.line_to(infl(b));
-        tri.line_to(infl(apex));
+        tri.line_to(Vec2::new(apex.0, apex.1));
         tri.close();
         painter.push_clip(&tri, FillRule::Winding);
         painter.push_transform(frame);
@@ -1023,7 +1055,7 @@ fn paint_faceted_pattern(
                 eave_len * (1.0 + 2.0 * PAD),
                 facet_h * APEX_OVERSHOOT,
             ),
-            facet_palette,
+            &facet_palette,
             &mut rng,
             painter,
         );
@@ -1102,14 +1134,18 @@ fn paint_dome_pattern(
             let inner = scaled_polygon(polygon, cx, cy, s_in);
             append_ring(&mut clip, &inner);
         }
-        // Outer bands shaded, inner bands lit — the dome's
-        // dark-rim → bright-centre gradient. Both palette args are
-        // the band tone so the per-facet split inside stays a
-        // uniform ring (the volume here is concentric, not radial).
-        let band = if w < 2 { shadow } else { sunlit };
+        // Continuous dark-rim → bright-centre gradient: blend the
+        // shadow → sunlit palettes by the band's depth so each
+        // ring steps smoothly toward the lit centre. Both palette
+        // args are the band tone, so the per-facet split inside
+        // stays a uniform ring (the volume here is concentric, not
+        // radial).
+        let n_bands = (bounds.len() - 1) as f32;
+        let t = w as f32 / (n_bands - 1.0).max(1.0);
+        let band = lerp_palette(shadow, sunlit, t);
         painter.push_clip(&clip, FillRule::EvenOdd);
         paint_faceted_pattern(
-            sub_pattern, &outer, (cx, cy), band, band, seed, painter,
+            sub_pattern, &outer, (cx, cy), &band, &band, seed, painter,
         );
         painter.pop_clip();
     }
@@ -1252,14 +1288,30 @@ mod tests {
     }
 
     #[test]
-    fn facet_is_shadow_matches_geometry_quadrant_rule() {
-        // Centroid at the origin. Upper facets (my < cy) and the
-        // left-and-level facet are shadowed; lower / right facets
-        // are lit — the exact rule draw_pyramid_sides uses.
-        assert!(facet_is_shadow(0.0, -10.0, 0.0, 0.0), "top → shadow");
-        assert!(facet_is_shadow(-10.0, 0.0, 0.0, 0.0), "left-level → shadow");
-        assert!(!facet_is_shadow(0.0, 10.0, 0.0, 0.0), "bottom → lit");
-        assert!(!facet_is_shadow(10.0, 0.0, 0.0, 0.0), "right-level → lit");
+    fn facet_tone_is_a_smooth_lower_right_gradient() {
+        // Light points to screen lower-right (+x, +y), so a facet
+        // facing that way is brightest, the opposite darkest, and
+        // the sides land in between — monotonic, not a 2-way step.
+        let br = facet_tone(1.0, 1.0);
+        let tl = facet_tone(-1.0, -1.0);
+        let right = facet_tone(1.0, 0.0);
+        let top = facet_tone(0.0, -1.0);
+        assert!(br > right && right > tl, "monotone br > side > tl");
+        assert!(top < right, "upper facet darker than the right one");
+        // Clamped so neither extreme blows out / loses texture.
+        assert!((0.12..=0.95).contains(&br));
+        assert!((0.12..=0.95).contains(&tl));
+        // Degenerate direction is neutral mid-tone.
+        assert_eq!(facet_tone(0.0, 0.0), 0.5);
+    }
+
+    #[test]
+    fn lerp_palette_blends_endpoints() {
+        let sh = [(0, 0, 0); 3];
+        let su = [(200, 100, 50); 3];
+        assert_eq!(lerp_palette(&sh, &su, 0.0), sh);
+        assert_eq!(lerp_palette(&sh, &su, 1.0), su);
+        assert_eq!(lerp_palette(&sh, &su, 0.5)[0], (100, 50, 25));
     }
 
     #[test]
