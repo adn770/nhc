@@ -353,10 +353,13 @@ fn paint_pantile(
     }
 }
 
-/// `Slate` — small rectangular tiles in a tight running-bond.
-/// Smaller than `draw_shingle_region`'s default shingles
-/// (8 × 6 instead of 14 × 5) so the texture reads visibly
-/// distinct from the Shingle default when overlaid.
+/// `Slate` — small rectangular tiles in a tight running-bond
+/// with a hand-laid pass: a *light* per-tile size / row jitter
+/// and a faint edge stroke. Smaller than `draw_shingle_region`'s
+/// shingles (8 × 6 vs 14 × 5) and far more regular than Shingle's
+/// heavy jitter, so it reads as a crisp slate counterpoint —
+/// distinguished by scale + regularity, not by being flat
+/// (`design/roof_patterns.md`).
 fn paint_slate(
     bbox: (f32, f32, f32, f32),
     palette: &[(u8, u8, u8); 3],
@@ -366,6 +369,8 @@ fn paint_slate(
     let (min_x, min_y, w, h) = bbox;
     let tile_w: f32 = 8.0;
     let tile_h: f32 = 6.0;
+    let stroke = shingle_stroke();
+    let stroke_paint = rgb_paint((0, 0, 0), SHINGLE_STROKE_OPACITY);
     let mut row: i32 = 0;
     let mut cy = min_y;
     while cy < min_y + h {
@@ -373,10 +378,22 @@ fn paint_slate(
         let mut x = min_x - tile_w + off;
         while x < min_x + w + tile_w {
             let shade = *rng.choice(palette);
+            // Light jitter — keeps the grid crisp, just enough to
+            // read as laid by hand rather than printed.
+            let tw = (tile_w - 0.6 + rng.uniform(-0.6, 0.6)).max(1.0);
+            let th = tile_h - 0.6;
+            let ty = cy + rng.uniform(-0.4, 0.4);
             painter.fill_rect(
-                PRect::new(x, cy, tile_w - 0.6, tile_h - 0.6),
+                PRect::new(x, ty, tw, th),
                 &rgb_paint(shade, 1.0),
             );
+            let mut edge = PathOps::new();
+            edge.move_to(Vec2::new(x, ty));
+            edge.line_to(Vec2::new(x + tw, ty));
+            edge.line_to(Vec2::new(x + tw, ty + th));
+            edge.line_to(Vec2::new(x, ty + th));
+            edge.close();
+            painter.stroke_path(&edge, &stroke_paint, &stroke);
             x += tile_w;
         }
         cy += tile_h;

@@ -425,6 +425,26 @@ mod tests {
         );
     }
 
+    /// Phase 5: Slate gets a hand-laid pass — a faint edge stroke
+    /// per tile (one StrokePath per FillRect tile) on top of the
+    /// tight running-bond fills. The bare pyramid emits only its
+    /// few facet/ridge strokes, so Slate pushes the StrokePath
+    /// count well past it.
+    #[test]
+    fn slate_tiles_have_faint_edge() {
+        let bare = run(&build_roof_op("rect", RoofStyle::Pyramid));
+        let slate = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, RoofTilePattern::Slate,
+        ));
+        assert!(
+            stroke_path_count(&slate) > stroke_path_count(&bare) + 4,
+            "Slate tiles should each carry a faint edge stroke \
+             (got {} vs bare {})",
+            stroke_path_count(&slate),
+            stroke_path_count(&bare),
+        );
+    }
+
     /// `Shingle` → organic running-bond `FillRect` tiles, each
     /// with a faint edge stroke. Pyramid alone emits zero
     /// FillRects; the overlay adds many tiles plus their strokes.

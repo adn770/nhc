@@ -641,6 +641,36 @@ def roof_factory(
     return factory
 
 
+def roof_matrix_factory(
+    *, sub_pattern: int, styles: list[int], tone: int = 0,
+):
+    """Column op_factory for a styles × patterns matrix page.
+
+    The column fixes the ``sub_pattern``; the row selects the
+    ``RoofStyle`` via ``styles[row_idx]``. Pairing each RoofOp with
+    a Plain base fill keeps the silhouette clear, exactly like
+    :func:`roof_factory`. Used by the ``roof_patterns`` catalog so
+    every (style, pattern) cell is visible and regression-checked.
+    """
+    def factory(region_id, page_seed, col_idx, row_idx):
+        style = styles[row_idx]
+        seed = derive_cell_seed(
+            page_seed, col_idx, row_idx, style, tone, sub_pattern,
+        )
+        op = RoofOpT()
+        op.regionRef = region_id
+        op.style = style
+        op.tone = tone
+        op.tint = ""
+        op.seed = seed
+        op.subPattern = sub_pattern
+        return [
+            _make_paint_op(region_id, material_plain(seed=seed)),
+            _wrap_roof(op),
+        ]
+    return factory
+
+
 def fixture_factory(
     *,
     kind: int,
@@ -963,7 +993,7 @@ __all__ = [
     "earth_factory", "liquid_factory", "special_factory",
     "cave_factory", "plain_factory",
     "wall_factory", "make_cut",
-    "roof_factory", "fixture_factory",
+    "roof_factory", "roof_matrix_factory", "fixture_factory",
     "stamp_factory", "path_factory",
     "shadow_factory", "hatch_factory",
     "make_anchor", "make_tile_coord",
