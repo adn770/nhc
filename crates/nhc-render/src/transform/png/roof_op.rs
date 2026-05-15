@@ -493,4 +493,48 @@ mod tests {
         ));
         assert_eq!(push_transforms(&painter).len(), 0);
     }
+
+    /// Phase 4: a Pyramid pattern is framed per facet — one
+    /// `PushTransform` per polygon edge (the square test footprint
+    /// has 4). The square's axis-aligned top/bottom facets frame
+    /// as pure translations while the side facets carry a real
+    /// rotation, so the frames must differ facet-to-facet and at
+    /// least one must be a rotation (non-zero off-axis term). The
+    /// tile fill survives across the facets.
+    #[test]
+    fn pyramid_pattern_rotates_per_facet() {
+        let painter = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, RoofTilePattern::Shingle,
+        ));
+        let xforms = push_transforms(&painter);
+        assert_eq!(
+            xforms.len(), 4,
+            "one frame transform per pyramid facet (4 edges)"
+        );
+        let any_rotation = xforms
+            .iter()
+            .any(|t| t.kx != 0.0 || t.ky != 0.0);
+        assert!(any_rotation, "side facets must rotate the frame");
+        let all_same = xforms.iter().all(|t| *t == xforms[0]);
+        assert!(!all_same, "facet frames must differ per face");
+        assert!(
+            fill_rect_count(&painter) > 4,
+            "the shingle field tiles every facet"
+        );
+    }
+
+    /// WitchHat shares the faceted-frame path, so it also emits
+    /// one transform per facet and still overlays its bright apex
+    /// disc on top.
+    #[test]
+    fn witch_hat_pattern_rotates_per_facet_and_keeps_apex() {
+        let painter = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::WitchHat, RoofTilePattern::Shingle,
+        ));
+        assert_eq!(push_transforms(&painter).len(), 4);
+        assert_eq!(
+            fill_circle_count(&painter), 1,
+            "WitchHat keeps its apex disc under the pattern"
+        );
+    }
 }

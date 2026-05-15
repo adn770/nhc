@@ -879,6 +879,77 @@ fn paint_gable_pattern(
     painter.pop_clip();
 }
 
+/// Phase 4 — faceted plane-relative orientation (top-down) for
+/// `Pyramid` / `WitchHat`. Each facet is the triangle
+/// `(polygon[i], polygon[i+1], apex)`. The pattern is rotated
+/// into that facet's local frame: local `x` runs along the outer
+/// (eave) edge `a → b`, local `y` runs from the eave toward the
+/// apex. The pattern is re-seeded identically per facet so the
+/// texture rotates face-by-face with radial consistency, clipped
+/// to the facet triangle. No foreshortening (uniform affine).
+fn paint_faceted_pattern(
+    sub_pattern: RoofTilePattern,
+    polygon: &[(f32, f32)],
+    apex: (f32, f32),
+    palette: &[(u8, u8, u8); 3],
+    seed: u64,
+    painter: &mut dyn Painter,
+) {
+    let n = polygon.len();
+    for i in 0..n {
+        let a = polygon[i];
+        let b = polygon[(i + 1) % n];
+        let ex = b.0 - a.0;
+        let ey = b.1 - a.1;
+        let eave_len = (ex * ex + ey * ey).sqrt();
+        if eave_len < 1e-3 {
+            continue;
+        }
+        let ux = ex / eave_len;
+        let uy = ey / eave_len;
+        // Eave-normal, oriented toward the apex.
+        let mut nx = -uy;
+        let mut ny = ux;
+        let wx = apex.0 - a.0;
+        let wy = apex.1 - a.1;
+        let mut facet_h = wx * nx + wy * ny;
+        if facet_h < 0.0 {
+            nx = -nx;
+            ny = -ny;
+            facet_h = -facet_h;
+        }
+        if facet_h < 1e-3 {
+            continue;
+        }
+        // local (x, y) → screen: a + x·û + y·n̂.
+        let frame = Transform {
+            sx: ux,
+            kx: nx,
+            tx: a.0,
+            ky: uy,
+            sy: ny,
+            ty: a.1,
+        };
+        let mut tri = PathOps::new();
+        tri.move_to(Vec2::new(a.0, a.1));
+        tri.line_to(Vec2::new(b.0, b.1));
+        tri.line_to(Vec2::new(apex.0, apex.1));
+        tri.close();
+        painter.push_clip(&tri, FillRule::Winding);
+        painter.push_transform(frame);
+        let mut rng = RoofRng::new(seed);
+        paint_pattern(
+            sub_pattern,
+            (0.0, 0.0, eave_len, facet_h),
+            palette,
+            &mut rng,
+            painter,
+        );
+        painter.pop_transform();
+        painter.pop_clip();
+    }
+}
+
 /// Polygon-driven inner roof painter — invoked by the canonical
 /// RoofOp dispatch (`super::roof_op::draw`). The caller looks the
 /// region up in `regions`, extracts the polygon + shape_tag +
@@ -960,6 +1031,25 @@ pub(super) fn draw_roof_polygon(
                 sub_pattern, min_x, min_y, pw, ph, pw >= ph,
                 &sunlit, seed, painter,
             ),
+            Mode::Pyramid => {
+                let n = polygon.len() as f32;
+                let cx = polygon.iter().map(|p| p.0).sum::<f32>() / n;
+                let cy = polygon.iter().map(|p| p.1).sum::<f32>() / n;
+                paint_faceted_pattern(
+                    sub_pattern, polygon, (cx, cy), &sunlit, seed, painter,
+                );
+            }
+            Mode::WitchHat => {
+                let n = polygon.len() as f32;
+                let cx = polygon.iter().map(|p| p.0).sum::<f32>() / n;
+                let cy = polygon.iter().map(|p| p.1).sum::<f32>() / n;
+                // Apex offset matches draw_witch_hat_sides: 30 % of
+                // the bbox height above the centroid.
+                paint_faceted_pattern(
+                    sub_pattern, polygon, (cx, cy - ph * 0.30),
+                    &sunlit, seed, painter,
+                );
+            }
             _ => paint_pattern(sub_pattern, bbox, &sunlit, &mut rng, painter),
         }
     }
