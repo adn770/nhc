@@ -345,6 +345,24 @@ mod tests {
         );
     }
 
+    /// Each fishscale scallop carries a thin black outline so the
+    /// pattern reads clearly. The bare pyramid emits only its
+    /// single ridge stroke; fishscale adds one outline stroke per
+    /// scale, so the StrokePath count climbs well past it.
+    #[test]
+    fn fishscale_scales_have_outline() {
+        let bare = run(&build_roof_op("rect", RoofStyle::Pyramid));
+        let fish = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, RoofTilePattern::Fishscale,
+        ));
+        assert!(
+            stroke_path_count(&fish) > stroke_path_count(&bare) + 4,
+            "Fishscale should outline each scallop (got {} vs bare {})",
+            stroke_path_count(&fish),
+            stroke_path_count(&bare),
+        );
+    }
+
     /// `Thatch` → many short `StrokePath` strands. The base
     /// pyramid emits 1 multi-segment ridge stroke; thatch adds
     /// many independent strands, so the StrokePath count climbs.

@@ -39,6 +39,9 @@ const SHINGLE_JITTER: f32 = 2.0;
 const RIDGE_WIDTH: f32 = 1.5;
 const SHINGLE_STROKE_OPACITY: f32 = 0.2;
 const SHINGLE_STROKE_WIDTH: f32 = 0.3;
+// Thin black outline per fishscale scallop so the scale pattern
+// stays legible against its own palette fill.
+const FISHSCALE_STROKE_WIDTH: f32 = 0.5;
 
 
 // ── Splitmix64 helper layer matching the Python RNG surface ────
@@ -143,6 +146,46 @@ fn rgb_paint(rgb: (u8, u8, u8), alpha: f32) -> Paint {
     Paint::solid(Color::rgba(rgb.0, rgb.1, rgb.2, alpha))
 }
 
+/// A closed circle as four cubic Béziers (kappa ≈ 0.5523), for
+/// strokeable outlines — the `Painter` trait has `fill_circle`
+/// but no circle stroke primitive.
+fn circle_path(cx: f32, cy: f32, r: f32) -> PathOps {
+    const K: f32 = 0.552_284_8;
+    let kr = K * r;
+    let mut p = PathOps::new();
+    p.move_to(Vec2::new(cx + r, cy));
+    p.cubic_to(
+        Vec2::new(cx + r, cy + kr),
+        Vec2::new(cx + kr, cy + r),
+        Vec2::new(cx, cy + r),
+    );
+    p.cubic_to(
+        Vec2::new(cx - kr, cy + r),
+        Vec2::new(cx - r, cy + kr),
+        Vec2::new(cx - r, cy),
+    );
+    p.cubic_to(
+        Vec2::new(cx - r, cy - kr),
+        Vec2::new(cx - kr, cy - r),
+        Vec2::new(cx, cy - r),
+    );
+    p.cubic_to(
+        Vec2::new(cx + kr, cy - r),
+        Vec2::new(cx + r, cy - kr),
+        Vec2::new(cx + r, cy),
+    );
+    p.close();
+    p
+}
+
+fn fishscale_stroke() -> Stroke {
+    Stroke {
+        width: FISHSCALE_STROKE_WIDTH,
+        line_cap: LineCap::Butt,
+        ..Stroke::default()
+    }
+}
+
 fn ridge_stroke() -> Stroke {
     Stroke {
         width: RIDGE_WIDTH,
@@ -192,6 +235,11 @@ fn paint_fishscale(
         while cx < min_x + w + radius {
             let shade = *rng.choice(palette);
             painter.fill_circle(cx, cy, radius, &rgb_paint(shade, 1.0));
+            painter.stroke_path(
+                &circle_path(cx, cy, radius),
+                &rgb_paint((0, 0, 0), 1.0),
+                &fishscale_stroke(),
+            );
             cx += pitch_x;
         }
         cy += pitch_y;
