@@ -229,19 +229,24 @@ fn reflect_y(mid: f32) -> Transform {
 
 /// Smooth lit fraction in `[0, 1]` for a facet pointing
 /// `(dx, dy)` out from the centroid: `1` = fully sunlit, `0` =
-/// full shadow. The light is fixed toward screen lower-right
-/// (`+x, +y`, the same quadrant `draw_pyramid_sides`' binary
-/// rule lit), but here it varies *continuously* with the facet's
-/// angle so a pyramid / cone reads as a smooth radial gradient
-/// instead of hard sun/shadow wedges.
+/// full shadow, varying *continuously* with the facet's angle so
+/// a pyramid / cone reads as a smooth radial gradient instead of
+/// hard sun/shadow wedges.
+///
+/// The light points toward screen lower-right but deliberately
+/// *off* the 45° diagonal (≈22.5°). On the 45° diagonal the four
+/// cardinal facets of a square footprint collapse to only two
+/// distinct dot products (a binary look); skewing the light off
+/// the diagonal gives every face its own tone.
 fn facet_tone(dx: f32, dy: f32) -> f32 {
     let len = (dx * dx + dy * dy).sqrt();
     if len < 1e-6 {
         return 0.5;
     }
-    // Light unit vector toward lower-right.
-    const INV_SQRT2: f32 = 0.707_106_77;
-    let d = (dx * INV_SQRT2 + dy * INV_SQRT2) / len;
+    // Unit light ≈ atan2(0.383, 0.924) ≈ 22.5° below +x.
+    const LX: f32 = 0.923_879_5;
+    const LY: f32 = 0.382_683_4;
+    let d = (dx * LX + dy * LY) / len;
     // Map cos∈[-1,1] → [0,1] but keep a floor/ceiling so the
     // darkest facet still carries texture and the brightest does
     // not blow out.
@@ -1233,17 +1238,16 @@ pub(super) fn draw_roof_polygon(
                 &sunlit, &shadow, seed, painter,
             ),
             // Pyramid and WitchHat both fan the pattern from the
-            // polygon centroid. A centroid is interior, so the
-            // facet triangles partition the whole footprint and
-            // every facet is healthy — the pattern fully covers
-            // the geometry (including WitchHat's bold ridge
-            // spokes). WitchHat deliberately does NOT reuse its
-            // geometry's *offset* apex here: an apex pushed up by
-            // 0.30·ph leaves the near-apex facets degenerate, so
-            // those spokes punched through as a dark "sea-urchin".
-            // The witch-hat silhouette + spokes + apex disc still
-            // come from the geometry; the pattern just needs a
-            // clean even fan to blanket it.
+            // polygon centroid — an interior point, so the facet
+            // triangles partition the whole footprint and every
+            // facet is healthy, fully covering the geometry. The
+            // tempting alternative for WitchHat (its geometry's
+            // *offset* apex, so texture/spokes/disc converge
+            // together) is rejected: an apex raised 0.30·ph
+            // leaves the near-apex facets of a many-vertex
+            // footprint degenerate, and production forest
+            // watchtowers are circle/octagon WitchHats — that
+            // path turns them back into a dark "sea-urchin".
             Mode::Pyramid | Mode::WitchHat => {
                 let n = polygon.len() as f32;
                 let cx = polygon.iter().map(|p| p.0).sum::<f32>() / n;
@@ -1288,19 +1292,28 @@ mod tests {
     }
 
     #[test]
-    fn facet_tone_is_a_smooth_lower_right_gradient() {
-        // Light points to screen lower-right (+x, +y), so a facet
-        // facing that way is brightest, the opposite darkest, and
-        // the sides land in between — monotonic, not a 2-way step.
-        let br = facet_tone(1.0, 1.0);
-        let tl = facet_tone(-1.0, -1.0);
-        let right = facet_tone(1.0, 0.0);
-        let top = facet_tone(0.0, -1.0);
-        assert!(br > right && right > tl, "monotone br > side > tl");
-        assert!(top < right, "upper facet darker than the right one");
+    fn facet_tone_gives_each_square_face_a_distinct_tone() {
+        // The whole point: a square footprint's four cardinal
+        // facets (N/E/S/W) must land on four *distinct* tones, not
+        // collapse to a 2-tone binary. The light is off the 45°
+        // diagonal precisely so this holds.
+        let e = facet_tone(1.0, 0.0);
+        let s = facet_tone(0.0, 1.0);
+        let w = facet_tone(-1.0, 0.0);
+        let n = facet_tone(0.0, -1.0);
+        let mut tones = [e, s, w, n];
+        tones.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        for pair in tones.windows(2) {
+            assert!(
+                pair[1] - pair[0] > 0.02,
+                "cardinal facets must be distinct tones, got {tones:?}"
+            );
+        }
+        // Brightest faces the light (lower-right), darkest opposes.
+        assert!(e > w && s > n, "lit side brighter than shadow side");
         // Clamped so neither extreme blows out / loses texture.
-        assert!((0.12..=0.95).contains(&br));
-        assert!((0.12..=0.95).contains(&tl));
+        assert!((0.12..=0.95).contains(&facet_tone(1.0, 1.0)));
+        assert!((0.12..=0.95).contains(&facet_tone(-1.0, -1.0)));
         // Degenerate direction is neutral mid-tone.
         assert_eq!(facet_tone(0.0, 0.0), 0.5);
     }
