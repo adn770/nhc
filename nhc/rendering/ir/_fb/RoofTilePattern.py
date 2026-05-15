@@ -8,3 +8,4 @@ class RoofTilePattern(object):
     Thatch = 2
     Pantile = 3
     Slate = 4
+    Shingle = 5

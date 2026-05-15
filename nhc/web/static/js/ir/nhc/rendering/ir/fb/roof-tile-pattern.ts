@@ -7,5 +7,6 @@ export enum RoofTilePattern {
   Fishscale = 1,
   Thatch = 2,
   Pantile = 3,
-  Slate = 4
+  Slate = 4,
+  Shingle = 5
 }

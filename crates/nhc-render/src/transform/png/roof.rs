@@ -360,6 +360,24 @@ fn paint_slate(
 }
 
 
+/// `Shingle` — organic running-bond shingles over the bbox: size
+/// jitter, per-tile random shade, a faint black edge. This is the
+/// hand-laid look geometry's gable path draws today, promoted to
+/// a first-class pattern usable on every style. Orientation
+/// (mirroring across the ridge / per-facet rotation) is Phase 4;
+/// for now it tiles the bbox in screen-axis running bond, clipped
+/// to the silhouette by the active envelope.
+fn paint_shingle(
+    bbox: (f32, f32, f32, f32),
+    palette: &[(u8, u8, u8); 3],
+    rng: &mut RoofRng,
+    painter: &mut dyn Painter,
+) {
+    let (min_x, min_y, w, h) = bbox;
+    draw_shingle_region(min_x, min_y, w, h, palette, rng, painter, false);
+}
+
+
 // ── Shingle running-bond + gable + pyramid ─────────────────────
 
 
@@ -812,6 +830,9 @@ pub(super) fn draw_roof_polygon(
         }
         RoofTilePattern::Slate => {
             paint_slate(bbox, &sunlit, &mut rng, painter);
+        }
+        RoofTilePattern::Shingle => {
+            paint_shingle(bbox, &sunlit, &mut rng, painter);
         }
         // Plain + any unknown trailing variant leave the geometry
         // untouched.

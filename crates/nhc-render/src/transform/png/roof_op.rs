@@ -406,4 +406,23 @@ mod tests {
             "Slate should paint many rect tiles"
         );
     }
+
+    /// `Shingle` → organic running-bond `FillRect` tiles, each
+    /// with a faint edge stroke. Pyramid alone emits zero
+    /// FillRects; the overlay adds many tiles plus their strokes.
+    #[test]
+    fn shingle_pattern_overlays_running_bond_tiles() {
+        let bare = run(&build_roof_op("rect", RoofStyle::Pyramid));
+        let shingle = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, RoofTilePattern::Shingle,
+        ));
+        assert!(
+            fill_rect_count(&shingle) > 4,
+            "Shingle should paint many running-bond tiles"
+        );
+        assert!(
+            stroke_path_count(&shingle) > stroke_path_count(&bare) + 4,
+            "Shingle tiles should carry a faint edge stroke"
+        );
+    }
 }
