@@ -100,12 +100,12 @@ def _pick_style(region: Any, building: Any | None = None) -> int:
 
 
 # wall_material → tile-pattern overlay. Brick / stone / dungeon
-# all map to Plain so default-biome production roofs stay byte-
-# identical with the legacy no-overlay output (the seed-7 town
-# parity fixture has no biome → all buildings brick or stone).
-# Adobe (drylands towns) and wood walls (marsh towns) opt into
-# the visual pattern overlays — Pantile reads as Mediterranean
-# tile, Thatch as rural straw.
+# all fall through to the Shingle default (the organic running-
+# bond that replaced the geometry-baked gable shingles), so
+# default-biome towns keep the organic rooftop look. Adobe
+# (drylands towns) and wood walls (marsh towns) opt into the
+# distinct visual pattern overlays — Pantile reads as
+# Mediterranean tile, Thatch as rural straw.
 _WALL_MATERIAL_TO_PATTERN: dict[str, int] = {
     "adobe": RoofTilePattern.Pantile,
     "wood": RoofTilePattern.Thatch,
@@ -139,19 +139,20 @@ def _pick_sub_pattern(building: Any | None) -> int:
        hint for forest watchtowers and falls through here.
     2. Otherwise fall back to ``wall_material``: ``adobe`` →
        Pantile (drylands biome), ``wood`` → Thatch (marsh biome).
-    3. Default biome materials (brick / stone / dungeon) map to
-       Plain so existing renders stay byte-identical with the
-       pre-axis output.
+    3. Default biome materials (brick / stone / dungeon) and any
+       unknown material map to Shingle — the organic running-bond
+       default that replaced the old geometry-baked gable
+       shingles, so ordinary towns keep the organic rooftop look.
     """
     if building is None:
-        return RoofTilePattern.Plain
+        return RoofTilePattern.Shingle
     roof_material = getattr(building, "roof_material", None) or ""
     explicit = _ROOF_MATERIAL_TO_PATTERN.get(roof_material)
     if explicit is not None:
         return explicit
     wall_material = getattr(building, "wall_material", None) or ""
     return _WALL_MATERIAL_TO_PATTERN.get(
-        wall_material, RoofTilePattern.Plain,
+        wall_material, RoofTilePattern.Shingle,
     )
 
 
@@ -171,7 +172,7 @@ def emit_roofs(builder: Any) -> list[OpEntryT]:
     :func:`_pick_sub_pattern` can read per-Building hints
     (``roof_material`` / ``wall_material``) for geometry +
     overlay overrides. Synthetic / test buffers without a Site
-    fall through to the shape-only style picker and Plain
+    fall through to the shape-only style picker and Shingle
     overlay default.
     """
     if getattr(builder.ctx, "floor_kind", "") != "surface":

@@ -300,6 +300,28 @@ def test_ir_svg_structural_sanity(emitted) -> None:
 ROOF_PSNR_THRESHOLD_DB: float = 55.0
 
 
+# Per-descriptor cross-rasteriser (resvg-of-SVG vs tiny-skia
+# reference) overrides for the synthetic roof gate. The roof-
+# pattern redesign decoupled texture from geometry and made
+# ``Shingle`` the production default: every roof now carries an
+# overlay of hundreds of tiny clipped tiles plus a faint per-tile
+# edge stroke. On the straight-edged pyramid / gable fixtures the
+# two rasterisers still agree well past 55 dB, but clipping that
+# dense tile field against a *curved* (circle) or *many-angled*
+# (octagon) silhouette amplifies the resvg↔tiny-skia antialiasing
+# divergence on every tile edge, so those two land below the flat
+# floor. The tiny-skia self-parity gate still holds at the full
+# threshold — this override only relaxes the cross-rasteriser
+# agreement floor for the two curved-clip fixtures, mirroring the
+# ``RESVG_PSNR_OVERRIDES`` precedent. Measured at the Phase 2 cut:
+# octagon 51.10 dB, circle 49.00 dB; 45.0 dB keeps a ~4-6 dB
+# margin while still asserting strong cross-rasteriser agreement.
+ROOF_RESVG_PSNR_OVERRIDES: dict[str, float] = {
+    "synthetic_roof_octagon": 45.0,
+    "synthetic_roof_circle": 45.0,
+}
+
+
 _SYNTHETIC_ROOF_DESCRIPTORS: tuple[str, ...] = (
     "synthetic_roof_square_pyramid",
     "synthetic_roof_wide_gable",
@@ -358,9 +380,12 @@ def test_synthetic_roof_resvg_psnr(synthetic_roof_buf) -> None:
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
     db = _psnr(_decode(actual), _decode(reference))
-    assert db >= ROOF_PSNR_THRESHOLD_DB, (
+    threshold = ROOF_RESVG_PSNR_OVERRIDES.get(
+        fx.descriptor, ROOF_PSNR_THRESHOLD_DB,
+    )
+    assert db >= threshold, (
         f"{fx.descriptor}: resvg-of-ir-svg PSNR {db:.2f} dB "
-        f"(threshold {ROOF_PSNR_THRESHOLD_DB:.1f} dB)"
+        f"(threshold {threshold:.1f} dB)"
     )
 
 

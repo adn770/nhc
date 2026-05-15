@@ -462,33 +462,49 @@ fn draw_shingle_region(
     }
 }
 
+/// `Mode::Gable` — two flat shaded half-planes split on the long
+/// axis with a single ridge line along the split. Geometry owns
+/// only the silhouette / planes / shading / ridge; the surface
+/// texture (the organic shingles this used to bake) is now the
+/// `Shingle` overlay pattern, painted on top by the dispatcher.
+/// The shadow half uses the shadow palette mid-tone, the sunlit
+/// half the sunlit mid-tone — the same two tints the old shingle
+/// fill averaged to.
 fn draw_gable_sides(
     px: f32, py: f32, pw: f32, ph: f32,
     horizontal: bool,
     sunlit: &[(u8, u8, u8); 3],
     shadow: &[(u8, u8, u8); 3],
-    rng: &mut RoofRng,
+    _rng: &mut RoofRng,
     painter: &mut dyn Painter,
 ) {
     let ridge_paint = rgb_paint((0, 0, 0), 1.0);
     let stroke = ridge_stroke();
+    let shadow_fill = rgb_paint(shadow[1], 1.0);
+    let sunlit_fill = rgb_paint(sunlit[1], 1.0);
+    let fill_quad = |painter: &mut dyn Painter,
+                     x: f32, y: f32, w: f32, h: f32,
+                     paint: &Paint| {
+        let mut path = PathOps::new();
+        path.move_to(Vec2::new(x, y));
+        path.line_to(Vec2::new(x + w, y));
+        path.line_to(Vec2::new(x + w, y + h));
+        path.line_to(Vec2::new(x, y + h));
+        path.close();
+        painter.fill_path(&path, paint, FillRule::Winding);
+    };
     if horizontal {
-        // Horizontal ridge — vertical courses (long axis runs
-        // perpendicular to the ridge).
-        draw_shingle_region(px, py, pw, ph / 2.0, shadow, rng, painter, true);
-        draw_shingle_region(
-            px, py + ph / 2.0, pw, ph / 2.0, sunlit, rng, painter, true,
-        );
+        // Horizontal ridge — shadow top half, sunlit bottom half.
+        fill_quad(painter, px, py, pw, ph / 2.0, &shadow_fill);
+        fill_quad(painter, px, py + ph / 2.0, pw, ph / 2.0, &sunlit_fill);
         let mut path = PathOps::new();
         path.move_to(Vec2::new(px, py + ph / 2.0));
         path.line_to(Vec2::new(px + pw, py + ph / 2.0));
         painter.stroke_path(&path, &ridge_paint, &stroke);
     } else {
-        // Vertical ridge — horizontal courses (default).
-        draw_shingle_region(px, py, pw / 2.0, ph, shadow, rng, painter, false);
-        draw_shingle_region(
-            px + pw / 2.0, py, pw / 2.0, ph, sunlit, rng, painter, false,
-        );
+        // Vertical ridge — shadow left half, sunlit right half.
+        fill_quad(painter, px, py, pw / 2.0, ph, &shadow_fill);
+        fill_quad(painter, px + pw / 2.0, py, pw / 2.0, ph, &sunlit_fill);
         let mut path = PathOps::new();
         path.move_to(Vec2::new(px + pw / 2.0, py));
         path.line_to(Vec2::new(px + pw / 2.0, py + ph));

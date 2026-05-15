@@ -8,9 +8,10 @@ painter would have auto-picked from ``shape_tag`` + bbox: square
 rect / octagon / circle → Pyramid; wide-rect / l_shape → Gable.
 
 The ``RoofTilePattern`` overlay reads ``Building.wall_material``:
-adobe → Pantile, wood → Thatch, everything else → Plain. Forest
-watchtowers (``roof_material="wood"``) override the geometry to
-WitchHat for the iconic conical wooden-cap silhouette.
+adobe → Pantile, wood → Thatch, everything else → Shingle (the
+organic running-bond default). Forest watchtowers
+(``roof_material="wood"``) override the geometry to WitchHat for
+the iconic conical wooden-cap silhouette.
 """
 
 from __future__ import annotations
@@ -111,18 +112,19 @@ class TestPickStyle:
 
 
 class TestPickSubPattern:
-    def test_brick_default_maps_to_plain(self) -> None:
-        # Default biome (brick walls) keeps Plain so the seed-7
-        # town parity fixture stays byte-identical.
+    def test_brick_default_maps_to_shingle(self) -> None:
+        # Default biome (brick walls) maps to Shingle — the
+        # organic running-bond default that replaced the old
+        # geometry-baked gable shingles.
         assert (
             _pick_sub_pattern(_building(wall_material="brick"))
-            == RoofTilePattern.Plain
+            == RoofTilePattern.Shingle
         )
 
-    def test_stone_default_maps_to_plain(self) -> None:
+    def test_stone_default_maps_to_shingle(self) -> None:
         assert (
             _pick_sub_pattern(_building(wall_material="stone"))
-            == RoofTilePattern.Plain
+            == RoofTilePattern.Shingle
         )
 
     def test_adobe_maps_to_pantile(self) -> None:
@@ -140,20 +142,20 @@ class TestPickSubPattern:
             == RoofTilePattern.Thatch
         )
 
-    def test_dungeon_walls_map_to_plain(self) -> None:
+    def test_dungeon_walls_map_to_shingle(self) -> None:
         assert (
             _pick_sub_pattern(_building(wall_material="dungeon"))
-            == RoofTilePattern.Plain
+            == RoofTilePattern.Shingle
         )
 
-    def test_no_building_falls_back_to_plain(self) -> None:
+    def test_no_building_falls_back_to_shingle(self) -> None:
         # Synthetic / test buffers have no Building object.
-        assert _pick_sub_pattern(None) == RoofTilePattern.Plain
+        assert _pick_sub_pattern(None) == RoofTilePattern.Shingle
 
-    def test_unknown_material_falls_back_to_plain(self) -> None:
+    def test_unknown_material_falls_back_to_shingle(self) -> None:
         assert (
             _pick_sub_pattern(_building(wall_material="ice"))
-            == RoofTilePattern.Plain
+            == RoofTilePattern.Shingle
         )
 
     def test_thatch_roof_material_maps_to_thatch_pattern(self) -> None:
@@ -192,13 +194,14 @@ class TestPickSubPattern:
     def test_wood_roof_material_does_not_apply_overlay(self) -> None:
         # roof_material="wood" already drives the WitchHat geometry
         # override; the overlay falls through to the wall_material
-        # default (brick → Plain) so the wooden cap reads cleanly
-        # without a competing tile texture.
+        # default (brick → Shingle). The WitchHat cap geometry is
+        # what reads the wooden look; the running-bond default is
+        # the neutral fallback here.
         assert (
             _pick_sub_pattern(_building(
                 wall_material="brick", roof_material="wood",
             ))
-            == RoofTilePattern.Plain
+            == RoofTilePattern.Shingle
         )
 
     def test_roof_material_overrides_wall_material(self) -> None:
@@ -218,8 +221,9 @@ class TestTownRoleRoofMaterial:
     38606e88-ish ladder)."""
 
     def test_residential_keeps_default_roof_material(self) -> None:
-        # The bulk of a town is residential — Plain overlay so
-        # the legacy default look stays dominant.
+        # The bulk of a town is residential — no explicit
+        # roof_material, so it takes the Shingle default and the
+        # organic running-bond look stays dominant.
         from nhc.sites.town import _TOWN_ROLE_TO_ROOF
 
         assert _TOWN_ROLE_TO_ROOF.get("residential") is None

@@ -271,15 +271,21 @@ mod tests {
         assert_eq!(fill_circle_count(&painter), 0);
     }
 
-    /// `Gable` → fills shingle rows via FillRect (long-axis
-    /// ridge). Distinct from Pyramid (no FillRect calls).
+    /// `Gable` → two flat shaded half-planes split on the long
+    /// axis plus a ridge stroke. Geometry no longer bakes
+    /// shingles (that is now the `Shingle` overlay pattern), so
+    /// the bare gable emits exactly 2 FillPath (the halves) and
+    /// zero FillRect.
     #[test]
-    fn gable_style_emits_shingle_rect_rows() {
+    fn gable_style_emits_two_flat_planes() {
         let painter = run(&build_roof_op("rect", RoofStyle::Gable));
-        // Many shingles → many FillRect calls.
-        assert!(
-            fill_rect_count(&painter) > 4,
-            "Gable should emit shingle rows via FillRect"
+        assert_eq!(
+            fill_path_count(&painter), 2,
+            "Gable should emit two flat half-plane fills"
+        );
+        assert_eq!(
+            fill_rect_count(&painter), 0,
+            "Gable geometry must not bake shingle rects"
         );
     }
 
