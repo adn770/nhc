@@ -10,8 +10,8 @@ rect / octagon / circle → Pyramid; wide-rect / l_shape → Gable.
 The ``RoofTilePattern`` overlay reads ``Building.wall_material``:
 adobe → Pantile, wood → Thatch, everything else → Shingle (the
 organic running-bond default). Forest watchtowers
-(``roof_material="wood"``) override the geometry to WitchHat for
-the iconic conical wooden-cap silhouette.
+(``roof_material="wood"``) no longer override the geometry —
+WitchHat was retired, so they take the shape-default Pyramid.
 """
 
 from __future__ import annotations
@@ -88,21 +88,22 @@ class TestPickStyle:
         )
         assert _pick_style(region) == RoofStyle.Gable
 
-    def test_forest_watchtower_picks_witch_hat(self) -> None:
-        # roof_material="wood" overrides the shape-driven pyramid
-        # default — forest watchtowers read as a tall wooden cap.
+    def test_forest_watchtower_takes_shape_default(self) -> None:
+        # WitchHat was retired: roof_material="wood" no longer
+        # overrides the geometry, so an octagon forest watchtower
+        # takes the shape-default Pyramid pick.
         region = _region(
             "octagon",
             [(2, 0), (8, 0), (10, 2), (10, 8),
              (8, 10), (2, 10), (0, 8), (0, 2)],
         )
         building = _building(roof_material="wood")
-        assert _pick_style(region, building) == RoofStyle.WitchHat
+        assert _pick_style(region, building) == RoofStyle.Pyramid
 
-    def test_circle_watchtower_picks_witch_hat(self) -> None:
+    def test_circle_watchtower_takes_shape_default(self) -> None:
         region = _region("circle", [(5, 0), (10, 5), (5, 10), (0, 5)])
         building = _building(roof_material="wood")
-        assert _pick_style(region, building) == RoofStyle.WitchHat
+        assert _pick_style(region, building) == RoofStyle.Pyramid
 
     def test_no_building_keeps_shape_default(self) -> None:
         # Synthetic / test buffers have no Building object; the
@@ -192,11 +193,10 @@ class TestPickSubPattern:
         )
 
     def test_wood_roof_material_does_not_apply_overlay(self) -> None:
-        # roof_material="wood" already drives the WitchHat geometry
-        # override; the overlay falls through to the wall_material
-        # default (brick → Shingle). The WitchHat cap geometry is
-        # what reads the wooden look; the running-bond default is
-        # the neutral fallback here.
+        # roof_material="wood" has no explicit pattern entry, so
+        # the overlay falls through to the wall_material default
+        # (brick → Shingle). The wooden watchtower reads via its
+        # shape-default Pyramid geometry, not a special texture.
         assert (
             _pick_sub_pattern(_building(
                 wall_material="brick", roof_material="wood",

@@ -117,14 +117,13 @@ fn shade_palette(tint: &str, sunlit: bool) -> [(u8, u8, u8); 3] {
 /// that the production roof rendering stays byte-identical to
 /// the legacy shape-driven dispatch — square / octagon / circle
 /// footprints get `Pyramid`, wide rect / L-shape get `Gable`.
-/// `Simple`, `Dome`, `WitchHat` are catalog-only styles today.
+/// `Simple` and `Dome` are catalog-only styles today.
 #[derive(Clone, Copy)]
 enum Mode {
     Simple,
     Pyramid,
     Gable,
     Dome,
-    WitchHat,
 }
 
 fn mode_for_style(style: RoofStyle) -> Mode {
@@ -132,7 +131,6 @@ fn mode_for_style(style: RoofStyle) -> Mode {
         RoofStyle::Pyramid => Mode::Pyramid,
         RoofStyle::Gable => Mode::Gable,
         RoofStyle::Dome => Mode::Dome,
-        RoofStyle::WitchHat => Mode::WitchHat,
         // Simple + any unknown trailing variant fall through to
         // the flat-tint fallback.
         _ => Mode::Simple,
@@ -680,68 +678,6 @@ fn draw_dome_rings(
     }
 }
 
-/// `Mode::WitchHat` — tall narrow conical hat. Same radial-side
-/// layout as `Pyramid`, but the apex is shifted upward by 30 % of
-/// the bbox height so the silhouette reads as an asymmetric cone.
-/// A small bright disc at the apex stands in for the tip
-/// poking up through the top-down view.
-fn draw_witch_hat_sides(
-    polygon: &[(f32, f32)],
-    bbox: (f32, f32, f32, f32),
-    sunlit: &[(u8, u8, u8); 3],
-    shadow: &[(u8, u8, u8); 3],
-    rng: &mut RoofRng,
-    painter: &mut dyn Painter,
-) {
-    let n = polygon.len();
-    if n == 0 {
-        return;
-    }
-    let (_, _, pw, ph) = bbox;
-    let avg_x = polygon.iter().map(|p| p.0).sum::<f32>() / n as f32;
-    let avg_y = polygon.iter().map(|p| p.1).sum::<f32>() / n as f32;
-    let apex_x = avg_x;
-    // Apex sits 30 % of the bbox height above the polygon
-    // centroid — gives the cone a tall, leaning-up silhouette
-    // distinct from `Pyramid`'s centroid-aligned spine.
-    let apex_y = avg_y - ph * 0.30;
-    let stroke_paint = rgb_paint((0, 0, 0), SHINGLE_STROKE_OPACITY);
-    let stroke = shingle_stroke();
-    for i in 0..n {
-        let a = polygon[i];
-        let b = polygon[(i + 1) % n];
-        let mx = (a.0 + b.0) / 2.0;
-        let my = (a.1 + b.1) / 2.0;
-        let is_shadow = my < avg_y - 1e-3
-            || (mx < avg_x - 1e-3 && my < avg_y + 1e-3);
-        let palette = if is_shadow { shadow } else { sunlit };
-        let fill_rgb = *rng.choice(palette);
-        let mut path = PathOps::new();
-        path.move_to(Vec2::new(a.0, a.1));
-        path.line_to(Vec2::new(b.0, b.1));
-        path.line_to(Vec2::new(apex_x, apex_y));
-        path.close();
-        let fill = rgb_paint(fill_rgb, 1.0);
-        painter.fill_path(&path, &fill, FillRule::Winding);
-        painter.stroke_path(&path, &stroke_paint, &stroke);
-    }
-    // Spokes from each vertex to the offset apex.
-    let ridge_paint = rgb_paint((0, 0, 0), 1.0);
-    let ridge_stroke_def = ridge_stroke();
-    let mut path = PathOps::new();
-    for &(vx, vy) in polygon {
-        path.move_to(Vec2::new(apex_x, apex_y));
-        path.line_to(Vec2::new(vx, vy));
-    }
-    painter.stroke_path(&path, &ridge_paint, &ridge_stroke_def);
-    // Bright apex disc — radius is 8 % of the smaller bbox
-    // dimension so it stays proportional across cell sizes.
-    let disc_r = pw.min(ph) * 0.08;
-    let bright = sunlit[2];
-    let disc_paint = rgb_paint(bright, 1.0);
-    painter.fill_circle(apex_x, apex_y, disc_r, &disc_paint);
-}
-
 fn draw_pyramid_sides(
     polygon: &[(f32, f32)],
     sunlit: &[(u8, u8, u8); 3],
@@ -952,7 +888,7 @@ fn paint_gable_pattern(
 }
 
 /// Phase 4 — faceted plane-relative orientation (top-down) for
-/// `Pyramid` / `WitchHat`. Each facet is the triangle
+/// `Pyramid`. Each facet is the triangle
 /// `(polygon[i], polygon[i+1], apex)`. The pattern is rotated
 /// into that facet's local frame: local `x` runs along the outer
 /// (eave) edge `a → b`, local `y` runs from the eave toward the
@@ -1165,9 +1101,9 @@ fn paint_dome_pattern(
 /// `style` selects the per-style geometry. The emit pipeline
 /// picks `Pyramid` for square / octagon / circle and `Gable` for
 /// wide-rect / L-shape footprints, matching the legacy
-/// shape-driven dispatch byte-for-byte. `Simple` / `Dome` /
-/// `WitchHat` are catalog-only styles for now — generators have
-/// to opt into them explicitly.
+/// shape-driven dispatch byte-for-byte. `Simple` / `Dome` are
+/// catalog-only styles for now — generators have to opt into
+/// them explicitly.
 ///
 /// `sub_pattern` is the `RoofTilePattern` texture overlay. The
 /// five patterns (Shingle — the default organic running-bond —
@@ -1221,9 +1157,6 @@ pub(super) fn draw_roof_polygon(
         Mode::Dome => draw_dome_rings(
             polygon, bbox, &sunlit, &shadow, painter,
         ),
-        Mode::WitchHat => draw_witch_hat_sides(
-            polygon, bbox, &sunlit, &shadow, &mut rng, painter,
-        ),
     }
     // Tile-pattern overlay — the five patterns paint over the
     // geometry (clipped to the outline by the active push_clip
@@ -1237,18 +1170,11 @@ pub(super) fn draw_roof_polygon(
                 sub_pattern, min_x, min_y, pw, ph, pw >= ph,
                 &sunlit, &shadow, seed, painter,
             ),
-            // Pyramid and WitchHat both fan the pattern from the
-            // polygon centroid — an interior point, so the facet
-            // triangles partition the whole footprint and every
-            // facet is healthy, fully covering the geometry. The
-            // tempting alternative for WitchHat (its geometry's
-            // *offset* apex, so texture/spokes/disc converge
-            // together) is rejected: an apex raised 0.30·ph
-            // leaves the near-apex facets of a many-vertex
-            // footprint degenerate, and production forest
-            // watchtowers are circle/octagon WitchHats — that
-            // path turns them back into a dark "sea-urchin".
-            Mode::Pyramid | Mode::WitchHat => {
+            // Pyramid fans the pattern from the polygon centroid
+            // — an interior point, so the facet triangles
+            // partition the whole footprint and every facet is
+            // healthy, fully covering the geometry.
+            Mode::Pyramid => {
                 let n = polygon.len() as f32;
                 let cx = polygon.iter().map(|p| p.0).sum::<f32>() / n;
                 let cy = polygon.iter().map(|p| p.1).sum::<f32>() / n;
@@ -1333,7 +1259,6 @@ mod tests {
         assert!(matches!(mode_for_style(RoofStyle::Pyramid), Mode::Pyramid));
         assert!(matches!(mode_for_style(RoofStyle::Gable), Mode::Gable));
         assert!(matches!(mode_for_style(RoofStyle::Dome), Mode::Dome));
-        assert!(matches!(mode_for_style(RoofStyle::WitchHat), Mode::WitchHat));
     }
 
     #[test]

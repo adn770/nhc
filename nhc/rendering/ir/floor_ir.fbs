@@ -287,7 +287,6 @@ enum RoofStyle : ubyte {
   Pyramid  = 1,
   Gable    = 2,
   Dome     = 3,
-  WitchHat = 4,
 }
 
 // Tile pattern overlaid on the geometry chosen by ``RoofStyle``.

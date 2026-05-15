@@ -71,16 +71,13 @@ def _pick_style(region: Any, building: Any | None = None) -> int:
     style the painter would auto-pick keeps every existing roof
     pixel-identical with the legacy output.
 
-    The optional ``building`` argument lets callers override the
-    default geometry per Building. ``Building.roof_material ==
-    "wood"`` (only set on forest watchtowers today) overrides to
-    ``RoofStyle.WitchHat`` so the watchtower's wooden cone reads
-    as the iconic conical cap silhouette.
+    The ``building`` argument is currently unused for geometry —
+    forest watchtowers (``roof_material == "wood"``) used to
+    override to the WitchHat cone, but that style was retired, so
+    they now take the normal shape-driven pick (their circle /
+    octagon footprint → Pyramid). ``roof_material`` still feeds
+    the texture overlay via :func:`_pick_sub_pattern`.
     """
-    if building is not None:
-        roof_material = getattr(building, "roof_material", None) or ""
-        if roof_material == "wood":
-            return RoofStyle.WitchHat
     shape_tag = _decode_id(getattr(region, "shapeTag", "") or "")
     if shape_tag.startswith("l_shape"):
         return RoofStyle.Gable
@@ -116,11 +113,10 @@ _WALL_MATERIAL_TO_PATTERN: dict[str, int] = {
 # Building when they want an explicit roof texture independent
 # of the wall material — e.g. a stone-walled mansion with a
 # slate roof, or a brick cottage with thatch on top. The
-# mapping wins over the wall_material fallback. ``"wood"`` is
-# reserved as the geometry hint for forest watchtowers (drives
-# RoofStyle.WitchHat in :func:`_pick_style`) and intentionally
-# does NOT map to a pattern — the wooden cap reads cleanest
-# without a competing tile texture.
+# mapping wins over the wall_material fallback. ``"wood"`` (set
+# on forest watchtowers) intentionally has no entry — it falls
+# through to the wall_material default so the wooden cap is not
+# overlaid with a competing explicit tile texture.
 _ROOF_MATERIAL_TO_PATTERN: dict[str, int] = {
     "thatch": RoofTilePattern.Thatch,
     "tile": RoofTilePattern.Pantile,
@@ -135,8 +131,8 @@ def _pick_sub_pattern(building: Any | None) -> int:
     Resolution order:
     1. If ``Building.roof_material`` matches a semantic key
        (``"thatch"`` / ``"tile"`` / ``"slate"`` / ``"fishscale"``)
-       use the explicit pattern. ``"wood"`` is the geometry-only
-       hint for forest watchtowers and falls through here.
+       use the explicit pattern. ``"wood"`` (forest watchtowers)
+       has no entry and falls through here.
     2. Otherwise fall back to ``wall_material``: ``adobe`` →
        Pantile (drylands biome), ``wood`` → Thatch (marsh biome).
     3. Default biome materials (brick / stone / dungeon) and any

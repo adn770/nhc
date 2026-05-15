@@ -495,7 +495,6 @@ enum RoofStyle : ubyte {
   Pyramid = 1,
   Gable   = 2,
   Dome    = 3,
-  WitchHat = 4,
 }
 ```
 
@@ -649,14 +648,13 @@ stays distinct):
 | `Pyramid` | central spine peaks at the centroid; N-gon footprints |
 | `Gable` | linear ridge along longer axis; rect / L footprints |
 | `Dome` | concentric tonal rings (top-down hemisphere) |
-| `WitchHat` | tall asymmetric cone with apex offset above the centroid |
 
 The emit pipeline (`nhc/rendering/emit/roof.py::_pick_style`)
 picks `Pyramid` for square / octagon / circle and `Gable` for
 wide-rect / L-shape so production roofs read as the legacy
-shape-driven dispatch. `Simple` / `Dome` / `WitchHat` are
-catalog-only today — generators have to opt into them
-explicitly.
+shape-driven dispatch. `Simple` / `Dome` are catalog-only today
+— generators have to opt into them explicitly. (`WitchHat` was
+retired; forest watchtowers take the Pyramid default.)
 
 Tonal axis is `RoofOp.tone: uint8` (`Light = 0`, `Medium = 1`,
 `Dark = 2`, `Aged = 3`). The painter palette resolves tone to

@@ -69,14 +69,16 @@ def test_fixture_kind_enum_exposes_locked_twelve() -> None:
     assert FixtureKind.Mushroom == 11
 
 
-def test_roof_style_enum_extends_v4_simple_dome_witchhat() -> None:
+def test_roof_style_enum_pins_canonical_values() -> None:
     from nhc.rendering.ir._fb.RoofStyle import RoofStyle
 
     assert RoofStyle.Simple == 0
     assert RoofStyle.Pyramid == 1
     assert RoofStyle.Gable == 2
     assert RoofStyle.Dome == 3
-    assert RoofStyle.WitchHat == 4
+    # WitchHat was retired — forest watchtowers now take the
+    # shape-default Pyramid pick.
+    assert not hasattr(RoofStyle, "WitchHat")
 
 
 def test_roof_tile_pattern_enum_pins_canonical_values() -> None:

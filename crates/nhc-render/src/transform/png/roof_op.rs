@@ -14,7 +14,7 @@
 //! 4. Hand off to the polygon-driven inner painter, which
 //!    dispatches per-style: `Simple` (flat tint), `Pyramid`
 //!    (centroid spokes), `Gable` (long-axis ridge), `Dome`
-//!    (concentric rings), `WitchHat` (offset apex).
+//!    (concentric rings).
 
 use flatbuffers::{ForwardsUOffset, Vector};
 
@@ -244,7 +244,6 @@ mod tests {
             RoofStyle::Pyramid,
             RoofStyle::Gable,
             RoofStyle::Dome,
-            RoofStyle::WitchHat,
         ] {
             let painter = run(&build_roof_op("rect", style));
             let pushed = painter
@@ -309,19 +308,6 @@ mod tests {
         );
         assert_eq!(fill_rect_count(&painter), 0);
         assert_eq!(fill_circle_count(&painter), 0);
-    }
-
-    /// `WitchHat` → pyramid-style sides plus a small bright apex
-    /// disc. Pin: at least one FillCircle for the apex tip.
-    #[test]
-    fn witch_hat_style_renders_offset_apex_disc() {
-        let painter = run(&build_roof_op("rect", RoofStyle::WitchHat));
-        assert_eq!(
-            fill_circle_count(&painter), 1,
-            "WitchHat should overlay a bright apex disc"
-        );
-        // Spoked sides too.
-        assert!(fill_path_count(&painter) >= 4);
     }
 
     fn stroke_path_count(painter: &MockPainter) -> usize {
@@ -540,21 +526,6 @@ mod tests {
         assert!(
             fill_rect_count(&painter) > 4,
             "the shingle field tiles every facet"
-        );
-    }
-
-    /// WitchHat shares the faceted-frame path, so it also emits
-    /// one transform per facet and still overlays its bright apex
-    /// disc on top.
-    #[test]
-    fn witch_hat_pattern_rotates_per_facet_and_keeps_apex() {
-        let painter = run(&build_roof_op_with_pattern(
-            "rect", RoofStyle::WitchHat, RoofTilePattern::Shingle,
-        ));
-        assert_eq!(push_transforms(&painter).len(), 4);
-        assert_eq!(
-            fill_circle_count(&painter), 1,
-            "WitchHat keeps its apex disc under the pattern"
         );
     }
 

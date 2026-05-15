@@ -1091,15 +1091,14 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FixtureKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_ROOF_STYLE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_ROOF_STYLE: u8 = 4;
+pub const ENUM_MAX_ROOF_STYLE: u8 = 3;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_ROOF_STYLE: [RoofStyle; 5] = [
+pub const ENUM_VALUES_ROOF_STYLE: [RoofStyle; 4] = [
   RoofStyle::Simple,
   RoofStyle::Pyramid,
   RoofStyle::Gable,
   RoofStyle::Dome,
-  RoofStyle::WitchHat,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1111,16 +1110,14 @@ impl RoofStyle {
   pub const Pyramid: Self = Self(1);
   pub const Gable: Self = Self(2);
   pub const Dome: Self = Self(3);
-  pub const WitchHat: Self = Self(4);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 4;
+  pub const ENUM_MAX: u8 = 3;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Simple,
     Self::Pyramid,
     Self::Gable,
     Self::Dome,
-    Self::WitchHat,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1129,7 +1126,6 @@ impl RoofStyle {
       Self::Pyramid => Some("Pyramid"),
       Self::Gable => Some("Gable"),
       Self::Dome => Some("Dome"),
-      Self::WitchHat => Some("WitchHat"),
       _ => None,
     }
   }

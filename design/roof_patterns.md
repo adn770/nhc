@@ -23,13 +23,12 @@ what lets every pattern apply to every style.
 | Simple   | 1 flat plane                            | none                         |
 | Gable    | 2 halves split on the long axis         | 1 line along the long axis   |
 | Pyramid  | N triangular facets from the centroid   | N spokes centroid→vertices   |
-| WitchHat | N facets from an apex offset up by 30%  | N spokes vertex→offset apex  |
 | Dome     | concentric shrinking rings              | none                         |
 
 Style is chosen in `nhc/rendering/emit/roof.py:_pick_style` from the region shape tag,
 matching the legacy shape-driven dispatch (l_shape→Gable, square rect→Pyramid, wide/tall
-rect→Gable, octagon/circle→Pyramid), with a `roof_material == "wood"` override to
-WitchHat for forest watchtowers.
+rect→Gable, octagon/circle→Pyramid). The `WitchHat` cone was retired; forest watchtowers
+(`roof_material == "wood"`) take the shape-default Pyramid.
 
 ## Patterns (texture)
 
@@ -64,9 +63,9 @@ Patterns are oriented relative to the geometry, not the screen:
 
 - **Gable / rect:** flat top-down read. The ridge is a divider; the pattern **mirrors
   across the ridge** between the two halves. No up-slope foreshortening.
-- **Pyramid / WitchHat:** each facet's pattern is **rotated into that facet's local
-  frame** — tile rows parallel to the facet's outer edge, "up" toward the (possibly
-  offset) apex. The texture rotates facet-by-facet around the roof.
+- **Pyramid:** each facet's pattern is **rotated into that facet's local frame** —
+  tile rows parallel to the facet's outer edge, "up" toward the centroid apex. The
+  texture rotates facet-by-facet around the roof.
 - **Dome:** the pattern follows the **concentric rings**, curving around rather than a
   straight grid.
 

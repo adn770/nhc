@@ -1,6 +1,6 @@
 """Roof catalog page — full styles × patterns matrix.
 
-A 5 × 5 grid: every ``RoofStyle`` (rows) crossed with every
+A 4 × 5 grid: every ``RoofStyle`` (rows) crossed with every
 ``RoofTilePattern`` (columns), all on a fixed rect footprint so
 the only variables per cell are the geometry and its texture
 overlay. This makes every (style, pattern) combination visible
@@ -26,7 +26,6 @@ _STYLE_ROWS: tuple[tuple[str, int], ...] = (
     ("Pyramid", RoofStyle.Pyramid),
     ("Gable", RoofStyle.Gable),
     ("Dome", RoofStyle.Dome),
-    ("WitchHat", RoofStyle.WitchHat),
 )
 _ROW_LABELS = tuple(name for name, _ in _STYLE_ROWS)
 _ROW_STYLES = [style for _, style in _STYLE_ROWS]
@@ -44,13 +43,13 @@ register_catalog_page(CatalogPageSpec(
     category="synthetic/roofs",
     description=(
         "Styles x patterns matrix - every RoofStyle (rows: "
-        "Simple, Pyramid, Gable, Dome, WitchHat) crossed with "
-        "every RoofTilePattern (columns: Shingle, Fishscale, "
-        "Thatch, Pantile, Slate) on a fixed rect footprint. Each "
-        "pattern is oriented in the geometry's plane-local frame "
-        "(gable mirrors across the ridge, pyramid/WitchHat rotate "
-        "per facet, dome follows concentric rings); Shingle is the "
-        "organic running-bond default."
+        "Simple, Pyramid, Gable, Dome) crossed with every "
+        "RoofTilePattern (columns: Shingle, Fishscale, Thatch, "
+        "Pantile, Slate) on a fixed rect footprint. Each pattern "
+        "is oriented in the geometry's plane-local frame (gable "
+        "mirrors across the ridge, pyramid rotates per facet, "
+        "dome follows concentric rings); Shingle is the organic "
+        "running-bond default."
     ),
     columns=[
         _col("Shingle", RoofTilePattern.Shingle),

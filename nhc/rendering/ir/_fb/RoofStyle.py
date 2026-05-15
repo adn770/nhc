@@ -7,4 +7,3 @@ class RoofStyle(object):
     Pyramid = 1
     Gable = 2
     Dome = 3
-    WitchHat = 4
