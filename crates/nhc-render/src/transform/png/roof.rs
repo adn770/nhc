@@ -22,7 +22,7 @@
 use crate::ir::{FloorIR, OpEntry, Region, RoofOp, RoofStyle, RoofTilePattern};
 use crate::painter::{
     Color, FillRule, LineCap, Paint, Painter, PathOps, Rect as PRect,
-    Stroke, Vec2,
+    Stroke, Transform, Vec2,
 };
 use crate::rng::SplitMix64;
 
@@ -118,6 +118,7 @@ fn shade_palette(tint: &str, sunlit: bool) -> [(u8, u8, u8); 3] {
 /// the legacy shape-driven dispatch — square / octagon / circle
 /// footprints get `Pyramid`, wide rect / L-shape get `Gable`.
 /// `Simple`, `Dome`, `WitchHat` are catalog-only styles today.
+#[derive(Clone, Copy)]
 enum Mode {
     Simple,
     Pyramid,
@@ -200,6 +201,30 @@ fn shingle_stroke() -> Stroke {
         line_cap: LineCap::Butt,
         ..Stroke::default()
     }
+}
+
+/// Axis-aligned rectangle as a closed path — used for the
+/// per-gable-half clip windows.
+fn rect_path(x: f32, y: f32, w: f32, h: f32) -> PathOps {
+    let mut p = PathOps::new();
+    p.move_to(Vec2::new(x, y));
+    p.line_to(Vec2::new(x + w, y));
+    p.line_to(Vec2::new(x + w, y + h));
+    p.line_to(Vec2::new(x, y + h));
+    p.close();
+    p
+}
+
+/// Reflection across the vertical line `x = mid`
+/// (`(x, y) → (2·mid − x, y)`).
+fn reflect_x(mid: f32) -> Transform {
+    Transform { sx: -1.0, kx: 0.0, tx: 2.0 * mid, ky: 0.0, sy: 1.0, ty: 0.0 }
+}
+
+/// Reflection across the horizontal line `y = mid`
+/// (`(x, y) → (x, 2·mid − y)`).
+fn reflect_y(mid: f32) -> Transform {
+    Transform { sx: 1.0, kx: 0.0, tx: 0.0, ky: 0.0, sy: -1.0, ty: 2.0 * mid }
 }
 
 
@@ -763,6 +788,97 @@ fn build_clip_pathops(region: &Region<'_>) -> Option<PathOps> {
     Some(path)
 }
 
+/// Dispatch one tile pattern over `bbox`, tiling in screen axis.
+/// An unknown trailing `RoofTilePattern` byte is the geometry-
+/// only no-op (the test-suite baseline).
+fn paint_pattern(
+    sub_pattern: RoofTilePattern,
+    bbox: (f32, f32, f32, f32),
+    palette: &[(u8, u8, u8); 3],
+    rng: &mut RoofRng,
+    painter: &mut dyn Painter,
+) {
+    match sub_pattern {
+        RoofTilePattern::Fishscale => paint_fishscale(bbox, palette, rng, painter),
+        RoofTilePattern::Thatch => paint_thatch(bbox, palette, rng, painter),
+        RoofTilePattern::Pantile => paint_pantile(bbox, palette, rng, painter),
+        RoofTilePattern::Slate => paint_slate(bbox, palette, rng, painter),
+        RoofTilePattern::Shingle => paint_shingle(bbox, palette, rng, painter),
+        _ => {}
+    }
+}
+
+/// Whether a `RoofTilePattern` byte names a real texture (the
+/// five patterns) versus the geometry-only no-op fallback.
+fn is_textured(sub_pattern: RoofTilePattern) -> bool {
+    matches!(
+        sub_pattern,
+        RoofTilePattern::Fishscale
+            | RoofTilePattern::Thatch
+            | RoofTilePattern::Pantile
+            | RoofTilePattern::Slate
+            | RoofTilePattern::Shingle
+    )
+}
+
+/// Phase 4 — gable plane-relative orientation (top-down). The
+/// ridge is a divider: the pattern on one half is the mirror
+/// image of the other across the ridge line. Each half is
+/// painted into its own screen-space clip window; the second
+/// half draws the *same* pattern (re-seeded identically) under a
+/// reflection transform so the two textures meet symmetrically
+/// at the ridge with no foreshortening. A vertical ridge
+/// (`!horizontal`) mirrors left↔right; a horizontal ridge mirrors
+/// top↔bottom.
+fn paint_gable_pattern(
+    sub_pattern: RoofTilePattern,
+    min_x: f32,
+    min_y: f32,
+    pw: f32,
+    ph: f32,
+    horizontal: bool,
+    palette: &[(u8, u8, u8); 3],
+    seed: u64,
+    painter: &mut dyn Painter,
+) {
+    let (half_bbox, a_rect, b_rect, mirror) = if horizontal {
+        let mid = min_y + ph / 2.0;
+        (
+            (min_x, min_y, pw, ph / 2.0),
+            (min_x, min_y, pw, ph / 2.0),
+            (min_x, mid, pw, ph / 2.0),
+            reflect_y(mid),
+        )
+    } else {
+        let mid = min_x + pw / 2.0;
+        (
+            (min_x, min_y, pw / 2.0, ph),
+            (min_x, min_y, pw / 2.0, ph),
+            (mid, min_y, pw / 2.0, ph),
+            reflect_x(mid),
+        )
+    };
+    // Half A — natural orientation, clipped to its half.
+    painter.push_clip(
+        &rect_path(a_rect.0, a_rect.1, a_rect.2, a_rect.3),
+        FillRule::Winding,
+    );
+    let mut rng_a = RoofRng::new(seed);
+    paint_pattern(sub_pattern, half_bbox, palette, &mut rng_a, painter);
+    painter.pop_clip();
+    // Half B — the mirror of A. Clip in screen space first (so the
+    // window is the true opposite half), then reflect the drawing.
+    painter.push_clip(
+        &rect_path(b_rect.0, b_rect.1, b_rect.2, b_rect.3),
+        FillRule::Winding,
+    );
+    painter.push_transform(mirror);
+    let mut rng_b = RoofRng::new(seed);
+    paint_pattern(sub_pattern, half_bbox, palette, &mut rng_b, painter);
+    painter.pop_transform();
+    painter.pop_clip();
+}
+
 /// Polygon-driven inner roof painter — invoked by the canonical
 /// RoofOp dispatch (`super::roof_op::draw`). The caller looks the
 /// region up in `regions`, extracts the polygon + shape_tag +
@@ -833,27 +949,19 @@ pub(super) fn draw_roof_polygon(
         ),
     }
     // Tile-pattern overlay — the five patterns paint over the
-    // polygon's bbox (clipped to the outline by the active
-    // push_clip envelope). Shingle is the production default.
-    match sub_pattern {
-        RoofTilePattern::Fishscale => {
-            paint_fishscale(bbox, &sunlit, &mut rng, painter);
+    // geometry (clipped to the outline by the active push_clip
+    // envelope). Shingle is the production default; an unknown
+    // byte is the geometry-only no-op. Gable is plane-relative:
+    // the pattern mirrors across the ridge (Phase 4, top-down).
+    // Every other style still tiles the bbox in screen axis.
+    if is_textured(sub_pattern) {
+        match mode {
+            Mode::Gable => paint_gable_pattern(
+                sub_pattern, min_x, min_y, pw, ph, pw >= ph,
+                &sunlit, seed, painter,
+            ),
+            _ => paint_pattern(sub_pattern, bbox, &sunlit, &mut rng, painter),
         }
-        RoofTilePattern::Thatch => {
-            paint_thatch(bbox, &sunlit, &mut rng, painter);
-        }
-        RoofTilePattern::Pantile => {
-            paint_pantile(bbox, &sunlit, &mut rng, painter);
-        }
-        RoofTilePattern::Slate => {
-            paint_slate(bbox, &sunlit, &mut rng, painter);
-        }
-        RoofTilePattern::Shingle => {
-            paint_shingle(bbox, &sunlit, &mut rng, painter);
-        }
-        // Any unknown trailing byte leaves the geometry untouched
-        // (geometry-only render — the test-suite baseline).
-        _ => {}
     }
     if pushed {
         painter.pop_clip();

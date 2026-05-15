@@ -443,4 +443,54 @@ mod tests {
             "Shingle tiles should carry a faint edge stroke"
         );
     }
+
+    fn push_transforms(painter: &MockPainter) -> Vec<crate::painter::Transform> {
+        painter
+            .calls
+            .iter()
+            .filter_map(|c| match c {
+                PainterCall::PushTransform(t) => Some(*t),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Phase 4: a gable pattern mirrors across the ridge. The two
+    /// halves are painted separately and the second is the
+    /// reflection of the first, so exactly one `PushTransform`
+    /// is recorded and it is a pure reflection (negative
+    /// determinant). The tile fill is still present in both
+    /// halves.
+    #[test]
+    fn gable_pattern_mirrors_across_ridge() {
+        let painter = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Gable, RoofTilePattern::Shingle,
+        ));
+        let xforms = push_transforms(&painter);
+        assert_eq!(
+            xforms.len(), 1,
+            "gable pattern mirrors via exactly one reflection"
+        );
+        let t = xforms[0];
+        let det = t.sx * t.sy - t.kx * t.ky;
+        assert!(
+            det < 0.0,
+            "the mirror transform must be a reflection (det {det} < 0)"
+        );
+        assert!(
+            fill_rect_count(&painter) > 4,
+            "both gable halves still carry the shingle tile field"
+        );
+    }
+
+    /// Geometry-only gable paints no overlay, so it must not open
+    /// the per-half mirror scopes — zero `PushTransform`. Pins
+    /// that the no-op fallback stays a clean single-pass render.
+    #[test]
+    fn gable_geometry_only_emits_no_transform() {
+        let painter = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Gable, GEOMETRY_ONLY,
+        ));
+        assert_eq!(push_transforms(&painter).len(), 0);
+    }
 }
