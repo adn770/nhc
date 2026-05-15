@@ -950,6 +950,78 @@ fn paint_faceted_pattern(
     }
 }
 
+/// Concentric ring scales for the dome — must match the tonal
+/// stops `draw_dome_rings` insets the geometry at, so the pattern
+/// bands line up with the shaded rings.
+const DOME_RING_SCALES: [f32; 4] = [1.00, 0.78, 0.55, 0.30];
+
+/// Scale a polygon toward `(cx, cy)` by `s` (s = 1 keeps it,
+/// s → 0 collapses it to the centre).
+fn scaled_polygon(
+    polygon: &[(f32, f32)],
+    cx: f32,
+    cy: f32,
+    s: f32,
+) -> Vec<(f32, f32)> {
+    polygon
+        .iter()
+        .map(|&(x, y)| (cx + (x - cx) * s, cy + (y - cy) * s))
+        .collect()
+}
+
+fn append_ring(path: &mut PathOps, ring: &[(f32, f32)]) {
+    for (i, &(x, y)) in ring.iter().enumerate() {
+        let p = Vec2::new(x, y);
+        if i == 0 {
+            path.move_to(p);
+        } else {
+            path.line_to(p);
+        }
+    }
+    path.close();
+}
+
+/// Phase 4 — dome concentric-ring orientation (top-down). The
+/// pattern follows the dome's tonal rings: it is banded into the
+/// same concentric annuli `draw_dome_rings` shades (one EvenOdd
+/// outer-minus-inner clip per band), and within each band the
+/// faceted frame lays the texture tangent to the rim so it
+/// curves around the dome instead of tiling a straight grid.
+fn paint_dome_pattern(
+    sub_pattern: RoofTilePattern,
+    polygon: &[(f32, f32)],
+    bbox: (f32, f32, f32, f32),
+    palette: &[(u8, u8, u8); 3],
+    seed: u64,
+    painter: &mut dyn Painter,
+) {
+    let (min_x, min_y, pw, ph) = bbox;
+    let cx = min_x + pw / 2.0;
+    let cy = min_y + ph / 2.0;
+    // Band boundaries: each tonal ring scale, plus the centre.
+    let mut bounds: Vec<f32> = DOME_RING_SCALES.to_vec();
+    bounds.push(0.0);
+    for w in 0..bounds.len() - 1 {
+        let s_out = bounds[w];
+        let s_in = bounds[w + 1];
+        let outer = scaled_polygon(polygon, cx, cy, s_out);
+        // Annular clip window: outer ring minus inner ring under
+        // the EvenOdd rule (the innermost band's inner ring
+        // collapses to the centre, leaving a full disc).
+        let mut clip = PathOps::new();
+        append_ring(&mut clip, &outer);
+        if s_in > 0.0 {
+            let inner = scaled_polygon(polygon, cx, cy, s_in);
+            append_ring(&mut clip, &inner);
+        }
+        painter.push_clip(&clip, FillRule::EvenOdd);
+        paint_faceted_pattern(
+            sub_pattern, &outer, (cx, cy), palette, seed, painter,
+        );
+        painter.pop_clip();
+    }
+}
+
 /// Polygon-driven inner roof painter — invoked by the canonical
 /// RoofOp dispatch (`super::roof_op::draw`). The caller looks the
 /// region up in `regions`, extracts the polygon + shape_tag +
@@ -1050,6 +1122,9 @@ pub(super) fn draw_roof_polygon(
                     &sunlit, seed, painter,
                 );
             }
+            Mode::Dome => paint_dome_pattern(
+                sub_pattern, polygon, bbox, &sunlit, seed, painter,
+            ),
             _ => paint_pattern(sub_pattern, bbox, &sunlit, &mut rng, painter),
         }
     }

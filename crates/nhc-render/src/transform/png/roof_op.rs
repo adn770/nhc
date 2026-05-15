@@ -537,4 +537,55 @@ mod tests {
             "WitchHat keeps its apex disc under the pattern"
         );
     }
+
+    fn push_clip_rules(
+        painter: &MockPainter,
+    ) -> Vec<crate::painter::FillRule> {
+        painter
+            .calls
+            .iter()
+            .filter_map(|c| match c {
+                PainterCall::PushClip(_, rule) => Some(*rule),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Phase 4: a Dome pattern follows concentric rings. The
+    /// overlay is banded into the dome's tonal rings (one
+    /// EvenOdd annulus clip per band) and the faceted frame is
+    /// applied within each band so the texture curves around
+    /// rather than tiling a straight screen grid. So a Dome +
+    /// pattern emits several EvenOdd clips (the ring annuli) and
+    /// many more facet transforms than a single faceted pass.
+    #[test]
+    fn dome_pattern_follows_concentric_rings() {
+        let painter = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Dome, RoofTilePattern::Shingle,
+        ));
+        let evenodd = push_clip_rules(&painter)
+            .into_iter()
+            .filter(|r| matches!(r, crate::painter::FillRule::EvenOdd))
+            .count();
+        assert!(
+            evenodd >= 3,
+            "dome pattern bands into concentric ring annuli \
+             (got {evenodd} EvenOdd clips)"
+        );
+        assert!(
+            push_transforms(&painter).len() >= 8,
+            "facet frames repeat per ring band"
+        );
+        assert!(fill_rect_count(&painter) > 4);
+    }
+
+    /// Geometry-only Dome paints no overlay → no ring-band
+    /// scopes, no facet transforms.
+    #[test]
+    fn dome_geometry_only_emits_no_transform() {
+        let painter = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Dome, GEOMETRY_ONLY,
+        ));
+        assert_eq!(push_transforms(&painter).len(), 0);
+    }
 }
