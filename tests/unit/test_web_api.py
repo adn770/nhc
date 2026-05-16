@@ -437,6 +437,47 @@ class TestGameAPI:
             assert not save_path.exists()
 
 
+class TestWasmRenderModeSkipsServerSvg:
+    """In wasm render mode the new-game path must not build the
+    SVG server-side — the browser rasterises the NIR. Default
+    (png) mode still renders so the contrast is locked both ways."""
+
+    def _new_game_client(self, tmp_path, render_mode):
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path,
+            render_mode=render_mode,
+        )
+        app = create_app(config)
+        app.config["TESTING"] = True
+        return app
+
+    def test_wasm_new_game_skips_server_svg(self, tmp_path):
+        app = self._new_game_client(tmp_path, "wasm")
+        with app.test_client() as c:
+            resp = c.post("/api/game/new", json={})
+            assert resp.status_code == 201
+            sid = resp.get_json()["session_id"]
+            session = c.application.config["SESSIONS"].get(sid)
+            assert session is not None
+            renderer = session.game.renderer
+            assert renderer.render_mode == "wasm"
+            assert renderer.floor_svg == ""
+            assert renderer.floor_svg_id
+            assert len(renderer.floor_svg_id) == 12
+
+    def test_default_mode_new_game_renders_svg(self, tmp_path):
+        app = self._new_game_client(tmp_path, "png")
+        with app.test_client() as c:
+            resp = c.post("/api/game/new", json={})
+            assert resp.status_code == 201
+            sid = resp.get_json()["session_id"]
+            session = c.application.config["SESSIONS"].get(sid)
+            renderer = session.game.renderer
+            assert renderer.render_mode == "png"
+            assert renderer.floor_svg
+            assert renderer.floor_svg_id
+
+
 class TestPlayerAPI:
     def test_login_returns_player_info(self, client_with_data_dir):
         token, pid = _register_player(client_with_data_dir)
