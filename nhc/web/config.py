@@ -23,11 +23,6 @@ class WebConfig:
     god_mode: bool = False
     data_dir: Path | None = None
     hatch_distance: float = 2.0
-    # When False, the floor / site SVGs sent to the web client
-    # skip every tree + bush decorator. The static SVG only ships
-    # the structural floor; vegetation comes back via overlays or
-    # the next render pass.
-    vegetation: bool = True
     # Floor render mode the gameplay client fetches: "svg", "png",
     # or "wasm". Drives the JS dispatch in `nhc/web/static/js/map.js`
     # and the URL extension the server constructs for the floor

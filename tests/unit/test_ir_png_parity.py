@@ -145,7 +145,6 @@ def emitted(request):
         inputs.level,
         seed=inputs.seed,
         hatch_distance=inputs.hatch_distance,
-        vegetation=inputs.vegetation,
     )
     return inputs, bytes(buf)
 
@@ -605,7 +604,6 @@ def site_buf(request):
         site.surface,
         seed=fx.seed,
         hatch_distance=2.0,
-        vegetation=fx.vegetation,
         site=site,
     )
     return fx, bytes(buf)

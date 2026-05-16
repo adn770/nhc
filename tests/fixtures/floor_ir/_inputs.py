@@ -2,7 +2,7 @@
 
 Maps a fixture descriptor (the directory name under
 ``tests/fixtures/floor_ir/``) to the inputs that ``build_floor_ir``
-expects: ``(level, seed, hatch_distance, theme, vegetation)``. The
+expects: ``(level, seed, hatch_distance, theme)``. The
 single source of truth for the fixture set is
 ``tests/samples/regenerate_fixtures.py:_FIXTURES``; this module
 imports from there so the parity gate and the regenerator can never
@@ -34,7 +34,6 @@ class FixtureInputs:
     hatch_distance: float
     theme: str
     floor_kind: str
-    vegetation: bool
 
 
 def descriptor_inputs(descriptor: str) -> FixtureInputs:
@@ -55,7 +54,6 @@ def descriptor_inputs(descriptor: str) -> FixtureInputs:
                 hatch_distance=2.0,
                 theme=fx.theme,
                 floor_kind=fx.floor_kind,
-                vegetation=True,
             )
     raise KeyError(f"unknown fixture descriptor: {descriptor!r}")
 

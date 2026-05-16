@@ -480,17 +480,10 @@ class WebClient(GameClient):
 
     def __init__(
         self, style: str = "classic", lang: str = "ca",
-        vegetation: bool = True,
     ) -> None:
         self.style = style
         self.edge_doors = True  # web: doors on tile edges
         self.lang = lang
-        # Vegetation toggle for the SVG renderer. Set once at
-        # client construction; the game-loop floor-change path
-        # (game._notify_floor_change) doesn't thread per-call
-        # render flags, so this attribute is the source of truth
-        # for *every* SVG render this client emits.
-        self.vegetation = vegetation
         self.messages: list[str] = []
         self._msg_throttle = MessageThrottle()
         self.floor_svg: str = ""
@@ -1325,7 +1318,6 @@ class WebClient(GameClient):
         floor_svg_id: str | None = None,
         hatch_distance: float = 2.0,
         site: "object | None" = None,
-        vegetation: bool | None = None,
     ) -> None:
         """Send new floor SVG to the client.
 
@@ -1357,12 +1349,10 @@ class WebClient(GameClient):
                 level.id, level.depth,
             )
         else:
-            veg = self.vegetation if vegetation is None else vegetation
             self.floor_svg = nhc_render.ir_to_svg(build_floor_ir(
                 level,
                 seed=seed,
                 hatch_distance=hatch_distance,
-                vegetation=veg,
                 site=site,
             ))
             self.floor_svg_id = _uuid.uuid4().hex[:12]

@@ -51,7 +51,6 @@ def test_floor_ir_buffer_matches_fixture(descriptor: str) -> None:
         inputs.level,
         seed=inputs.seed,
         hatch_distance=inputs.hatch_distance,
-        vegetation=inputs.vegetation,
     )
 
     assert actual == expected, (

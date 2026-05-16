@@ -175,14 +175,13 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
     # the painter can fuse canopies.
     free_tree_tiles: list[tuple[int, int]] = []
     tree_groves: list[list[tuple[int, int]]] = []
-    if getattr(ctx, "vegetation_enabled", False):
-        from nhc.rendering._features_svg import _connected_tree_groves
-        for grove in _connected_tree_groves(level):
-            tiles = sorted(grove)
-            if len(tiles) <= 2:
-                free_tree_tiles.extend(tiles)
-            else:
-                tree_groves.append(tiles)
+    from nhc.rendering._features_svg import _connected_tree_groves
+    for grove in _connected_tree_groves(level):
+        tiles = sorted(grove)
+        if len(tiles) <= 2:
+            free_tree_tiles.extend(tiles)
+        else:
+            tree_groves.append(tiles)
     if free_tree_tiles or tree_groves:
         free_anchors = [
             _make_anchor(x, y) for (x, y) in free_tree_tiles
@@ -209,36 +208,33 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
                 seed=seed,
             )))
 
-    # 5. Bushes — gated on vegetation_enabled.
-    if getattr(ctx, "vegetation_enabled", False):
-        bush_anchors: list[AnchorT] = []
-        for y in range(level.height):
-            for x in range(level.width):
-                if level.tiles[y][x].feature == "bush":
-                    bush_anchors.append(_make_anchor(x, y))
-        if bush_anchors:
-            result.append(_wrap(_make_fixture_op(
-                region_ref="",
-                kind=FixtureKind.Bush,
-                anchors=bush_anchors,
-                seed=seed,
-            )))
+    # 5. Bushes.
+    bush_anchors: list[AnchorT] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            if level.tiles[y][x].feature == "bush":
+                bush_anchors.append(_make_anchor(x, y))
+    if bush_anchors:
+        result.append(_wrap(_make_fixture_op(
+            region_ref="",
+            kind=FixtureKind.Bush,
+            anchors=bush_anchors,
+            seed=seed,
+        )))
 
-    # 6. Flowers — manicured garden beds; gated on
-    # vegetation_enabled like bushes.
-    if getattr(ctx, "vegetation_enabled", False):
-        flower_anchors: list[AnchorT] = []
-        for y in range(level.height):
-            for x in range(level.width):
-                if level.tiles[y][x].feature == "flower":
-                    flower_anchors.append(_make_anchor(x, y))
-        if flower_anchors:
-            result.append(_wrap(_make_fixture_op(
-                region_ref="",
-                kind=FixtureKind.Flower,
-                anchors=flower_anchors,
-                seed=seed,
-            )))
+    # 6. Flowers — manicured garden beds.
+    flower_anchors: list[AnchorT] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            if level.tiles[y][x].feature == "flower":
+                flower_anchors.append(_make_anchor(x, y))
+    if flower_anchors:
+        result.append(_wrap(_make_fixture_op(
+            region_ref="",
+            kind=FixtureKind.Flower,
+            anchors=flower_anchors,
+            seed=seed,
+        )))
 
     return result
 

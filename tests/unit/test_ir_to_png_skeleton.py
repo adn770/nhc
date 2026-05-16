@@ -48,7 +48,6 @@ def emitted(request):
         inputs.level,
         seed=inputs.seed,
         hatch_distance=inputs.hatch_distance,
-        vegetation=inputs.vegetation,
     )
     return inputs, buf
 

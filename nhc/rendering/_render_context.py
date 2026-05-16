@@ -57,7 +57,6 @@ class RenderContext:
     hatching_enabled: bool      # was: not is_building and not prerevealed
     atmospherics_enabled: bool  # webs (any non-surface level)
     macabre_detail: bool        # bones + skulls + scattered floor stones
-    vegetation_enabled: bool    # tree + bush surface decorators
     interior_finish: str        # "stone" | "wood" | future finishes
 
     # Hatch distance (in tiles) applied to the dungeon halo. Cave
@@ -92,7 +91,6 @@ def build_render_context(
     building_footprint: set[tuple[int, int]] | None = None,
     building_polygon: list[tuple[float, float]] | None = None,
     hatch_distance: float = 2.0,
-    vegetation: bool = True,
 ) -> RenderContext:
     """Build a :class:`RenderContext` for a level.
 
@@ -185,7 +183,6 @@ def build_render_context(
         hatching_enabled=hatching_enabled,
         atmospherics_enabled=atmospherics_enabled,
         macabre_detail=macabre_detail,
-        vegetation_enabled=vegetation,
         interior_finish=interior_finish,
         hatch_distance=hatch_distance,
     )

@@ -37,6 +37,24 @@ def _bare_level(
     return level
 
 
+class TestVegetationGateRemoved:
+    """The vegetation suppression gate was an SVG-size perf hack
+    made obsolete by the browser WASM render path. Vegetation is
+    now always emitted; the parameter and ctx flag are gone."""
+
+    def test_build_render_context_has_no_vegetation_param(self) -> None:
+        import inspect
+
+        params = inspect.signature(build_render_context).parameters
+        assert "vegetation" not in params
+
+    def test_render_context_has_no_vegetation_enabled_field(self) -> None:
+        import dataclasses
+
+        fields = {f.name for f in dataclasses.fields(RenderContext)}
+        assert "vegetation_enabled" not in fields
+
+
 class TestFloorKindResolution:
     def test_dungeon_default(self) -> None:
         ctx = build_render_context(_bare_level(), seed=1)

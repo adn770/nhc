@@ -46,7 +46,6 @@ _CIRCLE_MAX_SEGMENTS = 36
 
 def render_building_floor_svg(
     building: Building, floor_index: int, seed: int = 0,
-    *, vegetation: bool = True,
 ) -> str:
     """Render one Building floor as a composite SVG string.
 
@@ -54,10 +53,6 @@ def render_building_floor_svg(
     existing :func:`render_floor_svg`, then overlays brick or
     stone runs along the exterior perimeter depending on
     ``building.wall_material``.
-
-    ``vegetation`` is forwarded to :func:`render_floor_svg`; when
-    ``False`` any tree / bush feature inside the building (rare:
-    the contract is surface-only) is suppressed.
     """
     if not 0 <= floor_index < len(building.floors):
         raise IndexError(
@@ -80,7 +75,6 @@ def render_building_floor_svg(
         level, seed=seed,
         building_footprint=footprint,
         building_polygon=polygon,
-        vegetation=vegetation,
     )
     if building.wall_material == "dungeon":
         return base

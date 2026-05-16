@@ -1169,7 +1169,6 @@ def build_floor_ir(
     hatch_distance: float = 2.0,
     building_footprint: set[tuple[int, int]] | None = None,
     building_polygon: list[tuple[float, float]] | None = None,
-    vegetation: bool = True,
     site: Any | None = None,
 ) -> bytes:
     """Build a ``FloorIR`` FlatBuffer for ``level``.
@@ -1195,7 +1194,6 @@ def build_floor_ir(
         building_footprint=building_footprint,
         building_polygon=building_polygon,
         hatch_distance=hatch_distance,
-        vegetation=vegetation,
     )
     builder = FloorIRBuilder(ctx)
     if site is not None:

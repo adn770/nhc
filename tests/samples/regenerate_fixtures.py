@@ -228,7 +228,6 @@ class SiteFixture:
 
     seed: int
     kind: str    # "town" / "keep" / "cottage" / "ruin" / "temple"
-    vegetation: bool = True
 
     @property
     def descriptor(self) -> str:
@@ -433,7 +432,6 @@ def _build_synthetic_buf(fx: SyntheticRoofFixture) -> bytes:
         hatching_enabled: bool = True
         atmospherics_enabled: bool = True
         macabre_detail: bool = False
-        vegetation_enabled: bool = True
         interior_finish: str = ""
 
     @dataclasses.dataclass
@@ -548,7 +546,6 @@ def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
         hatching_enabled: bool = True
         atmospherics_enabled: bool = True
         macabre_detail: bool = False
-        vegetation_enabled: bool = True
         interior_finish: str = ""
 
     width, height = fx.canvas_tiles
@@ -696,7 +693,6 @@ def _render_site_fixture(fx: SiteFixture) -> tuple[bytes, bytes, str]:
         site.surface,
         seed=fx.seed,
         hatch_distance=2.0,
-        vegetation=fx.vegetation,
         site=site,
     ))
     reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
@@ -847,7 +843,6 @@ def _build_synthetic_building_wall_buf(
         hatching_enabled: bool = True
         atmospherics_enabled: bool = True
         macabre_detail: bool = False
-        vegetation_enabled: bool = True
         interior_finish: str = ""
 
     @dataclasses.dataclass

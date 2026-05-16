@@ -16,14 +16,11 @@ RestartSec=10
 #                                  empty ⇒ admin unreachable)
 # Optional:  NHC_MAX_SESSIONS (default 8)
 #            NHC_GEN_WORKERS  (default 4 — dungeon generation pool)
-#            NHC_VEGETATION   (default 0; "1"/"true" re-enables tree
-#                              and bush rendering in the web client)
 Environment=NHC_DATA_DIR=/var/nhc
 Environment=NHC_MAX_SESSIONS=8
 Environment=NHC_GEN_WORKERS=4
 Environment=NHC_BIND=0.0.0.0
 Environment=NHC_ADMIN_LAN_CIDRS=
-Environment=NHC_VEGETATION=0
 
 ExecStartPre=-/usr/bin/docker rm -f nhc
 # Container hardening:
@@ -61,7 +58,6 @@ ExecStart=/usr/bin/docker run --name nhc \
     --env NHC_GEN_WORKERS=${NHC_GEN_WORKERS} \
     --env NHC_ADMIN_LAN_CIDRS=${NHC_ADMIN_LAN_CIDRS} \
     --env NHC_EXTERNAL_URL=${NHC_EXTERNAL_URL} \
-    --env NHC_VEGETATION=${NHC_VEGETATION} \
     nhc-web
 ExecStop=/usr/bin/docker stop -t 15 nhc
 ExecStopPost=-/usr/bin/docker rm -f nhc
