@@ -48,5 +48,6 @@ export enum FixtureKind {
   Tent = 42,
   Logs = 43,
   Stump = 44,
-  Boulder = 45
+  Boulder = 45,
+  Flower = 46
 }

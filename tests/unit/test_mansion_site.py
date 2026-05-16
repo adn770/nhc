@@ -162,3 +162,59 @@ class TestMansionDeterminism:
         s1 = assemble_mansion("m1", random.Random(42))
         s2 = assemble_mansion("m1", random.Random(42))
         assert len(s1.buildings) == len(s2.buildings)
+
+
+def _features(surface):
+    feats: dict[tuple[int, int], str] = {}
+    for y, row in enumerate(surface.tiles):
+        for x, tile in enumerate(row):
+            if tile.feature is not None:
+                feats[(x, y)] = tile.feature
+    return feats
+
+
+class TestMansionGarden:
+    """The compound sits in a well-kept formal garden: a bush
+    hedge borders the grounds, a flower parterre runs inside it,
+    and trees are planted on a regular geometric lattice."""
+
+    def test_has_hedge_flowers_and_trees(self):
+        site = assemble_mansion("m1", random.Random(3))
+        kinds = set(_features(site.surface).values())
+        assert "bush" in kinds
+        assert "flower" in kinds
+        assert "tree" in kinds
+
+    def test_bush_hedge_borders_the_playable_area(self):
+        site = assemble_mansion("m1", random.Random(3))
+        s = site.surface
+        feats = _features(s)
+        for corner in [
+            (1, 1), (s.width - 2, 1),
+            (1, s.height - 2), (s.width - 2, s.height - 2),
+        ]:
+            assert feats.get(corner) == "bush", corner
+
+    def test_trees_sit_on_a_geometric_lattice(self):
+        for seed in range(8):
+            site = assemble_mansion("m1", random.Random(seed))
+            s = site.surface
+            cx, cy = s.width // 2, s.height // 2
+            trees = [
+                xy for xy, f in _features(s).items() if f == "tree"
+            ]
+            assert trees, f"seed {seed}: no trees planted"
+            for (x, y) in trees:
+                assert (x - cx) % 3 == 0 and (y - cy) % 3 == 0, (
+                    f"seed {seed}: tree {(x, y)} off lattice"
+                )
+
+    def test_void_margin_preserved(self):
+        site = assemble_mansion("m1", random.Random(5))
+        s = site.surface
+        for x in range(s.width):
+            assert s.tiles[0][x].terrain is Terrain.VOID
+            assert s.tiles[s.height - 1][x].terrain is Terrain.VOID
+        for y in range(s.height):
+            assert s.tiles[y][0].terrain is Terrain.VOID
+            assert s.tiles[y][s.width - 1].terrain is Terrain.VOID

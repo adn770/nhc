@@ -224,5 +224,21 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
                 seed=seed,
             )))
 
+    # 6. Flowers — manicured garden beds; gated on
+    # vegetation_enabled like bushes.
+    if getattr(ctx, "vegetation_enabled", False):
+        flower_anchors: list[AnchorT] = []
+        for y in range(level.height):
+            for x in range(level.width):
+                if level.tiles[y][x].feature == "flower":
+                    flower_anchors.append(_make_anchor(x, y))
+        if flower_anchors:
+            result.append(_wrap(_make_fixture_op(
+                region_ref="",
+                kind=FixtureKind.Flower,
+                anchors=flower_anchors,
+                seed=seed,
+            )))
+
     return result
 

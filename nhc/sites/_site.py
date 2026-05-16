@@ -464,3 +464,94 @@ def paint_outer_grass_ring(level: "Level", ring_width: int) -> None:
                     terrain=Terrain.GRASS,
                     surface_type=SurfaceType.FIELD,
                 )
+
+
+def plant_formal_garden(
+    site: "Site", *, tree_spacing: int = 3, flower: bool = True,
+) -> None:
+    """Lay out a well-kept formal garden on a site's surface.
+
+    Deterministic and geometric, never a random scatter:
+
+    * a continuous ``bush`` hedge traces the playable border ring
+      (just inside the 1-tile VOID margin),
+    * a ``flower`` border runs the ring immediately inside the
+      hedge (a parterre edge) when ``flower`` is set,
+    * ``tree`` specimens sit on a regular lattice centred on the
+      surface (``tree_spacing`` apart on both axes, mirror-
+      symmetric), kept one tile clear of every building so canopies
+      never bleed onto a wall / roof,
+    * a 1-wide path is cleared from each building door straight out
+      to the nearest border, with a matching gap cut in the hedge.
+
+    Only ``Terrain.GRASS`` tiles are planted, so the caller must
+    have painted the garden surface first.
+    """
+    surface = site.surface
+    w, h = surface.width, surface.height
+
+    footprint: set[tuple[int, int]] = set()
+    for b in site.buildings:
+        footprint |= b.base_shape.floor_tiles(b.base_rect)
+    halo: set[tuple[int, int]] = set(footprint)
+    for (fx, fy) in footprint:
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            halo.add((fx + dx, fy + dy))
+
+    if footprint:
+        gx = sum(p[0] for p in footprint) / len(footprint)
+        gy = sum(p[1] for p in footprint) / len(footprint)
+    else:
+        gx, gy = w / 2.0, h / 2.0
+
+    # Straight kept path from each door out to the nearest border.
+    path: set[tuple[int, int]] = set()
+    for (sx, sy) in site.building_doors:
+        if abs(sx - gx) >= abs(sy - gy):
+            step = (1 if sx >= gx else -1, 0)
+        else:
+            step = (0, 1 if sy >= gy else -1)
+        px, py = sx, sy
+        while 1 <= px <= w - 2 and 1 <= py <= h - 2:
+            path.add((px, py))
+            px += step[0]
+            py += step[1]
+
+    def _plantable(x: int, y: int) -> bool:
+        if not (1 <= x <= w - 2 and 1 <= y <= h - 2):
+            return False
+        tile = surface.tiles[y][x]
+        if tile.terrain is not Terrain.GRASS:
+            return False
+        if tile.feature is not None:
+            return False
+        if (x, y) in footprint or (x, y) in path:
+            return False
+        return True
+
+    # Hedge: the playable border ring.
+    for y in range(1, h - 1):
+        for x in range(1, w - 1):
+            if (x in (1, w - 2) or y in (1, h - 2)) and _plantable(x, y):
+                surface.tiles[y][x].feature = "bush"
+
+    # Flower parterre: the ring one tile inside the hedge.
+    if flower:
+        for y in range(2, h - 2):
+            for x in range(2, w - 2):
+                on_inner = x in (2, w - 3) or y in (2, h - 3)
+                if on_inner and _plantable(x, y):
+                    surface.tiles[y][x].feature = "flower"
+
+    # Tree lattice, centred so it is mirror-symmetric; the two
+    # border rings are left to the hedge and the flower parterre.
+    cx, cy = w // 2, h // 2
+    sp = tree_spacing
+    for y in range(3, h - 3):
+        for x in range(3, w - 3):
+            if (x - cx) % sp or (y - cy) % sp:
+                continue
+            if (x, y) in halo:
+                continue
+            if _plantable(x, y):
+                surface.tiles[y][x].feature = "tree"

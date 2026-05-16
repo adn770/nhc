@@ -831,10 +831,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for PathStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_FIXTURE_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_FIXTURE_KIND: u8 = 45;
+pub const ENUM_MAX_FIXTURE_KIND: u8 = 46;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 46] = [
+pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 47] = [
   FixtureKind::Web,
   FixtureKind::Skull,
   FixtureKind::Bone,
@@ -881,6 +881,7 @@ pub const ENUM_VALUES_FIXTURE_KIND: [FixtureKind; 46] = [
   FixtureKind::Logs,
   FixtureKind::Stump,
   FixtureKind::Boulder,
+  FixtureKind::Flower,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -934,9 +935,10 @@ impl FixtureKind {
   pub const Logs: Self = Self(43);
   pub const Stump: Self = Self(44);
   pub const Boulder: Self = Self(45);
+  pub const Flower: Self = Self(46);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 45;
+  pub const ENUM_MAX: u8 = 46;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Web,
     Self::Skull,
@@ -984,6 +986,7 @@ impl FixtureKind {
     Self::Logs,
     Self::Stump,
     Self::Boulder,
+    Self::Flower,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1034,6 +1037,7 @@ impl FixtureKind {
       Self::Logs => Some("Logs"),
       Self::Stump => Some("Stump"),
       Self::Boulder => Some("Boulder"),
+      Self::Flower => Some("Flower"),
       _ => None,
     }
   }

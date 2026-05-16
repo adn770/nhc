@@ -277,6 +277,9 @@ enum FixtureKind : ubyte {
   Logs        = 43,
   Stump       = 44,
   Boulder     = 45,
+  // Garden flower clump — a small petalled bloom for manicured
+  // formal-garden flower beds. Appended (no renumber).
+  Flower      = 46,
 }
 
 // RoofOp dispatches geometry directly off ``style`` (today's

@@ -70,6 +70,16 @@ const MUSHROOM_STEM: Color = Color::rgba(0xE8, 0xDC, 0xC0, 1.0);
 const MUSHROOM_CAP: Color = Color::rgba(0xB8, 0x44, 0x44, 1.0);
 const MUSHROOM_DOT: Color = Color::rgba(0xF5, 0xEC, 0xC8, 1.0);
 const MUSHROOM_PATCH_FILL: Color = Color::rgba(0x4A, 0x32, 0x1E, 1.0);
+const FLOWER_STEM: Color = Color::rgba(0x4C, 0x6B, 0x3A, 1.0);
+const FLOWER_CENTRE: Color = Color::rgba(0xE8, 0xC8, 0x4A, 1.0);
+// Bloom palette — one picked per anchor so a bed reads as mixed
+// planting rather than a monoculture.
+const FLOWER_PETALS: [Color; 4] = [
+    Color::rgba(0xD8, 0x55, 0x66, 1.0),
+    Color::rgba(0xC8, 0x6A, 0xC0, 1.0),
+    Color::rgba(0xE2, 0x8A, 0x3C, 1.0),
+    Color::rgba(0xEC, 0xE2, 0xEC, 1.0),
+];
 const MUSHROOM_PATCH_OPACITY: f32 = 0.25;
 const GRAVE_PLOT_FILL: Color = Color::rgba(0x44, 0x36, 0x2A, 1.0);
 const GRAVE_PLOT_OPACITY: f32 = 0.30;
@@ -472,6 +482,55 @@ fn paint_mushroom_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
             &Paint::solid(MUSHROOM_DOT),
         );
     }
+}
+
+/// Flower — a short green stem and a ring of petals around a
+/// bright centre. The bloom colour is picked per anchor from
+/// `FLOWER_PETALS` (keyed on the anchor RNG) so a planted bed
+/// reads as mixed colour, and a small position jitter keeps a
+/// regular bed from looking stamped.
+fn paint_flower_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
+    let mut rng = anchor_rng(seed, a.x(), a.y());
+    let px = f64::from(a.x()) * CELL;
+    let py = f64::from(a.y()) * CELL;
+    let s: f64 = match a.scale() {
+        0 => 0.80,
+        2 => 1.20,
+        _ => 1.0,
+    };
+    let jx = rng.gen_range(-(CELL * 0.10)..(CELL * 0.10));
+    let jy = rng.gen_range(-(CELL * 0.08)..(CELL * 0.08));
+    let cx = px + CELL * 0.5 + jx;
+    let bloom_cy = py + CELL * 0.42 + jy;
+    let stem_w = CELL * 0.06 * s;
+    let stem_top = bloom_cy;
+    let stem_bot = py + CELL * 0.88;
+
+    let mut stem = PathOps::new();
+    stem.move_to(Vec2::new((cx - stem_w * 0.5) as f32, stem_top as f32));
+    stem.line_to(Vec2::new((cx + stem_w * 0.5) as f32, stem_top as f32));
+    stem.line_to(Vec2::new((cx + stem_w * 0.5) as f32, stem_bot as f32));
+    stem.line_to(Vec2::new((cx - stem_w * 0.5) as f32, stem_bot as f32));
+    stem.close();
+    painter.fill_path(&stem, &Paint::solid(FLOWER_STEM), FillRule::Winding);
+
+    let petal = FLOWER_PETALS[rng.gen_range(0..FLOWER_PETALS.len())];
+    let petal_r = (CELL * 0.13 * s) as f32;
+    let orbit = CELL * 0.13 * s;
+    let n_petals = 5;
+    for k in 0..n_petals {
+        let ang = std::f64::consts::TAU * (k as f64) / (n_petals as f64);
+        painter.fill_circle(
+            (cx + orbit * ang.cos()) as f32,
+            (bloom_cy + orbit * ang.sin()) as f32,
+            petal_r,
+            &Paint::solid(petal),
+        );
+    }
+    painter.fill_circle(
+        cx as f32, bloom_cy as f32, (CELL * 0.09 * s) as f32,
+        &Paint::solid(FLOWER_CENTRE),
+    );
 }
 
 /// Mushroom cluster — shared mycelium patch under cluster members.
@@ -2118,6 +2177,11 @@ fn draw_fixture_kind<'a>(
                 paint_boulder_anchor(painter, &anchors.get(i), op.seed());
             }
         }
+        FixtureKind::Flower => {
+            for i in 0..anchors.len() {
+                paint_flower_anchor(painter, &anchors.get(i), op.seed());
+            }
+        }
         _ => {
             // Defensive — unknown kinds (forward-compat enum
             // variants) hit the wildcard. Magenta sentinel fill so
@@ -2585,6 +2649,30 @@ mod tests {
                 "kind {kind:?}: collapsed to sentinel single-FillCircle"
             );
         }
+    }
+
+    /// Flower dispatches to its per-anchor painter (stem + petals
+    /// + centre = several paint calls), never the magenta
+    /// sentinel, and two flowers at different tiles diverge (the
+    /// per-anchor bloom-colour pick is keyed on the tile).
+    #[test]
+    fn flower_kind_dispatches_and_varies_per_tile() {
+        let a = run(&build_fixture_op(
+            FixtureKind::Flower,
+            &[Anchor::new(2, 3, 0, 0, 0, 0, 0, 0, 0)],
+        ));
+        assert!(
+            a.calls.len() > 1,
+            "Flower collapsed to the sentinel single call"
+        );
+        let b = run(&build_fixture_op(
+            FixtureKind::Flower,
+            &[Anchor::new(9, 7, 0, 0, 0, 0, 0, 0, 0)],
+        ));
+        assert_ne!(
+            a.calls, b.calls,
+            "per-anchor flower RNG must vary across tiles"
+        );
     }
 
     /// Anchor RNG keys differ between anchors at different tiles —

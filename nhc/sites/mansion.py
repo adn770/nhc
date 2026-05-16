@@ -23,7 +23,8 @@ from nhc.dungeon.model import (
 )
 from nhc.sites._site import (
     InteriorDoorLink, Site, combined_building_bboxes,
-    outside_neighbour, paint_surface_doors, stamp_building_door,
+    outside_neighbour, paint_surface_doors, plant_formal_garden,
+    stamp_building_door,
 )
 from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import DungeonRef
@@ -162,6 +163,7 @@ def assemble_mansion(
     site.building_doors.update(entry_doors)
     site.interior_doors.update(interior_doors)
     site.interior_door_links.extend(interior_door_links)
+    plant_formal_garden(site)
     paint_surface_doors(site, SurfaceType.GARDEN)
     if mage_tower is not None:
         _stamp_mage_teleporters(mage_tower, rng)

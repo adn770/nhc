@@ -49,3 +49,4 @@ class FixtureKind(object):
     Logs = 43
     Stump = 44
     Boulder = 45
+    Flower = 46
