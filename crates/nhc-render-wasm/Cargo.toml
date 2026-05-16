@@ -72,27 +72,15 @@ web-sys = { version = "0.3", features = [
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
-# Phase 5.5 bundle hygiene — run wasm-opt with the wasm-bindgen
-# 0.2 + Rust 1.95 feature set explicitly enabled so the
-# validator accepts the cargo output across wasm-opt versions.
-# ``-O1`` is the empirical sweet spot for *gzipped* size on this
-# crate: -O / -Os / -Oz all produce smaller raw .wasm but
-# slightly larger after gzip (a 4-5 KB swing). The web serves
-# the bundle gzipped, so we optimise for the on-the-wire size
-# the player actually downloads.
-#
-# The repo-root profile.release already sets ``opt-level = "z"``,
+# Phase 5.5 bundle hygiene. wasm-pack's *bundled* binaryen is too
+# old for ``--enable-bulk-memory-opt`` (it failed the production
+# --base build), so disable wasm-pack's own wasm-opt and run a
+# pinned binaryen wasm-opt explicitly. The canonical flag set +
+# invocation live in the repo-root Makefile ``wasm-build`` target
+# (single-sourced; the Dockerfile calls the same target). ``-O1``
+# is the empirical sweet spot for *gzipped* size on this crate;
+# the repo-root profile.release already sets ``opt-level = "z"``,
 # ``lto = "fat"``, ``codegen-units = 1``, ``strip = true``, and
-# ``panic = "abort"`` so the cargo-side bundle is already lean
-# before wasm-opt runs.
+# ``panic = "abort"`` so the cargo-side bundle is already lean.
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = [
-    "-O1",
-    "--enable-bulk-memory",
-    "--enable-bulk-memory-opt",
-    "--enable-mutable-globals",
-    "--enable-sign-ext",
-    "--enable-nontrapping-float-to-int",
-    "--enable-multivalue",
-    "--enable-reference-types",
-]
+wasm-opt = false

@@ -24,10 +24,11 @@ RUN cd crates/nhc-render \
 
 # Browser WASM bundle. The /wasm/<path> Flask route serves
 # crates/nhc-render-wasm/pkg/ directly, so the bundle must exist
-# in the image. wasm-pack + the wasm32 target come from the base
-# image; wasm-bindgen is fetched at build time. Runs as root
-# before the USER drop so pkg/ is world-readable.
-RUN wasm-pack build crates/nhc-render-wasm --target web \
+# in the image. `make wasm-build` runs wasm-pack then the pinned
+# binaryen wasm-opt; wasm-pack + wasm-opt + the wasm32 target come
+# from the base image, wasm-bindgen is fetched at build time.
+# Runs as root before the USER drop so pkg/ is world-readable.
+RUN make wasm-build \
     && rm -rf crates/nhc-render-wasm/target
 
 USER nhc

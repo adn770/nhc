@@ -217,6 +217,19 @@ class TestDockerfileBase:
     def test_installs_wasm_pack(self, base):
         assert "wasm-pack" in base, "base image must install wasm-pack"
 
+    def test_installs_pinned_binaryen(self, base):
+        """wasm-pack's bundled binaryen is too old for the wasm-opt
+        flag set, so the base image ships a pinned binaryen whose
+        wasm-opt is invoked explicitly (Cargo.toml sets
+        wasm-opt = false)."""
+        assert re.search(r"BINARYEN_VERSION=version_\d+", base), (
+            "base image must pin a binaryen version"
+        )
+        assert "WebAssembly/binaryen/releases" in base, (
+            "must install from the official binaryen release"
+        )
+        assert "wasm-opt" in base, "binaryen wasm-opt must be on PATH"
+
 
 class TestDockerfile:
     """Validate the app-stage Dockerfile builds + serves WASM."""
@@ -229,9 +242,44 @@ class TestDockerfile:
         assert (DEPLOY_DIR.parent / "Dockerfile").is_file()
 
     def test_builds_wasm_bundle(self, dockerfile):
-        """App stage must run wasm-pack so /wasm/ has a bundle."""
-        assert "wasm-pack build crates/nhc-render-wasm" in dockerfile
+        """App stage builds the bundle via `make wasm-build` so the
+        wasm-pack + wasm-opt invocation stays single-sourced in the
+        Makefile (no flag drift between local and Docker)."""
+        assert "make wasm-build" in dockerfile
 
     def test_render_mode_is_wasm(self, dockerfile):
         """Production defaults to the browser-side WASM floor path."""
         assert "ENV NHC_RENDER_MODE=wasm" in dockerfile
+
+
+class TestWasmBuild:
+    """Validate the single-sourced wasm build + optimize pipeline."""
+
+    @pytest.fixture()
+    def makefile(self):
+        return (DEPLOY_DIR.parent / "Makefile").read_text()
+
+    @pytest.fixture()
+    def wasm_cargo(self):
+        return (
+            DEPLOY_DIR.parent
+            / "crates" / "nhc-render-wasm" / "Cargo.toml"
+        ).read_text()
+
+    def test_makefile_runs_wasm_pack(self, makefile):
+        assert "wasm-pack build crates/nhc-render-wasm" in makefile
+
+    def test_makefile_runs_explicit_wasm_opt(self, makefile):
+        """The pinned binaryen wasm-opt runs explicitly with the
+        flag set wasm-pack's bundled binaryen rejected."""
+        assert "wasm-opt" in makefile
+        assert "--enable-bulk-memory-opt" in makefile
+
+    def test_crate_disables_wasm_pack_wasm_opt(self, wasm_cargo):
+        """Cargo.toml must disable wasm-pack's own wasm-opt so it
+        doesn't run its stale bundled binaryen."""
+        match = re.search(r"^wasm-opt\s*=\s*(.+)$", wasm_cargo, re.M)
+        assert match, "no wasm-opt key in nhc-render-wasm Cargo.toml"
+        assert match.group(1).strip() == "false", (
+            f"wasm-pack wasm-opt must be false, got: {match.group(1)!r}"
+        )

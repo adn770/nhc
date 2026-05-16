@@ -70,10 +70,29 @@ rust-test:
 # generated ``pkg/`` directory is .gitignored and a missing
 # build falls through to a 404 → the JS dispatcher then warns
 # and falls back to PNG.
+# Single source of truth for the wasm-opt invocation. The
+# Dockerfile builds the bundle via `make wasm-build` so these
+# flags never drift between local and prod. -O1 is the
+# gzipped-size sweet spot; the --enable-* flags match the
+# wasm-bindgen 0.2 + Rust 1.95 output. Cargo.toml sets
+# `wasm-opt = false` because wasm-pack's bundled binaryen is too
+# old for --enable-bulk-memory-opt — we run a pinned binaryen
+# wasm-opt (dev: Homebrew; Docker: Dockerfile.base) explicitly.
+WASM_PKG := crates/nhc-render-wasm/pkg/nhc_render_wasm_bg.wasm
+WASM_OPT_FLAGS := -O1 --enable-bulk-memory --enable-bulk-memory-opt \
+	--enable-mutable-globals --enable-sign-ext \
+	--enable-nontrapping-float-to-int --enable-multivalue \
+	--enable-reference-types
+
 .PHONY: wasm-build
 wasm-build:
 	@command -v wasm-pack >/dev/null || \
 		{ echo "wasm-pack not found — install with 'cargo install \
 wasm-pack'"; exit 1; }
+	@command -v wasm-opt >/dev/null || \
+		{ echo "wasm-opt not found — install binaryen"; exit 1; }
 	@echo "==> wasm-pack build crates/nhc-render-wasm --target web"
 	wasm-pack build crates/nhc-render-wasm --target web
+	@echo "==> wasm-opt $(WASM_OPT_FLAGS)"
+	wasm-opt $(WASM_PKG) -o $(WASM_PKG).opt $(WASM_OPT_FLAGS)
+	mv $(WASM_PKG).opt $(WASM_PKG)
