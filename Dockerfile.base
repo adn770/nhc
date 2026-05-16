@@ -28,18 +28,15 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
 
 # Browser WASM toolchain for crates/nhc-render-wasm. The app stage
 # runs `wasm-pack build --target web`, so the wasm32 target and a
-# wasm-pack binary must be in the base image. Pin wasm-pack in
-# lockstep with the dev mac (`wasm-pack --version`); the prebuilt
-# musl static binary avoids a slow `cargo install` from source.
+# wasm-pack binary must be in the base image. wasm-pack 0.14.0
+# ships no prebuilt GitHub binary (drager fork has no v0.14.0
+# release asset), so build it from crates.io with the base
+# image's existing Rust toolchain. --locked pins the transitive
+# deps; the version is in lockstep with the dev mac
+# (`wasm-pack --version`). Slow, but only runs on --base rebuilds.
 ARG WASM_PACK_VERSION=0.14.0
 RUN rustup target add wasm32-unknown-unknown \
-    && curl --proto '=https' --tlsv1.2 -sSfL \
-        "https://github.com/drager/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
-        | tar -xz -C /tmp \
-    && install -m 0755 \
-        "/tmp/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl/wasm-pack" \
-        /usr/local/cargo/bin/wasm-pack \
-    && rm -rf "/tmp/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl" \
+    && cargo install wasm-pack --version "${WASM_PACK_VERSION}" --locked \
     && wasm-pack --version
 
 WORKDIR /app
