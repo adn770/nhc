@@ -257,6 +257,43 @@ class TestDockerfile:
         assert "ENV NHC_RENDER_MODE=wasm" in dockerfile
 
 
+class TestUpdateScript:
+    """update.sh builds the single multi-stage image — no separate
+    base image / --base flag after the Dockerfile.base removal."""
+
+    @pytest.fixture()
+    def script(self):
+        return (DEPLOY_DIR / "update.sh").read_text()
+
+    def test_file_exists(self):
+        assert (DEPLOY_DIR / "update.sh").is_file()
+
+    def test_executable(self):
+        path = DEPLOY_DIR / "update.sh"
+        assert path.stat().st_mode & 0o111
+
+    def test_set_euo_pipefail(self, script):
+        assert "set -euo pipefail" in script
+
+    def test_no_base_image_machinery(self, script):
+        assert "Dockerfile.base" not in script
+        assert "--base" not in script
+        assert "nhc-base" not in script
+
+    def test_builds_single_app_image(self, script):
+        assert 'docker build' in script
+        assert '-t "$APP_IMAGE"' in script
+
+    def test_validates_tables_via_app_image(self, script):
+        """Table validation must run in the freshly built app
+        image (no base image exists anymore)."""
+        assert "nhc.tables.validator" in script
+        assert "$APP_IMAGE" in script.split("nhc.tables.validator")[0]
+
+    def test_health_check(self, script):
+        assert "/health" in script
+
+
 class TestWasmBuild:
     """Validate the single-sourced wasm build + optimize pipeline."""
 
