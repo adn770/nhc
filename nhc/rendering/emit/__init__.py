@@ -70,10 +70,18 @@ def emit_all(builder: Any) -> tuple[list[Any], list[Any]]:
     covers any leak inside the room outline; only the
     outside-the-outline portion of the envelope remains visible.
 
-    Subsequent ops (strokes / roofs / stamps / paths / fixtures /
+    Subsequent ops (strokes / stamps / roofs / paths / fixtures /
     thematic details / loose stones) draw on top of the floor as
     before — they're in-room features, so their z-order stays
     above the floor PaintOp.
+
+    Roofs are emitted *after* stamps: on a site / macro surface a
+    building footprint carries both an interior floor-detail
+    stamp (the flagstone tile grid) and a roof. The roof must be
+    the topmost building layer so it occludes that interior grid
+    — emitting stamps first and the roof last makes the roof win
+    (previously the interior grid bled over the roof, worst on
+    the high-contrast ruin dungeon floor).
     """
     v5_regions = emit_regions(builder)
     v5_ops: list[Any] = []
@@ -81,8 +89,8 @@ def emit_all(builder: Any) -> tuple[list[Any], list[Any]]:
     v5_ops.extend(emit_hatches(builder))
     v5_ops.extend(emit_paints(builder))
     v5_ops.extend(emit_strokes(builder))
-    v5_ops.extend(emit_roofs(builder))
     v5_ops.extend(emit_stamps(builder))
+    v5_ops.extend(emit_roofs(builder))
     v5_ops.extend(emit_paths(builder))
     v5_ops.extend(emit_fixtures(builder))
     v5_ops.extend(emit_thematic_details(builder))
