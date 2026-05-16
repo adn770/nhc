@@ -125,6 +125,21 @@ class TestSetupScript:
             f"img-src must include blob:, got: {match.group(1)!r}"
         )
 
+    def test_csp_script_src_allows_wasm_eval(self, script):
+        """CSP must allow WASM instantiation.
+
+        The default NIR/WASM floor path instantiates a
+        WebAssembly module; browsers require ``'wasm-unsafe-eval'``
+        in ``script-src`` or the module is refused and the client
+        falls back to the slow server-side PNG path.
+        """
+        match = re.search(r"script-src ([^;\"]+)", script)
+        assert match, "no script-src directive found in setup.sh CSP"
+        assert "'wasm-unsafe-eval'" in match.group(1), (
+            f"script-src must include 'wasm-unsafe-eval', "
+            f"got: {match.group(1)!r}"
+        )
+
     def test_duckdns_timer_install(self, script):
         """Script must install the DuckDNS timer."""
         assert "duckdns-update.timer" in script
