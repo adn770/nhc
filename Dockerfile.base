@@ -26,6 +26,22 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
                        --profile minimal --no-modify-path \
     && chmod -R a+rwX $RUSTUP_HOME $CARGO_HOME
 
+# Browser WASM toolchain for crates/nhc-render-wasm. The app stage
+# runs `wasm-pack build --target web`, so the wasm32 target and a
+# wasm-pack binary must be in the base image. Pin wasm-pack in
+# lockstep with the dev mac (`wasm-pack --version`); the prebuilt
+# musl static binary avoids a slow `cargo install` from source.
+ARG WASM_PACK_VERSION=0.14.0
+RUN rustup target add wasm32-unknown-unknown \
+    && curl --proto '=https' --tlsv1.2 -sSfL \
+        "https://github.com/drager/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+        | tar -xz -C /tmp \
+    && install -m 0755 \
+        "/tmp/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl/wasm-pack" \
+        /usr/local/cargo/bin/wasm-pack \
+    && rm -rf "/tmp/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl" \
+    && wasm-pack --version
+
 WORKDIR /app
 
 # Hand-curated subset of requirements.txt so the base image stays

@@ -170,3 +170,34 @@ class TestCaddyfileTemplate:
         assert "blob:" in match.group(1), (
             f"img-src must include blob:, got: {match.group(1)!r}"
         )
+
+    def test_csp_script_src_allows_wasm_eval(self, caddyfile):
+        """CSP must allow WASM instantiation (NIR/WASM floor path)."""
+        match = re.search(r"script-src ([^;\"]+)", caddyfile)
+        assert match, "no script-src directive found in Caddyfile CSP"
+        assert "'wasm-unsafe-eval'" in match.group(1), (
+            f"script-src must include 'wasm-unsafe-eval', "
+            f"got: {match.group(1)!r}"
+        )
+
+
+class TestDockerfileBase:
+    """Validate Dockerfile.base carries the WASM build toolchain.
+
+    The app stage builds the browser wasm bundle with wasm-pack, so
+    the base image must ship wasm-pack and the wasm32 Rust target.
+    Changing this file forces an ``update.sh --base`` rebuild.
+    """
+
+    @pytest.fixture()
+    def base(self):
+        return (DEPLOY_DIR.parent / "Dockerfile.base").read_text()
+
+    def test_file_exists(self):
+        assert (DEPLOY_DIR.parent / "Dockerfile.base").is_file()
+
+    def test_installs_wasm32_target(self, base):
+        assert "rustup target add wasm32-unknown-unknown" in base
+
+    def test_installs_wasm_pack(self, base):
+        assert "wasm-pack" in base, "base image must install wasm-pack"
