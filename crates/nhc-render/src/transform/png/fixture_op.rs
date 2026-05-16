@@ -484,11 +484,14 @@ fn paint_mushroom_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
     }
 }
 
-/// Flower — a short green stem and a ring of petals around a
-/// bright centre. The bloom colour is picked per anchor from
-/// `FLOWER_PETALS` (keyed on the anchor RNG) so a planted bed
-/// reads as mixed colour, and a small position jitter keeps a
-/// regular bed from looking stamped.
+/// Flower — a *top-down* cluster of small blossoms over a low
+/// foliage patch, the same read as a bush (a clump seen from
+/// above) rather than one upright stalk. A handful of green
+/// leaf blobs form the bed; 5-7 little rosettes (a ring of petal
+/// dots around a bright pip) are scattered across it, each with
+/// its own colour from `FLOWER_PETALS` so the clump reads as
+/// mixed planting. All randomness is keyed on the anchor tile so
+/// a bed is deterministic but not stamped.
 fn paint_flower_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
     let mut rng = anchor_rng(seed, a.x(), a.y());
     let px = f64::from(a.x()) * CELL;
@@ -498,39 +501,48 @@ fn paint_flower_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
         2 => 1.20,
         _ => 1.0,
     };
-    let jx = rng.gen_range(-(CELL * 0.10)..(CELL * 0.10));
-    let jy = rng.gen_range(-(CELL * 0.08)..(CELL * 0.08));
-    let cx = px + CELL * 0.5 + jx;
-    let bloom_cy = py + CELL * 0.42 + jy;
-    let stem_w = CELL * 0.06 * s;
-    let stem_top = bloom_cy;
-    let stem_bot = py + CELL * 0.88;
+    let cx = px + CELL * 0.5;
+    let cy = py + CELL * 0.5;
+    let spread = CELL * 0.30 * s;
 
-    let mut stem = PathOps::new();
-    stem.move_to(Vec2::new((cx - stem_w * 0.5) as f32, stem_top as f32));
-    stem.line_to(Vec2::new((cx + stem_w * 0.5) as f32, stem_top as f32));
-    stem.line_to(Vec2::new((cx + stem_w * 0.5) as f32, stem_bot as f32));
-    stem.line_to(Vec2::new((cx - stem_w * 0.5) as f32, stem_bot as f32));
-    stem.close();
-    painter.fill_path(&stem, &Paint::solid(FLOWER_STEM), FillRule::Winding);
-
-    let petal = FLOWER_PETALS[rng.gen_range(0..FLOWER_PETALS.len())];
-    let petal_r = (CELL * 0.13 * s) as f32;
-    let orbit = CELL * 0.13 * s;
-    let n_petals = 5;
-    for k in 0..n_petals {
-        let ang = std::f64::consts::TAU * (k as f64) / (n_petals as f64);
+    // Low foliage base — a few green leaf blobs so the blossoms
+    // sit on a planted clump rather than bare ground.
+    let n_leaves = rng.gen_range(3..=5);
+    for _ in 0..n_leaves {
+        let lx = cx + rng.gen_range(-spread..spread);
+        let ly = cy + rng.gen_range(-spread..spread);
+        let lr = CELL * rng.gen_range(0.09..0.15) * s;
         painter.fill_circle(
-            (cx + orbit * ang.cos()) as f32,
-            (bloom_cy + orbit * ang.sin()) as f32,
-            petal_r,
-            &Paint::solid(petal),
+            lx as f32, ly as f32, lr as f32,
+            &Paint::solid(FLOWER_STEM),
         );
     }
-    painter.fill_circle(
-        cx as f32, bloom_cy as f32, (CELL * 0.09 * s) as f32,
-        &Paint::solid(FLOWER_CENTRE),
-    );
+
+    // Scattered top-down blossoms.
+    let n_blooms = rng.gen_range(5..=7);
+    for _ in 0..n_blooms {
+        let bx = cx + rng.gen_range(-spread..spread);
+        let by = cy + rng.gen_range(-spread..spread);
+        let petal = FLOWER_PETALS[rng.gen_range(0..FLOWER_PETALS.len())];
+        let petal_r = (CELL * rng.gen_range(0.045..0.065) * s) as f32;
+        let orbit = CELL * 0.058 * s;
+        let phase = rng.gen_range(0.0..std::f64::consts::TAU);
+        let n_petals = 5;
+        for k in 0..n_petals {
+            let ang =
+                phase + std::f64::consts::TAU * (k as f64) / (n_petals as f64);
+            painter.fill_circle(
+                (bx + orbit * ang.cos()) as f32,
+                (by + orbit * ang.sin()) as f32,
+                petal_r,
+                &Paint::solid(petal),
+            );
+        }
+        painter.fill_circle(
+            bx as f32, by as f32, (CELL * 0.035 * s) as f32,
+            &Paint::solid(FLOWER_CENTRE),
+        );
+    }
 }
 
 /// Mushroom cluster — shared mycelium patch under cluster members.
