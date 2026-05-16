@@ -42,6 +42,61 @@ class TestWebClientInterface:
         assert wc.messages == []
 
 
+class TestWebClientRenderModeSvgSkip:
+    """wasm render mode must not build the SVG server-side — the
+    browser rasterises the NIR fetched from the .nir endpoint, so
+    the eager ir_to_svg / build_floor_ir is pure waste there."""
+
+    def _level_world(self):
+        from nhc.core.ecs import World
+        from nhc.dungeon.model import Level
+
+        return Level.create_empty("L1", "L1", 1, 4, 4), World()
+
+    def _trackers(self, monkeypatch):
+        import nhc.rendering.web_client as wcmod
+
+        seen: list[str] = []
+        monkeypatch.setattr(
+            wcmod, "build_floor_ir",
+            lambda *a, **k: seen.append("ir") or b"NIR",
+        )
+        monkeypatch.setattr(
+            wcmod.nhc_render, "ir_to_svg",
+            lambda *a, **k: seen.append("svg") or "<svg/>",
+        )
+        return seen
+
+    def test_default_mode_renders_svg(self, monkeypatch):
+        seen = self._trackers(monkeypatch)
+        wc = WebClient()
+        level, world = self._level_world()
+        wc.send_floor_change(level, world, 1, 0)
+        assert seen == ["ir", "svg"]
+        assert wc.floor_svg == "<svg/>"
+        assert wc.floor_svg_id and len(wc.floor_svg_id) == 12
+
+    def test_wasm_mode_skips_svg(self, monkeypatch):
+        seen = self._trackers(monkeypatch)
+        wc = WebClient(render_mode="wasm")
+        level, world = self._level_world()
+        wc.send_floor_change(level, world, 1, 0)
+        assert seen == []
+        assert wc.floor_svg == ""
+        assert wc.floor_svg_id and len(wc.floor_svg_id) == 12
+
+    def test_wasm_cache_hit_reuses_id_without_render(self, monkeypatch):
+        seen = self._trackers(monkeypatch)
+        wc = WebClient(render_mode="wasm")
+        level, world = self._level_world()
+        wc.send_floor_change(
+            level, world, 1, 0,
+            floor_svg="", floor_svg_id="deadbeefcafe",
+        )
+        assert seen == []
+        assert wc.floor_svg_id == "deadbeefcafe"
+
+
 class TestWebClientMessages:
     def test_add_message_queues_json(self, client):
         client.add_message("Hello dungeon")

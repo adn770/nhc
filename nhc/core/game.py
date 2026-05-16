@@ -1616,10 +1616,15 @@ class Game:
             floor_svg_id=cached[0] if cached else None,
             site=site,
         )
-        if not cached and getattr(self.renderer, "floor_svg", None):
-            fresh_svg = self.renderer.floor_svg
-            fresh_id = self.renderer.floor_svg_id
-            if isinstance(fresh_svg, str):
+        # Cache on a fresh floor_svg_id even when the SVG string is
+        # empty: in wasm render mode the renderer mints the id but
+        # skips the server-side SVG, and revisits must reuse that
+        # id (the .nir endpoint is keyed by it) rather than churn a
+        # new one every visit.
+        if not cached:
+            fresh_id = getattr(self.renderer, "floor_svg_id", "")
+            fresh_svg = getattr(self.renderer, "floor_svg", "")
+            if fresh_id and isinstance(fresh_svg, str):
                 self._svg_cache[cache_key] = (fresh_id, fresh_svg)
                 logger.debug(
                     "floor-change: cached new SVG for level=%s "

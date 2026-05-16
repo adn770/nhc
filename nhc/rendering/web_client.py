@@ -480,10 +480,18 @@ class WebClient(GameClient):
 
     def __init__(
         self, style: str = "classic", lang: str = "ca",
+        render_mode: str = "png",
     ) -> None:
         self.style = style
         self.edge_doors = True  # web: doors on tile edges
         self.lang = lang
+        # Floor render mode ("png" | "svg" | "wasm"). In "wasm" the
+        # browser rasterises the NIR fetched from the .nir endpoint,
+        # so send_floor_change skips the eager server-side
+        # ir_to_svg / build_floor_ir entirely and only mints the
+        # floor_svg_id URL token. Set once at construction; the
+        # game-loop floor-change path doesn't thread per-call flags.
+        self.render_mode = render_mode
         self.messages: list[str] = []
         self._msg_throttle = MessageThrottle()
         self.floor_svg: str = ""
@@ -1339,14 +1347,32 @@ class WebClient(GameClient):
             getattr(level, "floor_index", None),
             floor_svg_id,
         )
-        if floor_svg and floor_svg_id:
-            self.floor_svg = floor_svg
+        # A wasm-mode cache entry is ``(id, "")`` — the id alone is
+        # a valid hit there (the browser refetches the .nir), so
+        # accept an empty floor_svg when render_mode is wasm.
+        if floor_svg_id and (
+            floor_svg or self.render_mode == "wasm"
+        ):
+            self.floor_svg = floor_svg or ""
             self.floor_svg_id = floor_svg_id
             logger.info(
                 "Floor SVG cache hit: id=%s (%d bytes) "
                 "level=%s depth=%s",
-                floor_svg_id, len(floor_svg),
+                floor_svg_id, len(self.floor_svg),
                 level.id, level.depth,
+            )
+        elif self.render_mode == "wasm":
+            # The browser rasterises the NIR from the .nir
+            # endpoint; the server never needs the SVG string.
+            # Mint the id (URL token) and skip the eager
+            # ir_to_svg / build_floor_ir — the .nir / .png / .svg
+            # routes rebuild from level state on demand.
+            self.floor_svg = ""
+            self.floor_svg_id = _uuid.uuid4().hex[:12]
+            logger.info(
+                "Floor IR mode: id=%s level=%s depth=%s "
+                "(server SVG skipped)",
+                self.floor_svg_id, level.id, level.depth,
             )
         else:
             self.floor_svg = nhc_render.ir_to_svg(build_floor_ir(
