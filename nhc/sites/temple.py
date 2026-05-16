@@ -60,6 +60,10 @@ TEMPLE_BUILDING_POS = (8, 6)
 TEMPLE_BUILDING_SIZE = (8, 8)
 TEMPLE_GARDEN_RING = 1
 TEMPLE_MYSTERIOUS_DROP_RANGE = (2, 4)
+# Tiles of flagstone courtyard hugging the shrine on every side
+# (Chebyshev distance 1..N from the footprint). The ring exactly
+# one tile beyond that is planted with a flower border.
+TEMPLE_PAVED_RING_WIDTH = 2
 
 
 def assemble_temple(
@@ -347,24 +351,28 @@ def _build_temple_surface(
     # Only the temple footprint blocks the outdoor surface --
     # no 1-tile buffer ring.
     footprint = building.base_shape.floor_tiles(building.base_rect)
-    blocked: set[tuple[int, int]] = set()
-    blocked |= footprint
+    blocked: set[tuple[int, int]] = set(footprint)
 
-    garden_tiles: set[tuple[int, int]] = set()
-    if biome is Biome.FOREST:
-        for (x, y) in footprint:
-            for dx in range(-TEMPLE_GARDEN_RING - 1,
-                            TEMPLE_GARDEN_RING + 2):
-                for dy in range(-TEMPLE_GARDEN_RING - 1,
-                                TEMPLE_GARDEN_RING + 2):
-                    ax, ay = x + dx, y + dy
-                    if (ax, ay) in blocked:
-                        continue
-                    if not surface.in_bounds(ax, ay):
-                        continue
-                    dist = max(abs(dx), abs(dy))
-                    if dist == TEMPLE_GARDEN_RING + 1:
-                        garden_tiles.add((ax, ay))
+    # Chebyshev-distance rings around the footprint, grown by
+    # successive 3x3 dilations: a flagstone courtyard hugging the
+    # shrine (distance 1..TEMPLE_PAVED_RING_WIDTH) and a planted
+    # flower border exactly one ring beyond it.
+    prev: set[tuple[int, int]] = set(footprint)
+    paved_ring: set[tuple[int, int]] = set()
+
+    def _dilate(tiles: set[tuple[int, int]]) -> set[tuple[int, int]]:
+        grown = set(tiles)
+        for (x, y) in tiles:
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    grown.add((x + dx, y + dy))
+        return grown
+
+    for _ in range(TEMPLE_PAVED_RING_WIDTH):
+        cur = _dilate(prev)
+        paved_ring |= cur - prev
+        prev = cur
+    flower_ring = _dilate(prev) - prev
 
     default_surface = _default_surface_type(biome)
     # The outermost row / column on every side stays VOID — that's
@@ -374,13 +382,19 @@ def _build_temple_surface(
         for x in range(1, surface.width - 1):
             if (x, y) in blocked:
                 continue
-            if (x, y) in garden_tiles:
+            if (x, y) in paved_ring:
+                tile = Tile(
+                    terrain=Terrain.FLOOR,
+                    surface_type=SurfaceType.FLAGSTONE,
+                )
+            elif (x, y) in flower_ring:
                 # GARDEN -> GRASS terrain so the theme grass tint
-                # paints the base look (Phase 3a).
+                # paints under the planted flower.
                 tile = Tile(
                     terrain=Terrain.GRASS,
                     surface_type=SurfaceType.GARDEN,
                 )
+                tile.feature = "flower"
             elif default_surface is SurfaceType.GARDEN:
                 tile = Tile(
                     terrain=Terrain.GRASS,

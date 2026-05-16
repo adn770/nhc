@@ -149,3 +149,75 @@ def test_temple_site_kind_is_temple() -> None:
         "t_k", random.Random(0), biome=Biome.FOREST,
     )
     assert site.kind == "temple"
+
+
+# ---------------------------------------------------------------------------
+# Paved courtyard ring + exterior flower ring
+# ---------------------------------------------------------------------------
+
+
+def _footprint(site):
+    b = site.buildings[0]
+    return set(b.base_shape.floor_tiles(b.base_rect))
+
+
+def _cheby(xy, footprint):
+    return min(
+        max(abs(xy[0] - fx), abs(xy[1] - fy))
+        for (fx, fy) in footprint
+    )
+
+
+class TestTempleGroundRings:
+    @pytest.mark.parametrize(
+        "biome",
+        [Biome.FOREST, Biome.MOUNTAIN, Biome.SANDLANDS],
+    )
+    def test_flagstone_courtyard_hugs_the_shrine(self, biome):
+        from nhc.sites.temple import TEMPLE_PAVED_RING_WIDTH
+
+        site = assemble_temple("t_p", random.Random(2), biome=biome)
+        s = site.surface
+        fp = _footprint(site)
+        paved = [
+            (x, y)
+            for y, row in enumerate(s.tiles)
+            for x, t in enumerate(row)
+            if t.surface_type == SurfaceType.FLAGSTONE
+        ]
+        assert paved, f"{biome}: no flagstone ring"
+        # Every paved surface tile sits within the courtyard band.
+        for xy in paved:
+            assert 1 <= _cheby(xy, fp) <= TEMPLE_PAVED_RING_WIDTH, xy
+
+    @pytest.mark.parametrize(
+        "biome",
+        [Biome.FOREST, Biome.MOUNTAIN, Biome.SANDLANDS],
+    )
+    def test_exterior_flower_ring_surrounds_the_courtyard(self, biome):
+        from nhc.sites.temple import TEMPLE_PAVED_RING_WIDTH
+
+        site = assemble_temple("t_f", random.Random(2), biome=biome)
+        s = site.surface
+        fp = _footprint(site)
+        flowers = [
+            (x, y)
+            for y, row in enumerate(s.tiles)
+            for x, t in enumerate(row)
+            if t.feature == "flower"
+        ]
+        assert flowers, f"{biome}: no flower ring"
+        # The flower ring is exactly one ring beyond the paving.
+        for xy in flowers:
+            assert _cheby(xy, fp) == TEMPLE_PAVED_RING_WIDTH + 1, xy
+            assert s.tiles[xy[1]][xy[0]].surface_type is SurfaceType.GARDEN
+
+    def test_void_margin_preserved(self):
+        site = assemble_temple("t_v", random.Random(4), biome=Biome.FOREST)
+        s = site.surface
+        for x in range(s.width):
+            assert s.tiles[0][x].terrain is Terrain.VOID
+            assert s.tiles[s.height - 1][x].terrain is Terrain.VOID
+        for y in range(s.height):
+            assert s.tiles[y][0].terrain is Terrain.VOID
+            assert s.tiles[y][s.width - 1].terrain is Terrain.VOID
