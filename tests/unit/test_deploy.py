@@ -196,56 +196,61 @@ class TestCaddyfileTemplate:
         )
 
 
-class TestDockerfileBase:
-    """Validate Dockerfile.base carries the WASM build toolchain.
-
-    The app stage builds the browser wasm bundle with wasm-pack, so
-    the base image must ship wasm-pack and the wasm32 Rust target.
-    Changing this file forces an ``update.sh --base`` rebuild.
-    """
-
-    @pytest.fixture()
-    def base(self):
-        return (DEPLOY_DIR.parent / "Dockerfile.base").read_text()
-
-    def test_file_exists(self):
-        assert (DEPLOY_DIR.parent / "Dockerfile.base").is_file()
-
-    def test_installs_wasm32_target(self, base):
-        assert "rustup target add wasm32-unknown-unknown" in base
-
-    def test_installs_wasm_pack(self, base):
-        assert "wasm-pack" in base, "base image must install wasm-pack"
-
-    def test_installs_pinned_binaryen(self, base):
-        """wasm-pack's bundled binaryen is too old for the wasm-opt
-        flag set, so the base image ships a pinned binaryen whose
-        wasm-opt is invoked explicitly (Cargo.toml sets
-        wasm-opt = false)."""
-        assert re.search(r"BINARYEN_VERSION=version_\d+", base), (
-            "base image must pin a binaryen version"
-        )
-        assert "WebAssembly/binaryen/releases" in base, (
-            "must install from the official binaryen release"
-        )
-        assert "wasm-opt" in base, "binaryen wasm-opt must be on PATH"
-
-
 class TestDockerfile:
-    """Validate the app-stage Dockerfile builds + serves WASM."""
+    """Validate the multi-stage Dockerfile: a fat builder stage
+    compiles the PyO3 wheel + wasm bundle; the lean runtime stage
+    ships only Python + the prebuilt artefacts (no Rust/wasm
+    toolchain). Dockerfile.base is obsolete — the toolchain layers
+    sit before COPY so the legacy builder caches them, making the
+    old --base split unnecessary."""
 
     @pytest.fixture()
     def dockerfile(self):
         return (DEPLOY_DIR.parent / "Dockerfile").read_text()
 
+    @pytest.fixture()
+    def stages(self, dockerfile):
+        m = re.search(r"^FROM .+ AS runtime\b", dockerfile, re.M)
+        assert m, "Dockerfile needs a `FROM ... AS runtime` stage"
+        return dockerfile[: m.start()], dockerfile[m.start():]
+
     def test_file_exists(self):
         assert (DEPLOY_DIR.parent / "Dockerfile").is_file()
 
-    def test_builds_wasm_bundle(self, dockerfile):
-        """App stage builds the bundle via `make wasm-build` so the
-        wasm-pack + wasm-opt invocation stays single-sourced in the
-        Makefile (no flag drift between local and Docker)."""
-        assert "make wasm-build" in dockerfile
+    def test_dockerfile_base_removed(self):
+        assert not (DEPLOY_DIR.parent / "Dockerfile.base").exists(), (
+            "Dockerfile.base is obsolete with the multi-stage build"
+        )
+
+    def test_has_builder_and_runtime_stages(self, dockerfile):
+        assert re.search(r"^FROM .+ AS builder\b", dockerfile, re.M)
+        assert re.search(r"^FROM .+ AS runtime\b", dockerfile, re.M)
+
+    def test_builder_has_toolchain(self, stages):
+        builder, _ = stages
+        assert "sh.rustup.rs" in builder
+        assert "rustup target add wasm32-unknown-unknown" in builder
+        assert "cargo install wasm-pack" in builder
+        assert re.search(r"BINARYEN_VERSION=version_\d+", builder)
+        assert "WebAssembly/binaryen/releases" in builder
+        assert "maturin build" in builder
+        assert "make wasm-build" in builder
+
+    def test_runtime_is_lean(self, stages):
+        _, runtime = stages
+        for tool in (
+            "rustup", "cargo install", "wasm-pack",
+            "build-essential", "binaryen", "maturin",
+        ):
+            assert tool not in runtime, (
+                f"runtime stage must not contain {tool!r}"
+            )
+
+    def test_runtime_copies_artefacts_from_builder(self, stages):
+        _, runtime = stages
+        assert "COPY --from=builder" in runtime
+        assert ".whl" in runtime
+        assert "crates/nhc-render-wasm/pkg" in runtime
 
     def test_render_mode_is_wasm(self, dockerfile):
         """Production defaults to the browser-side WASM floor path."""
