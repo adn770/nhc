@@ -122,6 +122,7 @@ _ROOF_MATERIAL_TO_PATTERN: dict[str, int] = {
     "tile": RoofTilePattern.Thatch,
     "slate": RoofTilePattern.Slate,
     "fishscale": RoofTilePattern.Fishscale,
+    "staggered": RoofTilePattern.Staggered,
 }
 
 

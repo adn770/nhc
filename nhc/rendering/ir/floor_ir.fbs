@@ -299,6 +299,10 @@ enum RoofTilePattern : ubyte {
   Fishscale = 1,
   Thatch    = 2,
   Slate     = 3,
+  // Staggered-butt shakes: rectangular tiles in courses with a
+  // per-tile random vertical drop so each course's baseline is
+  // jagged (rough hand-split look). Appended — no renumber.
+  Staggered = 4,
 }
 
 table Material {

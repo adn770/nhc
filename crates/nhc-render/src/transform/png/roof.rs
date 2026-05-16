@@ -403,6 +403,52 @@ fn paint_slate(
 }
 
 
+/// `Staggered` — staggered-butt shakes. Rectangular tiles laid
+/// in vertical-aligned courses, but every tile drops by a random
+/// amount below its course top so each course's lower (butt)
+/// edge is jagged and irregular — the rough hand-split shake
+/// look, distinct from Slate / Shingle's even running-bond.
+fn paint_staggered(
+    bbox: (f32, f32, f32, f32),
+    palette: &[(u8, u8, u8); 3],
+    rng: &mut RoofRng,
+    painter: &mut dyn Painter,
+) {
+    let (min_x, min_y, w, h) = bbox;
+    let tile_w: f32 = 10.0;
+    let course_h: f32 = 9.0;
+    let stroke = shingle_stroke();
+    let stroke_paint = rgb_paint((0, 0, 0), SHINGLE_STROKE_OPACITY);
+    let mut cy = min_y;
+    while cy < min_y + h {
+        let mut x = min_x;
+        while x < min_x + w {
+            let shade = *rng.choice(palette);
+            // Random downward drop → jagged course butt line.
+            let drop = rng.uniform(0.0, course_h * 0.6);
+            // Tile runs long enough to overlap the next course
+            // even at max drop, so no parchment shows through.
+            let tw = tile_w - 0.8;
+            let th = course_h * 0.95 + drop + rng.uniform(0.0, 2.0);
+            let ty = cy + drop;
+            painter.fill_rect(
+                PRect::new(x, ty, tw, th),
+                &rgb_paint(shade, 1.0),
+            );
+            let mut edge = PathOps::new();
+            edge.move_to(Vec2::new(x, ty));
+            edge.line_to(Vec2::new(x + tw, ty));
+            edge.line_to(Vec2::new(x + tw, ty + th));
+            edge.line_to(Vec2::new(x, ty + th));
+            edge.close();
+            painter.stroke_path(&edge, &stroke_paint, &stroke);
+            x += tile_w;
+        }
+        cy += course_h;
+    }
+}
+
+
 /// `Shingle` — organic running-bond shingles over the bbox: size
 /// jitter, per-tile random shade, a faint black edge. This is the
 /// hand-laid look geometry's gable path draws today, promoted to
@@ -758,19 +804,21 @@ fn paint_pattern(
         RoofTilePattern::Fishscale => paint_fishscale(bbox, palette, rng, painter),
         RoofTilePattern::Thatch => paint_thatch(bbox, palette, rng, painter),
         RoofTilePattern::Slate => paint_slate(bbox, palette, rng, painter),
+        RoofTilePattern::Staggered => paint_staggered(bbox, palette, rng, painter),
         RoofTilePattern::Shingle => paint_shingle(bbox, palette, rng, painter),
         _ => {}
     }
 }
 
 /// Whether a `RoofTilePattern` byte names a real texture (the
-/// four patterns) versus the geometry-only no-op fallback.
+/// five patterns) versus the geometry-only no-op fallback.
 fn is_textured(sub_pattern: RoofTilePattern) -> bool {
     matches!(
         sub_pattern,
         RoofTilePattern::Fishscale
             | RoofTilePattern::Thatch
             | RoofTilePattern::Slate
+            | RoofTilePattern::Staggered
             | RoofTilePattern::Shingle
     )
 }
@@ -1058,8 +1106,8 @@ fn paint_dome_pattern(
 /// them explicitly.
 ///
 /// `sub_pattern` is the `RoofTilePattern` texture overlay. The
-/// four patterns (Shingle — the default organic running-bond —
-/// plus Fishscale / Thatch / Slate) paint a tile
+/// five patterns (Shingle — the default organic running-bond —
+/// plus Fishscale / Thatch / Slate / Staggered) paint a tile
 /// texture on top of the geometry's base, sharing the same
 /// polygon clip envelope. An unknown trailing byte falls through
 /// to a geometry-only render.
@@ -1110,7 +1158,7 @@ pub(super) fn draw_roof_polygon(
             polygon, bbox, &sunlit, &shadow, painter,
         ),
     }
-    // Tile-pattern overlay — the four patterns paint over the
+    // Tile-pattern overlay — the five patterns paint over the
     // geometry (clipped to the outline by the active push_clip
     // envelope). Shingle is the production default; an unknown
     // byte is the geometry-only no-op. Gable is plane-relative:

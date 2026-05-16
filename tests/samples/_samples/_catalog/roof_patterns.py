@@ -1,6 +1,6 @@
 """Roof catalog page — full styles × patterns matrix.
 
-A 4 × 4 grid: every ``RoofStyle`` (rows) crossed with every
+A 4 × 5 grid: every ``RoofStyle`` (rows) crossed with every
 ``RoofTilePattern`` (columns), all on a fixed rect footprint so
 the only variables per cell are the geometry and its texture
 overlay. This makes every (style, pattern) combination visible
@@ -45,7 +45,7 @@ register_catalog_page(CatalogPageSpec(
         "Styles x patterns matrix - every RoofStyle (rows: "
         "Simple, Pyramid, Gable, Dome) crossed with every "
         "RoofTilePattern (columns: Shingle, Fishscale, Thatch, "
-        "Slate) on a fixed rect footprint. Each pattern "
+        "Slate, Staggered) on a fixed rect footprint. Each pattern "
         "is oriented in the geometry's plane-local frame (gable "
         "mirrors across the ridge, pyramid rotates per facet, "
         "dome follows concentric rings); Shingle is the organic "
@@ -56,6 +56,7 @@ register_catalog_page(CatalogPageSpec(
         _col("Fishscale", RoofTilePattern.Fishscale),
         _col("Thatch", RoofTilePattern.Thatch),
         _col("Slate", RoofTilePattern.Slate),
+        _col("Staggered", RoofTilePattern.Staggered),
     ],
     rows=_ROW_LABELS,
     cell_shape="rect",

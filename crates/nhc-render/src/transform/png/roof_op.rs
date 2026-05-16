@@ -416,6 +416,26 @@ mod tests {
         );
     }
 
+    /// `Staggered` → staggered-butt shakes: many `FillRect` tiles
+    /// (one per shake) each carrying a faint edge stroke. Pyramid
+    /// alone emits zero FillRects, so a positive count is the
+    /// overlay; the per-tile stroke pushes StrokePath past bare.
+    #[test]
+    fn staggered_pattern_overlays_shake_tiles() {
+        let bare = run(&build_roof_op("rect", RoofStyle::Pyramid));
+        let stag = run(&build_roof_op_with_pattern(
+            "rect", RoofStyle::Pyramid, RoofTilePattern::Staggered,
+        ));
+        assert!(
+            fill_rect_count(&stag) > 4,
+            "Staggered should paint many shake tiles"
+        );
+        assert!(
+            stroke_path_count(&stag) > stroke_path_count(&bare) + 4,
+            "Staggered tiles should each carry a faint edge stroke"
+        );
+    }
+
     /// `Shingle` → organic running-bond `FillRect` tiles, each
     /// with a faint edge stroke. Pyramid alone emits zero
     /// FillRects; the overlay adds many tiles plus their strokes.

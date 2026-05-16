@@ -88,9 +88,10 @@ def test_roof_tile_pattern_enum_pins_canonical_values() -> None:
     assert RoofTilePattern.Fishscale == 1
     assert RoofTilePattern.Thatch == 2
     assert RoofTilePattern.Slate == 3
+    assert RoofTilePattern.Staggered == 4
     # Plain was retired in Phase 3 (Shingle is the FlatBuffers-
     # default 0); Pantile was later dropped and Slate renumbered
-    # down into its slot.
+    # down into its slot; Staggered appended at 4.
     assert not hasattr(RoofTilePattern, "Plain")
     assert not hasattr(RoofTilePattern, "Pantile")
 

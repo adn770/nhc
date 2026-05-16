@@ -193,6 +193,14 @@ class TestPickSubPattern:
             == RoofTilePattern.Fishscale
         )
 
+    def test_staggered_roof_material_maps_to_staggered_pattern(self) -> None:
+        assert (
+            _pick_sub_pattern(_building(
+                wall_material="brick", roof_material="staggered",
+            ))
+            == RoofTilePattern.Staggered
+        )
+
     def test_wood_roof_material_does_not_apply_overlay(self) -> None:
         # roof_material="wood" has no explicit pattern entry, so
         # the overlay falls through to the wall_material default

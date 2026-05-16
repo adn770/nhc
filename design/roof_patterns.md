@@ -43,6 +43,8 @@ rect→Gable, octagon/circle→Pyramid). The `WitchHat` cone was retired; forest
 |           | to Shingle, distinguished by scale + regularity, not by being flat.        |
 | Fishscale | overlapping scallop discs in offset rows, each with a thin black outline.   |
 | Thatch    | dense randomised strands, straw-like.                                       |
+| Staggered | staggered-butt shakes: aligned courses, per-tile random vertical drop so    |
+|           | each course's butt line is jagged (rough hand-split look).                  |
 
 (`Pantile` — wavy Mediterranean S-curve bands — was retired; it read as confusing
 texture and was dropped.)

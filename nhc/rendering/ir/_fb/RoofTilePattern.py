@@ -7,3 +7,4 @@ class RoofTilePattern(object):
     Fishscale = 1
     Thatch = 2
     Slate = 3
+    Staggered = 4

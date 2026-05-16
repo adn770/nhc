@@ -669,11 +669,12 @@ overlay layered on top of the geometry chosen by `style`:
 | `Fishscale` | overlapping scallop tiles in offset rows |
 | `Thatch` | short randomised vertical strands |
 | `Slate` | small rectangular tiles in a tight running-bond |
+| `Staggered` | staggered-butt shakes; jagged per-course butt line |
 
 Every roof carries a real texture — `Plain` was retired (Shingle
 is the default) and the confusing `Pantile` S-curve was later
 dropped. Pattern dispatch is orthogonal to geometry: `(style,
-sub_pattern)` is a 4×4 matrix. The overlay paints over the
+sub_pattern)` is a 4×5 matrix. The overlay paints over the
 polygon clip envelope so the geometry's silhouette stays intact;
 each pattern is oriented in the geometry's plane-local frame.
 
