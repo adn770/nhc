@@ -1183,14 +1183,13 @@ impl ::flatbuffers::SimpleToVerifyInSlice for RoofStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_ROOF_TILE_PATTERN: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_ROOF_TILE_PATTERN: u8 = 4;
+pub const ENUM_MAX_ROOF_TILE_PATTERN: u8 = 3;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_ROOF_TILE_PATTERN: [RoofTilePattern; 5] = [
+pub const ENUM_VALUES_ROOF_TILE_PATTERN: [RoofTilePattern; 4] = [
   RoofTilePattern::Shingle,
   RoofTilePattern::Fishscale,
   RoofTilePattern::Thatch,
-  RoofTilePattern::Pantile,
   RoofTilePattern::Slate,
 ];
 
@@ -1202,16 +1201,14 @@ impl RoofTilePattern {
   pub const Shingle: Self = Self(0);
   pub const Fishscale: Self = Self(1);
   pub const Thatch: Self = Self(2);
-  pub const Pantile: Self = Self(3);
-  pub const Slate: Self = Self(4);
+  pub const Slate: Self = Self(3);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 4;
+  pub const ENUM_MAX: u8 = 3;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Shingle,
     Self::Fishscale,
     Self::Thatch,
-    Self::Pantile,
     Self::Slate,
   ];
   /// Returns the variant's name or "" if unknown.
@@ -1220,7 +1217,6 @@ impl RoofTilePattern {
       Self::Shingle => Some("Shingle"),
       Self::Fishscale => Some("Fishscale"),
       Self::Thatch => Some("Thatch"),
-      Self::Pantile => Some("Pantile"),
       Self::Slate => Some("Slate"),
       _ => None,
     }

@@ -6,5 +6,4 @@ class RoofTilePattern(object):
     Shingle = 0
     Fishscale = 1
     Thatch = 2
-    Pantile = 3
-    Slate = 4
+    Slate = 3

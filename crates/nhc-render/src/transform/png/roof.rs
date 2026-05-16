@@ -354,52 +354,6 @@ fn paint_thatch(
     }
 }
 
-/// `Pantile` — wavy horizontal bands suggesting Mediterranean
-/// S-curve tiles. Each row paints a sinusoidal band alternating
-/// between palette tones; the wave amplitude is small relative
-/// to band height so the bands read as ridge-and-valley tiles.
-fn paint_pantile(
-    bbox: (f32, f32, f32, f32),
-    palette: &[(u8, u8, u8); 3],
-    _rng: &mut RoofRng,
-    painter: &mut dyn Painter,
-) {
-    let (min_x, min_y, w, h) = bbox;
-    let band_h: f32 = 8.0;
-    let amp: f32 = 1.6;
-    let waves_per_band: f32 = 6.0;
-    let segments: i32 = 32;
-    let mut row: i32 = 0;
-    let mut top = min_y;
-    while top < min_y + h {
-        let shade = if row & 1 == 0 { palette[0] } else { palette[1] };
-        let mut path = PathOps::new();
-        for i in 0..=segments {
-            let t = i as f32 / segments as f32;
-            let x = min_x + t * w;
-            let y = top + ((t * waves_per_band)
-                * std::f32::consts::PI).sin() * amp;
-            let p = Vec2::new(x, y);
-            if i == 0 {
-                path.move_to(p);
-            } else {
-                path.line_to(p);
-            }
-        }
-        for i in (0..=segments).rev() {
-            let t = i as f32 / segments as f32;
-            let x = min_x + t * w;
-            let y = top + ((t * waves_per_band)
-                * std::f32::consts::PI).sin() * amp + band_h;
-            path.line_to(Vec2::new(x, y));
-        }
-        path.close();
-        painter.fill_path(&path, &rgb_paint(shade, 1.0), FillRule::Winding);
-        top += band_h;
-        row += 1;
-    }
-}
-
 /// `Slate` — small rectangular tiles in a tight running-bond
 /// with a hand-laid pass: a *light* per-tile size / row jitter
 /// and a faint edge stroke. Smaller than `draw_shingle_region`'s
@@ -803,7 +757,6 @@ fn paint_pattern(
     match sub_pattern {
         RoofTilePattern::Fishscale => paint_fishscale(bbox, palette, rng, painter),
         RoofTilePattern::Thatch => paint_thatch(bbox, palette, rng, painter),
-        RoofTilePattern::Pantile => paint_pantile(bbox, palette, rng, painter),
         RoofTilePattern::Slate => paint_slate(bbox, palette, rng, painter),
         RoofTilePattern::Shingle => paint_shingle(bbox, palette, rng, painter),
         _ => {}
@@ -811,13 +764,12 @@ fn paint_pattern(
 }
 
 /// Whether a `RoofTilePattern` byte names a real texture (the
-/// five patterns) versus the geometry-only no-op fallback.
+/// four patterns) versus the geometry-only no-op fallback.
 fn is_textured(sub_pattern: RoofTilePattern) -> bool {
     matches!(
         sub_pattern,
         RoofTilePattern::Fishscale
             | RoofTilePattern::Thatch
-            | RoofTilePattern::Pantile
             | RoofTilePattern::Slate
             | RoofTilePattern::Shingle
     )
@@ -1106,8 +1058,8 @@ fn paint_dome_pattern(
 /// them explicitly.
 ///
 /// `sub_pattern` is the `RoofTilePattern` texture overlay. The
-/// five patterns (Shingle — the default organic running-bond —
-/// plus Fishscale / Thatch / Pantile / Slate) paint a tile
+/// four patterns (Shingle — the default organic running-bond —
+/// plus Fishscale / Thatch / Slate) paint a tile
 /// texture on top of the geometry's base, sharing the same
 /// polygon clip envelope. An unknown trailing byte falls through
 /// to a geometry-only render.
@@ -1158,7 +1110,7 @@ pub(super) fn draw_roof_polygon(
             polygon, bbox, &sunlit, &shadow, painter,
         ),
     }
-    // Tile-pattern overlay — the five patterns paint over the
+    // Tile-pattern overlay — the four patterns paint over the
     // geometry (clipped to the outline by the active push_clip
     // envelope). Shingle is the production default; an unknown
     // byte is the geometry-only no-op. Gable is plane-relative:

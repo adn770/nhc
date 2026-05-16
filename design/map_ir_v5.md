@@ -665,18 +665,17 @@ overlay layered on top of the geometry chosen by `style`:
 
 | value | meaning |
 | --- | --- |
-| `Plain` | no overlay (default; byte-identical legacy output) |
+| `Shingle` | organic running-bond; the default (enum 0) |
 | `Fishscale` | overlapping scallop tiles in offset rows |
 | `Thatch` | short randomised vertical strands |
-| `Pantile` | wavy horizontal Mediterranean S-curve bands |
 | `Slate` | small rectangular tiles in a tight running-bond |
 
-Pattern dispatch is orthogonal to geometry: `(style,
-sub_pattern)` is a 5×5 matrix. The overlay paints over the
-polygon clip envelope so the geometry's silhouette stays intact.
-Production roofs always set `Plain`; catalog pages opt into the
-non-Plain patterns. Adding a new pattern is a forward-compat
-schema append (no major bump).
+Every roof carries a real texture — `Plain` was retired (Shingle
+is the default) and the confusing `Pantile` S-curve was later
+dropped. Pattern dispatch is orthogonal to geometry: `(style,
+sub_pattern)` is a 4×4 matrix. The overlay paints over the
+polygon clip envelope so the geometry's silhouette stays intact;
+each pattern is oriented in the geometry's plane-local frame.
 
 ### 4.9 WallMaterial: WallTreatment + CornerStyle
 

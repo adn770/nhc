@@ -43,12 +43,14 @@ rect→Gable, octagon/circle→Pyramid). The `WitchHat` cone was retired; forest
 |           | to Shingle, distinguished by scale + regularity, not by being flat.        |
 | Fishscale | overlapping scallop discs in offset rows, each with a thin black outline.   |
 | Thatch    | dense randomised strands, straw-like.                                       |
-| Pantile   | wavy S-curve horizontal bands (Mediterranean tile).                        |
+
+(`Pantile` — wavy Mediterranean S-curve bands — was retired; it read as confusing
+texture and was dropped.)
 
 Pattern is chosen in `nhc/rendering/emit/roof.py:_pick_sub_pattern`. Default-biome
 buildings (brick/stone walls) map to **Shingle** so ordinary towns keep the organic
 rooftop look. `roof_material` ("thatch"/"tile"/"slate"/"fishscale") and `wall_material`
-(adobe→Pantile, wood→Thatch) override.
+(adobe→Thatch, wood→Thatch) override.
 
 ### Parity note
 

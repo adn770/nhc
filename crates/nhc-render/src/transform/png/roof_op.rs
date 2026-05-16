@@ -382,21 +382,6 @@ mod tests {
         );
     }
 
-    /// `Pantile` → wavy `FillPath` bands. Each band is a closed
-    /// sinusoidal path. Pyramid alone emits N triangular FillPath
-    /// calls; pantile overlays additional band fills.
-    #[test]
-    fn pantile_pattern_overlays_sinusoidal_bands() {
-        let bare = run(&build_roof_op("rect", RoofStyle::Pyramid));
-        let pant = run(&build_roof_op_with_pattern(
-            "rect", RoofStyle::Pyramid, RoofTilePattern::Pantile,
-        ));
-        assert!(
-            fill_path_count(&pant) > fill_path_count(&bare),
-            "Pantile should add band FillPaths"
-        );
-    }
-
     /// `Slate` → many small `FillRect` tiles. Pyramid alone emits
     /// zero FillRects, so any positive count is the slate
     /// overlay.

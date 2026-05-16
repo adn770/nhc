@@ -100,11 +100,11 @@ def _pick_style(region: Any, building: Any | None = None) -> int:
 # all fall through to the Shingle default (the organic running-
 # bond that replaced the geometry-baked gable shingles), so
 # default-biome towns keep the organic rooftop look. Adobe
-# (drylands towns) and wood walls (marsh towns) opt into the
-# distinct visual pattern overlays — Pantile reads as
-# Mediterranean tile, Thatch as rural straw.
+# (drylands towns) and wood walls (marsh towns) both opt into
+# Thatch — the rural straw overlay — so they stay distinct from
+# the Shingle default. (Pantile was retired.)
 _WALL_MATERIAL_TO_PATTERN: dict[str, int] = {
-    "adobe": RoofTilePattern.Pantile,
+    "adobe": RoofTilePattern.Thatch,
     "wood": RoofTilePattern.Thatch,
 }
 
@@ -119,7 +119,7 @@ _WALL_MATERIAL_TO_PATTERN: dict[str, int] = {
 # overlaid with a competing explicit tile texture.
 _ROOF_MATERIAL_TO_PATTERN: dict[str, int] = {
     "thatch": RoofTilePattern.Thatch,
-    "tile": RoofTilePattern.Pantile,
+    "tile": RoofTilePattern.Thatch,
     "slate": RoofTilePattern.Slate,
     "fishscale": RoofTilePattern.Fishscale,
 }
@@ -133,8 +133,8 @@ def _pick_sub_pattern(building: Any | None) -> int:
        (``"thatch"`` / ``"tile"`` / ``"slate"`` / ``"fishscale"``)
        use the explicit pattern. ``"wood"`` (forest watchtowers)
        has no entry and falls through here.
-    2. Otherwise fall back to ``wall_material``: ``adobe`` →
-       Pantile (drylands biome), ``wood`` → Thatch (marsh biome).
+    2. Otherwise fall back to ``wall_material``: ``adobe``
+       (drylands biome) and ``wood`` (marsh biome) → Thatch.
     3. Default biome materials (brick / stone / dungeon) and any
        unknown material map to Shingle — the organic running-bond
        default that replaced the old geometry-baked gable

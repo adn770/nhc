@@ -8,7 +8,7 @@ painter would have auto-picked from ``shape_tag`` + bbox: square
 rect / octagon / circle → Pyramid; wide-rect / l_shape → Gable.
 
 The ``RoofTilePattern`` overlay reads ``Building.wall_material``:
-adobe → Pantile, wood → Thatch, everything else → Shingle (the
+adobe → Thatch, wood → Thatch, everything else → Shingle (the
 organic running-bond default). Forest watchtowers
 (``roof_material="wood"``) no longer override the geometry —
 WitchHat was retired, so they take the shape-default Pyramid.
@@ -128,12 +128,12 @@ class TestPickSubPattern:
             == RoofTilePattern.Shingle
         )
 
-    def test_adobe_maps_to_pantile(self) -> None:
-        # Drylands biome → adobe walls → Mediterranean S-curve
-        # tile overlay.
+    def test_adobe_maps_to_thatch(self) -> None:
+        # Drylands biome → adobe walls → Thatch overlay (Pantile
+        # was retired).
         assert (
             _pick_sub_pattern(_building(wall_material="adobe"))
-            == RoofTilePattern.Pantile
+            == RoofTilePattern.Thatch
         )
 
     def test_wood_walls_map_to_thatch(self) -> None:
@@ -176,12 +176,13 @@ class TestPickSubPattern:
             == RoofTilePattern.Slate
         )
 
-    def test_tile_roof_material_maps_to_pantile_pattern(self) -> None:
+    def test_tile_roof_material_maps_to_thatch_pattern(self) -> None:
+        # roof_material="tile" → Thatch (Pantile was retired).
         assert (
             _pick_sub_pattern(_building(
                 wall_material="stone", roof_material="tile",
             ))
-            == RoofTilePattern.Pantile
+            == RoofTilePattern.Thatch
         )
 
     def test_fishscale_roof_material_maps_to_fishscale_pattern(self) -> None:

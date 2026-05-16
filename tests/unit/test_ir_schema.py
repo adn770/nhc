@@ -87,12 +87,12 @@ def test_roof_tile_pattern_enum_pins_canonical_values() -> None:
     assert RoofTilePattern.Shingle == 0
     assert RoofTilePattern.Fishscale == 1
     assert RoofTilePattern.Thatch == 2
-    assert RoofTilePattern.Pantile == 3
-    assert RoofTilePattern.Slate == 4
-    # Plain was retired in the roof-pattern redesign Phase 3 —
-    # every roof now carries a real texture, Shingle is the
-    # FlatBuffers-default (0) organic running-bond.
+    assert RoofTilePattern.Slate == 3
+    # Plain was retired in Phase 3 (Shingle is the FlatBuffers-
+    # default 0); Pantile was later dropped and Slate renumbered
+    # down into its slot.
     assert not hasattr(RoofTilePattern, "Plain")
+    assert not hasattr(RoofTilePattern, "Pantile")
 
 
 # ── Material / WallMaterial round-trip ─────────────────────────
