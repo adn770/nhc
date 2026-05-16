@@ -201,3 +201,22 @@ class TestDockerfileBase:
 
     def test_installs_wasm_pack(self, base):
         assert "wasm-pack" in base, "base image must install wasm-pack"
+
+
+class TestDockerfile:
+    """Validate the app-stage Dockerfile builds + serves WASM."""
+
+    @pytest.fixture()
+    def dockerfile(self):
+        return (DEPLOY_DIR.parent / "Dockerfile").read_text()
+
+    def test_file_exists(self):
+        assert (DEPLOY_DIR.parent / "Dockerfile").is_file()
+
+    def test_builds_wasm_bundle(self, dockerfile):
+        """App stage must run wasm-pack so /wasm/ has a bundle."""
+        assert "wasm-pack build crates/nhc-render-wasm" in dockerfile
+
+    def test_render_mode_is_wasm(self, dockerfile):
+        """Production defaults to the browser-side WASM floor path."""
+        assert "ENV NHC_RENDER_MODE=wasm" in dockerfile

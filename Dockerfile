@@ -22,6 +22,14 @@ RUN cd crates/nhc-render \
     && pip install --no-cache-dir --no-deps /tmp/wheels/*.whl \
     && rm -rf /tmp/wheels target
 
+# Browser WASM bundle. The /wasm/<path> Flask route serves
+# crates/nhc-render-wasm/pkg/ directly, so the bundle must exist
+# in the image. wasm-pack + the wasm32 target come from the base
+# image; wasm-bindgen is fetched at build time. Runs as root
+# before the USER drop so pkg/ is world-readable.
+RUN wasm-pack build crates/nhc-render-wasm --target web \
+    && rm -rf crates/nhc-render-wasm/target
+
 USER nhc
 
 ENV NHC_DATA_DIR=/var/nhc
@@ -36,10 +44,13 @@ ENV PYTHONPATH=/app
 ENV NHC_GEN_WORKERS=4
 
 # Floor render mode the gameplay client fetches: "png" | "svg" |
-# "wasm". Default png (server-side tiny-skia rasterisation, ~30 %
-# of the SVG wire size). Override at run time, e.g.:
-#   docker run -e NHC_RENDER_MODE=svg ...
-ENV NHC_RENDER_MODE=png
+# "wasm". Default wasm: the browser rasterises the ~38 KB NIR
+# buffer instead of the server building a multi-MB PNG/SVG, which
+# was a ~30 s cold-floor stall on the 2-core production host. The
+# client falls back to PNG if the wasm bundle fails to load.
+# Override at run time, e.g.:
+#   docker run -e NHC_RENDER_MODE=png ...
+ENV NHC_RENDER_MODE=wasm
 
 # Build metadata surfaced on the welcome-page footer for
 # at-a-glance deploy verification. Set by deploy/update.sh via
