@@ -207,9 +207,16 @@ class TestTempleGroundRings:
             if t.feature == "flower"
         ]
         assert flowers, f"{biome}: no flower ring"
-        # The flower ring is exactly one ring beyond the paving.
-        for xy in flowers:
-            assert _cheby(xy, fp) == TEMPLE_PAVED_RING_WIDTH + 1, xy
+        # A continuous planted ring sits exactly one tile beyond
+        # the paving (the low wild scatter adds a few stray
+        # flowers farther out, so only assert the ring exists —
+        # not that every flower is on it).
+        ring = [
+            xy for xy in flowers
+            if _cheby(xy, fp) == TEMPLE_PAVED_RING_WIDTH + 1
+        ]
+        assert len(ring) >= 8, (biome, len(ring))
+        for xy in ring:
             assert s.tiles[xy[1]][xy[0]].surface_type is SurfaceType.GARDEN
 
     def test_void_margin_preserved(self):
@@ -221,3 +228,72 @@ class TestTempleGroundRings:
         for y in range(s.height):
             assert s.tiles[y][0].terrain is Terrain.VOID
             assert s.tiles[y][s.width - 1].terrain is Terrain.VOID
+
+
+class TestTempleGrassScatter:
+    def test_forest_grass_gets_sparse_trees_bushes_flowers(self):
+        # Aggregate across seeds: each kind shows up, but the
+        # density stays low (a scatter, not a thicket).
+        seen: set[str] = set()
+        for seed in range(12):
+            site = assemble_temple(
+                f"t_s{seed}", random.Random(seed), biome=Biome.FOREST,
+            )
+            s = site.surface
+            scattered = 0
+            grass = 0
+            for row in s.tiles:
+                for t in row:
+                    if (t.terrain is Terrain.GRASS
+                            and t.surface_type is SurfaceType.GARDEN):
+                        grass += 1
+                        if t.feature in ("tree", "bush"):
+                            scattered += 1
+                            seen.add(t.feature)
+                        elif t.feature == "flower":
+                            seen.add("flower")
+            assert grass > 0
+            # Low density — far under a fifth of the open grass.
+            assert scattered < grass * 0.2, (seed, scattered, grass)
+        assert {"tree", "bush", "flower"} <= seen
+
+    def test_scatter_only_on_garden_grass(self):
+        site = assemble_temple(
+            "t_sg", random.Random(3), biome=Biome.FOREST,
+        )
+        s = site.surface
+        for row in s.tiles:
+            for t in row:
+                if t.feature in ("tree", "bush"):
+                    assert t.terrain is Terrain.GRASS
+                    assert t.surface_type is SurfaceType.GARDEN
+
+    def test_non_forest_temple_has_no_scattered_trees(self):
+        # Mountain temple ground is bare FLOOR, not grass — only
+        # the planted flower ring carries features.
+        site = assemble_temple(
+            "t_m", random.Random(3), biome=Biome.MOUNTAIN,
+        )
+        s = site.surface
+        kinds = {
+            t.feature for row in s.tiles for t in row
+            if t.feature is not None
+        }
+        assert "tree" not in kinds
+        assert "bush" not in kinds
+        assert "flower" in kinds  # the exterior ring
+
+    def test_scatter_is_deterministic_per_seed(self):
+        a = assemble_temple("t_d", random.Random(9), biome=Biome.FOREST)
+        b = assemble_temple("t_d", random.Random(9), biome=Biome.FOREST)
+        fa = {
+            (x, y): t.feature
+            for y, row in enumerate(a.surface.tiles)
+            for x, t in enumerate(row) if t.feature
+        }
+        fb = {
+            (x, y): t.feature
+            for y, row in enumerate(b.surface.tiles)
+            for x, t in enumerate(row) if t.feature
+        }
+        assert fa == fb

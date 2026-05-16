@@ -64,6 +64,12 @@ TEMPLE_MYSTERIOUS_DROP_RANGE = (2, 4)
 # (Chebyshev distance 1..N from the footprint). The ring exactly
 # one tile beyond that is planted with a flower border.
 TEMPLE_PAVED_RING_WIDTH = 2
+# Low-density wild scatter on the grass beyond the courtyard +
+# flower border (forest temples only — other biomes have no
+# grass out there). Per remaining-grass-tile probabilities.
+TEMPLE_GRASS_TREE_P = 0.03
+TEMPLE_GRASS_BUSH_P = 0.05
+TEMPLE_GRASS_FLOWER_P = 0.04
 
 
 def assemble_temple(
@@ -127,6 +133,7 @@ def assemble_temple(
     surface = _build_temple_surface(
         f"{site_id}_surface", building, biome,
     )
+    _scatter_temple_grass(surface, rng)
 
     site = Site(
         id=site_id,
@@ -407,6 +414,41 @@ def _build_temple_surface(
                 )
             surface.tiles[y][x] = tile
     return surface
+
+
+def _scatter_temple_grass(
+    surface: Level, rng: random.Random,
+) -> None:
+    """Sparsely dress the grass beyond the courtyard + flower
+    border with a few wild trees / bushes / flowers.
+
+    Only plain GARDEN grass with no feature is eligible — the
+    flagstone courtyard (FLOOR/FLAGSTONE) and the planted flower
+    ring (already ``feature="flower"``) are skipped, as is every
+    non-forest biome (its outer ground is bare FLOOR, not grass).
+    Low per-tile probabilities keep it a scattering, not a
+    thicket, and one feature lands per tile at most.
+    """
+    for y in range(1, surface.height - 1):
+        for x in range(1, surface.width - 1):
+            tile = surface.tiles[y][x]
+            if tile.terrain is not Terrain.GRASS:
+                continue
+            if tile.surface_type is not SurfaceType.GARDEN:
+                continue
+            if tile.feature is not None:
+                continue
+            roll = rng.random()
+            if roll < TEMPLE_GRASS_TREE_P:
+                tile.feature = "tree"
+            elif roll < TEMPLE_GRASS_TREE_P + TEMPLE_GRASS_BUSH_P:
+                tile.feature = "bush"
+            elif roll < (
+                TEMPLE_GRASS_TREE_P
+                + TEMPLE_GRASS_BUSH_P
+                + TEMPLE_GRASS_FLOWER_P
+            ):
+                tile.feature = "flower"
 
 
 def _stamp_flagstone_floor(level: Level) -> None:
