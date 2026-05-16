@@ -111,6 +111,20 @@ class TestSetupScript:
         """Script must write a Caddyfile with reverse_proxy."""
         assert "reverse_proxy localhost:8080" in script
 
+    def test_csp_img_src_allows_blob(self, script):
+        """CSP must allow blob: images.
+
+        The Phase 5 PNG floor path fetches the rasterised floor and
+        loads it via ``URL.createObjectURL`` (a ``blob:`` URL). An
+        ``img-src`` directive without ``blob:`` blocks the floor and
+        leaves the player on a blank screen.
+        """
+        match = re.search(r"img-src ([^;\"]+)", script)
+        assert match, "no img-src directive found in setup.sh CSP"
+        assert "blob:" in match.group(1), (
+            f"img-src must include blob:, got: {match.group(1)!r}"
+        )
+
     def test_duckdns_timer_install(self, script):
         """Script must install the DuckDNS timer."""
         assert "duckdns-update.timer" in script
@@ -132,3 +146,27 @@ class TestSetupScript:
     def test_override_permissions(self, script):
         """Override files with secrets must have restricted perms."""
         assert "chmod 600" in script
+
+
+class TestCaddyfileTemplate:
+    """Validate the docker-compose Caddyfile template at repo root.
+
+    Kept byte-for-byte in sync with the CSP that setup.sh writes to
+    ``/etc/caddy/Caddyfile`` so compose and host deployments share the
+    same security posture.
+    """
+
+    @pytest.fixture()
+    def caddyfile(self):
+        return (DEPLOY_DIR.parent / "Caddyfile").read_text()
+
+    def test_file_exists(self):
+        assert (DEPLOY_DIR.parent / "Caddyfile").is_file()
+
+    def test_csp_img_src_allows_blob(self, caddyfile):
+        """CSP must allow blob: images (Phase 5 PNG floor path)."""
+        match = re.search(r"img-src ([^;\"]+)", caddyfile)
+        assert match, "no img-src directive found in Caddyfile CSP"
+        assert "blob:" in match.group(1), (
+            f"img-src must include blob:, got: {match.group(1)!r}"
+        )
