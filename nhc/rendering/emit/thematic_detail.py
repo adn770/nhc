@@ -89,7 +89,7 @@ def _candidates_with_wall_corners(level: Any) -> tuple[
     loose-stones gate.
     """
     from nhc.rendering._floor_layers import _floor_detail_candidates
-    from nhc.rendering._svg_helpers import _is_floor
+    from nhc.rendering._ir_helpers import _is_floor
 
     candidates = _floor_detail_candidates(level)
     thematic_payload: list[tuple[int, int, bool, int]] = []

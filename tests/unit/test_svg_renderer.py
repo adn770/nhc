@@ -11,7 +11,7 @@ from nhc.dungeon.model import (
 )
 from nhc.rendering._dungeon_polygon import _room_shapely_polygon
 from nhc.rendering._floor_detail import _render_floor_grid
-from nhc.rendering._svg_helpers import CELL, FLOOR_STONE_FILL, PADDING
+from nhc.rendering._ir_helpers import CELL, FLOOR_STONE_FILL, PADDING
 from nhc.rendering.svg import render_floor_svg_from_ir
 
 

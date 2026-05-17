@@ -38,7 +38,7 @@ def emit_shadows(builder: Any) -> list[OpEntryT]:
     tiles in row-major traversal.
     """
     from nhc.dungeon.model import SurfaceType
-    from nhc.rendering._svg_helpers import _is_door
+    from nhc.rendering._ir_helpers import _is_door
     from nhc.rendering.ir_emitter import _room_region_data
 
     ctx = builder.ctx

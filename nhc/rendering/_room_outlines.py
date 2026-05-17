@@ -16,7 +16,7 @@ from nhc.dungeon.model import (
     TempleShape,
 )
 from nhc.dungeon.generators.cellular import CaveShape
-from nhc.rendering._svg_helpers import (
+from nhc.rendering._ir_helpers import (
     CELL,
     INK,
     PILL_ARC_SEGMENTS,

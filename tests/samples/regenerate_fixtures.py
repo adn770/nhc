@@ -595,7 +595,7 @@ def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
     # Register the enclosure Region so the v5 emit_strokes' enclosure
     # branch (region_ref="enclosure") resolves cleanly. Mirrors the
     # production emit_site_overlays path.
-    from nhc.rendering._svg_helpers import CELL as _CELL
+    from nhc.rendering._ir_helpers import CELL as _CELL
     from nhc.rendering.ir_emitter import _coords_to_polygon as _to_poly
     enc_coords = [
         (float(x * _CELL), float(y * _CELL)) for x, y in fx.polygon_tiles

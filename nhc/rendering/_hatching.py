@@ -12,7 +12,7 @@ from nhc.rendering import _perlin as _noise
 from shapely.geometry import LineString, Point, Polygon
 
 from nhc.dungeon.model import Level, SurfaceType, Terrain
-from nhc.rendering._svg_helpers import (
+from nhc.rendering._ir_helpers import (
     CELL,
     HATCH_UNDERLAY,
     INK,

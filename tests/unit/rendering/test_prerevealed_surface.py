@@ -73,7 +73,7 @@ class TestHatchingSuppressedOnPrerevealed:
     string nothing ever set — so towns shipped with hatching."""
 
     def test_prerevealed_level_has_no_hatch_clip(self) -> None:
-        from nhc.rendering._svg_helpers import HATCH_UNDERLAY
+        from nhc.rendering._ir_helpers import HATCH_UNDERLAY
 
         site = assemble_site("town", "tnh", random.Random(11))
         svg = render_floor_svg_from_ir(site.surface, seed=11)
@@ -91,7 +91,7 @@ class TestHatchingSuppressedOnPrerevealed:
         hatching elements. If they don't, the new check is too broad."""
         from nhc.dungeon.pipeline import generate_level as gen_level
         from nhc.dungeon.generator import GenerationParams
-        from nhc.rendering._svg_helpers import HATCH_UNDERLAY
+        from nhc.rendering._ir_helpers import HATCH_UNDERLAY
 
         params = GenerationParams(
             width=30, height=20, depth=1, seed=42,

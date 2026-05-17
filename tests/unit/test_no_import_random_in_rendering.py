@@ -38,7 +38,7 @@ _ALLOWLIST: frozenset[str] = frozenset({
     "_cave_geometry.py",
     "_hatching.py",
     "_roofs.py",
-    "_svg_helpers.py",
+    "_ir_helpers.py",
     # IR emitter: deterministic per-floor RNG seeds.
     "_floor_layers.py",
     # Renderer entry point + render context seed downstream

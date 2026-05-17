@@ -11,7 +11,7 @@ goes straight to disk so PNG stays a clean rasteriser artifact.
 
 from __future__ import annotations
 
-from nhc.rendering._svg_helpers import PADDING
+from nhc.rendering._ir_helpers import PADDING
 
 from ._builder import (
     CELL_PX, GUTTER_PX, LEFT_MARGIN_PX, TOP_MARGIN_PX,

@@ -94,7 +94,7 @@ def emit_stamps(builder: Any) -> list[OpEntryT]:
     """
     from nhc.dungeon.model import SurfaceType, Terrain
     from nhc.rendering._floor_layers import _floor_detail_candidates
-    from nhc.rendering._svg_helpers import _is_door
+    from nhc.rendering._ir_helpers import _is_door
 
     ctx = builder.ctx
     level = ctx.level

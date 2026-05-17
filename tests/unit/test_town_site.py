@@ -134,7 +134,7 @@ class TestTownSurface:
         them -- that creates the "walled island" look around every
         building and around the palisade. Detected via absence of
         the WALL_WIDTH stroke on a path inside the surface SVG."""
-        from nhc.rendering._svg_helpers import WALL_WIDTH
+        from nhc.rendering._ir_helpers import WALL_WIDTH
         from nhc.rendering.svg import render_floor_svg_from_ir
         site = assemble_town("t1", random.Random(42))
         svg = render_floor_svg_from_ir(site.surface, seed=42)
@@ -175,7 +175,7 @@ class TestTownSurface:
         """The outdoor surface (STREET / FIELD / GARDEN tiles)
         should not carry indoor detail: no bones, skulls, floor
         stones, scratches, or hand-drawn cracks."""
-        from nhc.rendering._svg_helpers import FLOOR_STONE_FILL
+        from nhc.rendering._ir_helpers import FLOOR_STONE_FILL
         from nhc.rendering.svg import render_floor_svg_from_ir
         site = assemble_town("t1", random.Random(42))
         svg = render_floor_svg_from_ir(site.surface, seed=42)

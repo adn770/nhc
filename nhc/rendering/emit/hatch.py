@@ -43,7 +43,7 @@ def emit_hatches(builder: Any) -> list[OpEntryT]:
 
     from nhc.dungeon.model import SurfaceType, Terrain
     from nhc.rendering import _perlin as _noise
-    from nhc.rendering._svg_helpers import CELL, _is_door
+    from nhc.rendering._ir_helpers import CELL, _is_door
     from nhc.rendering.ir._fb import HatchKind
     from nhc.rendering.ir._fb.TileCoord import TileCoordT
 

@@ -196,7 +196,7 @@ def _emit_site_enclosure_strokes(
       passed through unchanged.
     """
     from nhc.rendering._outline_helpers import cuts_for_enclosure_gates
-    from nhc.rendering._svg_helpers import CELL, PADDING
+    from nhc.rendering._ir_helpers import CELL, PADDING
 
     enclosure = getattr(site, "enclosure", None)
     if enclosure is None:
@@ -285,7 +285,7 @@ def _emit_building_floor_strokes(
     from nhc.rendering._outline_helpers import (
         cuts_for_building_doors, outline_from_polygon,
     )
-    from nhc.rendering._svg_helpers import CELL
+    from nhc.rendering._ir_helpers import CELL
     from nhc.rendering.ir_emitter import (
         _coalesced_interior_edges, _tile_corner_delta,
     )

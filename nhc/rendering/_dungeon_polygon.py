@@ -14,7 +14,7 @@ from nhc.dungeon.model import (
     CircleShape, CrossShape, HybridShape, Level, LShape,
     OctagonShape, PillShape, RectShape, TempleShape,
 )
-from nhc.rendering._svg_helpers import CELL
+from nhc.rendering._ir_helpers import CELL
 
 
 def _room_shapely_polygon(room) -> Polygon | None:

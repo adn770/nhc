@@ -16,7 +16,7 @@ from shapely.ops import unary_union
 
 from nhc.dungeon.model import Level, Room, SurfaceType, Terrain
 from nhc.dungeon.generators.cellular import CaveShape
-from nhc.rendering._svg_helpers import CELL, WALL_WIDTH  # noqa: F401
+from nhc.rendering._ir_helpers import CELL, WALL_WIDTH  # noqa: F401
 
 
 def _cave_svg_outline(room: "Room") -> str | None:

@@ -29,7 +29,7 @@ from nhc.rendering._render_context import (
     RenderContext, build_render_context,
 )
 from nhc.rendering._room_outlines import _hybrid_vertices, _polygon_vertices
-from nhc.rendering._svg_helpers import CELL, PADDING
+from nhc.rendering._ir_helpers import CELL, PADDING
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
 from nhc.rendering.ir._fb.CornerStyle import CornerStyle
 from nhc.rendering.ir._fb.CutStyle import CutStyle

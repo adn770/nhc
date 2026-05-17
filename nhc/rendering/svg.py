@@ -20,7 +20,7 @@ import random
 from nhc.rendering import _perlin as _noise
 from shapely.geometry import LineString
 
-from nhc.rendering._svg_helpers import BG, CELL, HATCH_UNDERLAY, INK
+from nhc.rendering._ir_helpers import BG, CELL, HATCH_UNDERLAY, INK
 
 
 def render_floor_svg_from_ir(

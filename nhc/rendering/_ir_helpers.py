@@ -1,4 +1,5 @@
-"""Shared predicates and geometry utilities for SVG rendering."""
+"""Shared predicates, constants and geometry utilities for the
+IR emitter (and the retained SVG-shape helper modules)."""
 
 from __future__ import annotations
 
@@ -9,7 +10,7 @@ from nhc.rendering import _perlin as _noise
 
 from nhc.dungeon.model import Level, SurfaceType, Terrain
 
-# ── Constants (shared across SVG modules) ──────────────────────────
+# ── Constants (shared across IR-emitter modules) ───────────────────
 
 CELL = 32          # pixels per grid cell
 PADDING = 32       # padding around the map (must match web client)

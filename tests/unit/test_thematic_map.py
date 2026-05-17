@@ -20,7 +20,7 @@ from nhc.dungeon.model import (
     Level, LevelMetadata, Rect, RectShape, Room, SurfaceType,
     Terrain, Tile,
 )
-from nhc.rendering._svg_helpers import CELL
+from nhc.rendering._ir_helpers import CELL
 from nhc.rendering._cave_geometry import (
     _cave_svg_outline, _densify_ring, _jitter_ring_outward,
     _smooth_closed_path,

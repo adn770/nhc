@@ -24,7 +24,7 @@ from nhc.dungeon.model import (
 )
 
 
-CELL = 32  # mirrors nhc.rendering._svg_helpers.CELL
+CELL = 32  # mirrors nhc.rendering._ir_helpers.CELL
 
 
 # ── outline_from_rect ─────────────────────────────────────────────

@@ -41,7 +41,7 @@ from nhc.dungeon.model import (
 from nhc.rendering._room_outlines import (
     _hybrid_vertices, _intersect_outline, _temple_vertices,
 )
-from nhc.rendering._svg_helpers import _find_doorless_openings
+from nhc.rendering._ir_helpers import _find_doorless_openings
 from nhc.rendering.ir._fb.Cut import CutT
 from nhc.rendering.ir._fb.CutStyle import CutStyle
 from nhc.rendering.ir._fb.Outline import OutlineT
@@ -49,7 +49,7 @@ from nhc.rendering.ir._fb.OutlineKind import OutlineKind
 from nhc.rendering.ir._fb.Vec2 import Vec2T
 
 
-CELL = 32  # mirrors nhc.rendering._svg_helpers.CELL
+CELL = 32  # mirrors nhc.rendering._ir_helpers.CELL
 
 # Mapping from a tile.feature string to the v4 :enum:`CutStyle`.
 # Pinned per plans/nhc_pure_ir_plan.md §1.11 — door_secret looks

@@ -17,7 +17,7 @@ from typing import Any, Callable
 
 import flatbuffers
 
-from nhc.rendering._svg_helpers import CELL, PADDING
+from nhc.rendering._ir_helpers import CELL, PADDING
 from nhc.rendering.emit.materials import (
     material_cave, material_earth, material_liquid, material_plain,
     material_special, material_stone, material_wood,

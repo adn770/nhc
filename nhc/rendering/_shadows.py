@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from nhc.dungeon.model import Level, Room, SurfaceType
-from nhc.rendering._svg_helpers import CELL, INK, _is_door
+from nhc.rendering._ir_helpers import CELL, INK, _is_door
 
 
 def _room_shadow_svg(room: Room) -> str:

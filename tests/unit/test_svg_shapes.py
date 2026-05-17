@@ -16,7 +16,7 @@ from nhc.dungeon.model import (
     PillShape, Rect, RectShape, Room, RoomShape, SurfaceType,
     TempleShape, Terrain, Tile,
 )
-from nhc.rendering._svg_helpers import (
+from nhc.rendering._ir_helpers import (
     BG, CELL, FLOOR_COLOR, FLOOR_STONE_FILL, GRID_WIDTH,
     HATCH_UNDERLAY, PADDING, WALL_WIDTH,
 )

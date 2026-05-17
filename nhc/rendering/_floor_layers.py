@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import Any, Callable, Iterable
 
 from nhc.dungeon.model import SurfaceType, Terrain
-from nhc.rendering._svg_helpers import _is_door
+from nhc.rendering._ir_helpers import _is_door
 
 
 def _collect_corridor_tiles(
@@ -80,7 +80,7 @@ def _collect_corridor_components(
         return []
     from shapely.geometry import Polygon as _ShapelyPolygon
     from shapely.ops import unary_union as _unary_union
-    from nhc.rendering._svg_helpers import CELL
+    from nhc.rendering._ir_helpers import CELL
 
     tile_boxes = [
         _ShapelyPolygon([
@@ -131,7 +131,7 @@ def _collect_cave_systems(
         return []
     from shapely.geometry import Polygon as _ShapelyPolygon
     from shapely.ops import unary_union as _unary_union
-    from nhc.rendering._svg_helpers import CELL
+    from nhc.rendering._ir_helpers import CELL
 
     tile_boxes = [
         _ShapelyPolygon([
@@ -199,7 +199,7 @@ def _collect_predicate_components(
         return []
     from shapely.geometry import Polygon as _ShapelyPolygon
     from shapely.ops import unary_union as _unary_union
-    from nhc.rendering._svg_helpers import CELL
+    from nhc.rendering._ir_helpers import CELL
 
     tile_boxes = [
         _ShapelyPolygon([
@@ -274,7 +274,7 @@ def _terrain_cluster_coords(
         return []
     from shapely.geometry import Polygon as _ShapelyPolygon
     from shapely.ops import unary_union as _unary_union
-    from nhc.rendering._svg_helpers import CELL
+    from nhc.rendering._ir_helpers import CELL
 
     tile_boxes = [
         _ShapelyPolygon([

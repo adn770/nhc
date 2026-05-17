@@ -24,7 +24,7 @@ from nhc.rendering.ir._fb.Region import RegionT
 from nhc.rendering.ir._fb.Vec2 import Vec2T
 from nhc.rendering.emit.materials import material_plain
 
-from nhc.rendering._svg_helpers import CELL
+from nhc.rendering._ir_helpers import CELL
 
 from ._builder import (
     CatalogPageSpec, ColumnSpec,

@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING
 from nhc.dungeon.model import (
     CircleShape, LShape, OctagonShape, RectShape,
 )
-from nhc.rendering._svg_helpers import CELL, PADDING
+from nhc.rendering._ir_helpers import CELL, PADDING
 
 if TYPE_CHECKING:
     from nhc.dungeon.building import Building
