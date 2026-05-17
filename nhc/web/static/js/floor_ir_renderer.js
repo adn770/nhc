@@ -1,10 +1,9 @@
 // Browser-side dispatcher for the WASM rendering path.
 //
-// Phase 5.4 of plans/nhc_pure_ir_v5_migration_plan.md. Loaded
-// only when the server runs with --render-mode wasm; the meta
-// tag injected by templates/index.html flips map.js's
-// _renderMode() and setFloorURL() routes here instead of the
-// PNG / SVG branches.
+// NIR-only: the game always renders the floor browser-side from
+// the NIR. map.js's setFloorURL() imports this module lazily on
+// the first floor change and falls back to the PNG endpoint only
+// if the WASM bundle fails to load.
 //
 // The dispatcher:
 //
@@ -32,10 +31,10 @@ async function loadModule() {
       // Cache-bust against the same `?v=` token templates use
       // for static JS/CSS so a fresh wasm-pack build invalidates
       // the browser's cached bundle. The token is injected as a
-      // `<meta name="static-version">` tag in index.html alongside
-      // the existing `render-mode` meta — no fallback to a
-      // hard-coded value because a missing tag means a
-      // templating bug, not something to silently work around.
+      // `<meta name="static-version">` tag in index.html — no
+      // fallback to a hard-coded value because a missing tag
+      // means a templating bug, not something to silently work
+      // around.
       const meta = document.querySelector('meta[name="static-version"]');
       const v = meta ? meta.getAttribute("content") : "0";
       const mod = await import(`/wasm/nhc_render_wasm.js?v=${v}`);

@@ -289,33 +289,18 @@ const GameMap = {
    */
   async setFloorURL(url) {
     if (!url) return;
-    const mode = this._renderMode();
-    if (mode === "svg") {
-      await this._loadFloorSVG(url + ".svg");
+    // NIR-only: the browser rasterises the .nir buffer via the
+    // WASM dispatcher. The PNG path is kept solely as a
+    // WASM-load-failure fallback so a broken / missing bundle
+    // doesn't strand the player on a blank screen.
+    try {
+      await this._loadFloorWASM(url + ".nir");
       return;
-    }
-    if (mode === "wasm") {
-      try {
-        await this._loadFloorWASM(url + ".nir");
-        return;
-      } catch (err) {
-        // Phase 5.4 dispatcher errors fall back to PNG so a
-        // broken bundle / missing route doesn't strand the
-        // player on a blank screen during dev. Log once at
-        // warn so the regression surfaces.
-        console.warn("[setFloorURL] wasm path failed, falling "
-                     + "back to PNG:", err);
-      }
+    } catch (err) {
+      console.warn("[setFloorURL] wasm path failed, falling "
+                   + "back to PNG:", err);
     }
     await this._loadFloorPNG(url + ".png");
-  },
-
-  _renderMode() {
-    if (this._cachedRenderMode) return this._cachedRenderMode;
-    const meta = document.querySelector('meta[name="render-mode"]');
-    const value = meta ? meta.getAttribute("content") : null;
-    this._cachedRenderMode = value || "png";
-    return this._cachedRenderMode;
   },
 
   async _loadFloorPNG(url) {
@@ -356,11 +341,11 @@ const GameMap = {
   },
 
   async _loadFloorWASM(url) {
-    // Phase 5.4 dispatcher entry. Imports the dispatcher
-    // module lazily so the (~150 KB gzipped) wasm bundle isn't
-    // requested when the page is in PNG / SVG mode. Throws on
-    // fetch / init / render failure — the caller in
-    // setFloorURL catches and falls back to PNG.
+    // WASM dispatcher entry. Imports the dispatcher module
+    // lazily so the (~150 KB gzipped) wasm bundle is only
+    // fetched on the first floor change. Throws on fetch / init
+    // / render failure — setFloorURL catches and falls back to
+    // the PNG endpoint.
     const mod = await import(
       "/static/js/floor_ir_renderer.js?v="
       + (document.querySelector('meta[name="static-version"]')
@@ -372,40 +357,10 @@ const GameMap = {
     this._installFloorDimensions(width, height, "WASM");
   },
 
-  async _loadFloorSVG(url) {
-    try {
-      const svgString = await fetch(url).then(r => {
-        if (!r.ok) throw new Error(`SVG fetch ${r.status}`);
-        return r.text();
-      });
-      this.setFloorSVG(svgString);
-    } catch (err) {
-      console.error("[setFloorURL] SVG path failed:", err);
-    }
-  },
-
-  setFloorSVG(svgString) {
-    const container = document.getElementById("floor-svg");
-    const prevSvg = container.querySelector("svg");
-    const prevW = prevSvg ? parseInt(prevSvg.getAttribute("width")) : 0;
-    const prevH = prevSvg ? parseInt(prevSvg.getAttribute("height")) : 0;
-    console.log("[setFloorSVG] replacing: prev=",
-                prevW, "x", prevH, "new length=", svgString.length);
-    container.innerHTML = svgString;
-    const svg = container.querySelector("svg");
-    if (!svg) {
-      console.warn("No <svg> found in floor SVG string");
-      return;
-    }
-    const w = parseInt(svg.getAttribute("width"));
-    const h = parseInt(svg.getAttribute("height"));
-    this._installFloorDimensions(w, h, "SVG");
-  },
-
   /**
-   * Common post-install path shared by setFloorURL (PNG branch)
-   * and setFloorSVG: size every overlay canvas to the floor
-   * pixel dimensions and trigger the per-view auto-fit.
+   * Common post-install path shared by the WASM and PNG-fallback
+   * branches of setFloorURL: size every overlay canvas to the
+   * floor pixel dimensions and trigger the per-view auto-fit.
    */
   _installFloorDimensions(w, h, kind) {
     console.log(`[setFloor${kind}] installed: new=`, w, "x", h,
