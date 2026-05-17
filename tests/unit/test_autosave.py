@@ -418,25 +418,26 @@ class TestIRArtefactsDiskCache:
         assert loaded.png is None
 
     def test_save_svg_cache_invalidates_stale_ir_sidecar(self, tmp_path):
-        """``save_svg_cache`` overwrites floor.svg / hatch.svg for
-        the current floor. Any IR sidecar that predates this write
-        is for a previous floor render and must go — otherwise a
-        future ``load_ir_artefacts`` would warm the cache with an
-        IR that no longer matches the on-disk SVG.
+        """``save_svg_cache`` writes floor.svg for the current
+        floor. Any IR sidecar that predates this write is for a
+        previous floor render and must go — otherwise a future
+        ``load_ir_artefacts`` would warm the cache with an IR that
+        no longer matches the on-disk SVG.
         """
         from nhc.core.autosave import (
             save_ir_artefacts, save_svg_cache, load_ir_artefacts,
+            load_svg_cache,
         )
         save_ir_artefacts(self._entry(), tmp_path)
         assert (tmp_path / "floor.nir").exists()
-        save_svg_cache(
-            "<svg>floor 2</svg>", "<svg>hatch</svg>", tmp_path,
-        )
-        # The svg pair lives, the IR sidecar is gone.
+        save_svg_cache("<svg>floor 2</svg>", tmp_path)
+        # The floor svg lives, the IR sidecar is gone.
         assert (tmp_path / "floor.svg").exists()
         assert not (tmp_path / "floor.nir").exists()
         assert not (tmp_path / "floor.meta.json").exists()
         assert load_ir_artefacts(tmp_path) is None
+        # load_svg_cache returns the floor SVG string (no hatch).
+        assert load_svg_cache(tmp_path) == "<svg>floor 2</svg>"
 
 
 class TestFileOperations:

@@ -1408,7 +1408,6 @@ class WebClient(GameClient):
             # injected `<meta name="render-mode">`.
             "floor_url": (f"{self._base_url}"
                           f"/floor/{self.floor_svg_id}"),
-            "hatch_url": "/api/hatch.svg",
             "entities": entities,
             "doors": doors,
             "dug": dug,

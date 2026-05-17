@@ -96,6 +96,18 @@ class TestWebClientRenderModeSvgSkip:
         assert seen == []
         assert wc.floor_svg_id == "deadbeefcafe"
 
+    def test_floor_payload_has_no_hatch_url(self, monkeypatch):
+        """The hatch tile is a static client asset now — the floor
+        message no longer carries a hatch_url."""
+        self._trackers(monkeypatch)
+        wc = WebClient(render_mode="wasm")
+        level, world = self._level_world()
+        wc.send_floor_change(level, world, 1, 0)
+        floor = [m for m in _drain_queue(wc) if m["type"] == "floor"]
+        assert floor, "no floor message queued"
+        assert "hatch_url" not in floor[0]
+        assert "floor_url" in floor[0]
+
 
 class TestWebClientMessages:
     def test_add_message_queues_json(self, client):

@@ -96,3 +96,12 @@ wasm-pack'"; exit 1; }
 	@echo "==> wasm-opt $(WASM_OPT_FLAGS)"
 	wasm-opt $(WASM_PKG) -o $(WASM_PKG).opt $(WASM_OPT_FLAGS)
 	mv $(WASM_PKG).opt $(WASM_PKG)
+
+# Regenerate the committed static hatch-pattern JS asset. The
+# seed=0 Dyson tile never varies, so it ships as a base64 SVG
+# data URI in nhc/web/static/js/hatch_pattern.js instead of the
+# old /api/hatch.svg endpoint. Run only when render_hatch_svg
+# changes (rare).
+.PHONY: hatch-pattern
+hatch-pattern:
+	$(PYTHON) tools/gen_hatch_pattern.py

@@ -171,12 +171,6 @@ def create_app(
     # don't leak worker processes.
     atexit.register(gen_pool.shutdown, wait=False, cancel_futures=True)
 
-    # Pre-generate the hatch SVG once — it's seed-independent and
-    # shared across all games so we serve it as a static asset.
-    from nhc.rendering.svg import render_hatch_svg
-    _hatch_svg = render_hatch_svg(seed=0)
-    logger.info("Hatch SVG generated at startup: %d bytes", len(_hatch_svg))
-
     # TTS availability — toolbar gates the speaker button on this.
     from nhc.web.tts import PIPER_AVAILABLE, SUPPORTED_LANGUAGES
     if PIPER_AVAILABLE:
@@ -848,7 +842,7 @@ def create_app(
             else:
                 cached = load_svg_cache(save_dir)
                 if cached:
-                    client.floor_svg = cached[0]
+                    client.floor_svg = cached
                     client.floor_svg_id = _uuid.uuid4().hex[:12]
                     logger.info("Resume: floor SVG from disk cache")
                 elif game.level:
@@ -864,9 +858,7 @@ def create_app(
                         )
                     )
                     client.floor_svg_id = _uuid.uuid4().hex[:12]
-                    save_svg_cache(
-                        client.floor_svg, _hatch_svg, save_dir
-                    )
+                    save_svg_cache(client.floor_svg, save_dir)
         if client.floor_svg_id and game.level:
             game._svg_cache[depth] = (
                 client.floor_svg_id, client.floor_svg,
@@ -1073,7 +1065,7 @@ def create_app(
                 cached = (load_svg_cache(session.save_dir)
                           if not reset else None)
                 if cached:
-                    client.floor_svg = cached[0]
+                    client.floor_svg = cached
                     client.floor_svg_id = _uuid.uuid4().hex[:12]
                     logger.info("Floor SVG from disk cache: %d bytes",
                                 len(client.floor_svg))
@@ -1096,7 +1088,7 @@ def create_app(
                         client.floor_svg_id, len(client.floor_svg),
                     )
                     save_svg_cache(
-                        client.floor_svg, _hatch_svg, session.save_dir,
+                        client.floor_svg, session.save_dir,
                     )
                 else:
                     logger.warning("No level — floor SVG not generated")
@@ -1172,13 +1164,6 @@ def create_app(
         import nhc_render
         svg = nhc_render.ir_to_svg(entry.nir, bare=bare)
         resp = make_response(svg)
-        resp.headers["Content-Type"] = "image/svg+xml"
-        resp.headers["Cache-Control"] = "public, max-age=604800"
-        return resp
-
-    @app.route("/api/hatch.svg", methods=["GET"])
-    def global_hatch_svg():
-        resp = make_response(_hatch_svg)
         resp.headers["Content-Type"] = "image/svg+xml"
         resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp

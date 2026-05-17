@@ -358,6 +358,14 @@ class TestHealth:
         assert resp.get_json()["sessions"] == 1
 
 
+class TestHatchEndpointRemoved:
+    """The hatch tile ships as a static JS asset; the per-server
+    /api/hatch.svg endpoint is gone."""
+
+    def test_hatch_svg_route_404(self, client):
+        assert client.get("/api/hatch.svg").status_code == 404
+
+
 class TestGameAPI:
     def test_create_game(self, client):
         resp = client.post(

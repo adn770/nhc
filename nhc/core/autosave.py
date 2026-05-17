@@ -517,9 +517,12 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
 # ── SVG cache ───────────────────────────────────────────────
 
 def save_svg_cache(
-    floor_svg: str, hatch_svg: str, save_dir: Path | None = None,
+    floor_svg: str, save_dir: Path | None = None,
 ) -> None:
-    """Cache floor and hatch SVG alongside the autosave.
+    """Cache the floor SVG alongside the autosave.
+
+    The hatch tile is a static client asset (hatch_pattern.js), so
+    only the per-floor SVG is cached here.
 
     Phase 2.3.1: invalidate any stale IR sidecar in the same
     directory. The disk IR cache is single-floor (one ``floor.nir``
@@ -533,32 +536,27 @@ def save_svg_cache(
     d.mkdir(parents=True, exist_ok=True)
     try:
         (d / "floor.svg").write_text(floor_svg, encoding="utf-8")
-        (d / "hatch.svg").write_text(hatch_svg, encoding="utf-8")
         for sidecar in (
             "floor.nir", "floor.ir.json", "floor.png",
             "floor.meta.json",
         ):
             _unlink_if_exists(d / sidecar)
-        logger.debug("SVG cache saved: floor=%d hatch=%d bytes",
-                     len(floor_svg), len(hatch_svg))
+        logger.debug("SVG cache saved: floor=%d bytes", len(floor_svg))
     except Exception:
         logger.error("SVG cache save failed", exc_info=True)
 
 
 def load_svg_cache(
     save_dir: Path | None = None,
-) -> tuple[str, str] | None:
-    """Load cached floor and hatch SVG.  Returns (floor, hatch) or None."""
+) -> str | None:
+    """Load the cached floor SVG.  Returns the SVG string or None."""
     d, _ = _resolve(save_dir)
     floor_path = d / "floor.svg"
-    hatch_path = d / "hatch.svg"
-    if floor_path.exists() and hatch_path.exists():
+    if floor_path.exists():
         try:
             floor = floor_path.read_text(encoding="utf-8")
-            hatch = hatch_path.read_text(encoding="utf-8")
-            logger.debug("SVG cache loaded: floor=%d hatch=%d bytes",
-                         len(floor), len(hatch))
-            return floor, hatch
+            logger.debug("SVG cache loaded: floor=%d bytes", len(floor))
+            return floor
         except Exception:
             logger.error("SVG cache load failed", exc_info=True)
     return None

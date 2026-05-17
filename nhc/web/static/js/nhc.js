@@ -151,9 +151,7 @@ const NHC = {
         GameMap.updateFOV(msg);
         console.log("[floor] updateFOV:", msg.fov.length, "tiles");
       }
-      if (msg.hatch_url) {
-        GameMap.loadHatchSVG(msg.hatch_url);
-      }
+      GameMap.loadHatchPattern();
       const mapContainer = document.getElementById("map-container");
       const hexContainer = document.getElementById("hex-container");
       const flowerContainer = document.getElementById("flower-container");

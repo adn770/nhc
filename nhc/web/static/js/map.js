@@ -38,7 +38,7 @@ const GameMap = {
   // direction sits on a wall line. Drives clearHatch.
   walls: new Map(),
   // Cumulative walkable-explored tiles with wall masks, used by
-  // loadHatchSVG to replay the full reveal in one bulk clear.
+  // loadHatchPattern to replay the full reveal in one bulk clear.
   exploredWalls: new Map(),
   _hatchReady: false,
   doorInfo: new Map(),  // "x,y" → {edge, state}
@@ -679,16 +679,19 @@ const GameMap = {
   },
 
   /**
-   * Load a small hatching SVG patch, create a repeating pattern,
-   * and fill the full hatch canvas with it. Once the pattern is
-   * stamped, replay the accumulated explored set as a one-shot
-   * bulk clear so reconnects and floor transitions preserve the
-   * visual exploration memory.
+   * Stamp the static Dyson hatch tile across the hatch canvas as
+   * a repeating pattern. The tile is a build-time constant
+   * (window.NHC_HATCH_URI, a base64 SVG data URI from
+   * hatch_pattern.js) — it never varies, so there is no endpoint
+   * or per-game fetch. Once stamped, replay the accumulated
+   * explored set as a one-shot bulk clear so reconnects and floor
+   * transitions preserve the visual exploration memory.
    */
-  loadHatchSVG(url) {
-    console.log("loadHatchSVG:", url, "ctx=", !!this.hatchCtx);
+  loadHatchPattern() {
+    const url = window.NHC_HATCH_URI;
+    console.log("loadHatchPattern: ctx=", !!this.hatchCtx);
     if (!this.hatchCtx || !url) {
-      console.warn("loadHatchSVG SKIPPED: no ctx or url");
+      console.warn("loadHatchPattern SKIPPED: no ctx or pattern");
       return;
     }
     this._hatchReady = false;
