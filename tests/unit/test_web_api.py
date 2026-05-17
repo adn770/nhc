@@ -1013,6 +1013,42 @@ class TestFloorIRRoutes:
         )
         assert resp.status_code == 404
 
+    def test_svg_for_god_mode(self, client_with_data_dir):
+        """NIR-only: .svg has no game role and now ships only the
+        authoring/debug renderer surface, god-gated like .json."""
+        sid, svg_id = self._start_dungeon_game(
+            client_with_data_dir, god_mode=True,
+        )
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.svg",
+        )
+        assert resp.status_code == 200
+        assert resp.headers["Content-Type"] == "image/svg+xml"
+
+    def test_svg_404_when_not_god_mode(self, client_with_data_dir):
+        sid, svg_id = self._start_dungeon_game(client_with_data_dir)
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.svg",
+        )
+        # Mirrors .json: hide the route's existence rather than 403.
+        assert resp.status_code == 404
+
+    def test_svg_404_for_unknown_session(self, client_with_data_dir):
+        resp = client_with_data_dir.get(
+            "/api/game/no-such-sid/floor/no-such-id.svg",
+        )
+        assert resp.status_code == 404
+
+    def test_png_open_without_god_mode(self, client_with_data_dir):
+        """D2: .png stays reachable without god mode — the client's
+        WASM-load-failure fallback fetches it in normal sessions."""
+        sid, svg_id = self._start_dungeon_game(client_with_data_dir)
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.png",
+        )
+        assert resp.status_code == 200
+        assert resp.headers["Content-Type"] == "image/png"
+
 
 class TestFloorPngViaIR:
     """Phase 2.2 of plans/nhc_ir_migration_plan.md.
@@ -1247,7 +1283,7 @@ class TestFloorIRArtefactsDiskWiring:
         structural-sanity gate across the parity harness.
         """
         sid, session, svg_id = self._start_dungeon_game(
-            client_with_data_dir,
+            client_with_data_dir, god_mode=True,
         )
         resp = client_with_data_dir.get(
             f"/api/game/{sid}/floor/{svg_id}.svg",
@@ -1280,7 +1316,7 @@ class TestFloorIRArtefactsDiskWiring:
         well-formed SVG document.
         """
         sid, session, svg_id = self._start_dungeon_game(
-            client_with_data_dir,
+            client_with_data_dir, god_mode=True,
         )
         bare = client_with_data_dir.get(
             f"/api/game/{sid}/floor/{svg_id}.svg?bare=1",

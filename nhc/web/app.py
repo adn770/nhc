@@ -1039,15 +1039,23 @@ def create_app(
                methods=["GET"])
     @_player_auth
     def game_floor_svg(session_id: str, svg_id: str):
+        """SVG render of the floor — authoring/debug surface only.
+
+        NIR-only: the game never fetches this; the browser
+        rasterises the .nir. The endpoint stays as on-demand
+        access to the retained Rust ``ir_to_svg`` renderer for a
+        future authoring tool. God-mode-gated like .json — hide
+        the route's existence (404, not 403) from non-god
+        sessions. `bare=1` strips the decoration layers
+        (floor_detail / terrain_detail / surface_features) for the
+        /admin debug visualisation; the default returns the full
+        composite.
+        """
         session = sessions.get(session_id)
         if not session:
             return "session not found", 404
-        # Phase 10.1: every floor SVG ships from the IR pipeline.
-        # `bare=1` strips the decoration layers (floor_detail /
-        # terrain_detail / surface_features) for the /admin debug
-        # visualisation; the default returns the full composite —
-        # byte-equal to the legacy `render_floor_svg` output the
-        # parity harness in `tests/unit/test_ir_to_svg.py` pins.
+        if not session.game or not session.game.god_mode:
+            return "floor SVG not found", 404
         entry = _get_or_build_ir_artefacts(session, svg_id)
         if entry is None:
             return "floor SVG not found", 404
@@ -1069,13 +1077,13 @@ def create_app(
     def game_floor_png(session_id: str, svg_id: str):
         """Floor rasterised to PNG via tiny-skia.
 
-        IR-covered floors skip the SVG hop entirely:
-        ``IR → nhc_render.ir_to_png → PNG``. Phase 2.3 caches the
+        NIR-only: this is the client's WASM-load-failure fallback,
+        so it stays reachable without god mode (unlike the
+        god-gated .svg / .json siblings). ``IR →
+        nhc_render.ir_to_png → PNG``; Phase 2.3 caches the
         rasterised bytes on ``IRArtefacts`` so repeat hits skip
-        the rasteriser too. Phase 5.8 retired the resvg-py
-        fallback for non-IR floors — building / site-surface
-        composite SVGs return 404 here and the client falls back
-        to the sibling .svg endpoint and inline-SVG rendering.
+        the rasteriser too. Building / site-surface composite
+        floors return 404 here.
 
         URL shape mirrors the .svg endpoint so the UUID-anchored
         cache contract is identical: the PNG with id X always
