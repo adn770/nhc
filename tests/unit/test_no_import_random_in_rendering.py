@@ -34,8 +34,6 @@ _ALLOWLIST: frozenset[str] = frozenset({
     # Procedural masonry / roof / wall geometry — used by the
     # IR emitter to compute polygon paths; RNG is per-call,
     # seeded from the IR's deterministic seed slots.
-    "_building_walls.py",
-    "_doors_svg.py",
     "_dungeon_polygon.py",
     "_cave_geometry.py",
     "_enclosures.py",

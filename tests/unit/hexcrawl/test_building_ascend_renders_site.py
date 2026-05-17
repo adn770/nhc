@@ -1,11 +1,10 @@
 """Ascend / descend between building floors must pass the active
-Site through to ``send_floor_change`` so the renderer picks the
-building path and draws interior edge walls.
+Site through to ``send_floor_change`` so the NIR emitter
+(``build_floor_ir(site=...)``) picks the building overlay.
 
 Regression: on a mid-session ascent the caller dropped the
-``site=`` kwarg, so ``render_level_svg`` fell back to the plain
-dungeon renderer and no interior-wall <line> elements were
-emitted on the upper floor.
+``site=`` kwarg, so the floor IR was built without the building
+context and the upper floor rendered as a plain dungeon.
 """
 
 from __future__ import annotations
@@ -154,7 +153,7 @@ def test_ascend_passes_site_to_send_floor_change(tmp_path) -> None:
     assert last["floor_index"] == 1
     assert last["site"] is site, (
         "ascent must pass the active Site to send_floor_change, "
-        "otherwise render_level_svg drops to the plain dungeon "
-        "renderer and interior edge walls disappear from the "
-        "upper floor"
+        "otherwise build_floor_ir builds the floor without the "
+        "building overlay and the upper floor renders as a plain "
+        "dungeon"
     )

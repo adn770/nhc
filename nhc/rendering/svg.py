@@ -81,13 +81,11 @@ def render_floor_svg(
 
     *building_footprint* is the set of tiles that lie INSIDE the
     enclosing Building's shape (octagon, circle, ...). When set,
-    the wall pass skips tile-edge segments where the void
-    neighbour sits OUTSIDE the footprint -- those chamfer steps
-    are owned by the diagonal masonry renderer in
-    :mod:`nhc.rendering._building_walls`. Pass ``None`` (or omit)
-    when rendering a non-building level (dungeon floor, town
-    surface, ...) and the legacy "all tile-edge walls" pass
-    runs unchanged.
+    the IR emitter skips tile-edge wall segments where the void
+    neighbour sits OUTSIDE the footprint so the smooth-shape
+    ExteriorWallOp owns the chamfer outline. Pass ``None`` (or
+    omit) for a non-building level (dungeon floor, town surface,
+    ...).
 
     *building_polygon* is the pixel-space outer outline of the
     enclosing Building (level-local coords, no PADDING). When

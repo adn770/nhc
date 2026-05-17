@@ -21,7 +21,6 @@ from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RectShape,
     Room, Terrain, Tile,
 )
-from nhc.rendering.building import render_building_floor_svg
 from nhc.rendering.svg import render_floor_svg
 from nhc.sites._site import (
     combined_building_bboxes,
@@ -145,35 +144,6 @@ class TestOctagonWallRendering:
             f"expected ≥ 1 wall path for the octagon ExteriorWallOp, "
             f"got {with_count}"
         )
-
-    def test_render_building_floor_svg_uses_footprint(self):
-        """The Building wrapper passes the footprint down to
-        render_floor_svg so the standalone building SVG no
-        longer paints clipped-corner walls inside the diagonal
-        masonry."""
-        building, level = _make_octagon_floor()
-        svg = render_building_floor_svg(building, 0, seed=0)
-        # The clipped corner tile-edges (e.g. between (1, 0)
-        # and (2, 0)) sit at pixel x=64, y=0..32. The thick-
-        # wall path must not contain that vertical segment.
-        # CELL = 32, PADDING for render_floor_svg is 0; the
-        # path is wrapped in a <g transform="translate(32,32)">
-        # so coords inside are in level-local space.
-        forbidden_segments = [
-            "M64,0 L64,32",   # left edge of (2, 0) -- clipped
-            "M0,64 L0,96",    # left edge of (0, 2) is OK; this
-                              # is the chamfer step at top-left
-                              # which should NOT be stamped.
-        ]
-        # We only check the first one strictly -- the second
-        # comment is illustrative. The thick-wall path uses
-        # absolute pixel coords; check via 64,0 and 64,32.
-        for seg in forbidden_segments[:1]:
-            assert seg not in svg, (
-                f"octagon SVG still emits clipped-corner wall "
-                f"segment {seg!r}"
-            )
-
 
 # ── 3. Door placement avoids diagonal walls ───────────────────
 
