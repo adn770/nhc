@@ -277,14 +277,12 @@ async def test_keep_entry_pre_reveals_non_void_tiles(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_svg_cache_keyed_by_level_id_not_depth(tmp_path) -> None:
-    """Regression: an earlier `_svg_cache` was keyed by depth,
-    which collided when the town surface (depth=0 via
-    Level.create_empty but passed as 1 to _notify_floor_change) and
-    a building ground floor (depth=1 by construction) both landed
-    in the same slot. The building interior was served the cached
-    town-surface SVG as a result. Keying by level.id avoids the
-    collision."""
+async def test_building_interior_renders_its_own_level(tmp_path) -> None:
+    """NIR-only: with the floor-SVG cache gone there is no shared
+    slot to collide on, so a building interior can never be served
+    the town surface's render. This guards the surviving invariant
+    directly: each floor change reflects the Level the player is
+    actually on (surface, then building interior)."""
     g = _make_game(tmp_path)
     g.renderer = _RecordingClient()
     _attach_town_site(g, HexCoord(0, 0))
@@ -292,11 +290,7 @@ async def test_svg_cache_keyed_by_level_id_not_depth(tmp_path) -> None:
     surface_level = g.level
     assert surface_level is not None
     assert g.renderer.floor_svg.endswith(f"data-level='{surface_level.id}'/>")
-    # Cache must be keyed by level.id, not a depth integer.
-    assert surface_level.id in g._svg_cache
-    assert all(
-        isinstance(k, str) for k in g._svg_cache.keys()
-    ), f"_svg_cache keys must be strings, got {list(g._svg_cache)}"
+    assert not hasattr(g, "_svg_cache")
 
     # Swap into one of the buildings (ground floor). Pick any
     # walkable tile from the ground floor to seed the position.

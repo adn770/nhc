@@ -115,22 +115,21 @@ def _submit_final_score(session) -> None:
 def _send_floor_state(ws, session, client, base_url: str) -> None:
     """Send floor/entity/fov state to a newly connected WebSocket."""
     game = session.game
-    if client.floor_svg and game.level:
+    if game.level and client.floor_svg_id:
         entities = client._gather_entities(
             game.world, game.level, game.player_id)
         fov = client._gather_fov(game.level)
         doors = client._gather_doors(game.level)
         walk = client._gather_walk(game.level)
         explored = client._gather_explored(game.level)
-        logger.info("Sending floor init: floor=%d bytes, "
+        logger.info("Sending floor init: id=%s, "
                     "%d entities, %d doors, %d fov tiles",
-                    len(client.floor_svg),
+                    client.floor_svg_id,
                     len(entities), len(doors), len(fov))
         ws.send(json.dumps({
             "type": "floor",
-            # Phase 10.3: extension-less URL — `setFloorURL` in
-            # map.js appends `.png` / `.svg` / `.nir` based on the
-            # `<meta name="render-mode">` injected by app.py.
+            # NIR-only: the browser appends `.nir` and rasterises
+            # the buffer fetched from the floor endpoint.
             "floor_url": f"{base_url}/floor/{client.floor_svg_id}",
             "entities": entities,
             "doors": doors,
@@ -139,14 +138,8 @@ def _send_floor_state(ws, session, client, base_url: str) -> None:
             "explored": explored,
             "turn": game.turn,
         }))
-    elif client.floor_svg:
-        logger.info("Sending floor init (no level state)")
-        ws.send(json.dumps({
-            "type": "floor",
-            "floor_url": f"{base_url}/floor.svg",
-        }))
     else:
-        logger.warning("No floor SVG to send!")
+        logger.warning("No floor to send (no level / id)!")
 
     if game.god_mode and game.level:
         ws.send(json.dumps({

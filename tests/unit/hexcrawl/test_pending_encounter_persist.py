@@ -46,7 +46,6 @@ class _StubGame:
         self.style = "classic"
         self.renderer = _FakeRenderer()
         self._floor_cache: dict = {}
-        self._svg_cache: dict = {}
         self._knowledge = None
         self._character = None
         self._seen_creatures: set = set()

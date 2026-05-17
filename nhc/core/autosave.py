@@ -202,14 +202,15 @@ def has_autosave(save_dir: Path | None = None) -> bool:
 
 
 def delete_autosave(save_dir: Path | None = None) -> None:
-    """Remove autosave file and cached SVGs (on death, victory, or reset)."""
-    save_dir_resolved, path = _resolve(save_dir)
+    """Remove the autosave file (on death, victory, or reset).
+
+    NIR-only: there are no floor.svg / hatch.svg sidecars to purge
+    anymore — the floor is rebuilt from level state on demand.
+    """
+    _, path = _resolve(save_dir)
     try:
         existed = path.exists()
         path.unlink(missing_ok=True)
-        # Also purge SVG cache so a fresh game doesn't load stale maps
-        for name in ("floor.svg", "hatch.svg"):
-            (save_dir_resolved / name).unlink(missing_ok=True)
         logger.info("Autosave delete: existed=%s, path=%s", existed, path)
     except OSError:
         logger.error("Autosave delete FAILED", exc_info=True)
@@ -343,9 +344,6 @@ def _build_payload(game: "Game") -> dict[str, Any]:
         # Floor cache (all visited floors)
         "floor_cache": dict(game._floor_cache),
 
-        # SVG cache (floor SVGs keyed by depth)
-        "svg_cache": dict(game._svg_cache),
-
         # Identification state
         "knowledge_identified": set(game._knowledge.identified)
             if game._knowledge else set(),
@@ -433,15 +431,7 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     # Floor cache
     game._floor_cache = payload.get("floor_cache", {})
 
-    # SVG cache: deliberately dropped on resume. The cache holds
-    # rendered floor SVGs keyed by level id, and the renderer's
-    # configuration (vegetation, hatch_distance, future toggles)
-    # may differ from the run that produced the cached bytes.
-    # Re-rendering on first re-visit costs ~1-3 s and avoids
-    # serving stale SVGs after a config change or deploy.
-    game._svg_cache = {}
-
-    # IR cache: same drop-on-resume policy. The on-disk floor.nir +
+    # IR cache: dropped on resume. The on-disk floor.nir +
     # floor.meta.json sidecar (load_ir_artefacts) is the resume
     # warm-up path for IR; the in-memory cache rebuilds lazily as
     # the .nir / .json / .png routes are hit.
@@ -516,50 +506,6 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
 
 # ── SVG cache ───────────────────────────────────────────────
 
-def save_svg_cache(
-    floor_svg: str, save_dir: Path | None = None,
-) -> None:
-    """Cache the floor SVG alongside the autosave.
-
-    The hatch tile is a static client asset (hatch_pattern.js), so
-    only the per-floor SVG is cached here.
-
-    Phase 2.3.1: invalidate any stale IR sidecar in the same
-    directory. The disk IR cache is single-floor (one ``floor.nir``
-    per save_dir); a fresh SVG write means the previous floor's IR
-    no longer matches what's on disk, and a future
-    ``load_ir_artefacts`` would warm the in-memory cache with bytes
-    that don't describe the loaded SVG. Drop the IR sidecar so the
-    next route hit rebuilds and re-persists in lockstep.
-    """
-    d, _ = _resolve(save_dir)
-    d.mkdir(parents=True, exist_ok=True)
-    try:
-        (d / "floor.svg").write_text(floor_svg, encoding="utf-8")
-        for sidecar in (
-            "floor.nir", "floor.ir.json", "floor.png",
-            "floor.meta.json",
-        ):
-            _unlink_if_exists(d / sidecar)
-        logger.debug("SVG cache saved: floor=%d bytes", len(floor_svg))
-    except Exception:
-        logger.error("SVG cache save failed", exc_info=True)
-
-
-def load_svg_cache(
-    save_dir: Path | None = None,
-) -> str | None:
-    """Load the cached floor SVG.  Returns the SVG string or None."""
-    d, _ = _resolve(save_dir)
-    floor_path = d / "floor.svg"
-    if floor_path.exists():
-        try:
-            floor = floor_path.read_text(encoding="utf-8")
-            logger.debug("SVG cache loaded: floor=%d bytes", len(floor))
-            return floor
-        except Exception:
-            logger.error("SVG cache load failed", exc_info=True)
-    return None
 
 
 # ── IR artefact cache (Phase 2.3) ───────────────────────────

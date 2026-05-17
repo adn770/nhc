@@ -55,7 +55,6 @@ class FakeGame:
         self.style = "classic"
         self.renderer = FakeRenderer()
         self._floor_cache = {}
-        self._svg_cache = {}
         self._knowledge = None
         self._character = None
         self._seen_creatures = set()
@@ -293,46 +292,27 @@ class TestMultiFloor:
         assert 100 in cached_entities
 
 
-class TestSvgCache:
-    def test_svg_cache_persisted_in_payload(self):
-        """The cache is kept in the payload so a future
-        restoration policy could replay it (e.g. tagged with the
-        renderer config). Today it's written but not loaded."""
-        game = _make_game()
-        game._svg_cache[1] = ("abc123", "<svg>floor1</svg>")
-        game._svg_cache[2] = ("def456", "<svg>floor2</svg>")
+class TestSvgCacheRemoved:
+    """NIR-only: the legacy floor-SVG cache is gone. The autosave
+    payload must not carry an ``svg_cache`` key, and a save built
+    from a fresh game restores cleanly without one."""
 
-        payload = _build_payload(game)
-        assert 1 in payload["svg_cache"]
-        assert 2 in payload["svg_cache"]
-
-    def test_svg_cache_dropped_on_restore(self):
-        """Resuming an autosave must NOT replay the saved SVG
-        cache: the renderer's vegetation / hatch config can
-        change between runs (config flag, deploy), and serving
-        the cached bytes would mask the change. Re-rendering
-        on first re-visit costs ~1-3 s and is the safe default."""
+    def test_payload_has_no_svg_cache_key(self):
         game = _make_game()
-        game._svg_cache[1] = ("abc123", "<svg>floor1</svg>")
         payload = _build_payload(game)
+        assert "svg_cache" not in payload
+
+    def test_restore_ignores_legacy_svg_cache_key(self):
+        """An old save that still carries an ``svg_cache`` key
+        restores cleanly — the key is simply dropped, no attribute
+        is resurrected."""
+        game = _make_game()
+        payload = _build_payload(game)
+        payload["svg_cache"] = {1: ("abc123", "<svg>stale</svg>")}
 
         game2 = FakeGame()
         _restore_payload(game2, payload)
-        assert game2._svg_cache == {}, (
-            "restore must drop the SVG cache to avoid stale "
-            "bytes after a renderer-config change"
-        )
-
-    def test_svg_cache_missing_in_old_saves(self):
-        """Older saves without an svg_cache key still restore
-        cleanly, with an empty in-memory cache."""
-        game = _make_game()
-        payload = _build_payload(game)
-        del payload["svg_cache"]
-
-        game2 = FakeGame()
-        _restore_payload(game2, payload)
-        assert game2._svg_cache == {}
+        assert not hasattr(game2, "_svg_cache")
 
 
 class TestIRArtefactsDiskCache:
@@ -417,27 +397,14 @@ class TestIRArtefactsDiskCache:
         assert loaded is not None
         assert loaded.png is None
 
-    def test_save_svg_cache_invalidates_stale_ir_sidecar(self, tmp_path):
-        """``save_svg_cache`` writes floor.svg for the current
-        floor. Any IR sidecar that predates this write is for a
-        previous floor render and must go — otherwise a future
-        ``load_ir_artefacts`` would warm the cache with an IR that
-        no longer matches the on-disk SVG.
-        """
-        from nhc.core.autosave import (
-            save_ir_artefacts, save_svg_cache, load_ir_artefacts,
-            load_svg_cache,
-        )
-        save_ir_artefacts(self._entry(), tmp_path)
-        assert (tmp_path / "floor.nir").exists()
-        save_svg_cache("<svg>floor 2</svg>", tmp_path)
-        # The floor svg lives, the IR sidecar is gone.
-        assert (tmp_path / "floor.svg").exists()
-        assert not (tmp_path / "floor.nir").exists()
-        assert not (tmp_path / "floor.meta.json").exists()
-        assert load_ir_artefacts(tmp_path) is None
-        # load_svg_cache returns the floor SVG string (no hatch).
-        assert load_svg_cache(tmp_path) == "<svg>floor 2</svg>"
+    def test_svg_cache_helpers_removed(self):
+        """NIR-only: the floor-SVG disk cache helpers are gone.
+        Nothing should import ``save_svg_cache`` / ``load_svg_cache``
+        anymore."""
+        import nhc.core.autosave as autosave_mod
+
+        assert not hasattr(autosave_mod, "save_svg_cache")
+        assert not hasattr(autosave_mod, "load_svg_cache")
 
 
 class TestFileOperations:
@@ -543,17 +510,18 @@ class TestCustomSaveDir:
         delete_autosave(save_dir)
         assert not (save_dir / "autosave.nhc").exists()
 
-    def test_delete_also_removes_svg_cache(self, tmp_path):
+    def test_delete_removes_autosave(self, tmp_path):
+        """NIR-only: there are no floor.svg / hatch.svg sidecars to
+        purge anymore — delete_autosave just drops autosave.nhc and
+        leaves any unrelated files untouched."""
         save_dir = tmp_path / "player_svg"
         save_dir.mkdir(parents=True)
         (save_dir / "autosave.nhc").write_bytes(b"data")
-        (save_dir / "floor.svg").write_text("<svg>floor</svg>")
-        (save_dir / "hatch.svg").write_text("<svg>hatch</svg>")
+        (save_dir / "unrelated.txt").write_text("keep me")
 
         delete_autosave(save_dir)
         assert not (save_dir / "autosave.nhc").exists()
-        assert not (save_dir / "floor.svg").exists()
-        assert not (save_dir / "hatch.svg").exists()
+        assert (save_dir / "unrelated.txt").exists()
 
     def test_two_players_independent_saves(self, tmp_path):
         dir_a = tmp_path / "player_a"

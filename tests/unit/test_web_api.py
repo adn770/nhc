@@ -470,6 +470,47 @@ class TestNewGameSkipsServerSvg:
         assert not hasattr(WebConfig(), "render_mode")
 
 
+class TestWsFloorInitNirOnly:
+    """NIR-only: _send_floor_state emits a floor message keyed by
+    the floor id even though client.floor_svg is always "". The
+    legacy `elif client.floor_svg: .../floor.svg` branch (a route
+    that no longer exists) is gone."""
+
+    def test_floor_init_sends_nir_url(self, tmp_path):
+        import json as _json
+
+        from nhc.web.ws import _send_floor_state
+
+        config = WebConfig(max_sessions=2, data_dir=tmp_path)
+        app = create_app(config)
+        app.config["TESTING"] = True
+        with app.test_client() as c:
+            resp = c.post("/api/game/new", json={})
+            assert resp.status_code == 201
+            sid = resp.get_json()["session_id"]
+            session = c.application.config["SESSIONS"].get(sid)
+            client = session.game.renderer
+            assert client.floor_svg == ""
+            assert client.floor_svg_id
+
+            sent: list[str] = []
+
+            class _FakeWs:
+                def send(self, payload):
+                    sent.append(payload)
+
+            _send_floor_state(
+                _FakeWs(), session, client, f"/api/game/{sid}",
+            )
+            assert sent, "no floor message sent"
+            msg = _json.loads(sent[0])
+            assert msg["type"] == "floor"
+            assert msg["floor_url"] == (
+                f"/api/game/{sid}/floor/{client.floor_svg_id}"
+            )
+            assert "/floor.svg" not in msg["floor_url"]
+
+
 class TestPlayerAPI:
     def test_login_returns_player_info(self, client_with_data_dir):
         token, pid = _register_player(client_with_data_dir)
@@ -1007,20 +1048,14 @@ class TestFloorPngViaIR:
         assert resp.headers["Content-Type"] == "image/png"
         assert resp.get_data()[:8] == b"\x89PNG\r\n\x1a\n"
 
-    def test_png_uses_ir_not_cached_svg(self, client_with_data_dir):
-        """Mangle the cached SVG; a valid PNG still comes back.
-
-        If the route still rasterised the cache, resvg would be
-        handed `<not-an-svg/>` and would either error or produce
-        garbage. A clean PNG header proves the bytes were dumped
-        from the freshly-built IR via ``ir_to_svg``.
+    def test_png_built_from_ir(self, client_with_data_dir):
+        """NIR-only: there is no SVG cache to fall back to, so the
+        .png route can only produce bytes by building the IR and
+        rasterising it. A clean PNG header proves the IR path ran.
         """
         sid, session, svg_id = self._start_dungeon_game(
             client_with_data_dir,
         )
-        depth = session.game.level.depth
-        session.game._svg_cache[depth] = (svg_id, "<not-an-svg/>")
-        session.game.renderer.floor_svg = "<not-an-svg/>"
         resp = client_with_data_dir.get(
             f"/api/game/{sid}/floor/{svg_id}.png",
         )

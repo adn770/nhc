@@ -77,16 +77,23 @@ class TestWebClientAlwaysSkipsServerSvg:
         assert wc.floor_svg == ""
         assert wc.floor_svg_id and len(wc.floor_svg_id) == 12
 
-    def test_cache_hit_reuses_id_without_render(self, monkeypatch):
+    def test_each_call_mints_a_fresh_id(self, monkeypatch):
+        """NIR-only: the floor-SVG cache is gone, so every floor
+        change mints a brand-new id — there is no cache-hit reuse
+        path and no floor_svg/floor_svg_id parameter to feed one."""
         seen = self._trackers(monkeypatch)
         wc = WebClient()
         level, world = self._level_world()
-        wc.send_floor_change(
-            level, world, 1, 0,
-            floor_svg="", floor_svg_id="deadbeefcafe",
-        )
+        wc.send_floor_change(level, world, 1, 0)
+        first = wc.floor_svg_id
+        wc.send_floor_change(level, world, 1, 0)
+        second = wc.floor_svg_id
         assert seen == []
-        assert wc.floor_svg_id == "deadbeefcafe"
+        assert first and second and first != second
+        with pytest.raises(TypeError):
+            wc.send_floor_change(
+                level, world, 1, 0, floor_svg_id="deadbeefcafe",
+            )
 
     def test_render_mode_kwarg_removed(self):
         """The legacy svg/png render-mode selector is gone — passing

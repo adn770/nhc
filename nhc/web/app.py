@@ -651,21 +651,7 @@ def create_app(
                     if f.is_file():
                         tar.add(str(f), arcname=f"exports/{f.name}")
 
-            # 3. Current floor SVGs from active sessions
-            for s in sessions.list_sessions():
-                sess = sessions.get(s["session_id"])
-                if not sess or not sess.game:
-                    continue
-                for depth, (svg_id, svg) in sess.game._svg_cache.items():
-                    pid = sess.player_id or "anon"
-                    info = tarfile.TarInfo(
-                        name=f"svg/{pid}_depth{depth}.svg",
-                    )
-                    svg_bytes = svg.encode("utf-8")
-                    info.size = len(svg_bytes)
-                    tar.addfile(info, io.BytesIO(svg_bytes))
-
-            # 4. Autosave files
+            # 3. Autosave files
             data_dir = config.data_dir
             if data_dir:
                 players_dir = data_dir / "players"
@@ -824,12 +810,10 @@ def create_app(
         # short-circuit on first hit instead of rebuilding from
         # level state.
         import uuid as _uuid
-        depth = game.level.depth if game.level else 1
         client.floor_svg = ""
         client.floor_svg_id = _uuid.uuid4().hex[:12]
         logger.info("Resume: floor IR mode, server SVG skipped")
         if game.level:
-            game._svg_cache[depth] = (client.floor_svg_id, "")
             ir_entry = load_ir_artefacts(save_dir)
             if ir_entry is not None:
                 game._ir_cache[client.floor_svg_id] = ir_entry
@@ -1002,15 +986,12 @@ def create_app(
         # .nir / .json / .png routes rebuild from level state on
         # demand.
         import uuid as _uuid
-        depth = game.level.depth if game.level else 1
         client.floor_svg = ""
         client.floor_svg_id = _uuid.uuid4().hex[:12]
         logger.info(
             "Floor IR mode: %s (server SVG skipped)",
             client.floor_svg_id,
         )
-        if game.level:
-            game._svg_cache[depth] = (client.floor_svg_id, "")
 
         logger.info("Session %s ready, waiting for WS connection",
                      session.session_id)
@@ -1158,15 +1139,12 @@ def create_app(
         if ir_cache is not None and svg_id in ir_cache:
             return ir_cache[svg_id]
         client = session.game.renderer
-        matched = client.floor_svg_id == svg_id
-        if not matched:
-            svg_cache = getattr(session.game, "_svg_cache", None)
-            if svg_cache:
-                for cached_id, _ in svg_cache.values():
-                    if cached_id == svg_id:
-                        matched = True
-                        break
-        if not matched:
+        # NIR-only: the live floor id is the only valid anchor that
+        # isn't already in the IR cache above. Previously-built
+        # floors stay served from _ir_cache (keyed by svg_id, never
+        # cleared per-floor); a stale id for an unbuilt floor is a
+        # genuine 404.
+        if client.floor_svg_id != svg_id:
             return None
         level = session.game.level
         site = getattr(session.game, "_active_site", None)
@@ -1552,9 +1530,6 @@ def create_app(
             hatch_distance=config.hatch_distance,
             site=game._active_site,
         )
-        game._svg_cache[params.depth] = (
-            client.floor_svg_id, client.floor_svg,
-        )
         # Send debug_url so overlays refresh
         import json as _json
         base_url = f"/api/game/{session_id}"
@@ -1883,22 +1858,18 @@ def create_app(
                 _add_text(tar, f"exports/hatch_debug_{ts}.json",
                           _json.dumps(hatch, indent=2))
 
-            # 3. Floor SVGs (all cached depths)
-            for depth, (svg_id, svg) in game._svg_cache.items():
-                _add_text(tar, f"exports/map_{ts}_d{depth}.svg", svg)
-
-            # 4. Autosave
+            # 3. Autosave
             if session.save_dir:
                 autosave = session.save_dir / "autosave.nhc"
                 if autosave.exists():
                     tar.add(str(autosave), arcname="autosave.nhc")
 
-            # 5. Game log
+            # 4. Game log
             log_file = Path(app.config.get("LOG_PATH", ""))
             if log_file.exists():
                 tar.add(str(log_file), arcname="nhc.log")
 
-            # 6. Generation params (standalone for easy access)
+            # 5. Generation params (standalone for easy access)
             if gen_params:
                 _add_text(
                     tar,
@@ -1906,7 +1877,7 @@ def create_app(
                     _json.dumps(gen_params, indent=2),
                 )
 
-            # 7. Layer PNGs (uploaded by the client before bundle
+            # 6. Layer PNGs (uploaded by the client before bundle
             # download). Each value is a data:image/png;base64 URI.
             import base64
             layer_pngs = getattr(session, "layer_pngs", {})
@@ -1925,14 +1896,14 @@ def create_app(
             # Clear after bundling so they don't accumulate.
             session.layer_pngs = {}
 
-            # 8. Browser console log (captured by the client-side
+            # 7. Browser console log (captured by the client-side
             # interceptor and uploaded with layer PNGs).
             console_log = getattr(session, "console_log", "")
             if console_log:
                 _add_text(tar, "console.log", console_log)
                 session.console_log = ""
 
-            # 9. Extra entries supplied by the caller (e.g. the tester
+            # 8. Extra entries supplied by the caller (e.g. the tester
             # report's ``report.txt``). Added last so bundle builders
             # can override any standard entry if they need to.
             for arcname, text in extra_entries:

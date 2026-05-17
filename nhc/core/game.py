@@ -398,19 +398,11 @@ class Game:
         self._site_cache: dict[
             "int | tuple[int, int, int]", object
         ] = {}
-        # level.id → (uuid, svg). Keyed by Level.id rather than
-        # depth because site-surface Levels share depth=0 with
-        # overland dungeon floors, and a building's ground floor
-        # shares depth=1 with its host site's interior, so a
-        # depth-keyed cache would serve the wrong SVG to a
-        # building interior after the surface got rendered.
-        self._svg_cache: dict[str, tuple[str, str]] = {}
-        # svg_id → IRArtefacts (Phase 2.3). Parallel to _svg_cache;
-        # lazy-populated by the .nir / .json / .png web routes when
-        # they first build the IR for a given floor render. The
-        # SVG cache and the IR cache share the svg_id namespace —
-        # one is the SVG body the renderer last produced, the other
-        # is the IR (and its rasterised + canonical-dump children).
+        # svg_id → IRArtefacts (Phase 2.3). Lazy-populated by the
+        # .nir / .json / .png web routes when they first build the
+        # IR for a given floor render. NIR-only: there is no
+        # parallel SVG cache — the browser rasterises the NIR and a
+        # fresh floor id is minted per transition.
         self._ir_cache: dict[str, IRArtefacts] = {}
         self._prefetch_depth: int | None = None   # depth being/been prefetched
         self._prefetch_result: Level | None = None  # pre-generated level
@@ -1593,15 +1585,11 @@ class Game:
             return
         if not hasattr(self.renderer, "send_floor_change"):
             return
-        cache_key = self.level.id
-        cached = self._svg_cache.get(cache_key)
         site = self._active_site
         logger.debug(
-            "floor-change: level=%s depth=%s svg_cache_hit=%s "
-            "cached_levels=%s active_site=%s building_id=%s "
-            "level_dim=%sx%s theme=%s prerevealed=%s",
-            cache_key, depth, cached is not None,
-            sorted(self._svg_cache.keys()),
+            "floor-change: level=%s depth=%s active_site=%s "
+            "building_id=%s level_dim=%sx%s theme=%s prerevealed=%s",
+            self.level.id, depth,
             site.kind if site else None,
             getattr(self.level, "building_id", None),
             self.level.width, self.level.height,
@@ -1609,28 +1597,14 @@ class Game:
             (self.level.metadata.prerevealed
              if self.level.metadata else None),
         )
+        # NIR-only: no SVG cache — the renderer mints a fresh floor
+        # id and the browser rasterises the NIR fetched from the
+        # .nir endpoint.
         self.renderer.send_floor_change(
             self.level, self.world, self.player_id,
             self.turn, seed=self.seed or 0,
-            floor_svg=cached[1] if cached else None,
-            floor_svg_id=cached[0] if cached else None,
             site=site,
         )
-        # Cache on a fresh floor_svg_id even when the SVG string is
-        # empty: in wasm render mode the renderer mints the id but
-        # skips the server-side SVG, and revisits must reuse that
-        # id (the .nir endpoint is keyed by it) rather than churn a
-        # new one every visit.
-        if not cached:
-            fresh_id = getattr(self.renderer, "floor_svg_id", "")
-            fresh_svg = getattr(self.renderer, "floor_svg", "")
-            if fresh_id and isinstance(fresh_svg, str):
-                self._svg_cache[cache_key] = (fresh_id, fresh_svg)
-                logger.debug(
-                    "floor-change: cached new SVG for level=%s "
-                    "id=%s size=%d bytes",
-                    cache_key, fresh_id, len(fresh_svg),
-                )
 
     async def _enter_tower_site(self, coord) -> bool:
         """Route a tower-site hex through assemble_site().
@@ -4806,23 +4780,15 @@ class Game:
         if atmo != atmo_key:
             self.renderer.add_message(atmo)
 
-        # Notify the web client to load the new floor
+        # Notify the web client to load the new floor. NIR-only:
+        # no SVG cache — a fresh floor id is minted and the browser
+        # rasterises the NIR from the .nir endpoint.
         if hasattr(self.renderer, 'send_floor_change'):
-            cache_key = self.level.id
-            cached = self._svg_cache.get(cache_key)
             self.renderer.send_floor_change(
                 self.level, self.world, self.player_id,
                 self.turn, seed=self.seed or 0,
-                floor_svg=cached[1] if cached else None,
-                floor_svg_id=cached[0] if cached else None,
                 site=self._active_site,
             )
-            # Store the rendered SVG for future revisits
-            if not cached:
-                fresh_svg = self.renderer.floor_svg
-                fresh_id = self.renderer.floor_svg_id
-                if isinstance(fresh_svg, str):
-                    self._svg_cache[cache_key] = (fresh_id, fresh_svg)
 
     def _place_player_via_building_link(
         self,
