@@ -20,13 +20,14 @@ from nhc.dungeon.model import (
     Level, LevelMetadata, Rect, RectShape, Room, SurfaceType,
     Terrain, Tile,
 )
-from nhc.rendering.svg import (
-    CELL, _cave_svg_outline, _densify_ring,
-    _jitter_ring_outward,
-    _room_shapely_polygon, _room_svg_outline,
+from nhc.rendering._svg_helpers import CELL
+from nhc.rendering._cave_geometry import (
+    _cave_svg_outline, _densify_ring, _jitter_ring_outward,
     _smooth_closed_path,
-    render_floor_svg,
 )
+from nhc.rendering._dungeon_polygon import _room_shapely_polygon
+from nhc.rendering._room_outlines import _room_svg_outline
+from nhc.rendering.svg import render_floor_svg
 
 
 # ── Helpers ─────────────────────────────────────────────────────
@@ -191,7 +192,7 @@ class TestCaveRegionWalls:
     def test_cave_region_includes_corridor_tiles(self):
         """A cave room connected to a corridor must flood into a
         single region containing all corridor tiles."""
-        from nhc.rendering.svg import _collect_cave_region
+        from nhc.rendering._cave_geometry import _collect_cave_region
         level, room = _make_cave_room_level(with_corridor=True)
         level.metadata = LevelMetadata(theme="cave", difficulty=9)
         region = _collect_cave_region(level)
@@ -207,7 +208,7 @@ class TestCaveRegionWalls:
     def test_cave_region_polygon_has_single_exterior(self):
         """The unified polygon for one connected region exposes
         exactly one exterior ring (plus zero or more holes)."""
-        from nhc.rendering.svg import (
+        from nhc.rendering._cave_geometry import (
             _build_cave_polygon, _collect_cave_region,
         )
         level, _ = _make_cave_room_level(with_corridor=True)
@@ -228,7 +229,7 @@ class TestCaveRegionWalls:
         """After outward jittering, every control point must lie on
         or outside the tile-edge polygon boundary — i.e. the floor
         polygon stays strictly inside the wall ring."""
-        from nhc.rendering.svg import (
+        from nhc.rendering._cave_geometry import (
             _build_cave_polygon, _collect_cave_region,
             _densify_ring, _jitter_ring_outward,
         )
@@ -262,7 +263,7 @@ class TestCaveRegionWalls:
     def test_cave_region_walls_single_path(self):
         """_cave_region_walls returns one SVG <path> containing
         one subpath per ring (exterior + holes)."""
-        from nhc.rendering.svg import _cave_region_walls
+        from nhc.rendering._cave_geometry import _cave_region_walls
         import random
         level, _ = _make_cave_room_level(with_corridor=True)
         level.metadata = LevelMetadata(theme="cave", difficulty=9)
@@ -287,7 +288,7 @@ class TestCaveRegionWalls:
         """The unified wall path must NOT contain straight L
         segments — those would mean corridor tile-edge walls
         leaked through the old per-tile wall loop."""
-        from nhc.rendering.svg import _cave_region_walls
+        from nhc.rendering._cave_geometry import _cave_region_walls
         import random
         level, _ = _make_cave_room_level(with_corridor=True)
         level.metadata = LevelMetadata(theme="cave", difficulty=9)
@@ -322,7 +323,7 @@ class TestCaveRegionWalls:
 
     def test_cave_region_deterministic(self):
         """Same seed → identical wall path."""
-        from nhc.rendering.svg import _cave_region_walls
+        from nhc.rendering._cave_geometry import _cave_region_walls
         import random
         level, _ = _make_cave_room_level(with_corridor=True)
         level.metadata = LevelMetadata(theme="cave", difficulty=9)
@@ -334,7 +335,7 @@ class TestCaveRegionWalls:
         """The wall polygon must extend into VOID space beyond the
         tile-edge floor polygon so the wall outline sits outside
         the walkable area."""
-        from nhc.rendering.svg import (
+        from nhc.rendering._cave_geometry import (
             _build_cave_polygon, _build_cave_wall_geometry,
             _collect_cave_region,
         )
@@ -362,7 +363,7 @@ class TestCaveRegionWalls:
         Measure this by comparing the wall polygon to its convex
         hull: a well-rounded outline has a hull/area ratio far
         closer to 1 than the raw tile-edge polygon does."""
-        from nhc.rendering.svg import (
+        from nhc.rendering._cave_geometry import (
             _build_cave_polygon, _build_cave_wall_geometry,
             _collect_cave_region,
         )
@@ -510,7 +511,7 @@ class TestScurveUndulation:
         """The jittered wall ring should show sinusoidal variation
         in displacement magnitude along the perimeter, not just
         uniform random noise."""
-        from nhc.rendering.svg import (
+        from nhc.rendering._cave_geometry import (
             _build_cave_polygon, _collect_cave_region,
             _build_cave_wall_geometry,
         )
@@ -545,7 +546,7 @@ class TestScurveUndulation:
     def test_existing_containment_still_holds(self):
         """After all smoothing improvements, the wall polygon
         must still fully contain the floor polygon."""
-        from nhc.rendering.svg import (
+        from nhc.rendering._cave_geometry import (
             _build_cave_polygon, _collect_cave_region,
             _build_cave_wall_geometry,
         )

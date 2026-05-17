@@ -11,10 +11,8 @@ from nhc.dungeon.model import (
 )
 from nhc.rendering._dungeon_polygon import _room_shapely_polygon
 from nhc.rendering._floor_detail import _render_floor_grid
-from nhc.rendering.svg import (
-    CELL, FLOOR_STONE_FILL, PADDING,
-    render_floor_svg,
-)
+from nhc.rendering._svg_helpers import CELL, FLOOR_STONE_FILL, PADDING
+from nhc.rendering.svg import render_floor_svg
 
 
 def _make_level(width=10, height=8):

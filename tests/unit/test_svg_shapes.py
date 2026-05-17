@@ -16,10 +16,11 @@ from nhc.dungeon.model import (
     PillShape, Rect, RectShape, Room, RoomShape, SurfaceType,
     TempleShape, Terrain, Tile,
 )
-from nhc.rendering.svg import (
+from nhc.rendering._svg_helpers import (
     BG, CELL, FLOOR_COLOR, FLOOR_STONE_FILL, GRID_WIDTH,
-    HATCH_UNDERLAY, PADDING, WALL_WIDTH, render_floor_svg,
+    HATCH_UNDERLAY, PADDING, WALL_WIDTH,
 )
+from nhc.rendering.svg import render_floor_svg
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -563,7 +564,7 @@ class TestGridInSmoothRooms:
     def test_temple_room_has_shapely_polygon_covering_floor(self):
         """_room_shapely_polygon must return a polygon for temple
         rooms so grid/detail clip-paths reveal them."""
-        from nhc.rendering.svg import _room_shapely_polygon
+        from nhc.rendering._dungeon_polygon import _room_shapely_polygon
         room = Room(
             id="r1", rect=Rect(0, 0, 9, 9),
             shape=TempleShape(flat_side="south"),
@@ -582,7 +583,7 @@ class TestGridInSmoothRooms:
         rooms so grid/detail clip-paths reveal them. Without this
         the pill room gets clipped out of dungeon_poly and the
         grid + floor detail layers do not render over it."""
-        from nhc.rendering.svg import _room_shapely_polygon
+        from nhc.rendering._dungeon_polygon import _room_shapely_polygon
         room = Room(
             id="r1", rect=Rect(0, 0, 9, 5), shape=PillShape(),
         )

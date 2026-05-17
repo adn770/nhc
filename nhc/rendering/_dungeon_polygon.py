@@ -23,8 +23,8 @@ def _room_shapely_polygon(room) -> Polygon | None:
     Approximates circles and arcs with 64-segment polylines.
     Returns None for rect rooms (use tile rects instead).
     """
-    from nhc.rendering.svg import (
-        _cave_svg_outline,
+    from nhc.rendering._cave_geometry import _cave_svg_outline
+    from nhc.rendering._room_outlines import (
         _hybrid_svg_outline,
         _polygon_vertices,
     )

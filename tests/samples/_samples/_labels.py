@@ -24,7 +24,7 @@ import re
 from typing import Any, Iterable
 
 
-CELL = 32  # pixels per tile (matches ``nhc.rendering.svg.CELL``).
+CELL = 32  # pixels per tile (matches ``nhc.rendering._svg_helpers.CELL``).
 
 
 # Door feature names that should pick up a "D{idx}" marker.

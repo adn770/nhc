@@ -17,50 +17,7 @@ import random
 from nhc.rendering import _perlin as _noise
 from shapely.geometry import LineString
 
-from nhc.dungeon.generators.cellular import CaveShape
-from nhc.rendering._render_context import build_render_context
-from nhc.rendering._svg_helpers import (
-    BG,
-    CAVE_FLOOR_COLOR,
-    CELL,
-    FLOOR_COLOR,
-    FLOOR_STONE_FILL,
-    FLOOR_STONE_STROKE,
-    GRID_WIDTH,
-    HATCH_UNDERLAY,
-    INK,
-    PADDING,
-    PILL_ARC_SEGMENTS,
-    TEMPLE_ARC_SEGMENTS,
-    WALL_THIN,
-    WALL_WIDTH,
-    _edge_point,
-    _find_doorless_openings,
-    _is_door,
-    _is_floor,
-    _wobble_line,
-    _wobbly_grid_seg,
-    _y_scratch,
-)
-from nhc.rendering._room_outlines import (  # noqa: E402
-    _circle_with_gaps,
-    _gap_on_edge,
-    _half_outline,
-    _hybrid_svg_outline,
-    _hybrid_vertices,
-    _intersect_circle,
-    _intersect_hybrid,
-    _intersect_line_seg,
-    _intersect_outline,
-    _intersect_polygon_edges,
-    _outline_with_gaps,
-    _pill_vertices,
-    _point_on_segment,
-    _polygon_vertices,
-    _polygon_with_gaps,
-    _room_svg_outline,
-    _temple_vertices,
-)
+from nhc.rendering._svg_helpers import BG, CELL, HATCH_UNDERLAY, INK
 
 
 def render_floor_svg(
@@ -252,38 +209,14 @@ def render_hatch_svg(seed: int = 0) -> str:
     return "\n".join(svg)
 
 
+# render_hatch_svg's only collaborators. Imported here (not at the
+# top) so the module's public surface — render_floor_svg (the IR
+# shim) and render_hatch_svg — reads first; the legacy re-export
+# blocks for the pre-IR renderer were removed with the NIR-only
+# migration.
 from nhc.rendering._dungeon_polygon import (  # noqa: E402
-    _approximate_arc,
-    _build_dungeon_polygon,
     _build_sections,
-    _get_edge_index,
     _pick_section_points,
-    _room_shapely_polygon,
-    _svg_path_to_polygon,
-)
-from nhc.rendering._shadows import (  # noqa: E402
-    _render_corridor_shadows,
-    _render_room_shadows,
-    _room_shadow_svg,
-)
-from nhc.rendering._cave_geometry import (  # noqa: E402
-    _build_cave_polygon,
-    _build_cave_wall_geometry,
-    _cave_region_walls,
-    _cave_svg_outline,
-    _centripetal_bezier_cps,
-    _collect_cave_region,
-    _densify_ring,
-    _jitter_ring_outward,
-    _ring_to_subpath,
-    _smooth_closed_path,
-    _smooth_open_path,
-    _trace_cave_boundary_coords,
-)
-from nhc.rendering._hatching import (  # noqa: E402
-    _render_corridor_hatching,
-    _render_hatching,
-    _render_hole_hatching,
 )
 
 

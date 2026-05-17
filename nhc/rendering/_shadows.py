@@ -12,9 +12,9 @@ def _room_shadow_svg(room: Room) -> str:
     Reuses _room_svg_outline for non-rect shapes, applying fill
     and a (3,3) offset.  Rect rooms get a simple rect shadow.
     """
-    # Import here to avoid circular dependency — _room_outlines
-    # also uses helpers from _svg_helpers.
-    from nhc.rendering.svg import _room_svg_outline
+    # Lazy import keeps module load order flexible; the helper
+    # lives in its own module (not re-exported via svg.py).
+    from nhc.rendering._room_outlines import _room_svg_outline
 
     outline = _room_svg_outline(room)
     if outline:
