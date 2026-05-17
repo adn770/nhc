@@ -445,22 +445,15 @@ class TestGameAPI:
             assert not save_path.exists()
 
 
-class TestWasmRenderModeSkipsServerSvg:
-    """In wasm render mode the new-game path must not build the
-    SVG server-side — the browser rasterises the NIR. Default
-    (png) mode still renders so the contrast is locked both ways."""
+class TestNewGameSkipsServerSvg:
+    """The game is NIR-only: the new-game path must never build the
+    SVG server-side — the browser rasterises the NIR fetched from
+    the .nir endpoint."""
 
-    def _new_game_client(self, tmp_path, render_mode):
-        config = WebConfig(
-            max_sessions=2, data_dir=tmp_path,
-            render_mode=render_mode,
-        )
+    def test_new_game_skips_server_svg(self, tmp_path):
+        config = WebConfig(max_sessions=2, data_dir=tmp_path)
         app = create_app(config)
         app.config["TESTING"] = True
-        return app
-
-    def test_wasm_new_game_skips_server_svg(self, tmp_path):
-        app = self._new_game_client(tmp_path, "wasm")
         with app.test_client() as c:
             resp = c.post("/api/game/new", json={})
             assert resp.status_code == 201
@@ -468,22 +461,13 @@ class TestWasmRenderModeSkipsServerSvg:
             session = c.application.config["SESSIONS"].get(sid)
             assert session is not None
             renderer = session.game.renderer
-            assert renderer.render_mode == "wasm"
             assert renderer.floor_svg == ""
             assert renderer.floor_svg_id
             assert len(renderer.floor_svg_id) == 12
 
-    def test_default_mode_new_game_renders_svg(self, tmp_path):
-        app = self._new_game_client(tmp_path, "png")
-        with app.test_client() as c:
-            resp = c.post("/api/game/new", json={})
-            assert resp.status_code == 201
-            sid = resp.get_json()["session_id"]
-            session = c.application.config["SESSIONS"].get(sid)
-            renderer = session.game.renderer
-            assert renderer.render_mode == "png"
-            assert renderer.floor_svg
-            assert renderer.floor_svg_id
+    def test_web_config_has_no_render_mode(self):
+        """The legacy svg/png/wasm selector is gone from WebConfig."""
+        assert not hasattr(WebConfig(), "render_mode")
 
 
 class TestPlayerAPI:
@@ -859,11 +843,14 @@ class TestNewGameCleansUp:
         assert new_sid != old_sid
         assert sessions.get(old_sid) is None
 
-    def test_new_game_reset_clears_stale_svg_cache(
+    def test_new_game_reset_ignores_stale_svg_sidecar(
         self, client_with_data_dir,
     ):
-        # Dungeon-mode test -- the SVG cache lives on the
-        # dungeon floor; hexcrawl's overland doesn't exercise it.
+        # NIR-only: the server never builds or loads an SVG string.
+        # A stale floor.svg / hatch.svg sidecar from a prior game
+        # must never be served — the browser rasterises the freshly
+        # minted NIR. Dungeon-mode test; hexcrawl's overland skips
+        # the floor-setup path.
         token, pid = _register_player(client_with_data_dir)
 
         resp = client_with_data_dir.post(
@@ -873,7 +860,7 @@ class TestNewGameCleansUp:
         assert resp.status_code == 201
         sid = resp.get_json()["session_id"]
 
-        # Simulate SVG cache + autosave from old game
+        # Simulate stale SVG sidecars + autosave from an old game
         sessions = client_with_data_dir.application.config["SESSIONS"]
         session = sessions.get(sid)
         save_dir = session.save_dir
@@ -881,7 +868,6 @@ class TestNewGameCleansUp:
         (save_dir / "floor.svg").write_text("<svg>stale-floor</svg>")
         (save_dir / "hatch.svg").write_text("<svg>stale-hatch</svg>")
 
-        # New game with reset should NOT load stale SVGs
         resp = client_with_data_dir.post(
             "/api/game/new",
             json={
@@ -891,9 +877,13 @@ class TestNewGameCleansUp:
             },
         )
         assert resp.status_code == 201
-        # The new game re-generates SVGs; they must not be the stale ones
-        floor_svg = (save_dir / "floor.svg").read_text()
-        assert "stale-floor" not in floor_svg
+        new_sid = resp.get_json()["session_id"]
+        renderer = sessions.get(new_sid).game.renderer
+        # The stale sidecar is never loaded into the client; the
+        # game serves NIR-only with a freshly minted floor id.
+        assert renderer.floor_svg == ""
+        assert renderer.floor_svg_id
+        assert len(renderer.floor_svg_id) == 12
 
 
 class TestFloorIRRoutes:

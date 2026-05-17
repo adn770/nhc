@@ -108,12 +108,6 @@ ENV PYTHONPATH=/app
 # quad-core x86_64 host).
 ENV NHC_GEN_WORKERS=4
 
-# Floor render mode the client fetches: "png" | "svg" | "wasm".
-# Default wasm: the browser rasterises the ~38 KB NIR instead of
-# the server building a multi-MB PNG/SVG. Override at run time:
-#   docker run -e NHC_RENDER_MODE=png ...
-ENV NHC_RENDER_MODE=wasm
-
 # Build metadata for the welcome-page build-info badge. Set by
 # deploy/update.sh via --build-arg; "dev" keeps local builds clean.
 ARG NHC_GIT_SHA=dev

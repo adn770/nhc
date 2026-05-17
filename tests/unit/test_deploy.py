@@ -252,9 +252,10 @@ class TestDockerfile:
         assert ".whl" in runtime
         assert "crates/nhc-render-wasm/pkg" in runtime
 
-    def test_render_mode_is_wasm(self, dockerfile):
-        """Production defaults to the browser-side WASM floor path."""
-        assert "ENV NHC_RENDER_MODE=wasm" in dockerfile
+    def test_no_render_mode_env(self, dockerfile):
+        """NIR-only: the game always renders browser-side from the
+        NIR, so the image no longer pins NHC_RENDER_MODE."""
+        assert "NHC_RENDER_MODE" not in dockerfile
 
 
 class TestUpdateScript:

@@ -42,10 +42,11 @@ class TestWebClientInterface:
         assert wc.messages == []
 
 
-class TestWebClientRenderModeSvgSkip:
-    """wasm render mode must not build the SVG server-side — the
-    browser rasterises the NIR fetched from the .nir endpoint, so
-    the eager ir_to_svg / build_floor_ir is pure waste there."""
+class TestWebClientAlwaysSkipsServerSvg:
+    """The game renders NIR-only: the browser rasterises the NIR
+    fetched from the .nir endpoint, so send_floor_change must never
+    build the SVG server-side. The eager ir_to_svg / build_floor_ir
+    is pure waste here."""
 
     def _level_world(self):
         from nhc.core.ecs import World
@@ -67,27 +68,18 @@ class TestWebClientRenderModeSvgSkip:
         )
         return seen
 
-    def test_default_mode_renders_svg(self, monkeypatch):
+    def test_skips_server_svg(self, monkeypatch):
         seen = self._trackers(monkeypatch)
         wc = WebClient()
-        level, world = self._level_world()
-        wc.send_floor_change(level, world, 1, 0)
-        assert seen == ["ir", "svg"]
-        assert wc.floor_svg == "<svg/>"
-        assert wc.floor_svg_id and len(wc.floor_svg_id) == 12
-
-    def test_wasm_mode_skips_svg(self, monkeypatch):
-        seen = self._trackers(monkeypatch)
-        wc = WebClient(render_mode="wasm")
         level, world = self._level_world()
         wc.send_floor_change(level, world, 1, 0)
         assert seen == []
         assert wc.floor_svg == ""
         assert wc.floor_svg_id and len(wc.floor_svg_id) == 12
 
-    def test_wasm_cache_hit_reuses_id_without_render(self, monkeypatch):
+    def test_cache_hit_reuses_id_without_render(self, monkeypatch):
         seen = self._trackers(monkeypatch)
-        wc = WebClient(render_mode="wasm")
+        wc = WebClient()
         level, world = self._level_world()
         wc.send_floor_change(
             level, world, 1, 0,
@@ -96,11 +88,17 @@ class TestWebClientRenderModeSvgSkip:
         assert seen == []
         assert wc.floor_svg_id == "deadbeefcafe"
 
+    def test_render_mode_kwarg_removed(self):
+        """The legacy svg/png render-mode selector is gone — passing
+        it is a hard error, not a silently-ignored kwarg."""
+        with pytest.raises(TypeError):
+            WebClient(render_mode="wasm")
+
     def test_floor_payload_has_no_hatch_url(self, monkeypatch):
         """The hatch tile is a static client asset now — the floor
         message no longer carries a hatch_url."""
         self._trackers(monkeypatch)
-        wc = WebClient(render_mode="wasm")
+        wc = WebClient()
         level, world = self._level_world()
         wc.send_floor_change(level, world, 1, 0)
         floor = [m for m in _drain_queue(wc) if m["type"] == "floor"]

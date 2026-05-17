@@ -360,7 +360,6 @@ def create_app(
                 player_difficulty=player_difficulty,
                 welcome_labels=_welcome_labels(player_lang),
                 build_info=get_build_info(),
-                render_mode=config.render_mode,
             ))
             _set_auth_cookie(resp, "nhc_token", token)
             return resp
@@ -372,7 +371,6 @@ def create_app(
             player_difficulty="medium",
             welcome_labels=_welcome_labels(""),
             build_info=get_build_info(),
-            render_mode=config.render_mode,
         )
 
     @app.route("/health", methods=["GET"])
@@ -791,10 +789,7 @@ def create_app(
         from nhc.core.game import Game
         from nhc.rendering.web_client import WebClient
 
-        client = WebClient(
-            style="classic", lang=session.lang,
-            render_mode=config.render_mode,
-        )
+        client = WebClient(style="classic", lang=session.lang)
         backend = _create_llm_backend()
 
         player_god = config.god_mode
@@ -822,54 +817,19 @@ def create_app(
             sessions.destroy(session.session_id)
             return jsonify({"error": "game restore failed"}), 500
 
-        # Load cached floor SVG or re-render
+        # NIR-only: the browser rasterises the NIR fetched from the
+        # .nir endpoint, so the server never builds or caches an SVG
+        # string. Mint the floor id (URL token) and warm the IR
+        # cache from disk so the .nir / .json / .png routes
+        # short-circuit on first hit instead of rebuilding from
+        # level state.
         import uuid as _uuid
-        from nhc.core.autosave import load_svg_cache, save_svg_cache
         depth = game.level.depth if game.level else 1
-        if game.level and config.render_mode == "wasm":
-            # Browser rasterises the NIR fetched from the .nir
-            # endpoint; the server never builds or caches the SVG
-            # string. Mint the id (URL token) only.
-            client.floor_svg = ""
-            client.floor_svg_id = _uuid.uuid4().hex[:12]
-            logger.info("Resume: floor IR mode, server SVG skipped")
-        else:
-            svg_cached = game._svg_cache.get(depth)
-            if svg_cached:
-                client.floor_svg_id, client.floor_svg = svg_cached
-                logger.info("Resume: floor SVG from game cache: %s",
-                            client.floor_svg_id)
-            else:
-                cached = load_svg_cache(save_dir)
-                if cached:
-                    client.floor_svg = cached
-                    client.floor_svg_id = _uuid.uuid4().hex[:12]
-                    logger.info("Resume: floor SVG from disk cache")
-                elif game.level:
-                    import nhc_render
-                    from nhc.rendering.ir_emitter import build_floor_ir
-                    seed = game.seed or 0
-                    client.floor_svg = nhc_render.ir_to_svg(
-                        build_floor_ir(
-                            game.level,
-                            seed=seed,
-                            hatch_distance=config.hatch_distance,
-                            site=game._active_site,
-                        )
-                    )
-                    client.floor_svg_id = _uuid.uuid4().hex[:12]
-                    save_svg_cache(client.floor_svg, save_dir)
-        if client.floor_svg_id and game.level:
-            game._svg_cache[depth] = (
-                client.floor_svg_id, client.floor_svg,
-            )
-            # Phase 2.3.1 disk warm-up: pin a valid on-disk IR
-            # to the freshly-minted svg_id so the .nir / .json
-            # / .png routes short-circuit on first hit instead
-            # of rebuilding from level state. The SVG and IR
-            # stayed in lockstep on disk because save_svg_cache
-            # invalidates the IR sidecar whenever the SVG is
-            # rewritten.
+        client.floor_svg = ""
+        client.floor_svg_id = _uuid.uuid4().hex[:12]
+        logger.info("Resume: floor IR mode, server SVG skipped")
+        if game.level:
+            game._svg_cache[depth] = (client.floor_svg_id, "")
             ir_entry = load_ir_artefacts(save_dir)
             if ir_entry is not None:
                 game._ir_cache[client.floor_svg_id] = ir_entry
@@ -973,10 +933,7 @@ def create_app(
         from nhc.core.game import Game
         from nhc.rendering.web_client import WebClient
 
-        client = WebClient(
-            style="classic", lang=session.lang,
-            render_mode=config.render_mode,
-        )
+        client = WebClient(style="classic", lang=session.lang)
         backend = _create_llm_backend()
         logger.debug("LLM backend: %s", type(backend).__name__
                       if backend else "None")
@@ -1040,63 +997,20 @@ def create_app(
                 game.hex_player_position.r,
             )
 
-        # Generate floor SVG; hatch is served globally.
+        # NIR-only: the browser rasterises the NIR fetched from the
+        # .nir endpoint. Mint the floor id (URL token) only; the
+        # .nir / .json / .png routes rebuild from level state on
+        # demand.
         import uuid as _uuid
-        from nhc.core.autosave import load_svg_cache, save_svg_cache
         depth = game.level.depth if game.level else 1
-        if game.level and config.render_mode == "wasm":
-            # Browser rasterises the NIR fetched from the .nir
-            # endpoint; the server never builds or caches the SVG
-            # string. Mint the id (URL token) only.
-            client.floor_svg = ""
-            client.floor_svg_id = _uuid.uuid4().hex[:12]
-            logger.info(
-                "Floor IR mode: %s (server SVG skipped)",
-                client.floor_svg_id,
-            )
-        else:
-            svg_cached = game._svg_cache.get(depth)
-            if svg_cached:
-                client.floor_svg_id, client.floor_svg = svg_cached
-                logger.info("Floor SVG from game cache: %s (%d bytes)",
-                            client.floor_svg_id, len(client.floor_svg))
-            else:
-                # Only use disk-cached SVG when resuming, not reset
-                cached = (load_svg_cache(session.save_dir)
-                          if not reset else None)
-                if cached:
-                    client.floor_svg = cached
-                    client.floor_svg_id = _uuid.uuid4().hex[:12]
-                    logger.info("Floor SVG from disk cache: %d bytes",
-                                len(client.floor_svg))
-                elif game.level:
-                    import nhc_render
-                    from nhc.rendering.ir_emitter import build_floor_ir
-                    logger.info("Rendering floor SVG...")
-                    seed = game.seed or 0
-                    client.floor_svg = nhc_render.ir_to_svg(
-                        build_floor_ir(
-                            game.level,
-                            seed=seed,
-                            hatch_distance=config.hatch_distance,
-                            site=game._active_site,
-                        )
-                    )
-                    client.floor_svg_id = _uuid.uuid4().hex[:12]
-                    logger.info(
-                        "Floor SVG: %s (%d bytes)",
-                        client.floor_svg_id, len(client.floor_svg),
-                    )
-                    save_svg_cache(
-                        client.floor_svg, session.save_dir,
-                    )
-                else:
-                    logger.warning("No level — floor SVG not generated")
-        # Store in game SVG cache for future transitions
-        if client.floor_svg_id and game.level:
-            game._svg_cache[depth] = (
-                client.floor_svg_id, client.floor_svg,
-            )
+        client.floor_svg = ""
+        client.floor_svg_id = _uuid.uuid4().hex[:12]
+        logger.info(
+            "Floor IR mode: %s (server SVG skipped)",
+            client.floor_svg_id,
+        )
+        if game.level:
+            game._svg_cache[depth] = (client.floor_svg_id, "")
 
         logger.info("Session %s ready, waiting for WS connection",
                      session.session_id)
@@ -2161,7 +2075,6 @@ def app_factory() -> Flask:
         god_mode=False,
         hatch_distance=float(os.environ.get("NHC_HATCH_DISTANCE", "1.0")),
         external_url=os.environ.get("NHC_EXTERNAL_URL", ""),
-        render_mode=os.environ.get("NHC_RENDER_MODE", "png"),
         admin_lan_cidrs=admin_lan_cidrs,
         # gunicorn in production always sits behind Caddy on
         # loopback — trust one forwarded hop so the LAN allowlist

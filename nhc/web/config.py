@@ -23,12 +23,6 @@ class WebConfig:
     god_mode: bool = False
     data_dir: Path | None = None
     hatch_distance: float = 2.0
-    # Floor render mode the gameplay client fetches: "svg", "png",
-    # or "wasm". Drives the JS dispatch in `nhc/web/static/js/map.js`
-    # and the URL extension the server constructs for the floor
-    # endpoint. CLI flag `--render-mode` and env var
-    # `NHC_RENDER_MODE` both feed this; default `png`.
-    render_mode: str = "png"
     external_url: str = ""
     # CIDRs allowed to reach /admin.  Empty list → admin is
     # unreachable (fail closed).  Must NOT include loopback or
