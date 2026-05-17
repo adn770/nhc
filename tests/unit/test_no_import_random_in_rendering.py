@@ -36,7 +36,6 @@ _ALLOWLIST: frozenset[str] = frozenset({
     # seeded from the IR's deterministic seed slots.
     "_dungeon_polygon.py",
     "_cave_geometry.py",
-    "_enclosures.py",
     "_hatching.py",
     "_roofs.py",
     "_svg_helpers.py",

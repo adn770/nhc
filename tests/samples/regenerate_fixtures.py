@@ -679,10 +679,9 @@ def _render_site_fixture(fx: SiteFixture) -> tuple[bytes, bytes, str]:
 
     ``floor.nir`` packs the Site / Building regions, RoofOps, and
     EnclosureOp on top of the regular gameplay stages. Reference is
-    the canonical tiny-skia render. Floor.svg / per-layer snapshots
-    aren't committed for site fixtures: the IR-driven SVG path
-    ships in 8.4 but the legacy ``render_site_surface_svg`` is the
-    SVG production source until Phase 10.3 retires it.
+    the canonical tiny-skia render. Site fixtures are pure NIR:
+    ``floor.svg`` / per-layer snapshots aren't committed, and the
+    legacy ``render_site_surface_svg`` SVG path has been retired.
     """
     import nhc_render
     from nhc.rendering.ir.structural import dump_structural
