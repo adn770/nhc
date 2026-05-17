@@ -31,10 +31,6 @@ _RENDERING_ROOT = pathlib.Path(__file__).resolve().parents[2] / "nhc" / "renderi
 # entry when the matching Rust port lands. Cite the port in the
 # comment so the allowlist itself documents the cleanup queue.
 _ALLOWLIST: frozenset[str] = frozenset({
-    # Per-tile painters used by the from-IR SVG path
-    # (`_water_detail` / `_lava_detail` / `_chasm_detail` consume
-    # the `random.Random` instance the caller seeds).
-    "_terrain_detail.py",
     # Procedural masonry / roof / wall geometry — used by the
     # IR emitter to compute polygon paths; RNG is per-call,
     # seeded from the IR's deterministic seed slots.
