@@ -3,7 +3,7 @@
 Centralises floor-kind detection (dungeon / building / surface / cave)
 and resolved feature flags (shadows, hatching, atmospherics, macabre
 detail, interior finish) so every layer and decorator reads the same
-state. Computed once at the top of :func:`render_floor_svg` and passed
+state. Computed once at the top of :func:`render_floor_svg_from_ir` and passed
 down — no more scattered ``getattr(level, "building_id", None)`` and
 ``level.metadata.prerevealed`` checks across the renderer.
 """
@@ -26,7 +26,7 @@ FloorKind = Literal["dungeon", "building", "surface", "cave"]
 
 @dataclass(frozen=True)
 class RenderContext:
-    """Resolved state for one ``render_floor_svg`` invocation.
+    """Resolved state for one ``render_floor_svg_from_ir`` invocation.
 
     Attributes are all immutable: built once by
     :func:`build_render_context` and read by every layer and

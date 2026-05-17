@@ -18,7 +18,7 @@ from nhc.dungeon.model import (
     Terrain,
 )
 from nhc.sites._site import assemble_site
-from nhc.rendering.svg import render_floor_svg
+from nhc.rendering.svg import render_floor_svg_from_ir
 
 
 SITE_KINDS = (
@@ -68,7 +68,7 @@ class TestSiteSurfacePrerevealedFlag:
 
 
 class TestHatchingSuppressedOnPrerevealed:
-    """``render_floor_svg`` skips the hatching passes when the level is
+    """``render_floor_svg_from_ir`` skips the hatching passes when the level is
     prerevealed. The check used to read ``theme == 'settlement'`` — a
     string nothing ever set — so towns shipped with hatching."""
 
@@ -76,7 +76,7 @@ class TestHatchingSuppressedOnPrerevealed:
         from nhc.rendering._svg_helpers import HATCH_UNDERLAY
 
         site = assemble_site("town", "tnh", random.Random(11))
-        svg = render_floor_svg(site.surface, seed=11)
+        svg = render_floor_svg_from_ir(site.surface, seed=11)
         # Phase 1.21a dropped the `<g clip-path="url(#hatch-clip)">`
         # wrapper; the prerevealed-suppression check now uses the
         # hatch underlay colour as the "is hatching present?" proxy.
@@ -98,7 +98,7 @@ class TestHatchingSuppressedOnPrerevealed:
             shape_variety=0.0, template="procedural:dungeon",
         )
         level = gen_level(params)
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert HATCH_UNDERLAY in svg, (
             "non-prerevealed dungeon lost its hatching"
         )

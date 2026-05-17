@@ -20,7 +20,7 @@ from nhc.rendering._svg_helpers import (
     BG, CELL, FLOOR_COLOR, FLOOR_STONE_FILL, GRID_WIDTH,
     HATCH_UNDERLAY, PADDING, WALL_WIDTH,
 )
-from nhc.rendering.svg import render_floor_svg
+from nhc.rendering.svg import render_floor_svg_from_ir
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ def _make_shaped_level(
 class TestSmoothOutlines:
     def test_octagon_room_produces_polygon(self):
         level, _ = _make_shaped_level(OctagonShape())
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         match = re.search(r'<polygon points="([^"]+)"', svg)
         assert match, "No polygon found for octagon"
         points = match.group(1).split()
@@ -143,7 +143,7 @@ class TestSmoothOutlines:
         # moss specks) are fine — they're per-tile decorations, not
         # the room outline.
         level, _ = _make_shaped_level(RectShape())
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         # All polygons for a rect room must be 4 vertices (the floor rect).
         import re as _re
         for m in _re.finditer(r'<polygon points="([^"]+)"', svg):
@@ -160,7 +160,7 @@ class TestTempleGappedOutlines:
         not a closed polygon."""
         level, _ = _make_shaped_level(
             TempleShape(flat_side="south"), corridor_side="east")
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         wall_paths = re.findall(
             r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width', svg)
         has_gapped = any(p.count("M") >= 2 for p in wall_paths)
@@ -170,7 +170,7 @@ class TestTempleGappedOutlines:
         """A corridor on the flat arm (south) also produces a gap."""
         level, _ = _make_shaped_level(
             TempleShape(flat_side="south"), corridor_side="south")
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         wall_paths = re.findall(
             r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width', svg)
         has_gapped = any(p.count("M") >= 2 for p in wall_paths)
@@ -191,7 +191,7 @@ class TestGappedOutlines:
         wx = min(fx for fx, fy in floor if fy == cy)
         _add_corridor(level, room, ex + 1, cy, 1, 0)
         _add_corridor(level, room, wx - 1, cy, -1, 0)
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         wall_paths = re.findall(
             r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width', svg)
         has_multi = any(p.count("M") >= 3 for p in wall_paths)
@@ -201,7 +201,7 @@ class TestGappedOutlines:
         """A cross with a doorless corridor uses <path> not <polygon>."""
         level, _ = _make_shaped_level(
             CrossShape(), corridor_side="east")
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         # The outline should be a <path> with gaps, not a polygon
         wall_paths = re.findall(
             r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width', svg)
@@ -214,7 +214,7 @@ class TestGappedOutlines:
     def test_octagon_doorless_opening_not_closed(self):
         level, _ = _make_shaped_level(
             OctagonShape(), corridor_side="east")
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         wall_paths = re.findall(
             r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width', svg)
         has_gapped = any(
@@ -250,7 +250,7 @@ class TestHybridArcDirection:
             shape = HybridShape(RectShape(), CircleShape(), split)
         level, room = _make_shaped_level(
             shape, room_w=10, room_h=8)
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         return level, room, svg
 
     def _extract_floor_op_polygon(self, svg):
@@ -314,7 +314,7 @@ class TestHybridArcDirection:
         level, room = _make_shaped_level(
             shape, room_w=9, room_h=10,
             corridor_side="north")
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         wall_paths = re.findall(
             r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width="5', svg)
         has_gapped = any(
@@ -364,7 +364,7 @@ class TestHybridArcDirection:
         wy = room.rect.y + 3
         wx = min(fx for fx, fy in floor if fy == wy)
         _add_corridor(level, room, wx - 1, wy, -1, 0, length=3)
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         # Extract all arc commands in wall-stroked paths (width=4).
         arc_cmds = re.findall(
             r'<path[^>]+d="([^"]*A[^"]*)"[^>]+stroke-width="5',
@@ -401,7 +401,7 @@ class TestBoundaryGridLines:
         """Grid lines must exist at corridor↔smooth room edges."""
         level, room = _make_shaped_level(
             CircleShape(), corridor_side="east")
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         # Count grid path elements (opacity=0.7, GRID_WIDTH stroke)
         grid_pattern = (
             rf'stroke-width="{GRID_WIDTH}"[^>]*opacity="0\.7"'
@@ -432,7 +432,7 @@ class TestLayerOrder:
         instead of an SVG clipPath.
         """
         level, _ = _make_shaped_level(CircleShape())
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert HATCH_UNDERLAY in svg
 
     @pytest.mark.skip(
@@ -449,7 +449,7 @@ class TestLayerOrder:
         underlay paints before walls.
         """
         level, _ = _make_shaped_level(CircleShape())
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         hatch_pos = svg.find(HATCH_UNDERLAY)
         # Match either "5" or "5.0" — Rust emits the trimmed form.
         wall_pos = svg.find('stroke-width="5"')
@@ -467,7 +467,7 @@ class TestFloorFillCoverage:
     def test_smooth_room_has_floor_fill(self):
         """Smooth rooms are filled with FLOOR_COLOR."""
         level, _ = _make_shaped_level(CircleShape())
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert f'fill="{FLOOR_COLOR}"' in svg
 
     def test_rect_room_has_floor_fill(self):
@@ -479,7 +479,7 @@ class TestFloorFillCoverage:
         invariant — the floor color paints — survives.
         """
         level, _ = _make_shaped_level(RectShape())
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert f'fill="{FLOOR_COLOR}"' in svg
 
     def test_corridor_tile_has_floor_fill(self):
@@ -491,7 +491,7 @@ class TestFloorFillCoverage:
         """
         level, _ = _make_shaped_level(
             RectShape(), corridor_side="east")
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert f'fill="{FLOOR_COLOR}"' in svg
 
 
@@ -513,19 +513,19 @@ class TestHatchingFloorBoundary:
         tile-bbox bleed at smooth-room corners).
         """
         level, _ = _make_shaped_level(CircleShape())
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert HATCH_UNDERLAY in svg
 
     def test_hatching_exists(self):
         """Hatching is present in the SVG."""
         level, _ = _make_shaped_level(CircleShape())
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert HATCH_UNDERLAY in svg
 
     def test_smooth_room_outline_covers_all_floor(self):
         """The smooth room outline fill covers all floor tiles."""
         level, room = _make_shaped_level(CircleShape())
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert f'fill="{FLOOR_COLOR}"' in svg
 
 
@@ -537,7 +537,7 @@ class TestGridInSmoothRooms:
 
     def _assert_grid_segments(self, shape):
         level, _ = _make_shaped_level(shape)
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         grid_segs = re.findall(
             rf'<path[^>]+d="([^"]+)"[^>]*'
             rf'stroke-width="{GRID_WIDTH}"', svg)
@@ -599,7 +599,7 @@ class TestGridInSmoothRooms:
     def test_no_per_room_clip_path_for_rect_room(self):
         """Rect rooms don't need per-room clip paths for grid."""
         level, _ = _make_shaped_level(RectShape())
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         # The hatching clip path (hatch-clip) may exist, but there
         # should be no per-room smooth-clip paths
         assert "smooth-clip" not in svg
@@ -612,7 +612,7 @@ class TestGridStructure:
     def test_grid_between_adjacent_floor_tiles(self):
         """Grid draws right/bottom edges between floor neighbors."""
         level, room = _make_shaped_level(RectShape(), room_w=5, room_h=5)
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         # Grid uses GRID_WIDTH stroke and 0.7 opacity
         grid_segs = re.findall(
             rf'<path[^>]+d="([^"]+)"[^>]*'
@@ -628,7 +628,7 @@ class TestGridStructure:
         """Corridor tiles get grid lines too."""
         level, _ = _make_shaped_level(
             RectShape(), corridor_side="east")
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         grid_segs = re.findall(
             rf'<path[^>]+d="([^"]+)"[^>]*'
             rf'stroke-width="{GRID_WIDTH}"', svg)
@@ -649,7 +649,7 @@ class TestFloorDetailIndependentOfShape:
     def _render_large_room(self, shape, seed=42):
         level, room = _make_shaped_level(
             shape, room_w=15, room_h=15)
-        svg = render_floor_svg(level, seed=seed)
+        svg = render_floor_svg_from_ir(level, seed=seed)
         return svg
 
     def _assert_stones(self, shape):
@@ -726,7 +726,7 @@ class TestFloorDetailIndependentOfShape:
         )
         # Render with many seeds to hit detail RNG
         for seed in range(30):
-            svg = render_floor_svg(level, seed=seed)
+            svg = render_floor_svg_from_ir(level, seed=seed)
             if FLOOR_STONE_FILL in svg:
                 return
         pytest.fail("No floor detail found on corridor opening tile")
@@ -746,7 +746,7 @@ class TestFloorDetailIndependentOfShape:
                     level.tiles[cy][x] = Tile(
                         terrain=Terrain.FLOOR,
                         surface_type=SurfaceType.CORRIDOR)
-            svg = render_floor_svg(level, seed=seed)
+            svg = render_floor_svg_from_ir(level, seed=seed)
             if FLOOR_STONE_FILL in svg:
                 return
         assert False, "No floor stones on corridor tiles across 50 seeds"
@@ -764,7 +764,7 @@ class TestFloorDetailIndependentOfShape:
                     level.tiles[cy][x] = Tile(
                         terrain=Terrain.FLOOR,
                         surface_type=SurfaceType.CORRIDOR)
-            svg = render_floor_svg(level, seed=seed)
+            svg = render_floor_svg_from_ir(level, seed=seed)
             if "y-scratch" in svg or 'opacity="0.45"' in svg:
                 return
         assert False, "No scratches on corridor tiles across 50 seeds"
@@ -775,7 +775,7 @@ class TestFloorDetailIndependentOfShape:
             level, room = _make_shaped_level(
                 CircleShape(), room_w=11, room_h=11,
                 corridor_side="east")
-            svg = render_floor_svg(level, seed=seed)
+            svg = render_floor_svg_from_ir(level, seed=seed)
             if FLOOR_STONE_FILL in svg:
                 return
         assert False, (

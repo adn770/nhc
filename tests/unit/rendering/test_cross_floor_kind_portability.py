@@ -30,7 +30,7 @@ from nhc.dungeon.model import (
 )
 from nhc.rendering.ir.dump import dump
 from nhc.rendering.ir_emitter import build_floor_ir
-from nhc.rendering.svg import render_floor_svg
+from nhc.rendering.svg import render_floor_svg_from_ir
 
 
 # v5 ``V5FixtureKind`` enum names (per design/map_ir_v5.md §7).
@@ -238,14 +238,14 @@ class TestCobblestonePortability:
     def test_street_paints_on_dungeon(self) -> None:
         level = _floor_grid(6, 6)
         level.tiles[3][3].surface_type = SurfaceType.STREET
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert self._COBBLE in svg
 
     def test_paved_paints_on_building_interior(self) -> None:
         level = _floor_grid(6, 6)
         level.building_id = "b1"
         level.tiles[3][3].surface_type = SurfaceType.PAVED
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert self._COBBLE in svg
 
     def test_street_paints_on_cave(self) -> None:
@@ -258,7 +258,7 @@ class TestCobblestonePortability:
             }),
         )]
         level.tiles[3][3].surface_type = SurfaceType.STREET
-        svg = render_floor_svg(level, seed=11)
+        svg = render_floor_svg_from_ir(level, seed=11)
         assert self._COBBLE in svg
 
 

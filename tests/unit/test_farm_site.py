@@ -119,9 +119,9 @@ class TestFarmSurface:
         stroke around them -- same pattern as STREET on town /
         keep surfaces."""
         from nhc.rendering._svg_helpers import WALL_WIDTH
-        from nhc.rendering.svg import render_floor_svg
+        from nhc.rendering.svg import render_floor_svg_from_ir
         site = assemble_farm("f1", random.Random(7))
-        svg = render_floor_svg(site.surface, seed=7)
+        svg = render_floor_svg_from_ir(site.surface, seed=7)
         assert f'stroke-width="{WALL_WIDTH}"' not in svg
 
     def test_building_footprint_not_in_surface_field(self):

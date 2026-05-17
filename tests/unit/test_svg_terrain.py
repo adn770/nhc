@@ -15,7 +15,7 @@ from nhc.rendering.terrain_palette import (
     ROOM_TYPE_TINTS, THEME_PALETTES,
     get_palette,
 )
-from nhc.rendering.svg import render_floor_svg
+from nhc.rendering.svg import render_floor_svg_from_ir
 
 
 # ── Helpers ──────────���──────────────────────────────────────────
@@ -110,27 +110,27 @@ class TestTerrainPalette:
 class TestTerrainTintSVG:
     def test_water_tiles_get_tinted_rect(self):
         level = _make_terrain_level(Terrain.WATER, theme="dungeon")
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         palette = get_palette("dungeon")
         assert palette.water.tint.lower() in svg.lower()
 
     def test_grass_tiles_get_tinted_rect(self):
         level = _make_terrain_level(Terrain.GRASS, theme="dungeon")
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         palette = get_palette("dungeon")
         assert palette.grass.tint.lower() in svg.lower()
 
     def test_lava_tiles_get_tinted_rect(self):
         level = _make_terrain_level(Terrain.LAVA, theme="dungeon")
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         palette = get_palette("dungeon")
         assert palette.lava.tint.lower() in svg.lower()
 
     def test_different_themes_produce_different_tints(self):
         level_cave = _make_terrain_level(Terrain.WATER, theme="cave")
         level_castle = _make_terrain_level(Terrain.WATER, theme="castle")
-        svg_cave = render_floor_svg(level_cave)
-        svg_castle = render_floor_svg(level_castle)
+        svg_cave = render_floor_svg_from_ir(level_cave)
+        svg_castle = render_floor_svg_from_ir(level_castle)
         p_cave = get_palette("cave")
         p_castle = get_palette("castle")
         assert p_cave.water.tint.lower() in svg_cave.lower()
@@ -139,7 +139,7 @@ class TestTerrainTintSVG:
     def test_floor_tiles_have_no_terrain_tint(self):
         """Plain FLOOR tiles should not produce terrain tint rects."""
         level = _make_terrain_level(Terrain.FLOOR, theme="dungeon")
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         palette = get_palette("dungeon")
         # None of the terrain tint colors should appear
         for attr in ("water", "grass", "lava", "chasm"):
@@ -153,7 +153,7 @@ class TestTerrainTintSVG:
         level = _make_terrain_level(Terrain.FLOOR)
         # Make the corridor tile water
         level.tiles[3][8].terrain = Terrain.WATER
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         # The corridor tile at (8,3) should have a white rect
         px, py = 8 * 32, 3 * 32
         assert f'x="{px}"' in svg
@@ -162,7 +162,7 @@ class TestTerrainTintSVG:
         level = _make_terrain_level(
             Terrain.FLOOR, room_tag="shrine",
         )
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         tint_color = ROOM_TYPE_TINTS["shrine"][0].lower()
         assert tint_color in svg.lower()
 
@@ -183,7 +183,7 @@ class TestTerrainDetailSVG:
         anyway. Grass tint comes from the terrain_tints layer
         and stays."""
         level = _make_terrain_level(Terrain.GRASS)
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert "terrain-grass" not in svg, (
             "grass tiles must not emit a terrain-grass detail group"
         )
@@ -194,16 +194,16 @@ class TestTerrainDetailSVG:
     def test_floor_tiles_no_terrain_detail(self):
         """Standard FLOOR tiles should not get terrain detail marks."""
         level = _make_terrain_level(Terrain.FLOOR)
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert "terrain-water" not in svg
         assert "terrain-grass" not in svg
 
     def test_terrain_tiles_skip_standard_detail(self):
         """WATER/GRASS tiles should not get standard cracks/stones."""
         level = _make_terrain_level(Terrain.WATER)
-        svg_water = render_floor_svg(level, seed=42)
+        svg_water = render_floor_svg_from_ir(level, seed=42)
         level2 = _make_terrain_level(Terrain.FLOOR)
-        svg_floor = render_floor_svg(level2, seed=42)
+        svg_floor = render_floor_svg_from_ir(level2, seed=42)
         # Count floor stone elements (brown ellipses) — water SVG
         # should have fewer since terrain tiles skip standard detail
         water_stones = svg_water.lower().count("#e8d5b8")
@@ -212,6 +212,6 @@ class TestTerrainDetailSVG:
 
     def test_deterministic_terrain_rendering(self):
         level = _make_terrain_level(Terrain.WATER)
-        svg1 = render_floor_svg(level, seed=42)
-        svg2 = render_floor_svg(level, seed=42)
+        svg1 = render_floor_svg_from_ir(level, seed=42)
+        svg2 = render_floor_svg_from_ir(level, seed=42)
         assert svg1 == svg2

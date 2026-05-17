@@ -27,7 +27,7 @@ from nhc.rendering._cave_geometry import (
 )
 from nhc.rendering._dungeon_polygon import _room_shapely_polygon
 from nhc.rendering._room_outlines import _room_svg_outline
-from nhc.rendering.svg import render_floor_svg
+from nhc.rendering.svg import render_floor_svg_from_ir
 
 
 # ── Helpers ─────────────────────────────────────────────────────
@@ -174,7 +174,7 @@ class TestCaveWallRendering:
         level.metadata = LevelMetadata(
             theme="cave", difficulty=9,
         )
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         # The SVG should contain cubic bezier commands
         assert ' C' in svg, (
             "Cave room SVG should contain bezier curve commands"
@@ -308,7 +308,7 @@ class TestCaveRegionWalls:
         corridor tiles — they should be part of the organic path."""
         level, _ = _make_cave_room_level(with_corridor=True)
         level.metadata = LevelMetadata(theme="cave", difficulty=9)
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         # The tile-edge wall segment loop draws straight lines with
         # paths like 'M{x},{y} L{x2},{y2}'.  For cave-region tiles
         # those must be absent.  Check: no tile-edge L segment at

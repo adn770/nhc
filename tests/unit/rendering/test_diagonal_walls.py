@@ -1,13 +1,12 @@
 """Wall rendering + door placement on diagonal building shapes.
 
-For octagon and circle buildings the masonry renderer in
-``nhc/rendering/_building_walls.py`` paints the diagonal
-boundary as rotated stones; the generic floor-SVG wall pass
-must not also stamp tile-edge walls at the clipped corners,
-otherwise both pipelines fight at the chamfer and produce
-L-shaped extra walls inside the building. Doors must also avoid
-the clipped corner tiles -- their outside neighbour is a
-diagonal step where the wall side is ambiguous.
+For octagon and circle buildings the IR emitter's smooth-shape
+ExteriorWallOp owns the diagonal boundary as a single closed
+polygon; the per-tile wall pass must not also stamp tile-edge
+walls at the clipped corners, otherwise the chamfer grows
+L-shaped extra walls. Doors must also avoid the clipped corner
+tiles -- their outside neighbour is a diagonal step where the
+wall side is ambiguous.
 """
 
 from __future__ import annotations
@@ -21,7 +20,7 @@ from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RectShape,
     Room, Terrain, Tile,
 )
-from nhc.rendering.svg import render_floor_svg
+from nhc.rendering.svg import render_floor_svg_from_ir
 from nhc.sites._site import (
     combined_building_bboxes,
     is_clipped_corner_tile,
@@ -127,10 +126,10 @@ class TestOctagonWallRendering:
         """
         building, level = _make_octagon_floor()
         footprint = building.base_shape.floor_tiles(building.base_rect)
-        svg_with = render_floor_svg(
+        svg_with = render_floor_svg_from_ir(
             level, seed=0, building_footprint=footprint,
         )
-        svg_without = render_floor_svg(level, seed=0)
+        svg_without = render_floor_svg_from_ir(level, seed=0)
         with_count = _wall_segment_count(svg_with)
         without_count = _wall_segment_count(svg_without)
         assert with_count == without_count, (

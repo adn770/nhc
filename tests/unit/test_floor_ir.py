@@ -3,7 +3,7 @@
 For each fixture under ``tests/fixtures/floor_ir/<descriptor>/``,
 the IR emitter must produce a FlatBuffer that byte-equals the
 committed ``floor.nir``. Phase 1.k populated the fixtures and
-rewired ``render_floor_svg`` through the IR pipeline; this gate
+rewired ``render_floor_svg_from_ir`` through the IR pipeline; this gate
 catches any drift in the emitter (per-tile order, schema field
 ordering, RNG seed, theme/seed metadata).
 

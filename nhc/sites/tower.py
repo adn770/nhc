@@ -74,7 +74,7 @@ def assemble_tower(
     Returns a :class:`Site` with exactly one :class:`Building`, no
     enclosure, and a small square ``surface`` level framing the
     tower footprint. Interior rendering is handled by
-    ``render_floor_svg`` per floor and the building-wall SVG
+    ``render_floor_svg_from_ir`` per floor and the building-wall SVG
     renderers in later integration milestones.
 
     ``biome`` is an optional :class:`Biome` that lets the

@@ -12,7 +12,7 @@ from nhc.dungeon.model import (
 from nhc.rendering._dungeon_polygon import _room_shapely_polygon
 from nhc.rendering._floor_detail import _render_floor_grid
 from nhc.rendering._svg_helpers import CELL, FLOOR_STONE_FILL, PADDING
-from nhc.rendering.svg import render_floor_svg
+from nhc.rendering.svg import render_floor_svg_from_ir
 
 
 def _make_level(width=10, height=8):
@@ -49,43 +49,43 @@ class TestSVGOutput:
         check accepts either an XML or a bare-SVG header.
         """
         level = _make_level()
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert svg.startswith("<svg") or svg.startswith("<?xml")
         assert "<svg" in svg
         assert svg.rstrip().endswith("</svg>")
 
     def test_parchment_background(self):
         level = _make_level()
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert "#F5EDE0" in svg  # soft brown parchment
 
     def test_contains_room_shadow(self):
         level = _make_level()
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert 'opacity="0.08"' in svg
 
     def test_contains_floor_grid(self):
         level = _make_level()
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert 'opacity="0.7"' in svg  # hand-drawn grid
 
     def test_contains_walls(self):
         level = _make_level()
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert "stroke-linecap" in svg
         assert "#000000" in svg
 
     def test_door_tiles_treated_as_floor(self):
         """Door tiles are walkable floor — no door-specific SVG."""
         level = _make_level()
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         # No door rectangles or door-specific stroke
         assert "door" not in svg.lower()
 
     def test_stairs_down_a_shape(self):
         """Stairs down should render as A-shape with step lines."""
         level = _make_level()
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         # Two leg lines + 3 step lines = at least 5 line elements
         assert svg.count("stroke-linecap=\"round\"") > 5
 
@@ -93,17 +93,17 @@ class TestSVGOutput:
         level = _make_level()
         level.tiles[4][4] = Tile(terrain=Terrain.FLOOR)
         level.tiles[4][4].feature = "stairs_up"
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert svg.count("stroke-linecap=\"round\"") > 10
 
     def test_contains_hatching(self):
         level = _make_level()
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert "#D0D0D0" in svg  # hatch underlay
 
     def test_viewbox_dimensions(self):
         level = _make_level(width=10, height=8)
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         expected_w = 10 * CELL + 2 * PADDING
         expected_h = 8 * CELL + 2 * PADDING
         assert f'viewBox="0 0 {expected_w} {expected_h}"' in svg
@@ -112,7 +112,7 @@ class TestSVGOutput:
         """Locked doors are also just floor in SVG."""
         level = _make_level()
         level.tiles[3][6].feature = "door_locked"
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert "door" not in svg.lower()
 
     def test_open_door_not_rendered(self):
@@ -124,19 +124,19 @@ class TestSVGOutput:
         level.tiles[2][3] = Tile(terrain=Terrain.FLOOR,
                                  feature="door_open")
         level.rooms.append(Room(id="r", rect=Rect(1, 1, 3, 3)))
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert "door" not in svg.lower()
 
     def test_deterministic_with_same_seed(self):
         level = _make_level()
-        svg1 = render_floor_svg(level, seed=123)
-        svg2 = render_floor_svg(level, seed=123)
+        svg1 = render_floor_svg_from_ir(level, seed=123)
+        svg2 = render_floor_svg_from_ir(level, seed=123)
         assert svg1 == svg2
 
     def test_different_seed_different_hatching(self):
         level = _make_level()
-        svg1 = render_floor_svg(level, seed=1)
-        svg2 = render_floor_svg(level, seed=2)
+        svg1 = render_floor_svg_from_ir(level, seed=1)
+        svg2 = render_floor_svg_from_ir(level, seed=2)
         assert svg1 != svg2
 
     @pytest.mark.skip(
@@ -154,7 +154,7 @@ class TestSVGOutput:
         level.rooms.append(Room(id="r", rect=Rect(1, 1, 18, 18)))
         # Try several seeds until we get a stone
         for seed in range(50):
-            svg = render_floor_svg(level, seed=seed)
+            svg = render_floor_svg_from_ir(level, seed=seed)
             if FLOOR_STONE_FILL in svg:
                 break
         assert FLOOR_STONE_FILL in svg, "No floor stone found in any seed"
@@ -168,7 +168,7 @@ class TestSVGOutput:
                 level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
         level.rooms.append(Room(id="r", rect=Rect(1, 1, 18, 18)))
         for seed in range(50):
-            svg = render_floor_svg(level, seed=seed)
+            svg = render_floor_svg_from_ir(level, seed=seed)
             if 'stroke="#666666"' in svg:
                 break
         # Both hatching and floor stones use #666666 stroke
@@ -190,7 +190,7 @@ class TestSVGOutput:
         # reliably get at least one cluster across a few seeds
         found_cluster = False
         for seed in range(20):
-            svg = render_floor_svg(level, seed=seed)
+            svg = render_floor_svg_from_ir(level, seed=seed)
             # A cluster adds 3 ellipses; count brown-filled ellipses
             count = svg.count(f'fill="{FLOOR_STONE_FILL}"')
             # Singles add 1, clusters add 3 — if total >= 3 we likely

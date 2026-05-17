@@ -364,7 +364,7 @@ def _render_fixture(fx: Fixture) -> _RenderedFixture:
     """Build the level and return all four artefacts.
 
     Phase 1.k lights up ``nir`` and ``json`` — :func:`build_floor_ir`
-    drives the IR pipeline that ``render_floor_svg`` now routes
+    drives the IR pipeline that ``render_floor_svg_from_ir`` now routes
     through, and the canonicalised JSON dump from
     :mod:`nhc.rendering.ir.dump` makes the buffer git-reviewable.
 

@@ -8,7 +8,7 @@ from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
 from nhc.dungeon.model import Level, SurfaceType, Terrain
 from nhc.dungeon.transforms import add_cart_tracks, add_ore_deposits
-from nhc.rendering.svg import render_floor_svg
+from nhc.rendering.svg import render_floor_svg_from_ir
 
 
 def _mine_level(seed: int = 42) -> Level:
@@ -30,7 +30,7 @@ class TestCartTrackRendering:
         )
         level = BSPGenerator().generate(params, rng=random.Random(42))
         # Don't apply add_cart_tracks
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert "cart-tracks" not in svg
 
 
@@ -40,5 +40,5 @@ class TestOreDepositRendering:
             width=40, height=25, depth=1, seed=42,
         )
         level = BSPGenerator().generate(params, rng=random.Random(42))
-        svg = render_floor_svg(level)
+        svg = render_floor_svg_from_ir(level)
         assert "ore-deposits" not in svg

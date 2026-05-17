@@ -1,12 +1,15 @@
-"""SVG floor renderer — Dyson Logos style.
+"""SVG helpers retained for the future authoring tool.
 
-Generates a static SVG image of a dungeon floor from nhc's Level model.
-Black and white only. The SVG contains rooms, corridors, walls, doors
-(as gaps in walls), stairs (triangular parallel lines), and procedural
-cross-hatching. No entities — those are overlaid by the
-browser client using the tileset.
+NIR-only: the game renders floors browser-side from the NIR. This
+module survives as two narrow entry points:
 
-Hatching uses Shapely geometry and Perlin noise for organic effects.
+* :func:`render_floor_svg_from_ir` — a thin shim that builds the
+  floor IR and rasterises it via the Rust ``ir_to_svg``. Kept so an
+  authoring tool (and the legacy SVG-shape tests) can obtain a
+  floor SVG without going through the web server.
+* :func:`render_hatch_svg` — generates the tileable Dyson
+  cross-hatch patch used by the offline ``gen_hatch_pattern`` tool
+  (Shapely geometry + Perlin noise for organic strokes).
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ from shapely.geometry import LineString
 from nhc.rendering._svg_helpers import BG, CELL, HATCH_UNDERLAY, INK
 
 
-def render_floor_svg(
+def render_floor_svg_from_ir(
     level: "Level", seed: int = 0, hatch_distance: float = 2.0,
     building_footprint: set[tuple[int, int]] | None = None,
     building_polygon: list[tuple[float, float]] | None = None,
@@ -45,19 +48,12 @@ def render_floor_svg(
     ...).
 
     *building_polygon* is the pixel-space outer outline of the
-    enclosing Building (level-local coords, no PADDING). When
-    set, the wood-floor renderer clips its fill to this polygon
-    instead of stopping at the rect-aligned tile boundaries, so
-    a wooden tower's planks visually reach the chamfer diagonal
-    rather than the bbox edge.
+    enclosing Building (level-local coords, no PADDING) forwarded
+    to the IR emitter so a wooden tower's planks reach the chamfer
+    diagonal rather than the bbox edge.
 
-    Phase 1.n of the IR migration rewires this entry to route
-    through ``ir_to_svg(build_floor_ir(...))``. Every legacy
-    code path (wood floor, decorator pipeline, surface features,
-    inactive-layer gating) flows through the IR pipeline; the
-    legacy ``_*_paint`` helpers stay alive because the IR emit
-    shells call into them for Phase 1's transitional passthroughs.
-    Phase 4 deletes them after the Rust ports.
+    This is a thin shim: it builds the floor IR and rasterises it
+    via the Rust ``ir_to_svg``. There is no Python SVG path left.
     """
     import nhc_render
     from nhc.rendering.ir_emitter import build_floor_ir
@@ -210,7 +206,7 @@ def render_hatch_svg(seed: int = 0) -> str:
 
 
 # render_hatch_svg's only collaborators. Imported here (not at the
-# top) so the module's public surface — render_floor_svg (the IR
+# top) so the module's public surface — render_floor_svg_from_ir (the IR
 # shim) and render_hatch_svg — reads first; the legacy re-export
 # blocks for the pre-IR renderer were removed with the NIR-only
 # migration.

@@ -124,9 +124,9 @@ class TestMansionSurface:
     def test_surface_svg_has_no_walled_island_strokes(self):
         """GARDEN tiles must not trigger the WALL stroke."""
         from nhc.rendering._svg_helpers import WALL_WIDTH
-        from nhc.rendering.svg import render_floor_svg
+        from nhc.rendering.svg import render_floor_svg_from_ir
         site = assemble_mansion("m1", random.Random(7))
-        svg = render_floor_svg(site.surface, seed=7)
+        svg = render_floor_svg_from_ir(site.surface, seed=7)
         assert f'stroke-width="{WALL_WIDTH}"' not in svg
 
     def test_building_footprint_not_overlaid_as_garden(self):

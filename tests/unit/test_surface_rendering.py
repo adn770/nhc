@@ -15,7 +15,7 @@ import pytest
 from nhc.dungeon.model import (
     Level, Rect, Room, SurfaceType, Terrain, Tile,
 )
-from nhc.rendering.svg import render_floor_svg
+from nhc.rendering.svg import render_floor_svg_from_ir
 
 
 def _blank_level(
@@ -57,21 +57,21 @@ class TestSurfaceTypeStreetRendering:
     def test_surface_type_street_triggers_cobblestone(self):
         level = _blank_level()
         level.tiles[5][5].surface_type = SurfaceType.STREET
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         # Cobblestone stroke colour is the canonical street marker.
         assert "#8A7A6A" in svg
 
     def test_no_surface_means_no_cobblestones(self):
         level = _blank_level()
         # Leave every tile with surface_type = NONE.
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         # Without any street tile, the cobblestone group does not appear.
         assert "#8A7A6A" not in svg
 
     def test_street_surface_renders_idempotently(self):
         level = _blank_level()
         level.tiles[3][3].surface_type = SurfaceType.STREET
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert "#8A7A6A" in svg
 
     def test_non_street_surface_types_do_not_render_cobbles(self):
@@ -87,7 +87,7 @@ class TestSurfaceTypeStreetRendering:
         ):
             tile = Tile(terrain=Terrain.FLOOR, surface_type=st)
             level.tiles[4][4] = tile
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert "#8A7A6A" not in svg
 
 
@@ -103,7 +103,7 @@ class TestFieldSurface:
         level = _blank_level()
         level.tiles[4][4].terrain = Terrain.GRASS
         level.tiles[4][4].surface_type = SurfaceType.FIELD
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         grass_tint = get_palette("dungeon").grass.tint
         assert grass_tint in svg
 
@@ -117,7 +117,7 @@ class TestFieldSurface:
             for x in range(20):
                 level.tiles[y][x].terrain = Terrain.GRASS
                 level.tiles[y][x].surface_type = SurfaceType.FIELD
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         # Over 400 field tiles, the stone probability should produce
         # several visible stones.
         assert FIELD_STONE_FILL in svg
@@ -127,7 +127,7 @@ class TestFieldSurface:
         level = _blank_level()
         level.tiles[5][5].terrain = Terrain.GRASS
         level.tiles[5][5].surface_type = SurfaceType.FIELD
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert "#8A7A6A" not in svg
 
 
@@ -143,7 +143,7 @@ class TestGardenSurface:
         level = _blank_level()
         level.tiles[4][4].terrain = Terrain.GRASS
         level.tiles[4][4].surface_type = SurfaceType.GARDEN
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         grass_tint = get_palette("dungeon").grass.tint
         assert grass_tint in svg
 
@@ -156,7 +156,7 @@ class TestGardenSurface:
             for x in range(20):
                 level.tiles[y][x].terrain = Terrain.GRASS
                 level.tiles[y][x].surface_type = SurfaceType.GARDEN
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         # Old GARDEN_LINE_STROKE colour. If it ever reappears the
         # hoe-row scribble noise has come back.
         assert "#4A6A3A" not in svg
@@ -165,7 +165,7 @@ class TestGardenSurface:
         level = _blank_level()
         level.tiles[5][5].terrain = Terrain.GRASS
         level.tiles[5][5].surface_type = SurfaceType.GARDEN
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert "#8A7A6A" not in svg
 
     def test_garden_surface_skips_field_stones(self):
@@ -177,7 +177,7 @@ class TestGardenSurface:
             for x in range(10):
                 level.tiles[y][x].terrain = Terrain.GRASS
                 level.tiles[y][x].surface_type = SurfaceType.GARDEN
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert FIELD_STONE_FILL not in svg
 
 
@@ -230,13 +230,13 @@ class TestTownGrassTint:
         level.tiles[4][4].surface_type = SurfaceType.FIELD
         level.tiles[5][5].terrain = Terrain.GRASS
         level.tiles[5][5].surface_type = SurfaceType.GARDEN
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert get_palette("town").grass.tint in svg
 
 
 class TestWoodInteriorFloor:
     @pytest.mark.skip(
-        reason="NIR4: wood-floor short-circuit in render_floor_svg no "
+        reason="NIR4: wood-floor short-circuit in render_floor_svg_from_ir no "
         "longer emits the WOOD_FLOOR_FILL color; the per-tile WoodFloor "
         "FloorOps lose their outline through the schema cut and the "
         "consumer doesn't render them. Production fix pending."
@@ -245,7 +245,7 @@ class TestWoodInteriorFloor:
         from nhc.rendering._floor_detail import WOOD_FLOOR_FILL
         level = _blank_level()
         level.interior_floor = "wood"
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert WOOD_FLOOR_FILL in svg
 
     @pytest.mark.skip(
@@ -257,7 +257,7 @@ class TestWoodInteriorFloor:
         seam_stroke = _wood_palette_for_test(seed=42)[3]
         level = _blank_level(30, 30)
         level.interior_floor = "wood"
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert seam_stroke in svg
 
     @pytest.mark.skip(
@@ -270,7 +270,7 @@ class TestWoodInteriorFloor:
         seam_stroke = _wood_palette_for_test(seed=42)[3]
         level = _blank_level()
         assert level.interior_floor == "stone"
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert WOOD_FLOOR_FILL not in svg
         assert seam_stroke not in svg
 
@@ -299,14 +299,14 @@ class TestWoodGrainEffect:
         grain_light = _wood_palette_for_test(seed=42)[1]
         level = _blank_level(20, 6)
         level.interior_floor = "wood"
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert grain_light in svg
 
     def test_grain_dark_colour_present(self):
         grain_dark = _wood_palette_for_test(seed=42)[2]
         level = _blank_level(20, 6)
         level.interior_floor = "wood"
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert grain_dark in svg
 
     def test_grain_colours_differ_from_fill_and_seam(self):
@@ -332,7 +332,7 @@ class TestWoodGrainEffect:
         )
         level = _blank_level(20, 6)
         assert level.interior_floor == "stone"
-        svg = render_floor_svg(level, seed=42)
+        svg = render_floor_svg_from_ir(level, seed=42)
         assert WOOD_GRAIN_LIGHT not in svg
         assert WOOD_GRAIN_DARK not in svg
 
