@@ -25,6 +25,33 @@
 
 let modulePromise = null;
 
+// Whole-floor render cache. The renderer runs ONCE per floor
+// change, not per frame. When the player re-enters a previously
+// rendered floor in the same session (stairs down, then back up),
+// the `.nir` URL is stable (server-side `floor_svg_id` is a uuid
+// hex held for the session, body is byte-identical between visits)
+// — so the rendered pixels are identical too. Cache the rendered
+// canvas keyed on the URL so revisits return in <10 ms.
+//
+// MAX = 3: at 3456x2880x4 bytes per canvas (~39.6 MB) this caps
+// memory at ~120 MB. Tune lower if a player tab runs hot.
+//
+// Cache entries hold DETACHED canvases — we clone-on-read AND
+// clone-on-write so the DOM-attached copy (installed via
+// container.replaceChildren) can't be silently moved out from
+// under us by a future floor change.
+const RENDER_CACHE = new Map();
+const RENDER_CACHE_MAX = 3;
+
+function cloneCanvas(src) {
+  const dst = document.createElement("canvas");
+  dst.id = "floor-canvas";
+  dst.width = src.width;
+  dst.height = src.height;
+  dst.getContext("2d").drawImage(src, 0, 0);
+  return dst;
+}
+
 async function loadModule() {
   if (modulePromise === null) {
     modulePromise = (async () => {
@@ -83,6 +110,26 @@ export async function fetchAndRender(url, options = {}) {
     profile = false,
     profileLabel = null,
   } = options;
+  // Cache key is the full URL (the per-floor uuid lives in the
+  // path). Skip the cache for debug knobs (`layer`, `bare`,
+  // non-default `scale`) so a one-off single-layer render can't
+  // poison the production cache the production map.js path uses.
+  if (layer === null && !bare && scale === 1.0 && RENDER_CACHE.has(url)) {
+    const hit = RENDER_CACHE.get(url);
+    RENDER_CACHE.delete(url);
+    RENDER_CACHE.set(url, hit);
+    if (profile) {
+      const label = profileLabel ?? url;
+      console.log(
+        `[nhc-render] ${label} cached=true canvas=${hit.width}x${hit.height}`,
+      );
+    }
+    return {
+      canvas: cloneCanvas(hit.canvas),
+      width: hit.width,
+      height: hit.height,
+    };
+  }
   const mod = await loadModule();
   const resp = await fetch(url);
   if (!resp.ok) {
@@ -117,6 +164,18 @@ export async function fetchAndRender(url, options = {}) {
       "[floor_ir_renderer] dims mismatch:",
       "pre-flight=", w, h, "render=", renderDims[0], renderDims[1],
     );
+  }
+  // Cache only the canonical render shape (no debug knobs). Match
+  // the read-side gate above so the two paths stay symmetric.
+  if (layer === null && !bare && scale === 1.0) {
+    if (RENDER_CACHE.size >= RENDER_CACHE_MAX) {
+      RENDER_CACHE.delete(RENDER_CACHE.keys().next().value);
+    }
+    RENDER_CACHE.set(url, {
+      canvas: cloneCanvas(canvas),
+      width: w,
+      height: h,
+    });
   }
   return { canvas, width: w, height: h };
 }
