@@ -94,6 +94,41 @@ fn layer_ops() -> &'static HashMap<&'static str, &'static [Op]> {
 pub(crate) const BARE_SKIP_OPS: &[Op] =
     &[Op::StampOp, Op::PathOp, Op::FixtureOp];
 
+/// Per-op-kind filters used by the canvas profiled entry point.
+///
+/// Each constant is a single-element op-tag set so
+/// `dispatch_ops(layer_filter=Some(ONLY_X))` only fires the matching
+/// handler. The eight constants in [`PROFILE_LAYER_ORDER`] mirror
+/// the v5 emit order in `nhc/rendering/emit/__init__.emit_all`, so
+/// iterating them produces the same op execution sequence as a
+/// single un-filtered `dispatch_ops` walk over a canonical-order
+/// buffer.
+pub const ONLY_SHADOW: &[Op] = &[Op::ShadowOp];
+pub const ONLY_HATCH: &[Op] = &[Op::HatchOp];
+pub const ONLY_PAINT: &[Op] = &[Op::PaintOp];
+pub const ONLY_STROKE: &[Op] = &[Op::StrokeOp];
+pub const ONLY_STAMP: &[Op] = &[Op::StampOp];
+pub const ONLY_ROOF: &[Op] = &[Op::RoofOp];
+pub const ONLY_PATH: &[Op] = &[Op::PathOp];
+pub const ONLY_FIXTURE: &[Op] = &[Op::FixtureOp];
+
+/// Layer ordering used by [`super::canvas::floor_ir_to_canvas_profiled`].
+///
+/// Eight (`filter`, `name`) entries in v5 emit order — matches the
+/// `emit_all` sequence in `nhc/rendering/emit/__init__.py` so the
+/// profiled render produces the same z-order as the single-pass
+/// dispatch.
+pub const PROFILE_LAYER_ORDER: &[(&[Op], &str)] = &[
+    (ONLY_SHADOW, "shadow"),
+    (ONLY_HATCH, "hatch"),
+    (ONLY_PAINT, "paint"),
+    (ONLY_STROKE, "stroke"),
+    (ONLY_STAMP, "stamp"),
+    (ONLY_ROOF, "roof"),
+    (ONLY_PATH, "path"),
+    (ONLY_FIXTURE, "fixture"),
+];
+
 /// Render a `FloorIR` buffer to a PNG byte stream.
 ///
 /// `scale` multiplies the SVG-equivalent canvas size; `1.0`

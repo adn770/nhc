@@ -28,6 +28,7 @@ use crate::painter::{Painter, Transform};
 
 use super::png::{
     dispatch_ops, resolve_layer_filter, BARE_SKIP_OPS, BG_B, BG_G, BG_R,
+    PROFILE_LAYER_ORDER,
 };
 
 /// Errors the IR → Canvas2D path can surface. Mirrors
@@ -151,6 +152,74 @@ pub fn floor_ir_to_canvas<C: Canvas2DCtx>(
         ty: padding * scale,
     });
     dispatch_ops(&fir, layer_filter, skip_filter, &mut painter);
+    painter.pop_transform();
+
+    Ok((canvas_w, canvas_h))
+}
+
+/// Render a `FloorIR` buffer onto a Canvas2D surface, firing
+/// `on_layer_end` after each per-op-kind dispatch pass so the
+/// caller can attribute time to each layer.
+///
+/// Walks the eight v5 op kinds (Shadow → Hatch → Paint → Stroke
+/// → Stamp → Roof → Path → Fixture) in [`PROFILE_LAYER_ORDER`]
+/// — the same emit order
+/// `nhc/rendering/emit/__init__.emit_all` produces — so the
+/// painted z-order matches a single un-filtered
+/// [`floor_ir_to_canvas`] call on a canonical-order buffer.
+/// `on_layer_end` fires once per layer (eight times total) with
+/// the kebab-cased layer name; the caller is responsible for
+/// reading a clock and accumulating per-layer durations.
+///
+/// `bare` mirrors [`floor_ir_to_canvas`]: when `true` the four
+/// decoration layers (Stamp, Path, Fixture; PNG / SVG / Canvas
+/// share the same skip set via [`BARE_SKIP_OPS`]) are elided
+/// inside their respective passes. Layers that get fully skipped
+/// still fire `on_layer_end` so the per-layer log entries line
+/// up across `bare` and non-`bare` renders.
+///
+/// Returns the canvas dims in CSS pixels — same contract as
+/// [`floor_ir_to_canvas`].
+pub fn floor_ir_to_canvas_profiled<C: Canvas2DCtx, F: FnMut(&str)>(
+    buf: &[u8],
+    scale: f32,
+    bare: bool,
+    ctx: &C,
+    mut on_layer_end: F,
+) -> Result<(u32, u32), CanvasError> {
+    if buf.len() < 8 || !floor_ir_buffer_has_identifier(buf) {
+        return Err(CanvasError::InvalidBuffer(
+            "buffer does not carry the NIR5 file_identifier".to_string(),
+        ));
+    }
+    let skip_filter = if bare { Some(BARE_SKIP_OPS) } else { None };
+
+    let fir = root_as_floor_ir(buf)
+        .map_err(|e| CanvasError::InvalidBuffer(e.to_string()))?;
+
+    let cell = fir.cell() as f32;
+    let padding = fir.padding() as f32;
+    let canvas_w_f = (fir.width_tiles() as f32 * cell + 2.0 * padding) * scale;
+    let canvas_h_f = (fir.height_tiles() as f32 * cell + 2.0 * padding) * scale;
+    let canvas_w = canvas_w_f.round().max(0.0) as u32;
+    let canvas_h = canvas_h_f.round().max(0.0) as u32;
+
+    ctx.set_fill_style(&format!("rgb({BG_R}, {BG_G}, {BG_B})"));
+    ctx.fill_rect(0.0, 0.0, canvas_w_f as f64, canvas_h_f as f64);
+
+    let mut painter = CanvasPainter::new(ctx, canvas_w, canvas_h);
+    painter.push_transform(Transform {
+        sx: scale,
+        kx: 0.0,
+        tx: padding * scale,
+        ky: 0.0,
+        sy: scale,
+        ty: padding * scale,
+    });
+    for (filter, name) in PROFILE_LAYER_ORDER {
+        dispatch_ops(&fir, Some(*filter), skip_filter, &mut painter);
+        on_layer_end(name);
+    }
     painter.pop_transform();
 
     Ok((canvas_w, canvas_h))
@@ -467,5 +536,75 @@ mod tests {
             floor_ir_to_canvas(&buf, 1.0, Some(layer), false, &ctx)
                 .unwrap_or_else(|e| panic!("layer {layer:?}: {e}"));
         }
+    }
+
+    #[test]
+    fn profiled_fires_on_layer_end_eight_times_in_v5_emit_order() {
+        let buf = build_minimal_buf(2, 2);
+        let ctx = RecCtx::new();
+        let mut layers: Vec<String> = Vec::new();
+        floor_ir_to_canvas_profiled(
+            &buf, 1.0, false, &ctx, |name| layers.push(name.to_string()),
+        )
+        .expect("profiled render succeeds");
+        assert_eq!(
+            layers,
+            [
+                "shadow", "hatch", "paint", "stroke", "stamp",
+                "roof", "path", "fixture",
+            ]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+        );
+    }
+
+    #[test]
+    fn profiled_paints_background_and_returns_canvas_dims() {
+        // Empty buffer through the profiled path still paints the
+        // parchment background and returns the same dims as the
+        // single-pass entry, so the JS caller can re-use its
+        // pre-flight `ir_canvas_dims` reading without branching.
+        let buf = build_minimal_buf(2, 2);
+        let ctx = RecCtx::new();
+        let (w, h) = floor_ir_to_canvas_profiled(
+            &buf, 1.0, false, &ctx, |_| {},
+        )
+        .expect("encode succeeds");
+        assert_eq!((w, h), (128, 128));
+        let ops = ctx.ops();
+        assert!(matches!(
+            &ops[0],
+            Op::SetFillStyle(s) if s == "rgb(245, 237, 224)",
+        ));
+        assert_eq!(ops[1], Op::FillRect(0.0, 0.0, 128.0, 128.0));
+    }
+
+    #[test]
+    fn profiled_output_matches_single_pass_for_empty_buffer() {
+        // For a canonical-order buffer the profiled per-op-kind
+        // dispatch must produce the same painter call sequence as
+        // the single-pass [`floor_ir_to_canvas`] — same z-order.
+        // Empty buffer is the boundary case (no ops fire on either
+        // path; only the bg + transform envelope shows up).
+        let buf = build_minimal_buf(2, 2);
+        let single_ctx = RecCtx::new();
+        floor_ir_to_canvas(&buf, 1.0, None, false, &single_ctx).unwrap();
+        let profiled_ctx = RecCtx::new();
+        floor_ir_to_canvas_profiled(
+            &buf, 1.0, false, &profiled_ctx, |_| {},
+        )
+        .unwrap();
+        assert_eq!(single_ctx.ops(), profiled_ctx.ops());
+    }
+
+    #[test]
+    fn profiled_rejects_buffer_without_identifier() {
+        let ctx = RecCtx::new();
+        let err = floor_ir_to_canvas_profiled(
+            &[0u8; 16], 1.0, false, &ctx, |_| {},
+        )
+        .unwrap_err();
+        assert!(matches!(err, CanvasError::InvalidBuffer(_)));
     }
 }

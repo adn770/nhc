@@ -351,7 +351,20 @@ const GameMap = {
       + (document.querySelector('meta[name="static-version"]')
          ?.getAttribute("content") || "0")
     );
-    const { canvas, width, height } = await mod.fetchAndRender(url);
+    // Per-render profiling: route through the profiled WASM
+    // entry so each floor render emits a `[nhc-render]` line
+    // with shadow/hatch/paint/stroke/stamp/roof/path/fixture
+    // milliseconds + a `theme=` tag. Used to investigate
+    // settlement render cost — DevTools filter by the theme to
+    // isolate town/city renders. Drop `profile: true` to
+    // disable.
+    const label = this.theme
+      ? `theme=${this.theme} ${url}`
+      : url;
+    const { canvas, width, height } = await mod.fetchAndRender(url, {
+      profile: true,
+      profileLabel: label,
+    });
     const container = document.getElementById("floor-svg");
     container.replaceChildren(canvas);
     this._installFloorDimensions(width, height, "WASM");

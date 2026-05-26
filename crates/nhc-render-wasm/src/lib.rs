@@ -91,6 +91,75 @@ pub fn render_ir_to_canvas(
     Ok(vec![w, h])
 }
 
+/// Render a FloorIR buffer onto Canvas2D and log per-layer
+/// timing to ``console.log``.
+///
+/// Identical pixel output to [`render_ir_to_canvas`] when the
+/// buffer's ops are in canonical v5 emit order (which
+/// ``emit_all`` always produces). Internally walks the eight v5
+/// op kinds — Shadow, Hatch, Paint, Stroke, Stamp, Roof, Path,
+/// Fixture — with one ``dispatch_ops`` pass per kind, timing
+/// each via ``performance.now()`` and emitting a single
+/// ``console.log`` line per render with ``label`` (the
+/// settlement / site identifier) plus the eight elapsed-ms
+/// numbers.
+///
+/// `label` is opaque to the renderer — it's echoed back in the
+/// log line so the JS dispatcher can tag renders by site kind
+/// ("town:size_class=city", floor descriptor, URL, etc.) for
+/// later filtering in DevTools.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn render_ir_to_canvas_profiled(
+    ir_bytes: &[u8],
+    ctx: &web_sys::CanvasRenderingContext2d,
+    scale: f32,
+    bare: bool,
+    label: Option<String>,
+) -> Result<Vec<u32>, JsValue> {
+    let webctx = web_canvas::WebCanvasCtx::from_ctx(ctx.clone())?;
+    let perf = web_sys::window()
+        .and_then(|w| w.performance())
+        .ok_or_else(|| JsValue::from_str("performance.now() unavailable"))?;
+
+    let mut entries: Vec<(String, f64)> = Vec::with_capacity(8);
+    let t_render_start = perf.now();
+    let mut t_prev = t_render_start;
+    let dims = nhc_render::transform::canvas::floor_ir_to_canvas_profiled(
+        ir_bytes,
+        scale,
+        bare,
+        &webctx,
+        |name| {
+            let t_now = perf.now();
+            entries.push((name.to_string(), t_now - t_prev));
+            t_prev = t_now;
+        },
+    )
+    .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let total_ms = perf.now() - t_render_start;
+
+    let label_str = label.as_deref().unwrap_or("");
+    let (w, h) = dims;
+    let mut line = String::with_capacity(160);
+    line.push_str("[nhc-render]");
+    if !label_str.is_empty() {
+        line.push(' ');
+        line.push_str(label_str);
+    }
+    line.push_str(&format!(" canvas={w}x{h} scale={scale:.2}"));
+    if bare {
+        line.push_str(" bare");
+    }
+    line.push_str(&format!(" total={total_ms:.2}ms"));
+    for (name, ms) in &entries {
+        line.push_str(&format!(" {name}={ms:.2}"));
+    }
+    web_sys::console::log_1(&JsValue::from_str(&line));
+
+    Ok(vec![w, h])
+}
+
 /// Compute the destination canvas dims for an IR buffer + scale
 /// without rendering.
 ///

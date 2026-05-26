@@ -64,10 +64,25 @@ async function loadModule() {
  *   the full stack.
  * @param {boolean} [options.bare=false] Drop the four
  *   decoration layers (mirror of the SVG `bare` flag).
+ * @param {boolean} [options.profile=false] Route through the
+ *   profiled WASM entry. Logs one `[nhc-render]` line per render
+ *   with per-layer ms (shadow, hatch, paint, stroke, stamp, roof,
+ *   path, fixture) + total — used to investigate settlement
+ *   render cost in DevTools. Ignored when `layer` is set (the
+ *   single-layer debug path bypasses per-kind dispatch).
+ * @param {string|null} [options.profileLabel=null] Opaque tag
+ *   echoed into the profiling log line so DevTools filter by
+ *   site / floor descriptor. Falls back to `url` when omitted.
  * @returns {Promise<{canvas: HTMLCanvasElement, width: number, height: number}>}
  */
 export async function fetchAndRender(url, options = {}) {
-  const { scale = 1.0, layer = null, bare = false } = options;
+  const {
+    scale = 1.0,
+    layer = null,
+    bare = false,
+    profile = false,
+    profileLabel = null,
+  } = options;
   const mod = await loadModule();
   const resp = await fetch(url);
   if (!resp.ok) {
@@ -88,7 +103,15 @@ export async function fetchAndRender(url, options = {}) {
   // The render call returns dims too — they should match what
   // ir_canvas_dims produced; assert in dev mode so a regression
   // in either path surfaces loudly.
-  const renderDims = mod.render_ir_to_canvas(buf, ctx, scale, layer, bare);
+  let renderDims;
+  if (profile && layer === null) {
+    const label = profileLabel ?? url;
+    renderDims = mod.render_ir_to_canvas_profiled(
+      buf, ctx, scale, bare, label,
+    );
+  } else {
+    renderDims = mod.render_ir_to_canvas(buf, ctx, scale, layer, bare);
+  }
   if (renderDims[0] !== w || renderDims[1] !== h) {
     console.warn(
       "[floor_ir_renderer] dims mismatch:",
