@@ -22,6 +22,7 @@
 pub mod canvas;
 pub mod families;
 pub mod material;
+pub mod raster_ctx;
 pub mod skia;
 pub mod svg;
 
@@ -30,6 +31,7 @@ pub(crate) mod test_util;
 
 pub use canvas::{Canvas2DCtx, CanvasLineCap, CanvasLineJoin, CanvasPainter};
 pub use material::{paint_material, Family, Material, V5_MATERIAL_FALLBACK_COLOR};
+pub use raster_ctx::RasterCtx;
 pub use skia::SkiaPainter;
 pub use svg::SvgPainter;
 
