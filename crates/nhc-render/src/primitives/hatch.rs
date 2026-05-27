@@ -196,12 +196,14 @@ fn paint_shape_buckets(
     let (tile_fills, hatch_lines, hatch_stones) = shapes;
 
     if !tile_fills.is_empty() {
-        // audit: disjoint — whole-tile fill_rect per unique grid square; tiles tile.
-        painter.begin_group(TILE_FILLS_OPACITY);
+        // Phase A elimination — each tile_fill is one CELL x CELL
+        // fill_rect at a unique grid square; tiles tile (pairwise
+        // disjoint), so per-element compositing at
+        // TILE_FILLS_OPACITY matches the group composite. See
+        // design/begin_group_audit.md.
         for shape in tile_fills {
             paint_shape(painter, shape);
         }
-        painter.end_group();
     }
     if !hatch_lines.is_empty() {
         // audit: overlapping — per-tile hatch strokes meet at tile boundaries.
@@ -226,7 +228,15 @@ fn paint_shape(painter: &mut dyn Painter, shape: &HatchShape) {
                 CELL as f32,
                 CELL as f32,
             );
-            painter.fill_rect(rect, &paint_for_hex(HATCH_UNDERLAY));
+            // Phase A elimination — bake TILE_FILLS_OPACITY directly
+            // into the fill colour since the surrounding bucket no
+            // longer wraps the tile_fills in a begin_group envelope.
+            let paint = Paint::solid(
+                paint_for_hex(HATCH_UNDERLAY)
+                    .color
+                    .with_alpha(TILE_FILLS_OPACITY),
+            );
+            painter.fill_rect(rect, &paint);
         }
         HatchShape::HatchStone {
             cx,
@@ -657,7 +667,7 @@ fn clip_line_to_polygon(
 
 #[cfg(test)]
 mod tests {
-    use super::{clip_line_to_polygon, paint_hatch_corridor, paint_hatch_room, section_to_geo, HATCH_LINES_OPACITY, TILE_FILLS_OPACITY};
+    use super::{clip_line_to_polygon, paint_hatch_corridor, paint_hatch_room, section_to_geo, HATCH_LINES_OPACITY};
     use crate::painter::{
         FillRule, Paint, Painter, PathOps, Rect, Stroke, Vec2,
     };
@@ -821,22 +831,22 @@ mod tests {
         assert_eq!(painter.group_depth, 0);
     }
 
-    /// One corridor tile → at minimum, the tile_fills group fires
-    /// (every tile produces exactly one TileFill). The hatch_lines
-    /// group fires too because every tile yields ≥ 9 hatch lines
-    /// (3 sections × ≥ 3 lines each, gated by the area > 1.0 cull
-    /// — for a non-degenerate tile, all three sections survive).
-    /// The hatch_stones bucket has NO group wrapper (full opacity
-    /// in the SVG envelope) so its fill/stroke calls land outside
-    /// any group.
+    /// One corridor tile → the hatch_lines group fires (every tile
+    /// yields ≥ 9 hatch lines whose stroke pixels can overlap at
+    /// tile boundaries). The tile_fills bucket no longer wraps in a
+    /// begin_group envelope — Phase A of
+    /// plans/wasm-render-caching.md pre-multiplied
+    /// TILE_FILLS_OPACITY into the fill colour because per-tile
+    /// CELL x CELL rects tile pairwise-disjointly. hatch_stones has
+    /// always rendered without a group wrapper.
     #[test]
-    fn paint_hatch_corridor_one_tile_wraps_buckets_in_groups() {
+    fn paint_hatch_corridor_one_tile_wraps_lines_only() {
         let mut painter = CaptureCalls::default();
         paint_hatch_corridor(&mut painter, &[(0_i32, 0_i32)], 42);
 
-        // Bucket structure: begin_group(0.3) → fill_rect+ →
-        // end_group → begin_group(0.5) → stroke_path+ → end_group
-        // → fill_path/stroke_path pairs (stones, no wrapper).
+        // Bucket structure: fill_rect (tile_fills, no group) →
+        // begin_group(0.5) → stroke_path+ → end_group →
+        // fill_path/stroke_path pairs (stones, no wrapper).
         assert!(
             painter.begin_group_count() == painter.end_group_count(),
             "begin/end groups must balance: {} begins vs {} ends",
@@ -853,25 +863,24 @@ mod tests {
             painter.max_group_depth,
         );
 
-        // tile_fills at 0.3 group opacity is always emitted on a
-        // non-empty tile list.
+        // tile_fills now emits fill_rect directly (no group); the
+        // only begin_group left is hatch_lines at 0.5.
         assert!(
-            painter
+            !painter
                 .calls
                 .iter()
                 .any(|c| matches!(c, Call::BeginGroup(30))),
-            "expected begin_group at 0.3 (TILE_FILLS_OPACITY = {}); got {:?}",
-            TILE_FILLS_OPACITY,
+            "Phase A eliminated tile_fills begin_group; got {:?}",
             painter.calls,
         );
         // Exactly one fill_rect for the single tile_fill.
         assert_eq!(painter.count(&Call::FillRect), 1);
     }
 
-    /// Group wrapper opacities match the documented bucket
-    /// constants (0.3 tile_fills, 0.5 hatch_lines).
+    /// The surviving group wrapper opacity matches HATCH_LINES_OPACITY
+    /// (Phase A eliminated TILE_FILLS_OPACITY's wrapper).
     #[test]
-    fn paint_hatch_corridor_uses_documented_bucket_opacities() {
+    fn paint_hatch_corridor_emits_only_hatch_lines_group() {
         let mut painter = CaptureCalls::default();
         paint_hatch_corridor(&mut painter, &[(0_i32, 0_i32)], 42);
         let opacities: Vec<u32> = painter
@@ -882,15 +891,12 @@ mod tests {
                 _ => None,
             })
             .collect();
-        // Two non-empty groups: tile_fills (0.3 → 30) then
-        // hatch_lines (0.5 → 50). hatch_stones is unwrapped.
+        // Only hatch_lines (0.5 → 50). tile_fills now pre-multiplies
+        // TILE_FILLS_OPACITY into the fill colour and emits no group.
         assert_eq!(
             opacities,
-            vec![
-                (TILE_FILLS_OPACITY * 100.0).round() as u32,
-                (HATCH_LINES_OPACITY * 100.0).round() as u32,
-            ],
-            "group opacities must be (TILE_FILLS_OPACITY, HATCH_LINES_OPACITY)",
+            vec![(HATCH_LINES_OPACITY * 100.0).round() as u32],
+            "only hatch_lines group survives Phase A elimination",
         );
     }
 
