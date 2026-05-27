@@ -387,12 +387,15 @@ fn paint_cobblestone_stack<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
-    // audit: disjoint — 12 px grid, 10 px paint, 2 px mortar between cells.
-    painter.begin_group(COBBLE_GROUP_OPACITY);
+    // Phase A elimination — 12 px grid with 2 px mortar gap between
+    // cells; no overlap possible, so pre-multiply
+    // COBBLE_GROUP_OPACITY into the fill colour. See
+    // design/begin_group_audit.md.
     let cell = 12.0_f64;
     let pad = 1.0_f64;
-    let base_paint = Paint::solid(pal.base);
-    let highlight_paint = Paint::solid(pal.highlight);
+    let base_paint = Paint::solid(pal.base.with_alpha(COBBLE_GROUP_OPACITY));
+    let highlight_paint =
+        Paint::solid(pal.highlight.with_alpha(COBBLE_GROUP_OPACITY));
     let mut row = 0_i32;
     let mut y = f64::from(y0);
     while y < f64::from(y1) {
@@ -419,7 +422,6 @@ fn paint_cobblestone_stack<P: Painter + ?Sized>(
         y += cell;
         row += 1;
     }
-    painter.end_group();
     painter.pop_clip();
 }
 
@@ -2026,12 +2028,14 @@ mod tests {
     }
 
     /// Every Cobblestone sub-pattern wraps its decoration in a
-    /// push_clip / pop_clip pair (region clip) and a balanced
-    /// begin_group / end_group envelope. Pin both invariants so
-    /// future algorithm changes don't drop the clip or the
-    /// group-opacity composite.
+    /// push_clip / pop_clip pair (region clip). The begin_group /
+    /// end_group envelope is kept for the sub-patterns whose paints
+    /// can overlap inside the group (Herringbone / Rubble / Mosaic)
+    /// — the Phase A elimination only applies to Stack, whose 12 px
+    /// grid leaves a strictly positive 2 px mortar gap between
+    /// cells. See design/begin_group_audit.md.
     #[test]
-    fn every_cobblestone_sub_pattern_emits_clip_and_group_envelopes() {
+    fn every_cobblestone_sub_pattern_emits_clip_envelope() {
         let path = four_tile_path();
         for sub in 0..4u8 {
             let mut p = MockPainter::default();
@@ -2042,10 +2046,11 @@ mod tests {
                 1,
                 "sub_pattern {sub}: expected 1 push_clip",
             );
+            let expected_groups = if sub == 1 { 0 } else { 1 };
             assert_eq!(
                 count_begin_groups(&p.calls),
-                1,
-                "sub_pattern {sub}: expected 1 begin_group",
+                expected_groups,
+                "sub_pattern {sub}: expected {expected_groups} begin_group",
             );
             // Balanced envelopes — every begin_group / push_clip
             // gets its matching close.
@@ -2060,7 +2065,10 @@ mod tests {
                 .filter(|c| matches!(c, PainterCall::EndGroup))
                 .count();
             assert_eq!(pops, 1, "sub_pattern {sub}: expected 1 pop_clip");
-            assert_eq!(ends, 1, "sub_pattern {sub}: expected 1 end_group");
+            assert_eq!(
+                ends, expected_groups,
+                "sub_pattern {sub}: expected {expected_groups} end_group",
+            );
         }
     }
 
