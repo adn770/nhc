@@ -26,7 +26,8 @@ use std::fmt::Write as _;
 
 use super::{
     stamp_cached_sprite_default, Color, FillRule, LineCap, LineJoin, Paint,
-    Painter, PathOp, PathOps, Rect, SpriteCacheKey, Stroke, Transform, Vec2,
+    Painter, PainterFilter, PathOp, PathOps, Rect, SpriteCacheKey, Stroke,
+    Transform, Vec2,
 };
 
 /// Paints into a `String` buffer of SVG elements + a `<defs>`
@@ -247,10 +248,28 @@ impl Painter for SvgPainter {
     ) {
         // SvgPainter doesn't cache sprites — SVG output is a
         // markup stream, not a raster surface, so there's no
-        // offscreen to hold. Just call builder directly.
+        // offscreen to hold. The default impl wraps `builder` in
+        // a `<g transform="matrix(...)">` (via push_transform) so
+        // the template's local coordinates land at the anchor.
         stamp_cached_sprite_default(
             self, key, bbox, anchor_x, anchor_y, builder,
         );
+    }
+
+    fn push_filter(&mut self, filter: PainterFilter) {
+        // SVG `filter` accepts the same CSS filter-function strings
+        // Canvas2D does, so resvg / browsers apply the per-anchor
+        // HSL shift natively. Wrap subsequent children in a
+        // `<g filter="...">`; the matching `pop_filter` closes it.
+        let _ = write!(
+            self.body,
+            "<g filter=\"{}\">",
+            filter.as_css_string(),
+        );
+    }
+
+    fn pop_filter(&mut self) {
+        self.body.push_str("</g>");
     }
 }
 
@@ -646,6 +665,72 @@ mod tests {
         let paint = PPaint::solid(PColor::rgba(0, 0, 0, 0.0));
         p.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &paint);
         assert!(p.body().contains("fill-opacity=\"0\""));
+    }
+
+    #[test]
+    fn push_filter_emits_g_filter_wrapper() {
+        use crate::painter::PainterFilter;
+        let mut p = SvgPainter::new();
+        p.push_filter(PainterFilter::HslShift {
+            h_deg: 15.0,
+            s_mul: 1.05,
+            l_mul: 0.95,
+        });
+        p.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &red());
+        p.pop_filter();
+        let body = p.body();
+        assert!(
+            body.starts_with("<g filter=\""),
+            "missing g filter wrapper: {body}",
+        );
+        assert!(
+            body.contains("hue-rotate(15deg)"),
+            "missing hue-rotate in css filter: {body}",
+        );
+        assert!(body.ends_with("</g>"), "missing closing g: {body}");
+        assert_eq!(body.matches("</g>").count(), 1);
+    }
+
+    #[test]
+    fn nested_push_filter_emits_two_g_filter() {
+        use crate::painter::PainterFilter;
+        let mut p = SvgPainter::new();
+        p.push_filter(PainterFilter::HslShift {
+            h_deg: 10.0,
+            s_mul: 1.0,
+            l_mul: 1.0,
+        });
+        p.push_filter(PainterFilter::HslShift {
+            h_deg: 5.0,
+            s_mul: 1.0,
+            l_mul: 1.0,
+        });
+        p.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &red());
+        p.pop_filter();
+        p.pop_filter();
+        let body = p.body();
+        assert_eq!(body.matches("<g filter=").count(), 2);
+        assert_eq!(body.matches("</g>").count(), 2);
+    }
+
+    #[test]
+    fn stamp_cached_sprite_wraps_builder_in_g_transform() {
+        use crate::painter::SpriteCacheKey;
+        let mut p = SvgPainter::new();
+        let key = SpriteCacheKey { kind: 0, variant: 0, size_class: 0 };
+        let bbox = Rect::new(0.0, 0.0, 8.0, 8.0);
+        // Anchor at (20, 30) on a bbox centred at (4, 4) → blit
+        // offset (16, 26). The default impl translates by the
+        // rounded offset before invoking builder.
+        p.stamp_cached_sprite(key, bbox, 20.0, 30.0, &mut |sub| {
+            sub.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &red());
+        });
+        let body = p.body();
+        assert!(
+            body.starts_with("<g transform=\"matrix(1 0 0 1 16 26)\">"),
+            "missing translate envelope: {body}",
+        );
+        assert!(body.ends_with("</g>"));
     }
 
     #[test]

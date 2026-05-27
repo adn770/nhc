@@ -536,10 +536,23 @@ pub struct SpriteCacheKey {
 
 /// Default body for `Painter::stamp_cached_sprite`. Backends that
 /// don't maintain a sprite cache (SkiaPainter / SvgPainter /
-/// MockPainter) delegate here — the helper ignores the key, bbox,
-/// and anchor and just hands the painter to `builder`. Free
-/// function (not a method) so `&mut dyn Painter` works directly
-/// without a `?Sized → Sized` coercion.
+/// MockPainter) delegate here.
+///
+/// The sprite template is authored at local bbox coordinates
+/// (origin at (0, 0), centre at (bbox.w/2, bbox.h/2)). To match
+/// `CanvasPainter`'s cached-blit semantics — which anchor the
+/// bbox centre at `(anchor_x, anchor_y)` on the destination
+/// surface — the helper wraps the `builder` call in a
+/// `push_transform(translate(anchor_x - bbox.w/2,
+/// anchor_y - bbox.h/2))` / `pop_transform` pair. The translation
+/// snaps to integer pixels to match the blit-side rounding
+/// (Canvas2D's bilinear `drawImage` resampler would otherwise
+/// drift sub-pixel against a direct paint).
+///
+/// `key` is unused by the default impl — backends without a cache
+/// can't share templates across calls and pay the builder cost
+/// every time. Free function (not a method) so `&mut dyn Painter`
+/// works directly without a `?Sized → Sized` coercion.
 pub fn stamp_cached_sprite_default(
     painter: &mut dyn Painter,
     key: SpriteCacheKey,
@@ -548,8 +561,12 @@ pub fn stamp_cached_sprite_default(
     anchor_y: f32,
     builder: &mut dyn FnMut(&mut dyn Painter),
 ) {
-    let _ = (key, bbox, anchor_x, anchor_y);
+    let _ = key;
+    let dx = (anchor_x - bbox.w / 2.0).round();
+    let dy = (anchor_y - bbox.h / 2.0).round();
+    painter.push_transform(Transform::translate(dx, dy));
     builder(painter);
+    painter.pop_transform();
 }
 
 #[cfg(test)]

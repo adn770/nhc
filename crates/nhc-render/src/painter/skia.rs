@@ -29,8 +29,9 @@ use tiny_skia::{
 };
 
 use super::{
-    stamp_cached_sprite_default, Color, FillRule, LineCap, LineJoin, Paint,
-    Painter, PathOp, PathOps, Rect, SpriteCacheKey, Stroke, Transform, Vec2,
+    apply_filter_stack, stamp_cached_sprite_default, Color, FillRule, LineCap,
+    LineJoin, Paint, Painter, PainterFilter, PathOp, PathOps, Rect,
+    SpriteCacheKey, Stroke, Transform, Vec2,
 };
 
 /// Paints onto a `tiny_skia::Pixmap` via the `Painter` trait.
@@ -47,6 +48,14 @@ pub struct SkiaPainter<'a> {
     transform_stack: Vec<SkTransform>,
     group_stack: Vec<GroupFrame>,
     clip_stack: Vec<Mask>,
+    /// Active colour-space filters (push order). tiny-skia 0.11
+    /// has no native colour-filter primitive, so SkiaPainter
+    /// applies the cumulative filter to every `Paint::solid(...)`
+    /// at draw time via the hand-rolled HSL math in
+    /// `apply_filter_stack`. Match the per-anchor HSL tint that
+    /// the WASM Canvas backend gets for free from Canvas2D's CSS
+    /// `filter` property (Phase 3 of `plans/wasm-render-caching.md`).
+    filter_stack: Vec<PainterFilter>,
     width: u32,
     height: u32,
 }
@@ -67,6 +76,7 @@ impl<'a> SkiaPainter<'a> {
             transform_stack: Vec::new(),
             group_stack: Vec::new(),
             clip_stack: Vec::new(),
+            filter_stack: Vec::new(),
             width,
             height,
         }
@@ -88,6 +98,23 @@ impl<'a> SkiaPainter<'a> {
         self.group_stack.is_empty()
             && self.clip_stack.is_empty()
             && self.transform_stack.is_empty()
+            && self.filter_stack.is_empty()
+    }
+
+    /// Apply the active filter stack to `paint.color` and return
+    /// a `SkPaint` ready to hand to tiny-skia. Match the
+    /// HSL-shifted output of CanvasPainter's `set_filter` route on
+    /// the WASM backend; the round-trip stays within 1 LSB on
+    /// saturated test fixtures.
+    fn effective_paint(&self, paint: &Paint) -> SkPaint<'static> {
+        if self.filter_stack.is_empty() {
+            return build_paint(paint);
+        }
+        // `apply_to_color` preserves the alpha channel, so the
+        // shadow's 0.08 / hatch's 0.04 sub-percent opacities still
+        // round-trip exactly through the tint.
+        let tinted = apply_filter_stack(paint.color, &self.filter_stack);
+        build_paint(&Paint::solid(tinted))
     }
 
     /// Cumulative transform currently in effect. The top of the
@@ -107,7 +134,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         else {
             return;
         };
-        let p = build_paint(paint);
+        let p = self.effective_paint(paint);
         let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
@@ -124,7 +151,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         let Some(path) = pb.finish() else {
             return;
         };
-        let p = build_paint(paint);
+        let p = self.effective_paint(paint);
         let s = build_stroke(stroke);
         let transform = self.active_transform();
         let mask = self.clip_stack.last();
@@ -141,7 +168,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         let Some(path) = pb.finish() else {
             return;
         };
-        let p = build_paint(paint);
+        let p = self.effective_paint(paint);
         let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
@@ -161,7 +188,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         let Some(path) = pb.finish() else {
             return;
         };
-        let p = build_paint(paint);
+        let p = self.effective_paint(paint);
         let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
@@ -175,7 +202,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         let Some(path) = polyline_path(vertices, true) else {
             return;
         };
-        let p = build_paint(paint);
+        let p = self.effective_paint(paint);
         let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
@@ -189,7 +216,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         let Some(path) = polyline_path(vertices, false) else {
             return;
         };
-        let p = build_paint(paint);
+        let p = self.effective_paint(paint);
         let s = build_stroke(stroke);
         let transform = self.active_transform();
         let mask = self.clip_stack.last();
@@ -201,7 +228,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         let Some(path) = path_to_tiny_skia(path) else {
             return;
         };
-        let p = build_paint(paint);
+        let p = self.effective_paint(paint);
         let transform = self.active_transform();
         let mask = self.clip_stack.last();
         let surface = active_surface(&mut self.target, &mut self.group_stack);
@@ -212,7 +239,7 @@ impl<'a> Painter for SkiaPainter<'a> {
         let Some(path) = path_to_tiny_skia(path) else {
             return;
         };
-        let p = build_paint(paint);
+        let p = self.effective_paint(paint);
         let s = build_stroke(stroke);
         let transform = self.active_transform();
         let mask = self.clip_stack.last();
@@ -301,10 +328,22 @@ impl<'a> Painter for SkiaPainter<'a> {
         // SkiaPainter does not cache sprites — the per-render
         // optimization only pays off on the WASM Canvas backend
         // where `create_offscreen` is a DOM call. Skia's
-        // `Pixmap::new` is a single allocation.
+        // `Pixmap::new` is a single allocation. The default impl
+        // still wraps `builder` in a push_transform(translate) so
+        // the template's local coordinates land at the anchor.
         stamp_cached_sprite_default(
             self, key, bbox, anchor_x, anchor_y, builder,
         );
+    }
+
+    fn push_filter(&mut self, filter: PainterFilter) {
+        self.filter_stack.push(filter);
+    }
+
+    fn pop_filter(&mut self) {
+        self.filter_stack
+            .pop()
+            .expect("pop_filter without matching push_filter");
     }
 }
 
@@ -755,5 +794,91 @@ mod tests {
         }
         let (r, g, b, _) = pixel_rgba(&canvas, 15, 10);
         assert_eq!((r, g, b), (0, 0, 0));
+    }
+
+    #[test]
+    fn push_filter_tints_fill_color() {
+        use crate::painter::PainterFilter;
+        let mut canvas = white_canvas(8, 8);
+        {
+            let mut painter = SkiaPainter::new(&mut canvas);
+            // Pure red, rotated 180° → cyan (within 1 LSB).
+            let red = PPaint::solid(PColor::rgb(255, 0, 0));
+            painter.push_filter(PainterFilter::HslShift {
+                h_deg: 180.0,
+                s_mul: 1.0,
+                l_mul: 1.0,
+            });
+            painter.fill_rect(Rect::new(0.0, 0.0, 8.0, 8.0), &red);
+            painter.pop_filter();
+        }
+        let (r, g, b, _) = pixel_rgba(&canvas, 4, 4);
+        assert!(r <= 1, "180° from red → cyan red ≈ 0, got {r}");
+        assert!(g >= 254, "180° from red → cyan green ≈ 255, got {g}");
+        assert!(b >= 254, "180° from red → cyan blue ≈ 255, got {b}");
+    }
+
+    #[test]
+    fn pop_filter_reverts_to_untinted() {
+        use crate::painter::PainterFilter;
+        let mut canvas = white_canvas(16, 8);
+        {
+            let mut painter = SkiaPainter::new(&mut canvas);
+            let red = PPaint::solid(PColor::rgb(255, 0, 0));
+            painter.push_filter(PainterFilter::HslShift {
+                h_deg: 180.0,
+                s_mul: 1.0,
+                l_mul: 1.0,
+            });
+            painter.fill_rect(Rect::new(0.0, 0.0, 8.0, 8.0), &red);
+            painter.pop_filter();
+            painter.fill_rect(Rect::new(8.0, 0.0, 8.0, 8.0), &red);
+        }
+        // Left rect tinted cyan.
+        let (lr, _, lb, _) = pixel_rgba(&canvas, 4, 4);
+        assert!(lr <= 1 && lb >= 254);
+        // Right rect untinted red after pop_filter.
+        let (rr, rg, rb, _) = pixel_rgba(&canvas, 12, 4);
+        assert_eq!((rr, rg, rb), (255, 0, 0));
+    }
+
+    #[test]
+    fn balanced_painter_after_paired_filter_calls() {
+        use crate::painter::PainterFilter;
+        let mut canvas = white_canvas(8, 8);
+        let mut painter = SkiaPainter::new(&mut canvas);
+        painter.push_filter(PainterFilter::HslShift {
+            h_deg: 15.0,
+            s_mul: 1.0,
+            l_mul: 1.0,
+        });
+        painter.fill_rect(Rect::new(0.0, 0.0, 4.0, 4.0), &black());
+        painter.pop_filter();
+        assert!(painter.is_balanced());
+    }
+
+    #[test]
+    fn stamp_cached_sprite_translates_builder_to_anchor() {
+        use crate::painter::SpriteCacheKey;
+        let mut canvas = white_canvas(40, 40);
+        {
+            let mut painter = SkiaPainter::new(&mut canvas);
+            let key = SpriteCacheKey { kind: 0, variant: 0, size_class: 0 };
+            let bbox = Rect::new(0.0, 0.0, 8.0, 8.0);
+            // Template paints a 2x2 black square at LOCAL (3, 3),
+            // i.e. centred at bbox centre (4, 4). Anchor at world
+            // (20, 20) should land the local (3, 3) pixel at world
+            // (20 - 4 + 3, 20 - 4 + 3) = (19, 19).
+            painter.stamp_cached_sprite(key, bbox, 20.0, 20.0, &mut |sub| {
+                sub.fill_rect(Rect::new(3.0, 3.0, 2.0, 2.0), &black());
+            });
+        }
+        // Anchored pixel is black.
+        let (r, g, b, _) = pixel_rgba(&canvas, 19, 19);
+        assert_eq!((r, g, b), (0, 0, 0));
+        // Pixel that would be hit if the anchor were ignored (at
+        // local origin) is still white.
+        let (r, g, b, _) = pixel_rgba(&canvas, 3, 3);
+        assert_eq!((r, g, b), (255, 255, 255));
     }
 }
