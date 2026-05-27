@@ -921,11 +921,13 @@ fn paint_opus_romano<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
-    // audit: disjoint — 4 inset rects per Versailles tile, no intra/inter-tile overlap.
-    painter.begin_group(OPUS_ROMANO_GROUP_OPACITY);
+    // Phase A elimination — 4 inset rects per Versailles tile with
+    // 2 * OPUS_ROMANO_INSET margin against subdivision lines; no
+    // intra- or inter-tile overlap. See design/begin_group_audit.md.
     let sub = OPUS_ROMANO_TILE / f64::from(OPUS_ROMANO_SUBDIVISIONS);
-    let base_paint = Paint::solid(pal.base);
-    let highlight_paint = Paint::solid(pal.highlight);
+    let base_paint = Paint::solid(pal.base.with_alpha(OPUS_ROMANO_GROUP_OPACITY));
+    let highlight_paint =
+        Paint::solid(pal.highlight.with_alpha(OPUS_ROMANO_GROUP_OPACITY));
     let tile_x0 = (f64::from(x0) / OPUS_ROMANO_TILE).floor() * OPUS_ROMANO_TILE;
     let tile_y0 = (f64::from(y0) / OPUS_ROMANO_TILE).floor() * OPUS_ROMANO_TILE;
     let mut ty = tile_y0;
@@ -951,7 +953,6 @@ fn paint_opus_romano<P: Painter + ?Sized>(
         }
         ty += OPUS_ROMANO_TILE;
     }
-    painter.end_group();
     painter.pop_clip();
 }
 
@@ -1053,10 +1054,12 @@ fn paint_pinwheel<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
-    // audit: disjoint — 5 axis-aligned rects per 16x16 unit, mortared by PINWHEEL_PAD.
-    painter.begin_group(PINWHEEL_GROUP_OPACITY);
-    let base_paint = Paint::solid(pal.base);
-    let highlight_paint = Paint::solid(pal.highlight);
+    // Phase A elimination — 5 axis-aligned rects per 16x16 unit,
+    // mortared by PINWHEEL_PAD on every edge. See
+    // design/begin_group_audit.md.
+    let base_paint = Paint::solid(pal.base.with_alpha(PINWHEEL_GROUP_OPACITY));
+    let highlight_paint =
+        Paint::solid(pal.highlight.with_alpha(PINWHEEL_GROUP_OPACITY));
     let unit_x0 = (f64::from(x0) / PINWHEEL_UNIT).floor() * PINWHEEL_UNIT;
     let unit_y0 = (f64::from(y0) / PINWHEEL_UNIT).floor() * PINWHEEL_UNIT;
     let mut iy = 0_i32;
@@ -1129,7 +1132,6 @@ fn paint_pinwheel<P: Painter + ?Sized>(
         ty += PINWHEEL_UNIT;
         iy += 1;
     }
-    painter.end_group();
     painter.pop_clip();
 }
 
@@ -1179,10 +1181,12 @@ fn paint_hopscotch<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
-    // audit: disjoint — 3 axis-aligned rects per 16x16 unit, rotation preserves spacing.
-    painter.begin_group(HOPSCOTCH_GROUP_OPACITY);
-    let base_paint = Paint::solid(pal.base);
-    let highlight_paint = Paint::solid(pal.highlight);
+    // Phase A elimination — 3 axis-aligned rects per 16x16 unit,
+    // mortared by HOPSCOTCH_PAD; rotation preserves spacing. See
+    // design/begin_group_audit.md.
+    let base_paint = Paint::solid(pal.base.with_alpha(HOPSCOTCH_GROUP_OPACITY));
+    let highlight_paint =
+        Paint::solid(pal.highlight.with_alpha(HOPSCOTCH_GROUP_OPACITY));
     let unit_x0 = (f64::from(x0) / HOPSCOTCH_UNIT).floor() * HOPSCOTCH_UNIT;
     let unit_y0 = (f64::from(y0) / HOPSCOTCH_UNIT).floor() * HOPSCOTCH_UNIT;
     let mut ty = unit_y0;
@@ -1209,7 +1213,6 @@ fn paint_hopscotch<P: Painter + ?Sized>(
         }
         ty += HOPSCOTCH_UNIT;
     }
-    painter.end_group();
     painter.pop_clip();
 }
 
@@ -1331,9 +1334,11 @@ fn paint_ashlar_inner<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
-    // audit: disjoint — 17.4 x 7.4 ashlar blocks on 18 x 8 grid, 0.3 px gap on every edge.
-    painter.begin_group(ASHLAR_GROUP_OPACITY);
-    let base_paint = Paint::solid(pal.base);
+    // Phase A elimination — 17.4 x 7.4 dressed blocks on 18 x 8
+    // grid with 0.3 px gap on every edge; both Even and Staggered
+    // variants stay disjoint under row offset. See
+    // design/begin_group_audit.md.
+    let base_paint = Paint::solid(pal.base.with_alpha(ASHLAR_GROUP_OPACITY));
     let unit_x0 = (f64::from(x0) / ASHLAR_W).floor() * ASHLAR_W;
     let unit_y0 = (f64::from(y0) / ASHLAR_H).floor() * ASHLAR_H;
     let mut row = 0_i32;
@@ -1360,7 +1365,6 @@ fn paint_ashlar_inner<P: Painter + ?Sized>(
         ty += ASHLAR_H;
         row += 1;
     }
-    painter.end_group();
     painter.pop_clip();
 }
 
@@ -1390,9 +1394,11 @@ fn paint_opus_reticulatum<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
-    // audit: disjoint — diamonds on diagonal pitch (2d + 0.6 px gap), tips never overlap.
-    painter.begin_group(RETICULATUM_GROUP_OPACITY);
-    let base_paint = Paint::solid(pal.base);
+    // Phase A elimination — diamonds on diagonal pitch
+    // (2 * RETICULATUM_HALF_DIAG + 0.6 px gap); adjacent diamond
+    // tips share the 0.6 px gap and never overlap. See
+    // design/begin_group_audit.md.
+    let base_paint = Paint::solid(pal.base.with_alpha(RETICULATUM_GROUP_OPACITY));
     let d = RETICULATUM_HALF_DIAG;
     let mut y = f64::from(y0);
     while y < f64::from(y1) + RETICULATUM_PITCH {
@@ -1411,7 +1417,6 @@ fn paint_opus_reticulatum<P: Painter + ?Sized>(
         }
         y += RETICULATUM_PITCH;
     }
-    painter.end_group();
     painter.pop_clip();
 }
 
@@ -1565,7 +1570,8 @@ mod tests {
             &Material::new(Family::Stone, 9, 0, 0, 0xCAFE),
         );
         assert_eq!(count_pushed_clips(&p.calls), 1, "expected 1 push_clip");
-        assert_eq!(count_begin_groups(&p.calls), 1, "expected 1 begin_group");
+        // Phase A eliminated the begin_group envelope.
+        assert_eq!(count_begin_groups(&p.calls), 0, "no begin_group post Phase A");
         let polygons = p
             .calls
             .iter()
@@ -1705,7 +1711,8 @@ mod tests {
         let m = Material::new(Family::Stone, 3, 0, 0, 0xCAFE);
         paint(&mut p, &path, &m);
         assert_eq!(count_pushed_clips(&p.calls), 1, "expected 1 push_clip");
-        assert_eq!(count_begin_groups(&p.calls), 1, "expected 1 begin_group");
+        // Phase A eliminated the begin_group envelope.
+        assert_eq!(count_begin_groups(&p.calls), 0, "no begin_group post Phase A");
         // 4×4 tile region → 16 tiles × 4 stones = 64 fill_rect.
         let rects = p
             .calls
@@ -1806,7 +1813,8 @@ mod tests {
             &Material::new(Family::Stone, 5, 0, 0, 0xCAFE),
         );
         assert_eq!(count_pushed_clips(&p.calls), 1);
-        assert_eq!(count_begin_groups(&p.calls), 1);
+        // Phase A eliminated the begin_group envelope.
+        assert_eq!(count_begin_groups(&p.calls), 0);
         // 128/16 = 8 units per side → 64 units × 5 stones = 320.
         let rects = p
             .calls
@@ -1850,7 +1858,8 @@ mod tests {
             &Material::new(Family::Stone, 6, 0, 0, 0xCAFE),
         );
         assert_eq!(count_pushed_clips(&p.calls), 1);
-        assert_eq!(count_begin_groups(&p.calls), 1);
+        // Phase A eliminated the begin_group envelope.
+        assert_eq!(count_begin_groups(&p.calls), 0);
         // 128/16 = 8 units per side → 64 units × 3 stones = 192.
         let rects = p
             .calls
@@ -1934,10 +1943,11 @@ mod tests {
                 1,
                 "ashlar sub_pattern {sub}: expected 1 push_clip",
             );
+            // Phase A eliminated the begin_group envelope.
             assert_eq!(
                 count_begin_groups(&p.calls),
-                1,
-                "ashlar sub_pattern {sub}: expected 1 begin_group",
+                0,
+                "ashlar sub_pattern {sub}: no begin_group post Phase A",
             );
             let rects = p
                 .calls
