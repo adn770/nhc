@@ -285,6 +285,7 @@ mod tests {
         fn pop_clip(&mut self) {}
         fn push_transform(&mut self, _: crate::painter::Transform) {}
         fn pop_transform(&mut self) {}
+        fn stamp_cached_sprite(&mut self, _: crate::painter::SpriteCacheKey, _: Rect, _: f32, _: f32, builder: &mut dyn FnMut(&mut dyn Painter)) { builder(self); }
     }
 
     impl CaptureCalls {

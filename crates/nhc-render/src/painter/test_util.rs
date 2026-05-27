@@ -8,7 +8,8 @@
 #![cfg(test)]
 
 use super::{
-    FillRule, Paint, PathOps, Painter, Rect, Stroke, Transform, Vec2,
+    stamp_cached_sprite_default, FillRule, Paint, PathOps, Painter, Rect,
+    SpriteCacheKey, Stroke, Transform, Vec2,
 };
 
 #[derive(Debug, PartialEq)]
@@ -101,5 +102,17 @@ impl Painter for MockPainter {
     fn pop_transform(&mut self) {
         self.transform_depth -= 1;
         self.calls.push(PainterCall::PopTransform);
+    }
+    fn stamp_cached_sprite(
+        &mut self,
+        key: SpriteCacheKey,
+        bbox: Rect,
+        anchor_x: f32,
+        anchor_y: f32,
+        builder: &mut dyn FnMut(&mut dyn Painter),
+    ) {
+        stamp_cached_sprite_default(
+            self, key, bbox, anchor_x, anchor_y, builder,
+        );
     }
 }

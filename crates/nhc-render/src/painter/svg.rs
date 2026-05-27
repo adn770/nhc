@@ -25,8 +25,8 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 
 use super::{
-    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOp, PathOps, Rect, Stroke, Transform,
-    Vec2,
+    stamp_cached_sprite_default, Color, FillRule, LineCap, LineJoin, Paint,
+    Painter, PathOp, PathOps, Rect, SpriteCacheKey, Stroke, Transform, Vec2,
 };
 
 /// Paints into a `String` buffer of SVG elements + a `<defs>`
@@ -235,6 +235,22 @@ impl Painter for SvgPainter {
 
     fn pop_transform(&mut self) {
         self.body.push_str("</g>");
+    }
+
+    fn stamp_cached_sprite(
+        &mut self,
+        key: SpriteCacheKey,
+        bbox: Rect,
+        anchor_x: f32,
+        anchor_y: f32,
+        builder: &mut dyn FnMut(&mut dyn Painter),
+    ) {
+        // SvgPainter doesn't cache sprites — SVG output is a
+        // markup stream, not a raster surface, so there's no
+        // offscreen to hold. Just call builder directly.
+        stamp_cached_sprite_default(
+            self, key, bbox, anchor_x, anchor_y, builder,
+        );
     }
 }
 

@@ -221,6 +221,16 @@ mod tests {
         fn pop_transform(&mut self) {
             unreachable!("shadow primitive never pops a transform");
         }
+        fn stamp_cached_sprite(
+            &mut self,
+            _: crate::painter::SpriteCacheKey,
+            _: crate::painter::Rect,
+            _: f32,
+            _: f32,
+            _: &mut dyn FnMut(&mut dyn crate::painter::Painter),
+        ) {
+            unreachable!("shadow primitive never stamps cached sprites");
+        }
     }
 
     #[test]

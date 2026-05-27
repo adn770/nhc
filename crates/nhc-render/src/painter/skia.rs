@@ -29,8 +29,8 @@ use tiny_skia::{
 };
 
 use super::{
-    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOp, PathOps, Rect, Stroke, Transform,
-    Vec2,
+    stamp_cached_sprite_default, Color, FillRule, LineCap, LineJoin, Paint,
+    Painter, PathOp, PathOps, Rect, SpriteCacheKey, Stroke, Transform, Vec2,
 };
 
 /// Paints onto a `tiny_skia::Pixmap` via the `Painter` trait.
@@ -288,6 +288,23 @@ impl<'a> Painter for SkiaPainter<'a> {
         self.transform_stack
             .pop()
             .expect("pop_transform without matching push_transform");
+    }
+
+    fn stamp_cached_sprite(
+        &mut self,
+        key: SpriteCacheKey,
+        bbox: Rect,
+        anchor_x: f32,
+        anchor_y: f32,
+        builder: &mut dyn FnMut(&mut dyn Painter),
+    ) {
+        // SkiaPainter does not cache sprites — the per-render
+        // optimization only pays off on the WASM Canvas backend
+        // where `create_offscreen` is a DOM call. Skia's
+        // `Pixmap::new` is a single allocation.
+        stamp_cached_sprite_default(
+            self, key, bbox, anchor_x, anchor_y, builder,
+        );
     }
 }
 

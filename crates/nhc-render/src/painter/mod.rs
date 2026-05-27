@@ -344,6 +344,75 @@ pub trait Painter {
     /// sub-block of paint calls shares a non-trivial transform.
     fn push_transform(&mut self, transform: Transform);
     fn pop_transform(&mut self);
+
+    /// Stamp a (cached) sprite at `(anchor_x, anchor_y)`.
+    /// `bbox.w x bbox.h` is the sprite's pixel-aligned bounding
+    /// box; backends that maintain a per-render sprite cache
+    /// (currently only `CanvasPainter`) allocate an offscreen of
+    /// those dimensions on the first stamp with a given `key` and
+    /// blit it via `draw_image_at` for subsequent stamps —
+    /// collapsing N similar emissions (e.g. trees sharing a shape
+    /// bucket) to 1 build + N blits.
+    ///
+    /// `builder` is invoked ONCE per cache miss to paint the
+    /// sprite at `(0, 0)` on the offscreen. The blit anchors the
+    /// bbox CENTER at `(anchor_x, anchor_y)` on the destination
+    /// surface. Backends without a cache (SkiaPainter / SvgPainter
+    /// / MockPainter) call `builder` directly at the active
+    /// surface, ignoring the cache key — same pixel output as a
+    /// per-anchor inline emission.
+    ///
+    /// No default impl: each Painter type provides its own body
+    /// (typically delegating to [`stamp_cached_sprite_default`]).
+    /// The closure receives `&mut dyn Painter` so it can route
+    /// through the same trait surface; coercing `&mut Self`
+    /// (where Self may be unsized via `dyn Painter`) is the
+    /// reason this can't carry a trait-default body.
+    fn stamp_cached_sprite(
+        &mut self,
+        key: SpriteCacheKey,
+        bbox: Rect,
+        anchor_x: f32,
+        anchor_y: f32,
+        builder: &mut dyn FnMut(&mut dyn Painter),
+    );
+}
+
+/// Key into the per-render sprite cache.
+///
+/// Two `stamp_cached_sprite` calls with the same key share an
+/// offscreen; primitive callers bucket per-anchor variations into
+/// a fixed `variant` count (e.g. `TREE_SHAPE_BUCKET_COUNT = 256`
+/// templates per Tree kind) so the working set stays bounded.
+#[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
+pub struct SpriteCacheKey {
+    /// Discriminant of the fixture kind (Tree, Bush, …).
+    pub kind: u32,
+    /// Within-kind variant id — typically a quantised hash of
+    /// per-anchor geometric inputs.
+    pub variant: u32,
+    /// Cell-aligned size class. Lets the same `kind` carry
+    /// multiple sprite atlases (small / medium / large) without
+    /// collision-coding.
+    pub size_class: u8,
+}
+
+/// Default body for `Painter::stamp_cached_sprite`. Backends that
+/// don't maintain a sprite cache (SkiaPainter / SvgPainter /
+/// MockPainter) delegate here — the helper ignores the key, bbox,
+/// and anchor and just hands the painter to `builder`. Free
+/// function (not a method) so `&mut dyn Painter` works directly
+/// without a `?Sized → Sized` coercion.
+pub fn stamp_cached_sprite_default(
+    painter: &mut dyn Painter,
+    key: SpriteCacheKey,
+    bbox: Rect,
+    anchor_x: f32,
+    anchor_y: f32,
+    builder: &mut dyn FnMut(&mut dyn Painter),
+) {
+    let _ = (key, bbox, anchor_x, anchor_y);
+    builder(painter);
 }
 
 #[cfg(test)]

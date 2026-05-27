@@ -22,9 +22,11 @@
 //! `true`.
 
 use super::{
-    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOp, PathOps, Rect, Stroke, Transform,
-    Vec2,
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOp, PathOps, Rect,
+    SpriteCacheKey, Stroke, Transform, Vec2,
 };
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 /// Abstract Canvas2D surface — the subset of the
 /// `CanvasRenderingContext2d` API the painter dispatches to.
@@ -291,6 +293,15 @@ pub struct CanvasPainter<'a, C: Canvas2DCtx> {
     /// steady. `OFFSCREEN_POOL_CAP` bounds growth in pathological
     /// cases.
     offscreen_pool: Vec<C>,
+    /// Per-render sprite cache. `stamp_cached_sprite` allocates an
+    /// offscreen on the first call per `SpriteCacheKey` and blits
+    /// it via `draw_image_at` for subsequent calls — Tree / Bush
+    /// primitives bucket per-anchor variation into a small
+    /// (≤ 256 entries per kind) variant space so the cache holds
+    /// steady at a few MB even across thousands of anchors. Cache
+    /// lifetime matches the painter (per-render); hoisting to
+    /// session scope is a future refactor.
+    sprite_cache: RefCell<HashMap<SpriteCacheKey, C>>,
 }
 
 /// Maximum number of offscreen surfaces retained in
@@ -316,6 +327,7 @@ impl<'a, C: Canvas2DCtx> CanvasPainter<'a, C> {
             clip_depth: 0,
             transform_stack: Vec::new(),
             offscreen_pool: Vec::new(),
+            sprite_cache: RefCell::new(HashMap::new()),
         }
     }
 
@@ -598,6 +610,43 @@ impl<C: Canvas2DCtx> Painter for CanvasPainter<'_, C> {
         self.transform_stack
             .pop()
             .expect("pop_transform without matching push_transform");
+    }
+
+    fn stamp_cached_sprite(
+        &mut self,
+        key: SpriteCacheKey,
+        bbox: Rect,
+        anchor_x: f32,
+        anchor_y: f32,
+        builder: &mut dyn FnMut(&mut dyn Painter),
+    ) {
+        let w = bbox.w as u32;
+        let h = bbox.h as u32;
+        if w == 0 || h == 0 {
+            return;
+        }
+        // Cache miss → build the sprite once on a fresh offscreen
+        // sized to the bbox. We split the contains_key check from
+        // the insert so the &mut RefCell borrow drops before
+        // builder runs (the sub-painter might re-enter the cache).
+        let needs_build = !self.sprite_cache.borrow().contains_key(&key);
+        if needs_build {
+            let off = self.base.create_offscreen(w, h);
+            {
+                let mut sub = CanvasPainter::new(&off, w, h);
+                builder(&mut sub);
+            }
+            self.sprite_cache.borrow_mut().insert(key, off);
+        }
+        // Cache hit → blit the cached sprite. Anchor positions the
+        // bbox CENTER at (anchor_x, anchor_y); blit coords snap to
+        // integer pixels to keep Canvas2D's bilinear resampler out
+        // of the per-stamp hot path.
+        let cache = self.sprite_cache.borrow();
+        let sprite = cache.get(&key).expect("just inserted");
+        let dst_x = f64::from((anchor_x - bbox.w / 2.0).round());
+        let dst_y = f64::from((anchor_y - bbox.h / 2.0).round());
+        self.active_ctx().draw_image_at(sprite, dst_x, dst_y);
     }
 }
 
@@ -1274,6 +1323,78 @@ mod tests {
             !inner.iter().any(|op| matches!(op, Op::Transform(..))),
             "expected no Transform call on offscreen, got {inner:?}",
         );
+    }
+
+    #[test]
+    fn stamp_cached_sprite_caches_offscreen_per_key() {
+        // Phase 3 sprite-cache gate. First stamp with a given key
+        // allocates an offscreen and invokes builder; second stamp
+        // with the same key reuses the cached offscreen (no new
+        // create_offscreen, no second builder invocation), just
+        // a fresh draw_image_at on the parent.
+        use crate::painter::SpriteCacheKey;
+        use std::cell::Cell;
+        let ctx = RecCtx::new();
+        let mut p = CanvasPainter::new(&ctx, 32, 32);
+        let key = SpriteCacheKey { kind: 1, variant: 42, size_class: 16 };
+        let bbox = Rect::new(0.0, 0.0, 8.0, 8.0);
+        let build_count = Cell::new(0_u32);
+        let mut builder = |sub: &mut dyn Painter| {
+            build_count.set(build_count.get() + 1);
+            sub.fill_rect(Rect::new(0.0, 0.0, 8.0, 8.0), &red());
+        };
+        // First stamp — cache miss → 1 create_offscreen + 1
+        // builder invocation + 1 draw_image_at on parent.
+        p.stamp_cached_sprite(key, bbox, 16.0, 16.0, &mut builder);
+        assert_eq!(build_count.get(), 1);
+        // Second stamp at a different anchor — cache hit → no
+        // additional create_offscreen, no builder invocation, just
+        // a new draw_image_at on parent at the new anchor.
+        p.stamp_cached_sprite(key, bbox, 20.0, 24.0, &mut builder);
+        assert_eq!(build_count.get(), 1, "builder must not re-run on cache hit");
+
+        // Exactly one offscreen allocated across both stamps.
+        let offscreen_ids: std::collections::BTreeSet<usize> = ctx
+            .ops()
+            .iter()
+            .map(|(id, _)| *id)
+            .filter(|id| *id != 0)
+            .collect();
+        assert_eq!(offscreen_ids.len(), 1, "one sprite offscreen, got {offscreen_ids:?}");
+        // Two blits on the parent, one per stamp, at the anchor-
+        // centred positions: (16-4, 16-4)=(12, 12) and (20-4, 24-4)=(16, 20).
+        let blits: Vec<(f64, f64)> = ctx
+            .ops_for(0)
+            .into_iter()
+            .filter_map(|op| match op {
+                Op::DrawImage(_, x, y) => Some((x, y)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(blits, vec![(12.0, 12.0), (16.0, 20.0)]);
+    }
+
+    #[test]
+    fn stamp_cached_sprite_distinct_keys_allocate_separate_offscreens() {
+        use crate::painter::SpriteCacheKey;
+        let ctx = RecCtx::new();
+        let mut p = CanvasPainter::new(&ctx, 32, 32);
+        let bbox = Rect::new(0.0, 0.0, 4.0, 4.0);
+        let mut paint_once = |sub: &mut dyn Painter| {
+            sub.fill_rect(Rect::new(0.0, 0.0, 4.0, 4.0), &red());
+        };
+        let k1 = SpriteCacheKey { kind: 1, variant: 0, size_class: 16 };
+        let k2 = SpriteCacheKey { kind: 1, variant: 1, size_class: 16 };
+        p.stamp_cached_sprite(k1, bbox, 10.0, 10.0, &mut paint_once);
+        p.stamp_cached_sprite(k2, bbox, 10.0, 10.0, &mut paint_once);
+        // Two distinct keys → two distinct offscreens.
+        let offscreen_ids: std::collections::BTreeSet<usize> = ctx
+            .ops()
+            .iter()
+            .map(|(id, _)| *id)
+            .filter(|id| *id != 0)
+            .collect();
+        assert_eq!(offscreen_ids.len(), 2);
     }
 
     #[test]
