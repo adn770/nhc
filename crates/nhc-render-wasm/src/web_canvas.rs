@@ -244,4 +244,7 @@ impl Canvas2DCtx for WebCanvasCtx {
             .ctx
             .draw_image_with_html_canvas_element(&src.canvas, x, y);
     }
+    fn clear_rect(&self, x: f64, y: f64, w: f64, h: f64) {
+        self.ctx.clear_rect(x, y, w, h);
+    }
 }

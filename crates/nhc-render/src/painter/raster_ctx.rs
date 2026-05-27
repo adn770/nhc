@@ -387,6 +387,27 @@ impl Canvas2DCtx for RasterCtx {
         Self::new(width, height)
     }
 
+    fn clear_rect(&self, x: f64, y: f64, w: f64, h: f64) {
+        let s = self.state.borrow();
+        let Some(rect) =
+            SkRect::from_xywh(x as f32, y as f32, w as f32, h as f32)
+        else {
+            return;
+        };
+        // BlendMode::Clear forces destination pixels to (0, 0, 0, 0)
+        // regardless of the source colour, matching Canvas2D's
+        // clearRect semantics within the rectangle.
+        let mut paint = SkPaint::default();
+        paint.blend_mode = BlendMode::Clear;
+        paint.anti_alias = false;
+        self.pixmap.borrow_mut().fill_rect(
+            rect,
+            &paint,
+            s.transform,
+            s.clip.as_ref(),
+        );
+    }
+
     fn draw_image_at(&self, src: &Self, x: f64, y: f64) {
         let s = self.state.borrow();
         let pp = PixmapPaint {
@@ -723,6 +744,20 @@ mod tests {
         }
         assert_eq!(rgba(&off, 0, 0), (255, 255, 255, 255));
         assert_eq!(rgba(&ctx, 0, 0), (0, 0, 0, 0));
+    }
+
+    #[test]
+    fn clear_rect_resets_pixels_under_identity() {
+        let ctx = RasterCtx::new(8, 8);
+        // Fill with red, then clear a region back to transparent.
+        ctx.set_fill_style("rgb(255, 0, 0)");
+        ctx.fill_rect(0.0, 0.0, 8.0, 8.0);
+        assert_eq!(rgba(&ctx, 4, 4), (255, 0, 0, 255));
+        ctx.clear_rect(0.0, 0.0, 4.0, 4.0);
+        // Cleared region transparent.
+        assert_eq!(rgba(&ctx, 1, 1), (0, 0, 0, 0));
+        // Untouched region preserved.
+        assert_eq!(rgba(&ctx, 6, 6), (255, 0, 0, 255));
     }
 
     #[test]

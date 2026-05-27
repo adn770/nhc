@@ -155,6 +155,14 @@ pub trait Canvas2DCtx: Sized {
     /// dispatches to Canvas2D's `drawImage` overload that takes
     /// an `OffscreenCanvas` source.
     fn draw_image_at(&self, src: &Self, x: f64, y: f64);
+    /// Clear the rectangle `(x, y, w, h)` to fully-transparent
+    /// black. Mirrors Canvas2D's native `clearRect` — the operation
+    /// runs through the current transform, so callers that want a
+    /// pixel-space clear must `set_transform(identity)` first.
+    /// Used by `CanvasPainter`'s offscreen pool to recycle
+    /// `begin_group` surfaces without paying a fresh
+    /// `create_offscreen` allocation.
+    fn clear_rect(&self, x: f64, y: f64, w: f64, h: f64);
 }
 
 /// Canvas2D `lineCap` enumeration. The wasm impl maps each to
@@ -562,6 +570,7 @@ mod tests {
         Restore,
         FillRect(f64, f64, f64, f64),
         StrokeRect(f64, f64, f64, f64),
+        ClearRect(f64, f64, f64, f64),
         BeginPath,
         ClosePath,
         MoveTo(f64, f64),
@@ -733,6 +742,9 @@ mod tests {
         }
         fn draw_image_at(&self, src: &Self, x: f64, y: f64) {
             self.record(Op::DrawImage(src.id, x, y));
+        }
+        fn clear_rect(&self, x: f64, y: f64, w: f64, h: f64) {
+            self.record(Op::ClearRect(x, y, w, h));
         }
     }
 
@@ -1217,6 +1229,18 @@ mod tests {
             !inner.iter().any(|op| matches!(op, Op::Transform(..))),
             "expected no Transform call on offscreen, got {inner:?}",
         );
+    }
+
+    #[test]
+    fn clear_rect_records_via_rec_ctx() {
+        // Phase B scaffold gate — Canvas2DCtx::clear_rect is the
+        // contract the offscreen pool will rely on for recycling
+        // begin_group surfaces. Confirm the recording mock captures
+        // it correctly so the pool tests have something to assert
+        // against in the next commit.
+        let ctx = RecCtx::new();
+        ctx.clear_rect(1.0, 2.0, 3.0, 4.0);
+        assert_eq!(ctx.ops_for(0), vec![Op::ClearRect(1.0, 2.0, 3.0, 4.0)]);
     }
 
     #[test]

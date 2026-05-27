@@ -393,6 +393,9 @@ mod tests {
         fn draw_image_at(&self, _src: &Self, _x: f64, _y: f64) {
             self.log.borrow_mut().push(Op::Other);
         }
+        fn clear_rect(&self, _x: f64, _y: f64, _w: f64, _h: f64) {
+            self.log.borrow_mut().push(Op::Other);
+        }
     }
 
     /// Minimal valid FloorIR buffer for shape-level smoke tests.
