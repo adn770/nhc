@@ -283,7 +283,20 @@ pub struct CanvasPainter<'a, C: Canvas2DCtx> {
     /// allocated offscreen so paints inside the group land at
     /// the same canvas-pixel coordinates as on the base.
     transform_stack: Vec<Transform>,
+    /// Pool of reusable offscreen surfaces. `begin_group` prefers
+    /// to pop a cleared entry from this pool over allocating a new
+    /// one via `create_offscreen`; `end_group` returns the surface
+    /// to the pool. The pool grows to the maximum concurrent group
+    /// nesting depth observed during a render and then holds
+    /// steady. `OFFSCREEN_POOL_CAP` bounds growth in pathological
+    /// cases.
+    offscreen_pool: Vec<C>,
 }
+
+/// Maximum number of offscreen surfaces retained in
+/// `CanvasPainter::offscreen_pool` across a render. Typical nesting
+/// depth observed in production is ≤ 3-4; 8 is conservative.
+const OFFSCREEN_POOL_CAP: usize = 8;
 
 struct GroupFrame<C: Canvas2DCtx> {
     offscreen: C,
@@ -302,6 +315,7 @@ impl<'a, C: Canvas2DCtx> CanvasPainter<'a, C> {
             group_stack: Vec::new(),
             clip_depth: 0,
             transform_stack: Vec::new(),
+            offscreen_pool: Vec::new(),
         }
     }
 
@@ -465,9 +479,33 @@ impl<C: Canvas2DCtx> Painter for CanvasPainter<'_, C> {
     // `design/begin_group_audit.md` for the classified site list
     // and `// audit: <verdict>` annotations adjacent to every
     // call site in `primitives/**` and `painter/families/**`.
+    //
+    // For the begin_group sites that remain (overlapping fills),
+    // surface allocation is recycled through `offscreen_pool`:
+    // end_group returns its surface to the pool; the next
+    // begin_group pops a pre-reset surface from the pool instead
+    // of allocating a fresh one. clearRect + setTransform(identity)
+    // costs ~1-2 ms vs ~5-10 ms for create_offscreen at 3456×2880.
     fn begin_group(&mut self, opacity: f32) {
-        let active = self.active_ctx();
-        let offscreen = active.create_offscreen(self.width, self.height);
+        let offscreen = if let Some(reused) = self.offscreen_pool.pop() {
+            // Reset state: pool entries carry leftover transform
+            // from the prior begin_group's `.transform()` delta;
+            // identity-set before the new delta so paints inside
+            // the next group land at the right canvas pixels.
+            // Clear pixels to fully-transparent black to match a
+            // fresh Pixmap (the painter's baseline assumption).
+            reused.set_transform(1.0, 0.0, 0.0, 1.0, 0.0, 0.0);
+            reused.clear_rect(
+                0.0,
+                0.0,
+                f64::from(self.width),
+                f64::from(self.height),
+            );
+            reused
+        } else {
+            let active = self.active_ctx();
+            active.create_offscreen(self.width, self.height)
+        };
         // Replay the painter's cumulative transform onto the
         // offscreen so paints inside the group land at the same
         // canvas-pixel coordinates as they would on the base
@@ -505,6 +543,13 @@ impl<C: Canvas2DCtx> Painter for CanvasPainter<'_, C> {
         dst.set_global_alpha(frame.opacity as f64);
         dst.draw_image_at(&frame.offscreen, 0.0, 0.0);
         dst.restore();
+        // Return the surface to the pool for reuse by the next
+        // begin_group. The cap bounds growth in pathological
+        // nesting scenarios; the typical render holds steady at
+        // a few entries (the maximum concurrent nesting depth).
+        if self.offscreen_pool.len() < OFFSCREEN_POOL_CAP {
+            self.offscreen_pool.push(frame.offscreen);
+        }
     }
 
     fn push_clip(&mut self, path: &PathOps, fill_rule: FillRule) {
@@ -1228,6 +1273,74 @@ mod tests {
         assert!(
             !inner.iter().any(|op| matches!(op, Op::Transform(..))),
             "expected no Transform call on offscreen, got {inner:?}",
+        );
+    }
+
+    #[test]
+    fn sequential_begin_groups_reuse_pooled_offscreen() {
+        // Phase B pool gate. First begin_group allocates ctx 1
+        // (pool was empty). end_group pushes ctx 1 onto the pool.
+        // Second begin_group pops ctx 1, set_transform(identity)
+        // + clear_rect to reset, then re-uses it. The second
+        // end_group blits ctx 1 again and re-pushes onto the pool.
+        let ctx = RecCtx::new();
+        let mut p = CanvasPainter::new(&ctx, 16, 16);
+        p.begin_group(0.5);
+        p.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &red());
+        p.end_group();
+        p.begin_group(0.5);
+        p.fill_rect(Rect::new(2.0, 2.0, 1.0, 1.0), &red());
+        p.end_group();
+        // Exactly one offscreen ever allocated.
+        let all_ids: Vec<usize> =
+            ctx.ops().iter().map(|(id, _)| *id).collect();
+        let unique: std::collections::BTreeSet<_> =
+            all_ids.iter().copied().collect();
+        assert_eq!(unique, [0, 1].into_iter().collect::<std::collections::BTreeSet<_>>());
+        // Ctx 1 received the reset sequence between the two groups.
+        let inner = ctx.ops_for(1);
+        let reset_seq_count = inner
+            .windows(2)
+            .filter(|w| {
+                matches!(w[0], Op::SetTransform(1.0, 0.0, 0.0, 1.0, 0.0, 0.0))
+                    && matches!(w[1], Op::ClearRect(0.0, 0.0, 16.0, 16.0))
+            })
+            .count();
+        assert_eq!(
+            reset_seq_count, 1,
+            "exactly one pool-reset sequence between the two groups, got {inner:?}"
+        );
+        // Two blits on the parent, one per end_group.
+        let blits = ctx
+            .ops_for(0)
+            .into_iter()
+            .filter(|op| matches!(op, Op::DrawImage(1, 0.0, 0.0)))
+            .count();
+        assert_eq!(blits, 2);
+    }
+
+    #[test]
+    fn nested_begin_groups_still_allocate_per_level() {
+        // Pool reuse only kicks in for sequential groups; nested
+        // groups need one offscreen per concurrent level. Two
+        // nested begin_groups starting from an empty pool must
+        // allocate two distinct ctx ids.
+        let ctx = RecCtx::new();
+        let mut p = CanvasPainter::new(&ctx, 8, 8);
+        p.begin_group(0.5);
+        p.begin_group(0.5);
+        p.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &red());
+        p.end_group();
+        p.end_group();
+        // Three distinct ctx ids visible — base (0), outer (1),
+        // inner (2). No reuse possible during the nest because
+        // the outer offscreen wasn't returned to the pool yet
+        // when the inner begin_group fired.
+        let unique: std::collections::BTreeSet<usize> =
+            ctx.ops().iter().map(|(id, _)| *id).collect();
+        assert_eq!(
+            unique,
+            [0_usize, 1, 2].into_iter().collect::<std::collections::BTreeSet<_>>()
         );
     }
 
