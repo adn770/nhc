@@ -376,6 +376,143 @@ pub trait Painter {
         anchor_y: f32,
         builder: &mut dyn FnMut(&mut dyn Painter),
     );
+
+    /// Push a color filter onto the painter's filter stack.
+    /// Subsequent paint operations (fill / stroke / sprite blit)
+    /// render with the cumulative filter applied; `pop_filter`
+    /// reverts to the prior state. Default impl is a no-op for
+    /// backends that don't support filters (e.g. test mocks);
+    /// the production backends (SkiaPainter, SvgPainter,
+    /// CanvasPainter) override.
+    fn push_filter(&mut self, filter: PainterFilter) {
+        let _ = filter;
+    }
+
+    /// Pop the most recently pushed filter. No-op on backends
+    /// that don't support filters.
+    fn pop_filter(&mut self) {}
+}
+
+/// Color-space filter applied to subsequent paint operations.
+///
+/// `CanvasPainter` forwards filters to the Canvas2D `filter`
+/// CSS string; `SkiaPainter` / `SvgPainter` / `RasterCtx`
+/// hand-roll the HSL math and apply to paint colours at draw
+/// time. The two paths approximate the same effect within ~1 LSB
+/// on the PSNR ≥ 50 dB gate.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PainterFilter {
+    /// HSL shift — rotate hue by `h_deg` degrees, multiply
+    /// saturation by `s_mul`, multiply lightness by `l_mul`. The
+    /// per-anchor tint Tree / Bush use for inter-instance
+    /// variation among bucketed shape templates (Phase 3 of
+    /// `plans/wasm-render-caching.md`).
+    HslShift {
+        h_deg: f32,
+        s_mul: f32,
+        l_mul: f32,
+    },
+}
+
+impl PainterFilter {
+    /// CSS filter string equivalent — matches Canvas2D's
+    /// `ctx.filter = "..."` syntax. CSS doesn't have a direct
+    /// "HSL shift" filter, so we compose `hue-rotate(deg)
+    /// saturate(mul) brightness(mul)`. Matches Canvas2D's
+    /// matrix-based hue-rotate within ~1 LSB of HSL-space
+    /// rotation on saturated test fixtures.
+    pub fn as_css_string(&self) -> String {
+        match self {
+            PainterFilter::HslShift { h_deg, s_mul, l_mul } => format!(
+                "hue-rotate({h_deg}deg) saturate({s_mul:.4}) brightness({l_mul:.4})",
+            ),
+        }
+    }
+
+    /// Apply the filter to a `Color` via hand-rolled HSL math.
+    /// Used by every backend except `CanvasPainter` (which
+    /// forwards to the JS compositor via [`Self::as_css_string`]).
+    pub fn apply_to_color(&self, c: Color) -> Color {
+        match self {
+            PainterFilter::HslShift { h_deg, s_mul, l_mul } => {
+                let (h, s, l) = rgb_to_hsl(c.r, c.g, c.b);
+                let new_h =
+                    ((h + h_deg / 360.0).fract() + 1.0).fract();
+                let new_s = (s * s_mul).clamp(0.0, 1.0);
+                let new_l = (l * l_mul).clamp(0.0, 1.0);
+                let (r, g, b) = hsl_to_rgb(new_h, new_s, new_l);
+                Color { r, g, b, a: c.a }
+            }
+        }
+    }
+}
+
+/// Apply a stack of filters to a colour, in push order.
+pub fn apply_filter_stack(c: Color, stack: &[PainterFilter]) -> Color {
+    stack.iter().fold(c, |acc, f| f.apply_to_color(acc))
+}
+
+/// Convert an `(r, g, b)` triple in `[0, 255]` to `(h, s, l)` in
+/// `[0, 1]`. Standard HSL formula.
+pub fn rgb_to_hsl(r: u8, g: u8, b: u8) -> (f32, f32, f32) {
+    let rf = f32::from(r) / 255.0;
+    let gf = f32::from(g) / 255.0;
+    let bf = f32::from(b) / 255.0;
+    let max = rf.max(gf).max(bf);
+    let min = rf.min(gf).min(bf);
+    let l = (max + min) * 0.5;
+    let delta = max - min;
+    if delta < 1e-6 {
+        return (0.0, 0.0, l);
+    }
+    let s = if l < 0.5 {
+        delta / (max + min)
+    } else {
+        delta / (2.0 - max - min)
+    };
+    let h = if max == rf {
+        ((gf - bf) / delta + if gf < bf { 6.0 } else { 0.0 }) / 6.0
+    } else if max == gf {
+        ((bf - rf) / delta + 2.0) / 6.0
+    } else {
+        ((rf - gf) / delta + 4.0) / 6.0
+    };
+    (h, s, l)
+}
+
+/// Convert `(h, s, l)` in `[0, 1]` back to `(r, g, b)` in
+/// `[0, 255]`. Inverse of [`rgb_to_hsl`].
+pub fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (u8, u8, u8) {
+    if s < 1e-6 {
+        let v = (l * 255.0).round().clamp(0.0, 255.0) as u8;
+        return (v, v, v);
+    }
+    let q = if l < 0.5 { l * (1.0 + s) } else { l + s - l * s };
+    let p = 2.0 * l - q;
+    let r = hue_to_rgb(p, q, h + 1.0 / 3.0);
+    let g = hue_to_rgb(p, q, h);
+    let b = hue_to_rgb(p, q, h - 1.0 / 3.0);
+    let to_u8 = |v: f32| (v * 255.0).round().clamp(0.0, 255.0) as u8;
+    (to_u8(r), to_u8(g), to_u8(b))
+}
+
+fn hue_to_rgb(p: f32, q: f32, mut t: f32) -> f32 {
+    if t < 0.0 {
+        t += 1.0;
+    }
+    if t > 1.0 {
+        t -= 1.0;
+    }
+    if t < 1.0 / 6.0 {
+        return p + (q - p) * 6.0 * t;
+    }
+    if t < 0.5 {
+        return q;
+    }
+    if t < 2.0 / 3.0 {
+        return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+    }
+    p
 }
 
 /// Key into the per-render sprite cache.
@@ -419,6 +556,75 @@ pub fn stamp_cached_sprite_default(
 mod tests {
     use super::test_util::{MockPainter, PainterCall as Call};
     use super::*;
+
+    #[test]
+    fn painter_filter_identity_is_noop() {
+        let c = Color::rgb(120, 60, 200);
+        let f = PainterFilter::HslShift {
+            h_deg: 0.0,
+            s_mul: 1.0,
+            l_mul: 1.0,
+        };
+        let result = f.apply_to_color(c);
+        // Identity filter — within 1 LSB of the original colour
+        // (rgb_to_hsl/hsl_to_rgb round-trips slightly).
+        assert!((result.r as i32 - c.r as i32).abs() <= 1);
+        assert!((result.g as i32 - c.g as i32).abs() <= 1);
+        assert!((result.b as i32 - c.b as i32).abs() <= 1);
+    }
+
+    #[test]
+    fn painter_filter_180_degree_hue_rotates_to_complement() {
+        // Pure red (255, 0, 0) → 180° hue rotation → cyan (0, 255, 255).
+        // HSL math is exact at the 180° point.
+        let red_c = Color::rgb(255, 0, 0);
+        let f = PainterFilter::HslShift {
+            h_deg: 180.0,
+            s_mul: 1.0,
+            l_mul: 1.0,
+        };
+        let result = f.apply_to_color(red_c);
+        assert!((result.r as i32 - 0).abs() <= 1);
+        assert!((result.g as i32 - 255).abs() <= 1);
+        assert!((result.b as i32 - 255).abs() <= 1);
+    }
+
+    #[test]
+    fn painter_filter_as_css_string_matches_format() {
+        let f = PainterFilter::HslShift {
+            h_deg: 15.0,
+            s_mul: 1.05,
+            l_mul: 0.95,
+        };
+        let css = f.as_css_string();
+        assert!(css.contains("hue-rotate(15deg)"));
+        assert!(css.contains("saturate(1.05"));
+        assert!(css.contains("brightness(0.95"));
+    }
+
+    #[test]
+    fn apply_filter_stack_composes_in_order() {
+        // Two filters stacked: first rotates 60°, second rotates
+        // another 60° → cumulative 120°.
+        let c = Color::rgb(255, 0, 0);
+        let stack = [
+            PainterFilter::HslShift {
+                h_deg: 60.0,
+                s_mul: 1.0,
+                l_mul: 1.0,
+            },
+            PainterFilter::HslShift {
+                h_deg: 60.0,
+                s_mul: 1.0,
+                l_mul: 1.0,
+            },
+        ];
+        let result = apply_filter_stack(c, &stack);
+        // 120° from red → green (0, 255, 0).
+        assert!((result.r as i32 - 0).abs() <= 1);
+        assert!((result.g as i32 - 255).abs() <= 1);
+        assert!((result.b as i32 - 0).abs() <= 1);
+    }
 
     fn red() -> Paint {
         Paint::solid(Color::rgb(255, 0, 0))

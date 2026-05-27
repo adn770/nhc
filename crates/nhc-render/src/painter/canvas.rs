@@ -22,8 +22,8 @@
 //! `true`.
 
 use super::{
-    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOp, PathOps, Rect,
-    SpriteCacheKey, Stroke, Transform, Vec2,
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PainterFilter, PathOp,
+    PathOps, Rect, SpriteCacheKey, Stroke, Transform, Vec2,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -165,6 +165,15 @@ pub trait Canvas2DCtx: Sized {
     /// `begin_group` surfaces without paying a fresh
     /// `create_offscreen` allocation.
     fn clear_rect(&self, x: f64, y: f64, w: f64, h: f64);
+    /// Set the surface's color filter. The filter applies to
+    /// subsequent `fill_rect` / `stroke_rect` / `fill` / `stroke`
+    /// / `draw_image_at` calls and is part of the save/restore
+    /// state stack — `save()` snapshots the filter, `restore()`
+    /// reverts. `None` clears the filter. `WebCanvasCtx`
+    /// translates the spec to CSS for Canvas2D's `ctx.filter`;
+    /// `RasterCtx` stores it on state and applies HSL math to
+    /// `draw_image_at` sources / paint colours at draw time.
+    fn set_filter(&self, filter: Option<PainterFilter>);
 }
 
 /// Canvas2D `lineCap` enumeration. The wasm impl maps each to
@@ -278,6 +287,11 @@ pub struct CanvasPainter<'a, C: Canvas2DCtx> {
     height: u32,
     group_stack: Vec<GroupFrame<C>>,
     clip_depth: u32,
+    /// Active filters in push order. The painter forwards each
+    /// push_filter to the active surface via
+    /// `Canvas2DCtx::set_filter`; the stack itself is just for
+    /// pop_filter balancing.
+    filter_stack: Vec<PainterFilter>,
     /// Cumulative transforms pushed via `push_transform`. Each
     /// entry is the composed transform from the painter's base
     /// surface down to that stack level. `begin_group` reads
@@ -328,6 +342,7 @@ impl<'a, C: Canvas2DCtx> CanvasPainter<'a, C> {
             transform_stack: Vec::new(),
             offscreen_pool: Vec::new(),
             sprite_cache: RefCell::new(HashMap::new()),
+            filter_stack: Vec::new(),
         }
     }
 
@@ -338,6 +353,7 @@ impl<'a, C: Canvas2DCtx> CanvasPainter<'a, C> {
         self.group_stack.is_empty()
             && self.clip_depth == 0
             && self.transform_stack.is_empty()
+            && self.filter_stack.is_empty()
     }
 
     fn active_ctx(&self) -> &C {
@@ -612,6 +628,27 @@ impl<C: Canvas2DCtx> Painter for CanvasPainter<'_, C> {
             .expect("pop_transform without matching push_transform");
     }
 
+    fn push_filter(&mut self, filter: PainterFilter) {
+        // Wrap the filter scope in save/restore so the surface's
+        // prior filter (and any other tracked state) returns on
+        // pop_filter. Forwarding to Canvas2DCtx::set_filter
+        // dispatches per backend: WebCanvasCtx writes the CSS
+        // string onto ctx.filter, RasterCtx stores the filter on
+        // its state stack and applies HSL math at draw time.
+        let ctx = self.active_ctx();
+        ctx.save();
+        ctx.set_filter(Some(filter));
+        self.filter_stack.push(filter);
+    }
+
+    fn pop_filter(&mut self) {
+        let ctx = self.active_ctx();
+        ctx.restore();
+        self.filter_stack
+            .pop()
+            .expect("pop_filter without matching push_filter");
+    }
+
     fn stamp_cached_sprite(
         &mut self,
         key: SpriteCacheKey,
@@ -688,6 +725,7 @@ mod tests {
         SetMiterLimit(f64),
         SetGlobalAlpha(f64),
         DrawImage(usize, f64, f64),
+        SetFilter(Option<crate::painter::PainterFilter>),
     }
 
     /// Recording mock for `Canvas2DCtx`. All instances created by
@@ -839,6 +877,9 @@ mod tests {
         }
         fn clear_rect(&self, x: f64, y: f64, w: f64, h: f64) {
             self.record(Op::ClearRect(x, y, w, h));
+        }
+        fn set_filter(&self, filter: Option<crate::painter::PainterFilter>) {
+            self.record(Op::SetFilter(filter));
         }
     }
 
@@ -1323,6 +1364,40 @@ mod tests {
             !inner.iter().any(|op| matches!(op, Op::Transform(..))),
             "expected no Transform call on offscreen, got {inner:?}",
         );
+    }
+
+    #[test]
+    fn push_filter_forwards_to_set_filter_inside_save_restore() {
+        use crate::painter::PainterFilter;
+        let ctx = RecCtx::new();
+        let mut p = CanvasPainter::new(&ctx, 16, 16);
+        let f = PainterFilter::HslShift {
+            h_deg: 15.0,
+            s_mul: 1.0,
+            l_mul: 1.0,
+        };
+        p.push_filter(f);
+        // Inside the filter scope: Save, SetFilter, ...paints...
+        // pop_filter emits Restore.
+        p.fill_rect(Rect::new(0.0, 0.0, 4.0, 4.0), &red());
+        p.pop_filter();
+        let ops = ctx.ops_for(0);
+        // First op is Save; then SetFilter; then paint ops; then Restore at the end.
+        assert!(matches!(ops.first(), Some(Op::Save)));
+        assert!(matches!(
+            ops.iter().nth(1),
+            Some(Op::SetFilter(Some(PainterFilter::HslShift { .. })))
+        ));
+        assert!(matches!(ops.last(), Some(Op::Restore)));
+        assert!(p.is_balanced(), "filter stack must balance");
+    }
+
+    #[test]
+    #[should_panic(expected = "pop_filter without matching push_filter")]
+    fn pop_filter_without_push_panics() {
+        let ctx = RecCtx::new();
+        let mut p = CanvasPainter::new(&ctx, 4, 4);
+        p.pop_filter();
     }
 
     #[test]

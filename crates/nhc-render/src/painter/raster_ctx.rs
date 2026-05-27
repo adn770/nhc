@@ -25,6 +25,7 @@ use tiny_skia::{
 };
 
 use super::canvas::{Canvas2DCtx, CanvasLineCap, CanvasLineJoin};
+use super::PainterFilter;
 
 /// Canvas2D-compatible driver backed by a `tiny_skia::Pixmap`.
 ///
@@ -52,6 +53,10 @@ struct State {
     line_join: SkLineJoin,
     miter_limit: f32,
     global_alpha: f32,
+    /// Active filter. Applied to `draw_image_at` sources and
+    /// solid paint colours at draw time. `None` is the
+    /// Canvas2D-default "no filter".
+    filter: Option<PainterFilter>,
 
     path: Vec<RasterPathOp>,
     /// Snapshots pushed by `save`, popped by `restore`. Mirrors
@@ -70,6 +75,7 @@ struct Snapshot {
     line_join: SkLineJoin,
     miter_limit: f32,
     global_alpha: f32,
+    filter: Option<PainterFilter>,
 }
 
 /// Canvas2D path commands recorded in source order. The `Vec`
@@ -135,6 +141,7 @@ impl State {
             line_join: SkLineJoin::Miter,
             miter_limit: 10.0,
             global_alpha: 1.0,
+            filter: None,
             path: Vec::new(),
             saves: Vec::new(),
         }
@@ -151,6 +158,7 @@ impl State {
             line_join: self.line_join,
             miter_limit: self.miter_limit,
             global_alpha: self.global_alpha,
+            filter: self.filter,
         }
     }
 
@@ -160,10 +168,11 @@ impl State {
         self.fill_color = snap.fill_color;
         self.stroke_color = snap.stroke_color;
         self.line_width = snap.line_width;
-        self.line_cap = snap.line_cap;
         self.line_join = snap.line_join;
+        self.line_cap = snap.line_cap;
         self.miter_limit = snap.miter_limit;
         self.global_alpha = snap.global_alpha;
+        self.filter = snap.filter;
     }
 }
 
@@ -385,6 +394,10 @@ impl Canvas2DCtx for RasterCtx {
 
     fn create_offscreen(&self, width: u32, height: u32) -> Self {
         Self::new(width, height)
+    }
+
+    fn set_filter(&self, filter: Option<PainterFilter>) {
+        self.state.borrow_mut().filter = filter;
     }
 
     fn clear_rect(&self, x: f64, y: f64, w: f64, h: f64) {

@@ -13,6 +13,7 @@
 use nhc_render::painter::canvas::{
     Canvas2DCtx, CanvasLineCap, CanvasLineJoin,
 };
+use nhc_render::painter::PainterFilter;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
     CanvasRenderingContext2d, CanvasWindingRule, HtmlCanvasElement,
@@ -246,5 +247,12 @@ impl Canvas2DCtx for WebCanvasCtx {
     }
     fn clear_rect(&self, x: f64, y: f64, w: f64, h: f64) {
         self.ctx.clear_rect(x, y, w, h);
+    }
+    fn set_filter(&self, filter: Option<PainterFilter>) {
+        let css = match filter {
+            Some(f) => f.as_css_string(),
+            None => "none".to_string(),
+        };
+        self.ctx.set_filter(&css);
     }
 }
