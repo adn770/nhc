@@ -266,6 +266,7 @@ pub fn paint_wood_floor(
     }
     for ((light, dark), (light_lines, dark_lines)) in &grain_buckets {
         if !light_lines.is_empty() {
+            // audit: overlapping — grain strokes can overlap at shared room boundaries.
             painter.begin_group(WOOD_GRAIN_OPACITY);
             let stroke = grain_stroke();
             let paint = paint_for_hex(light);
@@ -275,6 +276,7 @@ pub fn paint_wood_floor(
             painter.end_group();
         }
         if !dark_lines.is_empty() {
+            // audit: overlapping — grain strokes can overlap at shared room boundaries.
             painter.begin_group(WOOD_GRAIN_OPACITY);
             let stroke = grain_stroke();
             let paint = paint_for_hex(dark);

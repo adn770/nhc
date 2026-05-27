@@ -449,6 +449,14 @@ impl<C: Canvas2DCtx> Painter for CanvasPainter<'_, C> {
         ctx.stroke();
     }
 
+    // Each `begin_group` allocates a full-canvas-sized offscreen
+    // (~40 MB at 3456×2880) plus an end_group `draw_image_at` blit.
+    // Call sites whose fills are pairwise disjoint can pre-multiply
+    // the group opacity into the fill colour and drop the wrapper
+    // entirely without pixel drift — see
+    // `design/begin_group_audit.md` for the classified site list
+    // and `// audit: <verdict>` annotations adjacent to every
+    // call site in `primitives/**` and `painter/families/**`.
     fn begin_group(&mut self, opacity: f32) {
         let active = self.active_ctx();
         let offscreen = active.create_offscreen(self.width, self.height);

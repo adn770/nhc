@@ -196,6 +196,7 @@ fn paint_shape_buckets(
     let (tile_fills, hatch_lines, hatch_stones) = shapes;
 
     if !tile_fills.is_empty() {
+        // audit: disjoint — whole-tile fill_rect per unique grid square; tiles tile.
         painter.begin_group(TILE_FILLS_OPACITY);
         for shape in tile_fills {
             paint_shape(painter, shape);
@@ -203,6 +204,7 @@ fn paint_shape_buckets(
         painter.end_group();
     }
     if !hatch_lines.is_empty() {
+        // audit: overlapping — per-tile hatch strokes meet at tile boundaries.
         painter.begin_group(HATCH_LINES_OPACITY);
         for shape in hatch_lines {
             paint_shape(painter, shape);

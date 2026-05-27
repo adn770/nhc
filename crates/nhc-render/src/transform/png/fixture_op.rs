@@ -141,6 +141,7 @@ fn paint_web_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
         .collect();
     angles.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
+    // audit: overlapping — radial spokes meet at hub; ring loops cross spokes.
     painter.begin_group(WEB_OPACITY);
     let stroke = Stroke {
         width: 0.4,
@@ -198,6 +199,7 @@ fn paint_skull_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
     let jaw_h: f64 = CELL * 0.10 * s;
     let jaw_w: f64 = CELL * 0.18 * s;
 
+    // audit: overlapping — eyes/jaw fill inside the cranium silhouette.
     painter.begin_group(SKULL_OPACITY);
     painter.fill_circle(
         cx as f32, cy as f32, cranium_r as f32,
@@ -233,6 +235,7 @@ fn paint_bone_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
     let cy = py + CELL * 0.5;
     let n_bones = rng.gen_range(2..=3);
 
+    // audit: overlapping — multiple bones cross at the tile centre; knuckle dots overlap.
     painter.begin_group(BONE_OPACITY);
     let stroke = Stroke {
         width: 1.6,
@@ -272,6 +275,7 @@ fn paint_loose_stone_anchor(painter: &mut dyn Painter, a: &Anchor, seed: u64) {
     let py = f64::from(a.y()) * CELL;
     let n_stones = rng.gen_range(1..=3);
 
+    // audit: overlapping — 1-3 random ellipses with fill+stroke per anchor.
     painter.begin_group(LOOSE_STONE_OPACITY);
     for _ in 0..n_stones {
         let cx = px + rng.gen_range((CELL * 0.20)..(CELL * 0.80));
@@ -556,6 +560,7 @@ fn paint_mushroom_cluster_patch(
     if cluster.is_empty() {
         return;
     }
+    // audit: overlapping — patch ellipses overlap between adjacent cluster members.
     painter.begin_group(MUSHROOM_PATCH_OPACITY);
     let paint = Paint::solid(MUSHROOM_PATCH_FILL);
     for &(tx, ty) in cluster {
@@ -592,6 +597,7 @@ fn paint_gravestone_cluster_plot(
     let x1 = f64::from(max_x + 1) * CELL + pad;
     let y1 = f64::from(max_y + 1) * CELL - pad;
 
+    // audit: disjoint — single fill_path rect; savings marginal, elimination deferred.
     painter.begin_group(GRAVE_PLOT_OPACITY);
     let mut path = PathOps::new();
     path.move_to(Vec2::new(x0 as f32, y0 as f32));

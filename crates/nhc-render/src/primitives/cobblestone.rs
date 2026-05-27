@@ -204,6 +204,7 @@ pub fn paint_cobblestone(
     let (grid, stones) = cobblestone_shapes(tiles, seed);
 
     if !grid.is_empty() {
+        // audit: overlapping — adjacent grid cells share stroked borders.
         painter.begin_group(GRID_OPACITY);
         let stroke_paint = paint_for_hex(COBBLE_STROKE);
         let stroke = Stroke {
@@ -234,6 +235,7 @@ pub fn paint_cobblestone(
     }
 
     if !stones.is_empty() {
+        // audit: overlapping — rotated ellipses with fill+stroke same path overlap.
         painter.begin_group(STONES_OPACITY);
         let fill_paint = paint_for_hex(STONE_FILL);
         let stroke_paint = paint_for_hex(STONE_STROKE);

@@ -249,6 +249,7 @@ pub fn paint_floor_detail_side(
 ) {
     let (cracks, scratches, stones) = side;
     if !cracks.is_empty() {
+        // audit: overlapping — multiple cracks per tile can cross.
         painter.begin_group(CRACKS_OPACITY);
         for shape in cracks {
             paint_shape(painter, shape);
@@ -256,6 +257,7 @@ pub fn paint_floor_detail_side(
         painter.end_group();
     }
     if !scratches.is_empty() {
+        // audit: overlapping — multiple scratches per tile can cross.
         painter.begin_group(SCRATCHES_OPACITY);
         for shape in scratches {
             paint_shape(painter, shape);
@@ -263,6 +265,7 @@ pub fn paint_floor_detail_side(
         painter.end_group();
     }
     if !stones.is_empty() {
+        // audit: overlapping — dense small ellipses, tile-boundary stones can overlap.
         painter.begin_group(STONES_OPACITY);
         for shape in stones {
             paint_shape(painter, shape);

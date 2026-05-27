@@ -360,6 +360,7 @@ fn paint_per_tile_decorator<F>(
     }
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ seed_salt);
     painter.push_clip(region_path, FillRule::EvenOdd);
+    // audit: overlapping — generic scaffold; `paint_one` closure unbounded.
     painter.begin_group(group_opacity);
     for (tx, ty) in tiles {
         if rng.gen::<f64>() < base_prob {

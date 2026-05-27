@@ -466,6 +466,7 @@ pub fn paint_thematic_detail_side(
     let (webs, bones, skulls) = side;
     for shape in webs {
         if let ThematicDetailShape::Web(w) = shape {
+            // audit: overlapping — spokes meet at the hub on a single self-overlapping path.
             painter.begin_group(WEB_OPACITY);
             paint_web(painter, w);
             painter.end_group();
@@ -473,6 +474,7 @@ pub fn paint_thematic_detail_side(
     }
     for shape in bones {
         if let ThematicDetailShape::Bones(b) = shape {
+            // audit: overlapping — bone strokes overlap knuckle dots by design.
             painter.begin_group(BONE_OPACITY);
             paint_bones(painter, b);
             painter.end_group();
@@ -480,6 +482,7 @@ pub fn paint_thematic_detail_side(
     }
     for shape in skulls {
         if let ThematicDetailShape::Skull(k) = shape {
+            // audit: overlapping — eye sockets fill on top of the cranium silhouette.
             painter.begin_group(SKULL_OPACITY);
             paint_skull(painter, k);
             painter.end_group();

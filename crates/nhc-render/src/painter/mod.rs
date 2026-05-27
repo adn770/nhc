@@ -94,6 +94,17 @@ impl Color {
     pub const fn rgba(r: u8, g: u8, b: u8, a: f32) -> Self {
         Self { r, g, b, a }
     }
+
+    /// Returns a copy of `self` with the alpha channel replaced by
+    /// `a`. Used by patterns whose fills don't overlap inside a
+    /// `begin_group(opacity)` envelope — pre-multiplying `opacity`
+    /// into the fill's alpha lands the same pixels as the group
+    /// composite while eliminating the per-call offscreen
+    /// allocation. See `design/begin_group_audit.md` for which
+    /// `begin_group` call sites this transformation is safe at.
+    pub const fn with_alpha(self, a: f32) -> Self {
+        Self { a, ..self }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

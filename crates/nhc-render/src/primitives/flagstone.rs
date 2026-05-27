@@ -146,6 +146,7 @@ pub fn paint_flagstone(
         return;
     }
 
+    // audit: overlapping — pentagonal-plate stroke borders nearly coincide on adjacent plates.
     painter.begin_group(FLAGSTONE_OPACITY);
     let stroke_paint = paint_for_hex(FLAGSTONE_STROKE);
     let stroke = Stroke {

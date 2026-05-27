@@ -139,6 +139,7 @@ pub fn paint_ore_deposit(
         line_cap: LineCap::Butt,
         line_join: LineJoin::Miter,
     };
+    // audit: overlapping — diamond fill+stroke same path; neighbour diamonds can overlap.
     painter.begin_group(ORE_DEPOSIT_OPACITY);
     for d in &diamonds {
         let path = diamond_path(d.cx, d.cy, d.r);

@@ -191,6 +191,7 @@ pub fn paint_water(painter: &mut dyn Painter, tiles: &[(i32, i32)], seed: u64) {
         return;
     }
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ WATER_SEED_SALT);
+    // audit: overlapping — per-tile ripple strokes overlap the tile fill underneath.
     painter.begin_group(WATER_OPACITY);
     for &(x, y) in tiles {
         paint_water_tile(
@@ -218,6 +219,7 @@ pub fn paint_lava(
         return;
     }
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ LAVA_SEED_SALT);
+    // audit: overlapping — per-tile crack strokes overlap ember fills underneath.
     painter.begin_group(LAVA_OPACITY);
     for &(x, y) in tiles {
         paint_lava_tile(
@@ -239,6 +241,7 @@ pub fn paint_chasm(painter: &mut dyn Painter, tiles: &[(i32, i32)], seed: u64) {
         return;
     }
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ CHASM_SEED_SALT);
+    // audit: overlapping — per-tile hatch lines meet at tile boundaries.
     painter.begin_group(CHASM_OPACITY);
     for &(x, y) in tiles {
         paint_chasm_tile(

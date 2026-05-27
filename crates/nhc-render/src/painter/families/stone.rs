@@ -345,6 +345,7 @@ fn paint_cobblestone_herringbone<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: overlapping — rotated 18x6 pavers at stride 9 overlap on both axes.
     painter.begin_group(COBBLE_GROUP_OPACITY);
     let bw = 18.0_f64;
     let bh = 6.0_f64;
@@ -386,6 +387,7 @@ fn paint_cobblestone_stack<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: disjoint — 12 px grid, 10 px paint, 2 px mortar between cells.
     painter.begin_group(COBBLE_GROUP_OPACITY);
     let cell = 12.0_f64;
     let pad = 1.0_f64;
@@ -439,6 +441,7 @@ fn paint_cobblestone_rubble<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: overlapping — random ellipses + fill/stroke same path overlap.
     painter.begin_group(COBBLE_GROUP_OPACITY);
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ 0xC0BB1E_u64);
     let area = w * h;
@@ -481,6 +484,7 @@ fn paint_cobblestone_mosaic<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: overlapping — jittered quad corners overlap adjacent quads.
     painter.begin_group(COBBLE_GROUP_OPACITY);
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ 0x0_5A1C_5A1C_u64);
     let cell = 8.0_f64;
@@ -541,6 +545,7 @@ fn paint_brick_running_bond<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: disjoint — 15.4 x 5.4 brick faces on 16.6 x 6.6 grid, 1.2 px mortar.
     painter.begin_group(BRICK_GROUP_OPACITY);
     let row_h = BRICK_H + BRICK_GAP;
     let col_w = BRICK_W + BRICK_GAP;
@@ -586,6 +591,7 @@ fn paint_brick_english_bond<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: disjoint — stretcher/header rows on the brick grid with 1.2 px mortar.
     painter.begin_group(BRICK_GROUP_OPACITY);
     let row_h = BRICK_H + BRICK_GAP;
     let stretcher_w = BRICK_W + BRICK_GAP;
@@ -647,6 +653,7 @@ fn paint_brick_flemish_bond<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: disjoint — stretcher + header units with 1.2 px mortar between elements.
     painter.begin_group(BRICK_GROUP_OPACITY);
     let row_h = BRICK_H + BRICK_GAP;
     let unit_w = BRICK_W + BRICK_H + 2.0 * BRICK_GAP;
@@ -707,6 +714,7 @@ fn paint_brick_header_bond<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: disjoint — 5.4 px square headers on 6.6 x 6.6 grid with half-header stagger.
     painter.begin_group(BRICK_GROUP_OPACITY);
     let header_w = BRICK_H + BRICK_GAP;
     let row_h = BRICK_H + BRICK_GAP;
@@ -756,6 +764,7 @@ fn paint_brick_stack_bond<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: disjoint — same brick grid as RunningBond, no row offset.
     painter.begin_group(BRICK_GROUP_OPACITY);
     let row_h = BRICK_H + BRICK_GAP;
     let col_w = BRICK_W + BRICK_GAP;
@@ -807,6 +816,7 @@ fn paint_flagstone<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.base);
+    // audit: overlapping — adjacent pentagonal-plate stroke borders nearly coincide.
     painter.begin_group(FLAGSTONE_GROUP_OPACITY);
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ 0xF1A6_5701_F1A6_5701_u64);
     let half = FLAGSTONE_TILE * 0.5;
@@ -914,6 +924,7 @@ fn paint_opus_romano<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: disjoint — 4 inset rects per Versailles tile, no intra/inter-tile overlap.
     painter.begin_group(OPUS_ROMANO_GROUP_OPACITY);
     let sub = OPUS_ROMANO_TILE / f64::from(OPUS_ROMANO_SUBDIVISIONS);
     let base_paint = Paint::solid(pal.base);
@@ -974,6 +985,7 @@ fn paint_field_stone<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: overlapping — fill + stroke same polygon, cell jitter allows neighbour overlap.
     painter.begin_group(FIELD_STONE_GROUP_OPACITY);
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ 0xF1E1_D570_F1E1_D570_u64);
     let base_paint = Paint::solid(pal.base);
@@ -1044,6 +1056,7 @@ fn paint_pinwheel<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: disjoint — 5 axis-aligned rects per 16x16 unit, mortared by PINWHEEL_PAD.
     painter.begin_group(PINWHEEL_GROUP_OPACITY);
     let base_paint = Paint::solid(pal.base);
     let highlight_paint = Paint::solid(pal.highlight);
@@ -1169,6 +1182,7 @@ fn paint_hopscotch<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: disjoint — 3 axis-aligned rects per 16x16 unit, rotation preserves spacing.
     painter.begin_group(HOPSCOTCH_GROUP_OPACITY);
     let base_paint = Paint::solid(pal.base);
     let highlight_paint = Paint::solid(pal.highlight);
@@ -1227,6 +1241,7 @@ fn paint_crazy_paving<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: overlapping — jittered quad corners on variable cells overlap neighbours.
     painter.begin_group(CRAZY_PAVING_GROUP_OPACITY);
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ 0xC4A2_5DAB_C4A2_5DAB_u64);
     let base_paint = Paint::solid(pal.base);
@@ -1319,6 +1334,7 @@ fn paint_ashlar_inner<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: disjoint — 17.4 x 7.4 ashlar blocks on 18 x 8 grid, 0.3 px gap on every edge.
     painter.begin_group(ASHLAR_GROUP_OPACITY);
     let base_paint = Paint::solid(pal.base);
     let unit_x0 = (f64::from(x0) / ASHLAR_W).floor() * ASHLAR_W;
@@ -1377,6 +1393,7 @@ fn paint_opus_reticulatum<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: disjoint — diamonds on diagonal pitch (2d + 0.6 px gap), tips never overlap.
     painter.begin_group(RETICULATUM_GROUP_OPACITY);
     let base_paint = Paint::solid(pal.base);
     let d = RETICULATUM_HALF_DIAG;
@@ -1427,6 +1444,7 @@ fn paint_opus_spicatum<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
+    // audit: overlapping — rotated 12x4 bricks at stride 6 overlap on both axes.
     painter.begin_group(SPICATUM_GROUP_OPACITY);
     let base_paint = Paint::solid(pal.base);
     let mut row = 0_i32;

@@ -142,6 +142,7 @@ pub fn paint_field_stone(
         return;
     }
 
+    // audit: overlapping — fill+stroke same polygon; cell jitter allows neighbour overlap.
     painter.begin_group(FIELD_STONE_OPACITY);
     let fill_paint = paint_for_hex(FIELD_STONE_FILL);
     let stroke_paint = paint_for_hex(FIELD_STONE_STROKE);

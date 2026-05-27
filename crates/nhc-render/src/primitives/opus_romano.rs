@@ -153,6 +153,7 @@ pub fn paint_opus_romano(
         return;
     }
 
+    // audit: overlapping — adjacent tile borders coincide on the subdivision grid.
     painter.begin_group(OPUS_ROMANO_OPACITY);
     let stroke_paint = paint_for_hex(OPUS_ROMANO_STROKE);
     let stroke = Stroke {

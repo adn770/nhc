@@ -347,6 +347,7 @@ fn paint_plank<P: Painter + ?Sized>(
     type RowPlanks = Vec<(f64, f64, f64)>; // (x_start, x_end, y_top)
     let mut planks: Vec<RowPlanks> = Vec::new();
 
+    // audit: overlapping — vertical plank-end strokes meet row boundaries at T-junctions.
     painter.begin_group(WOOD_SEAM_OPACITY);
     let mut y = by0;
     while y < by1 {
@@ -381,6 +382,7 @@ fn paint_plank<P: Painter + ?Sized>(
     // Grain pass — 2 jittered horizontal grain lines per plank,
     // stroked with the highlight tone at 0.35 opacity. Plank ends
     // taper the lines slightly so adjacent plank grains don't blend.
+    // audit: overlapping — round caps over-darken at coincident grain endpoints.
     painter.begin_group(WOOD_GRAIN_OPACITY);
     for row in &planks {
         for &(px0, px1, py) in row {
@@ -416,6 +418,7 @@ fn paint_basket_weave<P: Painter + ?Sized>(
 ) {
     let shadow_paint = Paint::solid(entry.shadow);
     let stroke = seam_stroke();
+    // audit: overlapping — cell-boundary strokes shared between adjacent cells overlap.
     painter.begin_group(WOOD_SEAM_OPACITY);
     let cell_x0 = (f64::from(x0) / WOOD_BASKET_CELL).floor() * WOOD_BASKET_CELL;
     let cell_y0 = (f64::from(y0) / WOOD_BASKET_CELL).floor() * WOOD_BASKET_CELL;
@@ -499,6 +502,7 @@ fn paint_parquet<P: Painter + ?Sized>(
 ) {
     let shadow_paint = Paint::solid(entry.shadow);
     let stroke = seam_stroke();
+    // audit: overlapping — panel-boundary strokes shared between adjacent panels overlap.
     painter.begin_group(WOOD_SEAM_OPACITY);
     let cell_x0 = (f64::from(x0) / WOOD_PARQUET_CELL).floor() * WOOD_PARQUET_CELL;
     let cell_y0 = (f64::from(y0) / WOOD_PARQUET_CELL).floor() * WOOD_PARQUET_CELL;
@@ -589,6 +593,7 @@ fn paint_herringbone<P: Painter + ?Sized>(
 ) {
     let shadow_paint = Paint::solid(entry.shadow);
     let stroke = seam_stroke();
+    // audit: overlapping — rotated rect outlines at stride < rotated extent overlap.
     painter.begin_group(WOOD_SEAM_OPACITY);
     let bx0 = f64::from(x0);
     let by0 = f64::from(y0);
@@ -637,6 +642,7 @@ fn paint_chevron<P: Painter + ?Sized>(
 ) {
     let shadow_paint = Paint::solid(entry.shadow);
     let stroke = seam_stroke();
+    // audit: overlapping — same shape as Herringbone, column-parity rotation only.
     painter.begin_group(WOOD_SEAM_OPACITY);
     let bx0 = f64::from(x0);
     let by0 = f64::from(y0);
@@ -684,6 +690,7 @@ fn paint_brick<P: Painter + ?Sized>(
 ) {
     let shadow_paint = Paint::solid(entry.shadow);
     let stroke = seam_stroke();
+    // audit: overlapping — row-boundary horizontals meet vertical seams at T-junctions.
     painter.begin_group(WOOD_SEAM_OPACITY);
     let bx0 = f64::from(x0);
     let by0 = f64::from(y0);

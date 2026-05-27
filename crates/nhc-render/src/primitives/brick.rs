@@ -145,6 +145,7 @@ pub fn paint_brick(
         return;
     }
 
+    // audit: overlapping — adjacent brick stroke borders coincide on shared edges.
     painter.begin_group(BRICK_OPACITY);
     let stroke_paint = paint_for_hex(BRICK_STROKE);
     let stroke = Stroke {

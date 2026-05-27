@@ -448,6 +448,7 @@ pub fn paint_cart_tracks(
         line_cap: LineCap::Round,
         line_join: LineJoin::Miter,
     };
+    // audit: overlapping — polyline rails can cross at junctions with round caps.
     painter.begin_group(RAIL_OPACITY);
     for s in &shapes {
         for rail in &s.rails {
@@ -468,6 +469,7 @@ pub fn paint_cart_tracks(
         line_cap: LineCap::Round,
         line_join: LineJoin::Miter,
     };
+    // audit: overlapping — ties + rails can cross at intersections.
     painter.begin_group(TIE_OPACITY);
     for s in &shapes {
         for tie in &s.ties {

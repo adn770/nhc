@@ -130,6 +130,7 @@ fn paint_rail_line(
         line_join: LineJoin::Round,
     };
     let paint = Paint::solid(RAIL_INK);
+    // audit: overlapping — rail half-segments meet at tile boundaries.
     painter.begin_group(PATH_GROUP_OPACITY);
     for &(x, y, mask) in tiles_with_mask {
         let cx = x as f64 * CELL + CELL * 0.5;
@@ -188,6 +189,7 @@ fn paint_vines(
     };
     let paint = Paint::solid(VINE_INK);
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ VINE_SEED_SALT);
+    // audit: overlapping — per-tile quadratic curves can join at tile boundaries.
     painter.begin_group(PATH_GROUP_OPACITY);
     for &(x, y) in coords {
         let px = x as f64 * CELL;
@@ -230,6 +232,7 @@ fn paint_root_system(
     };
     let paint = Paint::solid(ROOT_INK);
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ ROOT_SEED_SALT);
+    // audit: overlapping — branches share the centre point; stroke pixels overlap.
     painter.begin_group(PATH_GROUP_OPACITY);
     for &(x, y) in coords {
         let cx = x as f64 * CELL + CELL * 0.5;
@@ -269,6 +272,7 @@ fn paint_river_bed(
     let base_paint = Paint::solid(RIVER_BASE);
     let ripple_paint = Paint::solid(RIVER_RIPPLE);
     let mut rng = Pcg64Mcg::seed_from_u64(seed ^ RIVER_SEED_SALT);
+    // audit: overlapping — per-tile ripple strokes overlap substrate fill underneath.
     painter.begin_group(PATH_GROUP_OPACITY);
     for &(x, y) in coords {
         let px = x as f64 * CELL;
@@ -321,6 +325,7 @@ fn paint_lava_seam(
     };
     let core_paint = Paint::solid(LAVA_CORE);
     let glow_paint = Paint::solid(LAVA_GLOW);
+    // audit: overlapping — core stroke painted on top of glow stroke along same path.
     painter.begin_group(PATH_GROUP_OPACITY);
     for &(x, y) in coords {
         let cx = x as f64 * CELL + CELL * 0.5;
