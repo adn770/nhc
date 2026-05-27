@@ -545,11 +545,13 @@ fn paint_brick_running_bond<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
-    // audit: disjoint — 15.4 x 5.4 brick faces on 16.6 x 6.6 grid, 1.2 px mortar.
-    painter.begin_group(BRICK_GROUP_OPACITY);
+    // Phase A elimination — bricks tile the grid with 1.2 px mortar
+    // and never overlap, so per-element compositing at
+    // BRICK_GROUP_OPACITY matches the group composite. See
+    // design/begin_group_audit.md.
     let row_h = BRICK_H + BRICK_GAP;
     let col_w = BRICK_W + BRICK_GAP;
-    let base_paint = Paint::solid(pal.base);
+    let base_paint = Paint::solid(pal.base.with_alpha(BRICK_GROUP_OPACITY));
     let mut row = 0_i32;
     let mut y = f64::from(y0);
     while y < f64::from(y1) {
@@ -570,7 +572,6 @@ fn paint_brick_running_bond<P: Painter + ?Sized>(
         y += row_h;
         row += 1;
     }
-    painter.end_group();
     painter.pop_clip();
 }
 
@@ -591,13 +592,13 @@ fn paint_brick_english_bond<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
-    // audit: disjoint — stretcher/header rows on the brick grid with 1.2 px mortar.
-    painter.begin_group(BRICK_GROUP_OPACITY);
+    // Phase A elimination — see paint_brick_running_bond.
     let row_h = BRICK_H + BRICK_GAP;
     let stretcher_w = BRICK_W + BRICK_GAP;
     let header_w = BRICK_H + BRICK_GAP;
-    let base_paint = Paint::solid(pal.base);
-    let highlight_paint = Paint::solid(pal.highlight);
+    let base_paint = Paint::solid(pal.base.with_alpha(BRICK_GROUP_OPACITY));
+    let highlight_paint =
+        Paint::solid(pal.highlight.with_alpha(BRICK_GROUP_OPACITY));
     let mut row = 0_i32;
     let mut y = f64::from(y0);
     while y < f64::from(y1) {
@@ -633,7 +634,6 @@ fn paint_brick_english_bond<P: Painter + ?Sized>(
         y += row_h;
         row += 1;
     }
-    painter.end_group();
     painter.pop_clip();
 }
 
@@ -653,12 +653,12 @@ fn paint_brick_flemish_bond<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
-    // audit: disjoint — stretcher + header units with 1.2 px mortar between elements.
-    painter.begin_group(BRICK_GROUP_OPACITY);
+    // Phase A elimination — see paint_brick_running_bond.
     let row_h = BRICK_H + BRICK_GAP;
     let unit_w = BRICK_W + BRICK_H + 2.0 * BRICK_GAP;
-    let base_paint = Paint::solid(pal.base);
-    let highlight_paint = Paint::solid(pal.highlight);
+    let base_paint = Paint::solid(pal.base.with_alpha(BRICK_GROUP_OPACITY));
+    let highlight_paint =
+        Paint::solid(pal.highlight.with_alpha(BRICK_GROUP_OPACITY));
     let mut row = 0_i32;
     let mut y = f64::from(y0);
     while y < f64::from(y1) {
@@ -689,7 +689,6 @@ fn paint_brick_flemish_bond<P: Painter + ?Sized>(
         y += row_h;
         row += 1;
     }
-    painter.end_group();
     painter.pop_clip();
 }
 
@@ -714,11 +713,10 @@ fn paint_brick_header_bond<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
-    // audit: disjoint — 5.4 px square headers on 6.6 x 6.6 grid with half-header stagger.
-    painter.begin_group(BRICK_GROUP_OPACITY);
+    // Phase A elimination — see paint_brick_running_bond.
     let header_w = BRICK_H + BRICK_GAP;
     let row_h = BRICK_H + BRICK_GAP;
-    let base_paint = Paint::solid(pal.base);
+    let base_paint = Paint::solid(pal.base.with_alpha(BRICK_GROUP_OPACITY));
     let mut row = 0_i32;
     let mut y = f64::from(y0);
     while y < f64::from(y1) {
@@ -739,7 +737,6 @@ fn paint_brick_header_bond<P: Painter + ?Sized>(
         y += row_h;
         row += 1;
     }
-    painter.end_group();
     painter.pop_clip();
 }
 
@@ -764,11 +761,10 @@ fn paint_brick_stack_bond<P: Painter + ?Sized>(
     }
     painter.push_clip(region_path, FillRule::Winding);
     fill_region(painter, region_path, pal.shadow);
-    // audit: disjoint — same brick grid as RunningBond, no row offset.
-    painter.begin_group(BRICK_GROUP_OPACITY);
+    // Phase A elimination — see paint_brick_running_bond.
     let row_h = BRICK_H + BRICK_GAP;
     let col_w = BRICK_W + BRICK_GAP;
-    let base_paint = Paint::solid(pal.base);
+    let base_paint = Paint::solid(pal.base.with_alpha(BRICK_GROUP_OPACITY));
     let mut y = f64::from(y0);
     while y < f64::from(y1) {
         let mut x = f64::from(x0);
@@ -786,7 +782,6 @@ fn paint_brick_stack_bond<P: Painter + ?Sized>(
         }
         y += row_h;
     }
-    painter.end_group();
     painter.pop_clip();
 }
 
@@ -2143,10 +2138,13 @@ mod tests {
     }
 
     /// Every Brick sub-pattern wraps decoration in a push_clip /
-    /// pop_clip pair plus a balanced begin_group / end_group
-    /// envelope. Mirrors the Cobblestone gate for Phase 2.4b.
+    /// pop_clip pair. Phase A of plans/wasm-render-caching.md
+    /// eliminated the begin_group / end_group envelope by pre-
+    /// multiplying BRICK_GROUP_OPACITY into the fill colour — brick
+    /// faces tile the grid with a strictly positive mortar gap, so
+    /// per-element compositing matches the group composite.
     #[test]
-    fn every_brick_sub_pattern_emits_clip_and_group_envelopes() {
+    fn every_brick_sub_pattern_emits_clip_envelope_no_group() {
         let path = four_tile_path();
         for sub in 0..5u8 {
             let mut p = MockPainter::default();
@@ -2159,8 +2157,8 @@ mod tests {
             );
             assert_eq!(
                 count_begin_groups(&p.calls),
-                1,
-                "brick sub_pattern {sub}: expected 1 begin_group",
+                0,
+                "brick sub_pattern {sub}: begin_group eliminated by Phase A",
             );
             let pops = p
                 .calls
@@ -2173,7 +2171,10 @@ mod tests {
                 .filter(|c| matches!(c, PainterCall::EndGroup))
                 .count();
             assert_eq!(pops, 1, "brick sub_pattern {sub}: expected 1 pop_clip");
-            assert_eq!(ends, 1, "brick sub_pattern {sub}: expected 1 end_group");
+            assert_eq!(
+                ends, 0,
+                "brick sub_pattern {sub}: end_group eliminated by Phase A",
+            );
         }
     }
 
