@@ -18,14 +18,14 @@
 use std::cell::RefCell;
 
 use tiny_skia::{
-    BlendMode, Color as SkColor, FillRule as SkFillRule, FilterQuality,
+    BlendMode, Color as SkColor, ColorU8, FillRule as SkFillRule, FilterQuality,
     LineCap as SkLineCap, LineJoin as SkLineJoin, Mask, Paint as SkPaint,
     Path, PathBuilder, Pixmap, PixmapPaint, Rect as SkRect, Stroke as SkStroke,
     Transform as SkTransform,
 };
 
 use super::canvas::{Canvas2DCtx, CanvasLineCap, CanvasLineJoin};
-use super::PainterFilter;
+use super::{Color, PainterFilter};
 
 /// Canvas2D-compatible driver backed by a `tiny_skia::Pixmap`.
 ///
@@ -444,14 +444,66 @@ impl Canvas2DCtx for RasterCtx {
         let offset =
             SkTransform::from_translate(x as f32, y as f32);
         let transform = s.transform.pre_concat(offset);
-        self.pixmap.borrow_mut().draw_pixmap(
-            0,
-            0,
-            src.pixmap.borrow().as_ref(),
-            &pp,
-            transform,
-            s.clip.as_ref(),
-        );
+        // Browser Canvas2D applies the active `ctx.filter` to
+        // `drawImage` sources, so the per-anchor HSL shift a
+        // `CanvasPainter::push_filter` set up tints the blitted
+        // sprite. `RasterCtx` mirrors that (locked Q29): when a
+        // filter is active, tint a clone of the source pixmap in
+        // HSL space before compositing, rather than tinting the
+        // full destination. Cost is bounded by sprite size (e.g.
+        // 80×80 for a tree).
+        match s.filter {
+            Some(filter) => {
+                let mut tinted = src.pixmap.borrow().clone();
+                tint_pixmap(&mut tinted, filter);
+                self.pixmap.borrow_mut().draw_pixmap(
+                    0,
+                    0,
+                    tinted.as_ref(),
+                    &pp,
+                    transform,
+                    s.clip.as_ref(),
+                );
+            }
+            None => {
+                self.pixmap.borrow_mut().draw_pixmap(
+                    0,
+                    0,
+                    src.pixmap.borrow().as_ref(),
+                    &pp,
+                    transform,
+                    s.clip.as_ref(),
+                );
+            }
+        }
+    }
+}
+
+/// Apply a `PainterFilter` to every non-transparent pixel of
+/// `pixmap`, in straight-alpha (demultiplied) HSL space. Mirrors
+/// the hand-rolled HSL math `SkiaPainter` / `SvgPainter` use on
+/// paint colours, so all three backends land within the PSNR
+/// budgets. tiny-skia stores premultiplied colours, so each pixel
+/// round-trips demultiply → tint → premultiply.
+fn tint_pixmap(pixmap: &mut Pixmap, filter: PainterFilter) {
+    for px in pixmap.pixels_mut() {
+        if px.alpha() == 0 {
+            continue;
+        }
+        let straight = px.demultiply();
+        let shifted = filter.apply_to_color(Color {
+            r: straight.red(),
+            g: straight.green(),
+            b: straight.blue(),
+            a: f32::from(straight.alpha()) / 255.0,
+        });
+        *px = ColorU8::from_rgba(
+            shifted.r,
+            shifted.g,
+            shifted.b,
+            straight.alpha(),
+        )
+        .premultiply();
     }
 }
 
@@ -771,6 +823,41 @@ mod tests {
         assert_eq!(rgba(&ctx, 1, 1), (0, 0, 0, 0));
         // Untouched region preserved.
         assert_eq!(rgba(&ctx, 6, 6), (255, 0, 0, 255));
+    }
+
+    #[test]
+    fn draw_image_at_tints_source_under_active_filter() {
+        use crate::painter::PainterFilter;
+        // Build a small red sprite in an offscreen.
+        let ctx = RasterCtx::new(8, 8);
+        let sprite = ctx.create_offscreen(4, 4);
+        sprite.set_fill_style("rgb(255, 0, 0)");
+        sprite.fill_rect(0.0, 0.0, 4.0, 4.0);
+        // Activate a 180° hue rotation, then blit. Browser
+        // Canvas2D would tint the drawImage source to cyan; the
+        // harness must match.
+        ctx.set_filter(Some(PainterFilter::HslShift {
+            h_deg: 180.0,
+            s_mul: 1.0,
+            l_mul: 1.0,
+        }));
+        ctx.draw_image_at(&sprite, 0.0, 0.0);
+        let (r, g, b, a) = rgba(&ctx, 1, 1);
+        assert!(r <= 1, "red→cyan red ≈ 0, got {r}");
+        assert!(g >= 254, "red→cyan green ≈ 255, got {g}");
+        assert!(b >= 254, "red→cyan blue ≈ 255, got {b}");
+        assert_eq!(a, 255);
+    }
+
+    #[test]
+    fn draw_image_at_without_filter_preserves_source() {
+        let ctx = RasterCtx::new(8, 8);
+        let sprite = ctx.create_offscreen(4, 4);
+        sprite.set_fill_style("rgb(255, 0, 0)");
+        sprite.fill_rect(0.0, 0.0, 4.0, 4.0);
+        ctx.set_filter(None);
+        ctx.draw_image_at(&sprite, 0.0, 0.0);
+        assert_eq!(rgba(&ctx, 1, 1), (255, 0, 0, 255));
     }
 
     #[test]

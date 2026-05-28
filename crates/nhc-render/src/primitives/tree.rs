@@ -77,8 +77,10 @@ use std::f64::consts::PI;
 
 use super::bush::{shift_color_pub, union_path_from_lobes_pub};
 use super::well;
+use crate::ir::FixtureKind;
 use crate::painter::{
-    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Stroke, Vec2,
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PainterFilter, PathOps,
+    Rect, SpriteCacheKey, Stroke, Vec2,
 };
 
 const CELL: f64 = 32.0;
@@ -108,9 +110,39 @@ const TREE_VOLUME_MARK_SWEEP_MAX: f64 = 1.8;
 const TREE_VOLUME_STROKE_WIDTH: f64 = 0.8;
 const TREE_VOLUME_SALT: i32 = 7011;
 
-const TREE_HUE_JITTER_DEG: f64 = 6.0;
+/// Per-anchor hue rotation range, ±degrees. Widened from the
+/// legacy ±6° to ±15° (locked Q16 of `plans/wasm-render-caching.md`)
+/// to disguise the fact that all trees sharing a shape bucket use
+/// the same template silhouette — the broader hue range makes
+/// neighbouring trees read as visually distinct instances even
+/// though their canopy / shadow geometry is identical.
+const TREE_HUE_JITTER_DEG: f64 = 15.0;
+/// Per-anchor saturation jitter (multiplier delta, ±). Unchanged
+/// from the pre-bucketing additive ±0.05 because the
+/// `PainterFilter::HslShift` math treats `s_mul = 1.0 + ds` as a
+/// multiplier, and the canopy fill `#6B8A56` sits at S ≈ 0.23 —
+/// a ±5 % multiplier swings S in the same visible range as the
+/// legacy ±0.05 additive shift.
 const TREE_SAT_JITTER: f64 = 0.05;
+/// Per-anchor lightness jitter (multiplier delta, ±). Same
+/// reasoning as `TREE_SAT_JITTER`.
 const TREE_LIGHT_JITTER: f64 = 0.04;
+
+/// Number of distinct shape templates the per-render sprite cache
+/// holds for Tree (locked Q7 / Q25). Each free tree maps
+/// `(tx, ty) → bucket ∈ [0, N)` via `well::hash_unit`; trees that
+/// hash to the same bucket share an atlas template silhouette,
+/// disguised by the per-anchor HSL shift above. Tunable per
+/// `plans/wasm-render-caching.md`; 256 keeps memory bounded at
+/// ~5 MB while still randomising visible cliques.
+pub const TREE_SHAPE_BUCKET_COUNT: u32 = 256;
+
+/// Pixel side of the per-tree atlas surface. Centred at (40, 40),
+/// the template fits canopy / shadow / trunk / volume marks (each
+/// extending ≤ ~25 px from centre) with margin. Locked Q11.
+const TREE_ATLAS_SIZE: u32 = 80;
+
+const TREE_BUCKET_SALT: i32 = 6101;
 
 const TREE_TRUNK_FILL: &str = "#4A3320";
 const TREE_TRUNK_STROKE_WIDTH: f64 = 0.9;
@@ -232,9 +264,44 @@ pub fn paint_tree(
 }
 
 fn paint_free_tree(painter: &mut dyn Painter, tx: i32, ty: i32) {
-    let (dx, dy) = center_offset(tx, ty);
-    let cx = (f64::from(tx) + 0.5) * CELL + dx;
-    let cy = (f64::from(ty) + 0.5) * CELL + dy;
+    let bucket = bucket_for_tile(tx, ty);
+    // Anchor lands at the literal tile centre — per-anchor
+    // jitter that used to shift the canopy origin is now baked
+    // into the bucket template's local centre offset, so the
+    // sprite blit puts the bucketed silhouette at the right
+    // canonical-grid position.
+    let cx = ((f64::from(tx) + 0.5) * CELL) as f32;
+    let cy = ((f64::from(ty) + 0.5) * CELL) as f32;
+    let filter = anchor_hsl_filter(tx, ty);
+    let key = SpriteCacheKey {
+        kind: u32::from(FixtureKind::Tree.0),
+        variant: bucket,
+        size_class: TREE_ATLAS_SIZE as u8,
+    };
+    let bbox = Rect::new(0.0, 0.0, TREE_ATLAS_SIZE as f32, TREE_ATLAS_SIZE as f32);
+    painter.push_filter(filter);
+    painter.stamp_cached_sprite(
+        key,
+        bbox,
+        cx,
+        cy,
+        &mut |sub| paint_tree_template(sub, bucket),
+    );
+    painter.pop_filter();
+}
+
+/// Paint one canopy-bucket template onto the per-render atlas
+/// surface. Authored at local coordinates with the canopy centred
+/// at `(TREE_ATLAS_SIZE / 2, TREE_ATLAS_SIZE / 2)` (plus the
+/// bucket's own jitter offset). All geometric inputs are keyed on
+/// `bucket` (via `bucket_pos(bucket) → (i32, i32)`), so two trees
+/// sharing the same bucket render byte-equal silhouettes.
+fn paint_tree_template(painter: &mut dyn Painter, bucket: u32) {
+    let (bx, by) = bucket_pos(bucket);
+    let local_centre = f64::from(TREE_ATLAS_SIZE) / 2.0;
+    let (dx, dy) = center_offset(bx, by);
+    let cx = local_centre + dx;
+    let cy = local_centre + dy;
     let trunk_cx = cx;
     let trunk_cy = cy + TREE_TRUNK_OFFSET_Y;
 
@@ -244,14 +311,49 @@ fn paint_free_tree(painter: &mut dyn Painter, tx: i32, ty: i32) {
     paint_trunk(painter, trunk_cx, trunk_cy);
     paint_shadow_canopy(
         painter,
-        &shadow_lobes(cx, cy, tx, ty),
+        &shadow_lobes(cx, cy, bx, by),
     );
     paint_canopy(
         painter,
-        &canopy_lobes(cx, cy, tx, ty),
-        &canopy_fill_jitter(tx, ty),
+        &canopy_lobes(cx, cy, bx, by),
+        TREE_CANOPY_FILL,
     );
-    paint_volume_marks(painter, cx, cy, tx, ty);
+    paint_volume_marks(painter, cx, cy, bx, by);
+}
+
+/// `(tx, ty) → bucket id ∈ [0, TREE_SHAPE_BUCKET_COUNT)`. Stable
+/// per tile, so two renders of the same floor map the same tile
+/// to the same bucket — and two tiles that happen to hash to the
+/// same bucket render the same silhouette (disguised by the
+/// per-anchor HSL filter).
+pub(crate) fn bucket_for_tile(tx: i32, ty: i32) -> u32 {
+    let u = well::hash_unit(tx, ty, TREE_BUCKET_SALT);
+    let n = TREE_SHAPE_BUCKET_COUNT;
+    let idx = (u * f64::from(n)) as u32;
+    idx.min(n - 1)
+}
+
+/// Map a bucket id back to the `(i32, i32)` hash-input pair the
+/// shape helpers (`center_offset` / `canopy_lobes` / etc.) consume.
+/// Keeps those helpers tile-coordinate-agnostic — they only see a
+/// deterministic 2-tuple.
+fn bucket_pos(bucket: u32) -> (i32, i32) {
+    (bucket as i32, 0)
+}
+
+/// Per-anchor HSL shift derived from `(tx, ty)`. Hue rotation
+/// dominates (±15°); saturation and lightness multipliers stay
+/// within ±5 % / ±4 % of unity. Drives `PainterFilter::HslShift`
+/// — see `apply_to_color` for the colour math.
+fn anchor_hsl_filter(tx: i32, ty: i32) -> PainterFilter {
+    let dh = well::hash_norm(tx, ty, HUE_SALT) * TREE_HUE_JITTER_DEG;
+    let ds = well::hash_norm(tx, ty, SAT_SALT) * TREE_SAT_JITTER;
+    let dl = well::hash_norm(tx, ty, LIGHT_SALT) * TREE_LIGHT_JITTER;
+    PainterFilter::HslShift {
+        h_deg: dh as f32,
+        s_mul: (1.0 + ds) as f32,
+        l_mul: (1.0 + dl) as f32,
+    }
 }
 
 fn paint_grove(painter: &mut dyn Painter, grove: &[(i32, i32)]) {
@@ -885,6 +987,113 @@ mod tests {
         let mut painter = CaptureCalls::default();
         paint_tree(&mut painter, &[], &groves);
         assert!(painter.calls.is_empty());
+    }
+
+    /// Bucket id always falls in `[0, TREE_SHAPE_BUCKET_COUNT)`.
+    #[test]
+    fn bucket_for_tile_stays_in_range() {
+        for tx in -40..40 {
+            for ty in -40..40 {
+                let b = bucket_for_tile(tx, ty);
+                assert!(
+                    b < TREE_SHAPE_BUCKET_COUNT,
+                    "bucket {b} out of range for ({tx}, {ty})",
+                );
+            }
+        }
+    }
+
+    /// A bucket template is a pure function of the bucket id.
+    #[test]
+    fn tree_template_deterministic_per_bucket() {
+        let mut a = CaptureCalls::default();
+        let mut b = CaptureCalls::default();
+        paint_tree_template(&mut a, 42);
+        paint_tree_template(&mut b, 42);
+        assert_eq!(a.calls, b.calls);
+    }
+
+    /// Distinct buckets drive distinct silhouettes.
+    #[test]
+    fn tree_template_differs_across_buckets() {
+        let mut a = CaptureCalls::default();
+        let mut b = CaptureCalls::default();
+        paint_tree_template(&mut a, 7);
+        paint_tree_template(&mut b, 200);
+        assert_ne!(a.calls, b.calls);
+    }
+
+    /// Two free trees on tiles that hash to the same bucket render
+    /// an identical call stream — the bucketed silhouette is
+    /// shared and the only per-anchor differentiator (the HSL
+    /// filter) is not part of the geometry the mock records.
+    #[test]
+    fn same_bucket_tiles_share_silhouette() {
+        use std::collections::HashMap;
+        let mut seen: HashMap<u32, (i32, i32)> = HashMap::new();
+        let mut pair: Option<((i32, i32), (i32, i32))> = None;
+        'outer: for tx in 0..200 {
+            for ty in 0..200 {
+                let bk = bucket_for_tile(tx, ty);
+                match seen.get(&bk) {
+                    Some(&prev) if prev != (tx, ty) => {
+                        pair = Some((prev, (tx, ty)));
+                        break 'outer;
+                    }
+                    Some(_) => {}
+                    None => {
+                        seen.insert(bk, (tx, ty));
+                    }
+                }
+            }
+        }
+        let ((ax, ay), (bx, by)) =
+            pair.expect("a bucket collision must exist within 200x200 tiles");
+        let mut a = CaptureCalls::default();
+        let mut b = CaptureCalls::default();
+        paint_tree(&mut a, &[(ax, ay)], &[]);
+        paint_tree(&mut b, &[(bx, by)], &[]);
+        assert_eq!(
+            a.calls, b.calls,
+            "same-bucket trees ({ax},{ay}) vs ({bx},{by}) must share silhouette",
+        );
+    }
+
+    /// End-to-end on the PNG backend: a free tree paints a green
+    /// canopy at its tile centre (not the atlas-local origin) and
+    /// leaves the rest of the canvas untouched. Exercises the
+    /// `stamp_cached_sprite` anchor translation + the
+    /// `push_filter` HSL tint through SkiaPainter.
+    #[test]
+    fn free_tree_paints_canopy_at_tile_center() {
+        use crate::painter::SkiaPainter;
+        use tiny_skia::{Color as SkColor, Pixmap};
+        let mut canvas = Pixmap::new(160, 160).unwrap();
+        canvas.fill(SkColor::WHITE);
+        {
+            let mut painter = SkiaPainter::new(&mut canvas);
+            // Tile (2, 2) → canopy centre near world (80, 80).
+            paint_tree(&mut painter, &[(2, 2)], &[]);
+        }
+        let centre = canvas.pixel(80, 80).unwrap();
+        let (r, g, b) = (centre.red(), centre.green(), centre.blue());
+        assert!(
+            (r, g, b) != (255, 255, 255),
+            "canopy centre should be painted, got ({r}, {g}, {b})",
+        );
+        assert!(
+            g >= r && g >= b,
+            "canopy should stay green-dominant after HSL shift, got ({r}, {g}, {b})",
+        );
+        // The atlas-local origin region must stay white — proves
+        // the sprite blit anchored at the tile centre instead of
+        // painting at local (0, 0).
+        let corner = canvas.pixel(5, 5).unwrap();
+        assert_eq!(
+            (corner.red(), corner.green(), corner.blue()),
+            (255, 255, 255),
+            "tree must not leak to the atlas-local origin",
+        );
     }
 
     /// `polygon_d_to_path_ops` round-trips a single-subpath
