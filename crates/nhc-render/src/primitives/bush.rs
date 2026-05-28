@@ -67,8 +67,10 @@ use std::f64::consts::PI;
 use geo::{BooleanOps, Coord, LineString, MultiPolygon, Polygon};
 
 use super::well;
+use crate::ir::FixtureKind;
 use crate::painter::{
-    Color, FillRule, LineCap, LineJoin, Paint, Painter, PathOps, Stroke, Vec2,
+    Color, FillRule, LineCap, LineJoin, Paint, Painter, PainterFilter, PathOps,
+    Rect, SpriteCacheKey, Stroke, Vec2,
 };
 
 const CELL: f64 = 32.0;
@@ -96,9 +98,30 @@ const BUSH_VOLUME_MARK_RADIUS_MAX: f64 = 0.07 * CELL;
 const BUSH_VOLUME_MARK_SWEEP_MIN: f64 = 0.6;
 const BUSH_VOLUME_MARK_SWEEP_MAX: f64 = 1.5;
 const BUSH_VOLUME_STROKE_WIDTH: f64 = 0.6;
-const BUSH_HUE_JITTER_DEG: f64 = 6.0;
+/// Per-anchor hue rotation range, ±degrees. Widened from the
+/// legacy ±6° to ±15° (locked Q16 of `plans/wasm-render-caching.md`)
+/// for the same clique-disguising reason as Tree — bushes sharing
+/// a shape bucket use one template silhouette, so a broader hue
+/// spread keeps neighbours reading as distinct instances.
+const BUSH_HUE_JITTER_DEG: f64 = 15.0;
+/// Per-anchor saturation jitter (multiplier delta, ±). Treated as
+/// `s_mul = 1.0 + ds` by `PainterFilter::HslShift`.
 const BUSH_SAT_JITTER: f64 = 0.05;
+/// Per-anchor lightness jitter (multiplier delta, ±).
 const BUSH_LIGHT_JITTER: f64 = 0.04;
+
+/// Number of distinct shape templates the per-render sprite cache
+/// holds for Bush (locked Q7 / Q25). `(tx, ty) → bucket ∈ [0, N)`;
+/// bushes that hash to the same bucket share a silhouette,
+/// disguised by the per-anchor HSL shift.
+pub const BUSH_SHAPE_BUCKET_COUNT: u32 = 256;
+
+/// Pixel side of the per-bush atlas surface (locked Q11). Centred
+/// at (16, 16), it fits the canopy / shadow / volume marks (each
+/// ≤ ~11 px from centre) with margin.
+const BUSH_ATLAS_SIZE: u32 = 32;
+
+const BUSH_BUCKET_SALT: i32 = 14149;
 
 const BUSH_HUE_SALT: i32 = 7019;
 const BUSH_SAT_SALT: i32 = 8053;
@@ -215,13 +238,6 @@ fn polygon_to_svg_path(geom: &MultiPolygon<f64>) -> String {
         }
     }
     parts.join(" ")
-}
-
-fn fill_jitter(tx: i32, ty: i32) -> String {
-    let dh = well::hash_norm(tx, ty, BUSH_HUE_SALT) * BUSH_HUE_JITTER_DEG;
-    let ds = well::hash_norm(tx, ty, BUSH_SAT_SALT) * BUSH_SAT_JITTER;
-    let dl = well::hash_norm(tx, ty, BUSH_LIGHT_SALT) * BUSH_LIGHT_JITTER;
-    shift_color(BUSH_CANOPY_FILL, dh, ds, dl)
 }
 
 pub(crate) fn shift_color_pub(
@@ -348,15 +364,47 @@ pub fn paint_bush(painter: &mut dyn Painter, tiles: &[(i32, i32)]) {
 }
 
 fn paint_bush_tile(painter: &mut dyn Painter, tx: i32, ty: i32) {
-    let (dx, dy) = center_offset(tx, ty);
-    let cx = (f64::from(tx) + 0.5) * CELL + dx;
-    let cy = (f64::from(ty) + 0.5) * CELL + dy;
+    let bucket = bucket_for_tile(tx, ty);
+    // Anchor at the literal tile centre; the bucket template
+    // carries its own centre-offset jitter at atlas-local coords.
+    let cx = ((f64::from(tx) + 0.5) * CELL) as f32;
+    let cy = ((f64::from(ty) + 0.5) * CELL) as f32;
+    let filter = anchor_hsl_filter(tx, ty);
+    let key = SpriteCacheKey {
+        kind: u32::from(FixtureKind::Bush.0),
+        variant: bucket,
+        size_class: BUSH_ATLAS_SIZE as u8,
+    };
+    let bbox = Rect::new(0.0, 0.0, BUSH_ATLAS_SIZE as f32, BUSH_ATLAS_SIZE as f32);
+    painter.push_filter(filter);
+    painter.stamp_cached_sprite(
+        key,
+        bbox,
+        cx,
+        cy,
+        &mut |sub| paint_bush_template(sub, bucket),
+    );
+    painter.pop_filter();
+}
 
-    let n = lobe_count(tx, ty);
-    let cluster_r = cluster_radius(tx, ty);
+/// Paint one canopy-bucket template onto the per-render atlas
+/// surface, centred at `(BUSH_ATLAS_SIZE / 2, …)` plus the
+/// bucket's jitter offset. All geometric inputs key on `bucket`
+/// (via `bucket_pos`), so bushes sharing a bucket render
+/// byte-equal silhouettes. No trunk and no grove — bushes are
+/// always individual tiles.
+fn paint_bush_template(painter: &mut dyn Painter, bucket: u32) {
+    let (bx, by) = bucket_pos(bucket);
+    let local_centre = f64::from(BUSH_ATLAS_SIZE) / 2.0;
+    let (dx, dy) = center_offset(bx, by);
+    let cx = local_centre + dx;
+    let cy = local_centre + dy;
+
+    let n = lobe_count(bx, by);
+    let cluster_r = cluster_radius(bx, by);
 
     let canopy_lobes = lobe_circles(
-        cx, cy, tx, ty, BUSH_CANOPY_SHAPE_SALT,
+        cx, cy, bx, by, BUSH_CANOPY_SHAPE_SALT,
         n, BUSH_CANOPY_LOBE_RADIUS, cluster_r,
         BUSH_CANOPY_LOBE_RADIUS_JITTER,
         BUSH_CANOPY_LOBE_OFFSET_JITTER,
@@ -365,7 +413,7 @@ fn paint_bush_tile(painter: &mut dyn Painter, tx: i32, ty: i32) {
     let shadow_lobes = lobe_circles(
         cx + BUSH_CANOPY_SHADOW_OFFSET,
         cy + BUSH_CANOPY_SHADOW_OFFSET,
-        tx, ty, BUSH_SHADOW_SHAPE_SALT,
+        bx, by, BUSH_SHADOW_SHAPE_SALT,
         n, BUSH_CANOPY_SHADOW_LOBE_RADIUS, cluster_r,
         BUSH_CANOPY_LOBE_RADIUS_JITTER,
         BUSH_CANOPY_LOBE_OFFSET_JITTER,
@@ -377,8 +425,35 @@ fn paint_bush_tile(painter: &mut dyn Painter, tx: i32, ty: i32) {
     // composite in document order. Bush has no trunk (unlike
     // tree).
     paint_shadow_canopy(painter, &shadow_lobes);
-    paint_canopy(painter, &canopy_lobes, &fill_jitter(tx, ty));
-    paint_volume_marks(painter, cx, cy, tx, ty);
+    paint_canopy(painter, &canopy_lobes, BUSH_CANOPY_FILL);
+    paint_volume_marks(painter, cx, cy, bx, by);
+}
+
+/// `(tx, ty) → bucket id ∈ [0, BUSH_SHAPE_BUCKET_COUNT)`.
+fn bucket_for_tile(tx: i32, ty: i32) -> u32 {
+    let u = well::hash_unit(tx, ty, BUSH_BUCKET_SALT);
+    let n = BUSH_SHAPE_BUCKET_COUNT;
+    let idx = (u * f64::from(n)) as u32;
+    idx.min(n - 1)
+}
+
+/// Map a bucket id to the `(i32, i32)` hash-input pair the shape
+/// helpers consume, keeping them tile-coordinate-agnostic.
+fn bucket_pos(bucket: u32) -> (i32, i32) {
+    (bucket as i32, 0)
+}
+
+/// Per-anchor HSL shift derived from `(tx, ty)` — hue ±15°,
+/// saturation / lightness within ±5 % / ±4 % of unity.
+fn anchor_hsl_filter(tx: i32, ty: i32) -> PainterFilter {
+    let dh = well::hash_norm(tx, ty, BUSH_HUE_SALT) * BUSH_HUE_JITTER_DEG;
+    let ds = well::hash_norm(tx, ty, BUSH_SAT_SALT) * BUSH_SAT_JITTER;
+    let dl = well::hash_norm(tx, ty, BUSH_LIGHT_SALT) * BUSH_LIGHT_JITTER;
+    PainterFilter::HslShift {
+        h_deg: dh as f32,
+        s_mul: (1.0 + ds) as f32,
+        l_mul: (1.0 + dl) as f32,
+    }
 }
 
 fn paint_shadow_canopy(
@@ -885,6 +960,73 @@ mod tests {
         assert_eq!(
             painter.stroke_path_count(),
             n_tiles * (1 + marks),
+        );
+    }
+
+    /// Bucket id always falls in `[0, BUSH_SHAPE_BUCKET_COUNT)`.
+    #[test]
+    fn bucket_for_tile_stays_in_range() {
+        for tx in -40..40 {
+            for ty in -40..40 {
+                let b = bucket_for_tile(tx, ty);
+                assert!(
+                    b < BUSH_SHAPE_BUCKET_COUNT,
+                    "bucket {b} out of range for ({tx}, {ty})",
+                );
+            }
+        }
+    }
+
+    /// A bucket template is a pure function of the bucket id.
+    #[test]
+    fn bush_template_deterministic_per_bucket() {
+        let mut a = CaptureCalls::default();
+        let mut b = CaptureCalls::default();
+        paint_bush_template(&mut a, 17);
+        paint_bush_template(&mut b, 17);
+        assert_eq!(a.calls, b.calls);
+    }
+
+    /// Distinct buckets drive distinct silhouettes.
+    #[test]
+    fn bush_template_differs_across_buckets() {
+        let mut a = CaptureCalls::default();
+        let mut b = CaptureCalls::default();
+        paint_bush_template(&mut a, 3);
+        paint_bush_template(&mut b, 150);
+        assert_ne!(a.calls, b.calls);
+    }
+
+    /// End-to-end on the PNG backend: a bush paints a green canopy
+    /// at its tile centre (not the atlas-local origin). Exercises
+    /// the `stamp_cached_sprite` anchor translation + `push_filter`
+    /// HSL tint through SkiaPainter.
+    #[test]
+    fn bush_paints_canopy_at_tile_center() {
+        use crate::painter::SkiaPainter;
+        use tiny_skia::{Color as SkColor, Pixmap};
+        let mut canvas = Pixmap::new(96, 96).unwrap();
+        canvas.fill(SkColor::WHITE);
+        {
+            let mut painter = SkiaPainter::new(&mut canvas);
+            // Tile (1, 1) → canopy centre near world (48, 48).
+            paint_bush(&mut painter, &[(1, 1)]);
+        }
+        let centre = canvas.pixel(48, 48).unwrap();
+        let (r, g, b) = (centre.red(), centre.green(), centre.blue());
+        assert!(
+            (r, g, b) != (255, 255, 255),
+            "canopy centre should be painted, got ({r}, {g}, {b})",
+        );
+        assert!(
+            g >= r && g >= b,
+            "canopy should stay green-dominant after HSL shift, got ({r}, {g}, {b})",
+        );
+        let corner = canvas.pixel(2, 2).unwrap();
+        assert_eq!(
+            (corner.red(), corner.green(), corner.blue()),
+            (255, 255, 255),
+            "bush must not leak to the atlas-local origin",
         );
     }
 
