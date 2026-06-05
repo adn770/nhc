@@ -32,6 +32,12 @@ tts = [
 debug = [
     "mcp",
 ]
+# Phase M perf bench (plans/wasm-render-caching.md). Opt-in: the
+# base install never pulls it. Bootstrap with `make perf-bootstrap`
+# (also fetches the Chromium binary, which is not a pip dep).
+perf = [
+    "playwright",
+]
 
 [project.scripts]
 nhc = "nhc.main:entry"
@@ -52,4 +58,5 @@ markers = [
     "narrative: LLM narrative tests",
     "slow: slow tests (subprocess / pool warmup / ~120s); skipped by default, run with `-m slow`",
     "validator: multilingual table drift validation; run explicitly via `-m validator`",
+    "perf: WASM render benches (browser, opt-in); run explicitly via `-m perf` after `make perf-bootstrap`",
 ]

@@ -8,6 +8,25 @@ from nhc.i18n import init as i18n_init
 i18n_init("en")
 
 
+def pytest_collection_modifyitems(config, items):
+    """Auto-skip ``perf``-marked tests unless ``-m perf`` is given.
+
+    The project has no ``addopts`` deselect, so a bare ``pytest`` /
+    full ``--dist worksteal`` run would otherwise collect the
+    opt-in WASM perf benches (Phase M). They need a browser + a
+    fresh wasm bundle and are reporting-only, so they must never
+    ride along in routine correctness runs. Passing ``-m perf``
+    (or any marker expression naming ``perf``) opts back in.
+    """
+    markexpr = config.getoption("-m", default="")
+    if "perf" in markexpr:
+        return
+    skip_perf = pytest.mark.skip(reason="perf bench — run with `-m perf`")
+    for item in items:
+        if "perf" in item.keywords:
+            item.add_marker(skip_perf)
+
+
 @pytest.fixture(autouse=True)
 def _reset_i18n_to_english():
     """Reset i18n to English before every test.

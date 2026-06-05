@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>NHC WASM render bench (Phase M Tier 2)</title>
+</head>
+<body>
+<!--
+  Tier 2 perf harness — Phase M of plans/wasm-render-caching.md.
+
+  Loads the REAL shipped wasm-pack bundle (the same /crates/.../pkg/
+  artifact the deployed client uses), renders one committed .nir
+  fixture via render_ir_to_canvas_profiled, and exposes window.runBench
+  so the Playwright driver (tests/perf/test_wasm_render_bench.py) can
+  warm up, time N renders, and scrape the [nhc-render] console lines.
+
+  No game, no websocket, no auth, no whole-floor cache: every call
+  hits the profiled wasm entry directly, so each run is a fresh render.
+
+  Served by a localhost HTTP server rooted at the repo, so module
+  imports + wasm streaming-instantiate exercise the real fetch path.
+  The fixture dir name comes from the ?fixture= query param.
+-->
+<pre id="status">loading…</pre>
+<script type="module">
+import init, {
+  install_panic_hook,
+  ir_canvas_dims,
+  render_ir_to_canvas_profiled,
+} from "/crates/nhc-render-wasm/pkg/nhc_render_wasm.js";
+
+const status = document.getElementById("status");
+const params = new URLSearchParams(window.location.search);
+const fixture = params.get("fixture") || "seed19_city_surface";
+const scale = parseFloat(params.get("scale") || "1.0");
+
+let buf = null;
+let ctx = null;
+let dims = [0, 0];
+
+async function setup() {
+  await init("/crates/nhc-render-wasm/pkg/nhc_render_wasm_bg.wasm");
+  install_panic_hook();
+  const url = `/tests/fixtures/floor_ir/${fixture}/floor.nir`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`fetch ${url}: ${resp.status}`);
+  buf = new Uint8Array(await resp.arrayBuffer());
+  dims = ir_canvas_dims(buf, scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = dims[0];
+  canvas.height = dims[1];
+  ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("getContext('2d') returned null");
+  status.textContent = `ready fixture=${fixture} canvas=${dims[0]}x${dims[1]}`;
+}
+
+function renderOnce() {
+  // Direct profiled call — emits one [nhc-render] console line.
+  // bare=false (full layer stack), label = fixture name.
+  render_ir_to_canvas_profiled(buf, ctx, scale, false, fixture);
+}
+
+// Drive `warmup` discarded renders, then `timed` captured renders.
+// Returns the [nhc-render] lines emitted during the timed phase.
+window.runBench = (warmup, timed) => {
+  const lines = [];
+  for (let i = 0; i < warmup; i++) renderOnce();
+  const orig = console.log;
+  console.log = (...args) => {
+    const s = args.join(" ");
+    if (s.startsWith("[nhc-render]")) lines.push(s);
+    orig.apply(console, args);
+  };
+  try {
+    for (let i = 0; i < timed; i++) renderOnce();
+  } finally {
+    console.log = orig;
+  }
+  return lines;
+};
+
+// Signal readiness / failure to the Playwright driver.
+window.benchReady = setup().then(
+  () => true,
+  (e) => {
+    status.textContent = `ERROR ${e}`;
+    window.benchError = String(e);
+    return false;
+  },
+);
+</script>
+</body>
+</html>

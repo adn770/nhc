@@ -105,3 +105,13 @@ wasm-pack'"; exit 1; }
 .PHONY: hatch-pattern
 hatch-pattern:
 	$(PYTHON) tools/gen_hatch_pattern.py
+
+# Bootstrap the opt-in Tier 2 WASM perf bench deps
+# (plans/wasm-render-caching.md, Phase M). Two steps because the
+# Chromium binary is fetched by Playwright's own installer, not pip.
+# Idempotent: re-running skips already-installed pieces. The bench
+# itself (pytest -m perf) skips gracefully until this has run.
+.PHONY: perf-bootstrap
+perf-bootstrap:
+	$(PYTHON) -m pip install -e '.[perf]'
+	$(PYTHON) -m playwright install chromium
