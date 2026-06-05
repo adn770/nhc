@@ -228,10 +228,17 @@ class SiteFixture:
 
     seed: int
     kind: str    # "town" / "keep" / "cottage" / "ruin" / "temple"
+    # Optional town size_class ("hamlet"/"village"/"town"/"city").
+    # Only meaningful for kind="town"; threaded into assemble_site.
+    # When set, it replaces ``kind`` in the descriptor so e.g. a
+    # city fixture lands under ``seed19_city_surface`` rather than
+    # colliding with the default ``seed*_town_surface``.
+    size_class: str | None = None
 
     @property
     def descriptor(self) -> str:
-        return f"seed{self.seed}_{self.kind}_surface"
+        label = self.size_class if self.size_class else self.kind
+        return f"seed{self.seed}_{label}_surface"
 
 
 _SITE_FIXTURES: tuple[SiteFixture, ...] = (
@@ -240,6 +247,13 @@ _SITE_FIXTURES: tuple[SiteFixture, ...] = (
     # sub-phases (8.5 brick-enclosure variant) and Phase 9
     # decoration ports add more.
     SiteFixture(seed=7, kind="town"),
+    # Phase M (plans/wasm-render-caching.md) benchmark workload: a
+    # big, rich city — the densest settlement the generator makes
+    # (~40 buildings, ~170 vegetation features on a ~106×88 surface).
+    # Seed 19 won a 1–20 sweep as the most balanced-busy (heavy on
+    # BOTH buildings and trees/bushes). This is the primary fixed
+    # NIR the perf harness times.
+    SiteFixture(seed=19, kind="town", size_class="city"),
 )
 
 
@@ -669,8 +683,11 @@ def _build_site(fx: SiteFixture):
     """Assemble a real :class:`Site` for ``fx`` via ``assemble_site``."""
     import random
     from nhc.sites._site import assemble_site
+    kwargs = {}
+    if fx.size_class is not None:
+        kwargs["size_class"] = fx.size_class
     return assemble_site(
-        fx.kind, f"{fx.kind}_seed{fx.seed}", random.Random(fx.seed),
+        fx.kind, f"{fx.kind}_seed{fx.seed}", random.Random(fx.seed), **kwargs,
     )
 
 

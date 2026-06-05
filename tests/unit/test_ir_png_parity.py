@@ -583,6 +583,10 @@ def test_synthetic_building_wall_structural_invariants(
 
 _SITE_DESCRIPTORS: tuple[str, ...] = (
     "seed7_town_surface",
+    # Phase M perf-harness primary workload — the big, rich city.
+    # Heaviest real render in the set; doubles as the strongest
+    # PNG / SVG cross-rasteriser drift guard.
+    "seed19_city_surface",
 )
 
 

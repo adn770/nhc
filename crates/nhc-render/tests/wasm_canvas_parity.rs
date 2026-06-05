@@ -30,6 +30,11 @@ const FIXTURE_NAMES: &[&str] = &[
     "seed7_town_surface",
     "seed99_cave_cave_cave",
     "seed7_octagon_crypt_dungeon",
+    // Phase M perf-harness primary workload — a big, rich city
+    // (~40 buildings, ~170 vegetation features). Heaviest fixture
+    // in the set; also guards CanvasPainter drift on the densest
+    // real render.
+    "seed19_city_surface",
 ];
 
 const PSNR_MIN_DB: f64 = 30.0;
@@ -151,6 +156,14 @@ fn cave_surface_round_trips_at_30db() {
 #[test]
 fn dungeon_floor_round_trips_at_30db() {
     compare_or_regen(FIXTURE_NAMES[2]);
+}
+
+/// Phase M perf-harness primary workload — the big, rich city.
+/// Heaviest CanvasPainter render in the fixture set, so it doubles
+/// as the strongest drift guard.
+#[test]
+fn city_surface_round_trips_at_30db() {
+    compare_or_regen(FIXTURE_NAMES[3]);
 }
 
 /// Sanity gate on the comparator: identical pixmaps report
