@@ -125,22 +125,22 @@ pub fn render_ir_to_canvas_profiled(
     let mut entries: Vec<(String, f64)> = Vec::with_capacity(8);
     let t_render_start = perf.now();
     let mut t_prev = t_render_start;
-    let dims = nhc_render::transform::canvas::floor_ir_to_canvas_profiled(
-        ir_bytes,
-        scale,
-        bare,
-        &webctx,
-        |name| {
-            let t_now = perf.now();
-            entries.push((name.to_string(), t_now - t_prev));
-            t_prev = t_now;
-        },
-    )
-    .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let (w, h, diagnostics) =
+        nhc_render::transform::canvas::floor_ir_to_canvas_profiled(
+            ir_bytes,
+            scale,
+            bare,
+            &webctx,
+            |name| {
+                let t_now = perf.now();
+                entries.push((name.to_string(), t_now - t_prev));
+                t_prev = t_now;
+            },
+        )
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
     let total_ms = perf.now() - t_render_start;
 
     let label_str = label.as_deref().unwrap_or("");
-    let (w, h) = dims;
     let mut line = String::with_capacity(160);
     line.push_str("[nhc-render]");
     if !label_str.is_empty() {
@@ -155,6 +155,9 @@ pub fn render_ir_to_canvas_profiled(
     for (name, ms) in &entries {
         line.push_str(&format!(" {name}={ms:.2}"));
     }
+    // Phase M: deterministic cache counts (sprite/grove hits +
+    // misses) so a perf bench can confirm caching engaged.
+    line.push_str(&diagnostics.profile_suffix());
     web_sys::console::log_1(&JsValue::from_str(&line));
 
     Ok(vec![w, h])

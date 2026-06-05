@@ -23,9 +23,10 @@
 
 use super::{
     Color, FillRule, LineCap, LineJoin, Paint, Painter, PainterFilter, PathOp,
-    PathOps, Rect, SpriteCacheKey, Stroke, Transform, Vec2,
+    PathOps, Rect, RenderCacheDiagnostics, SpriteCacheKey, Stroke, Transform,
+    Vec2,
 };
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 
 /// Abstract Canvas2D surface — the subset of the
@@ -316,6 +317,11 @@ pub struct CanvasPainter<'a, C: Canvas2DCtx> {
     /// lifetime matches the painter (per-render); hoisting to
     /// session scope is a future refactor.
     sprite_cache: RefCell<HashMap<SpriteCacheKey, C>>,
+    /// Per-render cache instrumentation (Phase M). Counts surfaced
+    /// on the profiled `[nhc-render]` line via [`Self::diagnostics`]
+    /// so a perf bench can confirm caching engaged. `Copy` struct
+    /// behind a `Cell` — no borrow churn in the stamp hot path.
+    diagnostics: Cell<RenderCacheDiagnostics>,
 }
 
 /// Maximum number of offscreen surfaces retained in
@@ -342,8 +348,16 @@ impl<'a, C: Canvas2DCtx> CanvasPainter<'a, C> {
             transform_stack: Vec::new(),
             offscreen_pool: Vec::new(),
             sprite_cache: RefCell::new(HashMap::new()),
+            diagnostics: Cell::new(RenderCacheDiagnostics::default()),
             filter_stack: Vec::new(),
         }
+    }
+
+    /// Snapshot of the per-render cache counters. Read after a
+    /// render completes (the profiled entry point appends this to
+    /// the `[nhc-render]` log line).
+    pub fn diagnostics(&self) -> RenderCacheDiagnostics {
+        self.diagnostics.get()
     }
 
     /// `true` when no `begin_group` / `push_clip` /
@@ -667,14 +681,19 @@ impl<C: Canvas2DCtx> Painter for CanvasPainter<'_, C> {
         // the insert so the &mut RefCell borrow drops before
         // builder runs (the sub-painter might re-enter the cache).
         let needs_build = !self.sprite_cache.borrow().contains_key(&key);
+        let mut diag = self.diagnostics.get();
         if needs_build {
+            diag.sprite_misses += 1;
             let off = self.base.create_offscreen(w, h);
             {
                 let mut sub = CanvasPainter::new(&off, w, h);
                 builder(&mut sub);
             }
             self.sprite_cache.borrow_mut().insert(key, off);
+        } else {
+            diag.sprite_hits += 1;
         }
+        self.diagnostics.set(diag);
         // Cache hit → blit the cached sprite. Anchor positions the
         // bbox CENTER at (anchor_x, anchor_y); blit coords snap to
         // integer pixels to keep Canvas2D's bilinear resampler out
@@ -1470,6 +1489,41 @@ mod tests {
             .filter(|id| *id != 0)
             .collect();
         assert_eq!(offscreen_ids.len(), 2);
+    }
+
+    #[test]
+    fn stamp_cached_sprite_counts_hits_and_misses() {
+        // Phase M instrumentation gate. The first stamp of each
+        // distinct key is a miss (builds an offscreen); repeat
+        // stamps of a seen key are hits (blit only). The counts are
+        // deterministic and surface on the profiled log line.
+        use crate::painter::SpriteCacheKey;
+        let ctx = RecCtx::new();
+        let mut p = CanvasPainter::new(&ctx, 32, 32);
+        let bbox = Rect::new(0.0, 0.0, 4.0, 4.0);
+        let mut paint_once = |sub: &mut dyn Painter| {
+            sub.fill_rect(Rect::new(0.0, 0.0, 4.0, 4.0), &red());
+        };
+        let k1 = SpriteCacheKey { kind: 1, variant: 0, size_class: 16 };
+        let k2 = SpriteCacheKey { kind: 1, variant: 1, size_class: 16 };
+        // miss(k1), hit(k1), miss(k2), hit(k2), hit(k1)
+        p.stamp_cached_sprite(k1, bbox, 1.0, 1.0, &mut paint_once);
+        p.stamp_cached_sprite(k1, bbox, 2.0, 2.0, &mut paint_once);
+        p.stamp_cached_sprite(k2, bbox, 3.0, 3.0, &mut paint_once);
+        p.stamp_cached_sprite(k2, bbox, 4.0, 4.0, &mut paint_once);
+        p.stamp_cached_sprite(k1, bbox, 5.0, 5.0, &mut paint_once);
+        let diag = p.diagnostics();
+        assert_eq!(diag.sprite_misses, 2, "two distinct keys → two misses");
+        assert_eq!(diag.sprite_hits, 3, "three repeat stamps → three hits");
+        // Grove memo unwired until Phase 3.E — stays zero.
+        assert_eq!(diag.grove_polygon_hits, 0);
+        assert_eq!(diag.grove_polygon_misses, 0);
+        // profile_suffix renders every counter so columns align.
+        assert_eq!(
+            diag.profile_suffix(),
+            " sprite_hits=3 sprite_misses=2 \
+             grove_polygon_hits=0 grove_polygon_misses=0",
+        );
     }
 
     #[test]

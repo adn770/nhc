@@ -534,6 +534,47 @@ pub struct SpriteCacheKey {
     pub size_class: u8,
 }
 
+/// Per-render cache instrumentation, surfaced on the profiled
+/// `[nhc-render]` log line so a perf bench can confirm caching
+/// actually engaged (deterministic integers — they do not vary
+/// run-to-run, unlike wall-clock).
+///
+/// Phase M (`plans/wasm-render-caching.md`) wires the two counts
+/// that are measurable today: the live Phase 3 sprite cache and
+/// the grove polygon memo (which reads 0 until Phase 3.E lands —
+/// itself the "grove memo not yet active" signal). The struct is
+/// intentionally a flat bag of `u32`s so the deferred Phase A
+/// `groups_eliminated` and Phase 1/2 `tile_atlas_units` counters
+/// are a one-field add with no redesign.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct RenderCacheDiagnostics {
+    /// `stamp_cached_sprite` calls that reused a cached offscreen.
+    pub sprite_hits: u32,
+    /// `stamp_cached_sprite` calls that built a fresh offscreen.
+    pub sprite_misses: u32,
+    /// Grove polygon-memo reuses (0 until Phase 3.E).
+    pub grove_polygon_hits: u32,
+    /// Grove polygon-memo builds (0 until Phase 3.E).
+    pub grove_polygon_misses: u32,
+}
+
+impl RenderCacheDiagnostics {
+    /// Space-prefixed key=value run appended to the `[nhc-render]`
+    /// profile line (after the per-layer timings). Always emits
+    /// every counter so the columns line up across renders even
+    /// when a cache saw no traffic.
+    pub fn profile_suffix(&self) -> String {
+        format!(
+            " sprite_hits={} sprite_misses={} \
+             grove_polygon_hits={} grove_polygon_misses={}",
+            self.sprite_hits,
+            self.sprite_misses,
+            self.grove_polygon_hits,
+            self.grove_polygon_misses,
+        )
+    }
+}
+
 /// Default body for `Painter::stamp_cached_sprite`. Backends that
 /// don't maintain a sprite cache (SkiaPainter / SvgPainter /
 /// MockPainter) delegate here.

@@ -24,7 +24,7 @@
 
 use crate::ir::{floor_ir_buffer_has_identifier, root_as_floor_ir};
 use crate::painter::canvas::{Canvas2DCtx, CanvasPainter};
-use crate::painter::{Painter, Transform};
+use crate::painter::{Painter, RenderCacheDiagnostics, Transform};
 
 use super::png::{
     dispatch_ops, resolve_layer_filter, BARE_SKIP_OPS, BG_B, BG_G, BG_R,
@@ -178,15 +178,17 @@ pub fn floor_ir_to_canvas<C: Canvas2DCtx>(
 /// still fire `on_layer_end` so the per-layer log entries line
 /// up across `bare` and non-`bare` renders.
 ///
-/// Returns the canvas dims in CSS pixels — same contract as
-/// [`floor_ir_to_canvas`].
+/// Returns the canvas dims in CSS pixels plus the per-render cache
+/// diagnostics ([`RenderCacheDiagnostics`]) — the caller appends
+/// the latter to the `[nhc-render]` profile line so a perf bench
+/// can confirm caching engaged (Phase M).
 pub fn floor_ir_to_canvas_profiled<C: Canvas2DCtx, F: FnMut(&str)>(
     buf: &[u8],
     scale: f32,
     bare: bool,
     ctx: &C,
     mut on_layer_end: F,
-) -> Result<(u32, u32), CanvasError> {
+) -> Result<(u32, u32, RenderCacheDiagnostics), CanvasError> {
     if buf.len() < 8 || !floor_ir_buffer_has_identifier(buf) {
         return Err(CanvasError::InvalidBuffer(
             "buffer does not carry the NIR5 file_identifier".to_string(),
@@ -222,7 +224,8 @@ pub fn floor_ir_to_canvas_profiled<C: Canvas2DCtx, F: FnMut(&str)>(
     }
     painter.pop_transform();
 
-    Ok((canvas_w, canvas_h))
+    let diagnostics = painter.diagnostics();
+    Ok((canvas_w, canvas_h, diagnostics))
 }
 
 #[cfg(test)]
@@ -576,11 +579,13 @@ mod tests {
         // pre-flight `ir_canvas_dims` reading without branching.
         let buf = build_minimal_buf(2, 2);
         let ctx = RecCtx::new();
-        let (w, h) = floor_ir_to_canvas_profiled(
+        let (w, h, diag) = floor_ir_to_canvas_profiled(
             &buf, 1.0, false, &ctx, |_| {},
         )
         .expect("encode succeeds");
         assert_eq!((w, h), (128, 128));
+        // Empty buffer stamps no sprites → all cache counters zero.
+        assert_eq!(diag, crate::painter::RenderCacheDiagnostics::default());
         let ops = ctx.ops();
         assert!(matches!(
             &ops[0],
