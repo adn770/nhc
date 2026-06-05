@@ -1,7 +1,33 @@
 """Tests for Phase 1 model extensions."""
 
+import pickle
+
 from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 from nhc.hexcrawl.model import DungeonRef
+
+
+class TestTileSlots:
+    """Tile is slotted for fast bulk allocation in create_empty."""
+
+    def test_tile_has_no_dict(self):
+        t = Tile(terrain=Terrain.VOID)
+        assert not hasattr(t, "__dict__")
+
+    def test_tile_rejects_unknown_attribute(self):
+        t = Tile()
+        import pytest
+        with pytest.raises(AttributeError):
+            t.not_a_field = 1  # type: ignore[attr-defined]
+
+    def test_tile_round_trips_through_pickle(self):
+        # New saves (slots pickle form) must round-trip cleanly.
+        t = Tile(
+            terrain=Terrain.FLOOR, feature="door_open",
+            buried=["gold"], surface_type=SurfaceType.STREET,
+        )
+        back = pickle.loads(pickle.dumps(t))
+        assert back == t
+        assert back.buried == ["gold"]
 
 
 class TestDungeonRefExtensions:

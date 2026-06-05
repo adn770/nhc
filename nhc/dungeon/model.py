@@ -661,9 +661,17 @@ def shape_from_type(type_name: str | None) -> RoomShape:
     return RectShape()
 
 
-@dataclass
+@dataclass(slots=True)
 class Tile:
-    """Single map cell."""
+    """Single map cell.
+
+    ``slots=True``: a city assembles ~27k tiles (183 building floors +
+    surface), and ``Level.create_empty`` was the top generation cost
+    after the cluster-packing fix. Slots drop the per-instance
+    ``__dict__`` — ~1.7x faster construction and ~44% less memory per
+    tile. (Pickle state shape changes, so pre-slots autosaves no
+    longer load; acceptable — start a new game.)
+    """
     terrain: Terrain = Terrain.WALL
     feature: str | None = None  # door, stairs_up, stairs_down, trap, etc.
     explored: bool = False
