@@ -433,10 +433,68 @@ def _bboxes_overlap_with_gap(
     a: Rect, b: Rect, gap: int,
 ) -> bool:
     """``True`` when ``a`` and ``b`` are within ``gap`` tiles of
-    each other on both axes (i.e. would block a 2-tile street)."""
-    dx = max(0, max(a.x - b.x2, b.x - a.x2))
-    dy = max(0, max(a.y - b.y2, b.y - a.y2))
-    return dx < gap and dy < gap
+    each other on both axes (i.e. would block a 2-tile street).
+
+    Inlined hot path (called millions of times during cluster
+    packing): the axis separation is ``< gap`` exactly when neither
+    box is ``>= gap`` past the other, so short-circuit on the first
+    axis that clears the gap instead of building ``max()`` temps.
+    Equivalent to the old ``max(0, max(...)) < gap`` form for the
+    positive ``gap`` this is always called with.
+    """
+    if a.x - b.x2 >= gap or b.x - a.x2 >= gap:
+        return False
+    if a.y - b.y2 >= gap or b.y - a.y2 >= gap:
+        return False
+    return True
+
+
+class _BboxGrid:
+    """Uniform-grid spatial index for gap-overlap queries.
+
+    Pure acceleration for cluster packing: ``overlaps_any`` returns
+    the same boolean a linear scan + :func:`_bboxes_overlap_with_gap`
+    would, so placement stays seed-identical — it just avoids testing
+    far-apart rects. Rects are bucketed by the cells they cover;
+    a query scans only the buckets its gap-expanded bbox touches.
+
+    Coverage guarantee: a query bbox gap-overlaps a rect ``r`` iff the
+    bbox expanded by ``gap`` intersects ``r``, so inserting ``r`` by
+    its own cells and querying the gap-expanded cell range can never
+    miss an overlapping rect.
+    """
+
+    __slots__ = ("gap", "cell", "buckets")
+
+    def __init__(self, gap: int, cell: int = 16) -> None:
+        self.gap = gap
+        self.cell = cell
+        self.buckets: dict[tuple[int, int], list[Rect]] = {}
+
+    def _cells(self, rect: Rect, pad: int):
+        c = self.cell
+        return (
+            (rect.x - pad) // c, (rect.x2 - 1 + pad) // c,
+            (rect.y - pad) // c, (rect.y2 - 1 + pad) // c,
+        )
+
+    def add(self, rect: Rect) -> None:
+        x0, x1, y0, y1 = self._cells(rect, 0)
+        for cx in range(x0, x1 + 1):
+            for cy in range(y0, y1 + 1):
+                self.buckets.setdefault((cx, cy), []).append(rect)
+
+    def overlaps_any(self, bbox: Rect) -> bool:
+        x0, x1, y0, y1 = self._cells(bbox, self.gap)
+        for cx in range(x0, x1 + 1):
+            for cy in range(y0, y1 + 1):
+                bucket = self.buckets.get((cx, cy))
+                if not bucket:
+                    continue
+                for r in bucket:
+                    if _bboxes_overlap_with_gap(bbox, r, self.gap):
+                        return True
+        return False
 
 
 def _try_place_plan(
@@ -458,15 +516,21 @@ def _try_place_plan(
     if ox_hi < ox_lo or oy_hi < oy_lo:
         return False
 
+    # Spatial index over everything the candidate must avoid. Built
+    # once per placement (O(rects)) then queried per attempt /
+    # scan-cell (O(nearby)), replacing the old O(attempts × rects)
+    # linear scans. placed_bboxes already includes forbidden_rects
+    # (see _place_clusters), but adding both is harmless (a dup is
+    # just tested twice) and keeps this independent of that invariant.
+    index = _BboxGrid(CLUSTER_BBOX_GAP)
+    for p in placed_bboxes:
+        index.add(p)
+    for fr in forbidden_rects:
+        index.add(fr)
+
     def _check(ox: int, oy: int) -> bool:
         bbox = _bbox_for((ox, oy), (cluster_w, cluster_h))
-        for p in placed_bboxes:
-            if _bboxes_overlap_with_gap(bbox, p, CLUSTER_BBOX_GAP):
-                return False
-        for fr in forbidden_rects:
-            if _bboxes_overlap_with_gap(bbox, fr, CLUSTER_BBOX_GAP):
-                return False
-        return True
+        return not index.overlaps_any(bbox)
 
     valid_origin: tuple[int, int] | None = None
     for _ in range(MAX_PLACEMENT_ATTEMPTS):
