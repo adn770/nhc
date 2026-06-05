@@ -486,11 +486,16 @@ class TestWsFloorInitNirOnly:
         app = create_app(config)
         app.config["TESTING"] = True
         with app.test_client() as c:
-            resp = c.post("/api/game/new", json={})
+            # world=dungeon so the fresh game has a live level (a
+            # hexcrawl game starts on the hex map with game.level
+            # None, so _send_floor_state would correctly send no
+            # floor — that made this test depend on xdist ordering).
+            resp = c.post("/api/game/new", json={"world": "dungeon"})
             assert resp.status_code == 201
             sid = resp.get_json()["session_id"]
             session = c.application.config["SESSIONS"].get(sid)
             client = session.game.renderer
+            assert session.game.level is not None
             assert client.floor_svg == ""
             assert client.floor_svg_id
 
