@@ -30,6 +30,47 @@ from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.rendering._ir_helpers import _is_door
 
 
+def _grid_components(
+    tiles: set[tuple[int, int]],
+) -> list[set[tuple[int, int]]]:
+    """Partition ``tiles`` into 4-connected components (flood fill).
+
+    Replaces the former Shapely ``unary_union`` + per-tile
+    ``contains`` partition, which constructed a polygon per tile per
+    component (O(components × tiles), ~87 % of ``build_floor_ir`` on a
+    city). This is a plain O(tiles) grid flood fill.
+
+    Connectivity matches Shapely's tile-box union exactly:
+    **4-connected** — tiles sharing an edge join; tiles touching only
+    at a corner stay separate.
+
+    Deterministic ordering: components come out sorted by their
+    topmost-leftmost (row-major) tile, so independent callers that
+    re-run this (e.g. the cave Region in ``ir_emitter`` and the cave
+    PaintOp in ``emit.paint``) agree on component order and their
+    ``f"<kind>.<i>"`` cross-references resolve.
+    """
+    remaining = set(tiles)
+    components: list[set[tuple[int, int]]] = []
+    # Seed BFS from tiles in row-major order so component order is the
+    # row-major order of each component's first-encountered tile.
+    for seed in sorted(remaining, key=lambda t: (t[1], t[0])):
+        if seed not in remaining:
+            continue
+        remaining.discard(seed)
+        comp = {seed}
+        stack = [seed]
+        while stack:
+            x, y = stack.pop()
+            for nb in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if nb in remaining:
+                    remaining.discard(nb)
+                    comp.add(nb)
+                    stack.append(nb)
+        components.append(comp)
+    return components
+
+
 def _collect_corridor_tiles(
     level: Any,
     cave_tiles: set[tuple[int, int]],
@@ -65,11 +106,10 @@ def _collect_corridor_components(
 ) -> list[set[tuple[int, int]]]:
     """Partition ``corridor_tiles`` into disjoint connected components.
 
-    Builds a 32-pixel tile box per ``(tx, ty)``, unions them via
-    Shapely's ``unary_union``, and walks the resulting MultiPolygon
-    geoms (or single Polygon for a single-component corridor system).
-    Returns one ``set[(tx, ty)]`` per disjoint component, in Shapely
-    iteration order.
+    4-connected grid flood fill (see :func:`_grid_components`).
+    Returns one ``set[(tx, ty)]`` per disjoint component in
+    deterministic row-major order. Single-component corridor systems
+    return the original set unchanged.
     """
     tiles_set = (
         corridor_tiles
@@ -78,42 +118,10 @@ def _collect_corridor_components(
     )
     if not tiles_set:
         return []
-    from shapely.geometry import Polygon as _ShapelyPolygon
-    from shapely.ops import unary_union as _unary_union
-    from nhc.rendering._ir_helpers import CELL
-
-    tile_boxes = [
-        _ShapelyPolygon([
-            (tx * CELL, ty * CELL),
-            ((tx + 1) * CELL, ty * CELL),
-            ((tx + 1) * CELL, (ty + 1) * CELL),
-            (tx * CELL, (ty + 1) * CELL),
-        ])
-        for tx, ty in tiles_set
-    ]
-    merged_geom = _unary_union(tile_boxes)
-    if not hasattr(merged_geom, "geoms"):
+    components = _grid_components(tiles_set)
+    if len(components) == 1:
         return [tiles_set]
-
-    groups: list[set[tuple[int, int]]] = []
-    for component in merged_geom.geoms:
-        if component.is_empty:
-            continue
-        comp_tiles: set[tuple[int, int]] = {
-            (tx, ty)
-            for tx, ty in tiles_set
-            if component.contains(
-                _ShapelyPolygon([
-                    (tx * CELL, ty * CELL),
-                    ((tx + 1) * CELL, ty * CELL),
-                    ((tx + 1) * CELL, (ty + 1) * CELL),
-                    (tx * CELL, (ty + 1) * CELL),
-                ])
-            )
-        }
-        if comp_tiles:
-            groups.append(comp_tiles)
-    return groups
+    return components
 
 
 def _collect_cave_systems(
@@ -122,52 +130,21 @@ def _collect_cave_systems(
     """Partition ``cave_tiles`` into disjoint cave systems.
 
     Determinism contract: for the common single-component path,
-    return ``[cave_tiles]`` UNCHANGED. A containment-filtered subset
-    of the same set may iterate in different hash order and produce
-    a different ``exterior.coords[0]`` from Shapely's ``unary_union``
-    even though the full vertex set is identical.
+    return ``[cave_tiles]`` UNCHANGED so the downstream outline's ring
+    starting-point stays stable across all callers (a re-iterated
+    subset would hash in a different order).
+
+    4-connected grid flood fill (see :func:`_grid_components`),
+    matching the former Shapely tile-box union.
     """
     if not cave_tiles:
         return []
-    from shapely.geometry import Polygon as _ShapelyPolygon
-    from shapely.ops import unary_union as _unary_union
-    from nhc.rendering._ir_helpers import CELL
-
-    tile_boxes = [
-        _ShapelyPolygon([
-            (tx * CELL, ty * CELL),
-            ((tx + 1) * CELL, ty * CELL),
-            ((tx + 1) * CELL, (ty + 1) * CELL),
-            (tx * CELL, (ty + 1) * CELL),
-        ])
-        for tx, ty in cave_tiles
-    ]
-    merged_geom = _unary_union(tile_boxes)
-    if not hasattr(merged_geom, "geoms"):
+    components = _grid_components(cave_tiles)
+    if len(components) == 1:
         # Single connected cave region — the common path. Pass the
-        # original ``cave_tiles`` set directly so the Shapely ring
-        # starting-point is deterministic across all callers.
+        # original set through so the ring start is deterministic.
         return [cave_tiles]
-
-    groups: list[set[tuple[int, int]]] = []
-    for component in merged_geom.geoms:
-        if component.is_empty:
-            continue
-        comp_tiles: set[tuple[int, int]] = {
-            (tx, ty)
-            for tx, ty in cave_tiles
-            if component.contains(
-                _ShapelyPolygon([
-                    (tx * CELL, ty * CELL),
-                    ((tx + 1) * CELL, ty * CELL),
-                    ((tx + 1) * CELL, (ty + 1) * CELL),
-                    (tx * CELL, (ty + 1) * CELL),
-                ])
-            )
-        }
-        if comp_tiles:
-            groups.append(comp_tiles)
-    return groups
+    return components
 
 
 def _collect_predicate_components(
@@ -182,10 +159,13 @@ def _collect_predicate_components(
     Generalisation of :func:`_collect_terrain_systems` for predicates
     that aren't a single :class:`Terrain` value (e.g.
     :func:`nhc.rendering._floor_detail._is_cobble_tile` keys on
-    ``surface_type ∈ {STREET, PAVED}``). Build a 32-pixel tile box per
-    matching tile, union via Shapely, walk the resulting geoms.
+    ``surface_type ∈ {STREET, PAVED}``).
 
     ``exclude`` skips tiles already owned by another region.
+
+    4-connected grid flood fill (see :func:`_grid_components`),
+    matching the former Shapely tile-box union. Single-component
+    results return the matching-tile set unchanged.
     """
     excluded = exclude or set()
     tiles: set[tuple[int, int]] = set()
@@ -197,42 +177,10 @@ def _collect_predicate_components(
                 tiles.add((x, y))
     if not tiles:
         return []
-    from shapely.geometry import Polygon as _ShapelyPolygon
-    from shapely.ops import unary_union as _unary_union
-    from nhc.rendering._ir_helpers import CELL
-
-    tile_boxes = [
-        _ShapelyPolygon([
-            (tx * CELL, ty * CELL),
-            ((tx + 1) * CELL, ty * CELL),
-            ((tx + 1) * CELL, (ty + 1) * CELL),
-            (tx * CELL, (ty + 1) * CELL),
-        ])
-        for tx, ty in tiles
-    ]
-    merged_geom = _unary_union(tile_boxes)
-    if not hasattr(merged_geom, "geoms"):
+    components = _grid_components(tiles)
+    if len(components) == 1:
         return [tiles]
-
-    groups: list[set[tuple[int, int]]] = []
-    for component in merged_geom.geoms:
-        if component.is_empty:
-            continue
-        comp_tiles: set[tuple[int, int]] = {
-            (tx, ty)
-            for tx, ty in tiles
-            if component.contains(
-                _ShapelyPolygon([
-                    (tx * CELL, ty * CELL),
-                    ((tx + 1) * CELL, ty * CELL),
-                    ((tx + 1) * CELL, (ty + 1) * CELL),
-                    (tx * CELL, (ty + 1) * CELL),
-                ])
-            )
-        }
-        if comp_tiles:
-            groups.append(comp_tiles)
-    return groups
+    return components
 
 
 def _collect_terrain_systems(
