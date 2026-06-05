@@ -49,13 +49,14 @@ class _SpyClient:
     def send_floor_change(
         self, level, world, player_id, turn, *,
         seed=0, floor_svg=None, floor_svg_id=None,
-        hatch_distance=2.0, site=None,
+        hatch_distance=2.0, site=None, location_id=None,
     ) -> None:
         self.calls.append({
             "level_id": level.id,
             "site": site,
             "building_id": getattr(level, "building_id", None),
             "floor_index": getattr(level, "floor_index", None),
+            "location_id": location_id,
         })
 
 

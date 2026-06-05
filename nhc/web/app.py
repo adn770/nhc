@@ -811,7 +811,13 @@ def create_app(
         # level state.
         import uuid as _uuid
         client.floor_svg = ""
-        client.floor_svg_id = _uuid.uuid4().hex[:12]
+        # Stable world-location id so the warmed-from-disk IR (and a
+        # re-render after leaving/re-entering) hits the cache; fall
+        # back to a random token only when no floor is live yet.
+        client.floor_svg_id = (
+            game.current_location_id() if game.level
+            else _uuid.uuid4().hex[:12]
+        )
         logger.info("Resume: floor IR mode, server SVG skipped")
         if game.level:
             ir_entry = load_ir_artefacts(save_dir)
@@ -987,7 +993,10 @@ def create_app(
         # demand.
         import uuid as _uuid
         client.floor_svg = ""
-        client.floor_svg_id = _uuid.uuid4().hex[:12]
+        client.floor_svg_id = (
+            game.current_location_id() if game.level
+            else _uuid.uuid4().hex[:12]
+        )
         logger.info(
             "Floor IR mode: %s (server SVG skipped)",
             client.floor_svg_id,
@@ -1537,6 +1546,7 @@ def create_app(
             game.turn, seed=game.seed or 0,
             hatch_distance=config.hatch_distance,
             site=game._active_site,
+            location_id=game.current_location_id(),
         )
         # Send debug_url so overlays refresh
         import json as _json

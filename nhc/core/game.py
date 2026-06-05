@@ -633,6 +633,61 @@ class Game:
             )
         return depth
 
+    def current_location_id(self) -> str:
+        """Stable, URL-safe identity for the current floor's location.
+
+        Derived purely from navigation state, so the SAME floor
+        always yields the SAME id across leave/re-enter (the cached
+        level / site objects keep their coords, building index and
+        depth). Used as the floor URL token and the ``_ir_cache``
+        key so re-entering a location is a cache hit instead of a
+        ~1 s NIR rebuild.
+
+        Encoding (chars limited to ``[A-Za-z0-9_-]`` so it drops
+        straight into the ``/floor/<id>.nir`` route):
+
+        - ``hex_<q>_<r>`` roots the id to the hexmap cell, so the
+          same depth / building index in different cells never
+          collide. Omitted in pure dungeon mode (no hex).
+        - ``sub_<q>_<r>`` for sub-hex family sites.
+        - ``b<index>_f<floor>`` for building interiors, so a house
+          floor never collides with the site surface even at the
+          same depth.
+        - ``d<depth>`` always trails, so multi-floor descents that
+          share a building index stay distinct.
+
+        Dynamic state (entities / FOV / dug / doors) is sent in the
+        floor message and drawn as overlays, never baked into the
+        cached NIR, so a location's static geometry is safe to
+        cache for the session.
+        """
+        lvl = self.level
+        if lvl is None:
+            return "none"
+        parts: list[str] = []
+        pos = self.hex_player_position
+        if self.world_type is WorldType.HEXCRAWL and pos is not None:
+            parts.append(f"hex_{pos.q}_{pos.r}")
+            sub = self._active_site_sub
+            if sub is not None:
+                parts.append(f"sub_{sub.q}_{sub.r}")
+        bid = getattr(lvl, "building_id", None)
+        if bid is not None and self._active_site is not None:
+            bi = next(
+                (i for i, b in enumerate(self._active_site.buildings)
+                 if b.id == bid),
+                None,
+            )
+            if bi is not None:
+                parts.append(f"b{bi}")
+            else:
+                safe = "".join(c for c in str(bid) if c.isalnum()) or "x"
+                parts.append(f"b{safe}")
+            fi = lvl.floor_index if lvl.floor_index is not None else 0
+            parts.append(f"f{fi}")
+        parts.append(f"d{lvl.depth}")
+        return "_".join(parts)
+
     async def enter_dungeon(self) -> bool:
         """Enter the cellular dungeon attached to the player's hex.
 
@@ -1604,6 +1659,7 @@ class Game:
             self.level, self.world, self.player_id,
             self.turn, seed=self.seed or 0,
             site=site,
+            location_id=self.current_location_id(),
         )
 
     async def _enter_tower_site(self, coord) -> bool:
@@ -4788,6 +4844,7 @@ class Game:
                 self.level, self.world, self.player_id,
                 self.turn, seed=self.seed or 0,
                 site=self._active_site,
+                location_id=self.current_location_id(),
             )
 
     def _place_player_via_building_link(

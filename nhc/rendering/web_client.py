@@ -1316,31 +1316,42 @@ class WebClient(GameClient):
         player_id: int, turn: int, seed: int = 0,
         hatch_distance: float = 2.0,
         site: "object | None" = None,
+        location_id: "str | None" = None,
     ) -> None:
         """Notify the client that a new floor is in play.
 
         Called on floor transitions (descend/ascend stairs). NIR-only:
-        the server never builds an SVG — it mints a fresh floor id
-        (URL token) and the browser rasterises the NIR fetched from
-        the .nir endpoint. Resets FOV/hatch delta tracking so the
-        next render sends full state for the new level. ``site`` is
-        the active :class:`Site` when the player is inside a
-        building-generator site, which lets the renderer pick up the
-        brick / stone wall overlay for Building floors.
+        the server never builds an SVG — the browser rasterises the
+        NIR fetched from the .nir endpoint. Resets FOV/hatch delta
+        tracking so the next render sends full state for the new
+        level. ``site`` is the active :class:`Site` when the player
+        is inside a building-generator site, which lets the renderer
+        pick up the brick / stone wall overlay for Building floors.
+
+        ``location_id`` is the floor's stable world-location id
+        (``Game.current_location_id()``) — used as the floor URL
+        token so re-entering a location is a server NIR-cache + a
+        client canvas-cache hit instead of a ~1 s rebuild. When
+        omitted (legacy callers / tests) a random token is minted,
+        preserving the old always-rebuild behaviour.
         """
-        import uuid as _uuid
         logger.debug(
             "send-floor-change: level=%s depth=%s site=%s "
-            "building_id=%s floor_index=%s",
+            "building_id=%s floor_index=%s location_id=%s",
             level.id, level.depth,
             getattr(site, "kind", None) if site else None,
             getattr(level, "building_id", None),
             getattr(level, "floor_index", None),
+            location_id,
         )
-        # NIR-only: always mint a fresh floor id; the .nir / .png /
-        # .svg routes rebuild from level state on demand.
+        # Stable location id when supplied → re-entry hits the cache;
+        # otherwise fall back to a fresh random token (rebuild).
         self.floor_svg = ""
-        self.floor_svg_id = _uuid.uuid4().hex[:12]
+        if location_id:
+            self.floor_svg_id = location_id
+        else:
+            import uuid as _uuid
+            self.floor_svg_id = _uuid.uuid4().hex[:12]
         logger.info(
             "Floor IR mode: id=%s level=%s depth=%s "
             "(server SVG skipped)",
