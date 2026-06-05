@@ -1,6 +1,7 @@
 """Tests for the web API endpoints."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -921,10 +922,12 @@ class TestNewGameCleansUp:
         new_sid = resp.get_json()["session_id"]
         renderer = sessions.get(new_sid).game.renderer
         # The stale sidecar is never loaded into the client; the
-        # game serves NIR-only with a freshly minted floor id.
+        # game serves NIR-only with a freshly minted floor id. The id
+        # is now a stable world-location token (Game.current_location_id),
+        # not a random 12-char uuid, so re-entry hits the NIR cache.
         assert renderer.floor_svg == ""
         assert renderer.floor_svg_id
-        assert len(renderer.floor_svg_id) == 12
+        assert re.fullmatch(r"[A-Za-z0-9_-]+", renderer.floor_svg_id)
 
 
 class TestFloorIRRoutes:

@@ -65,7 +65,7 @@ class _RecordingClient:
     def send_floor_change(
         self, level, world, player_id, turn, *,
         seed=0, floor_svg=None, floor_svg_id=None,
-        hatch_distance=2.0, site=None,
+        hatch_distance=2.0, site=None, location_id=None,
     ) -> None:
         if floor_svg and floor_svg_id:
             self.floor_svg = floor_svg
