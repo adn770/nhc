@@ -6,8 +6,19 @@ const NHC = {
   labels: {},
   waitingForFloor: false,
 
+  // Gated debug logger. Verbose floor/frame/profiling console output
+  // is for tester/god sessions only (window.NHC_DEBUG); regular play
+  // stays quiet. console.warn/error are never gated.
+  dlog(...args) {
+    if (window.NHC_DEBUG) console.log(...args);
+  },
+
   init() {
     UI.init();
+    // Verbose diagnostics (floor-transition timing, per-frame logs,
+    // [nhc-render]/[nhc-floor] profiling) are gated to tester / god
+    // sessions. Both flags are injected by the server template.
+    window.NHC_DEBUG = !!(window.NHC_GOD_MODE || window.NHC_TESTER_MODE);
     // Activate god-mode debug tools from the flag embedded in the
     // HTML by the server (player registry or --god CLI flag). Done
     // before Input.init so the first toolbar build includes the
@@ -55,7 +66,7 @@ const NHC = {
     // state_hex / state_flower payloads are handled by their
     // own modules (hex_map.js / hex_flower.js).
     const _applyTileStateFrame = (msg) => {
-      console.log("[state] entities:", msg.entities.length,
+      NHC.dlog("[state] entities:", msg.entities.length,
                   "doors:", (msg.doors || []).length,
                   "fov:", (msg.fov || []).length,
                   "mapW:", GameMap.mapW, "mapH:", GameMap.mapH);
@@ -80,7 +91,7 @@ const NHC = {
     WS.on("state_dungeon", _applyTileStateFrame);
 
     WS.on("message", (msg) => {
-      console.log("message:", msg.text);
+      NHC.dlog("message:", msg.text);
       UI.addMessage(msg.text);
       TTS.enqueue(msg.text);
     });
@@ -113,6 +124,7 @@ const NHC = {
       const _ms = (a, b) =>
         (a != null && b != null ? (b - a).toFixed(2) : "n/a");
       const _emitFloorProfile = (flushStart, flushEnd) => {
+        if (!window.NHC_DEBUG) return;
         const end = flushEnd ?? _t.syncEnd ?? performance.now();
         console.log(
           `[nhc-floor] trigger=${_sendType} `
@@ -124,7 +136,7 @@ const NHC = {
           + `total=${(end - _t.recv).toFixed(2)}ms`,
         );
       };
-      console.log("[floor] msg keys:", Object.keys(msg),
+      NHC.dlog("[floor] msg keys:", Object.keys(msg),
                   "entities:", (msg.entities||[]).length,
                   "fov:", (msg.fov||[]).length,
                   "explored:", (msg.explored||[]).length,
@@ -152,40 +164,40 @@ const NHC = {
       // without resvg-py installed) the client falls back to the
       // sibling .svg endpoint and the legacy inline-SVG path.
       if (msg.floor_url) {
-        console.log("[floor] loading from:", msg.floor_url);
+        NHC.dlog("[floor] loading from:", msg.floor_url);
         _t.loadStart = performance.now();
         await GameMap.setFloorURL(msg.floor_url);
         _t.loadEnd = performance.now();
-        console.log("[floor] after setFloorURL: mapW=",
+        NHC.dlog("[floor] after setFloorURL: mapW=",
                     GameMap.mapW, "mapH=", GameMap.mapH,
                     "canvas=", GameMap.canvas?.width, "x",
                     GameMap.canvas?.height);
       }
       if (msg.entities) {
         GameMap.updateEntities(msg.entities, msg.doors, msg.dug);
-        console.log("[floor] updateEntities done:",
+        NHC.dlog("[floor] updateEntities done:",
                     GameMap.entities.length, "entities");
       }
       if (msg.explored) {
         GameMap.setExplored(msg.explored);
-        console.log("[floor] setExplored:", msg.explored.length);
+        NHC.dlog("[floor] setExplored:", msg.explored.length);
       }
       if (msg.fov) {
         GameMap.updateFOV(msg);
-        console.log("[floor] updateFOV:", msg.fov.length, "tiles");
+        NHC.dlog("[floor] updateFOV:", msg.fov.length, "tiles");
       }
       GameMap.loadHatchPattern();
       _t.syncEnd = performance.now();
       const mapContainer = document.getElementById("map-container");
       const hexContainer = document.getElementById("hex-container");
       const flowerContainer = document.getElementById("flower-container");
-      console.log("[floor] visibility: map-container=",
+      NHC.dlog("[floor] visibility: map-container=",
                   mapContainer && !mapContainer.classList.contains("hidden"),
                   "hex-container=",
                   hexContainer && !hexContainer.classList.contains("hidden"),
                   "flower-container=",
                   flowerContainer && !flowerContainer.classList.contains("hidden"));
-      console.log("[floor] map-container transform:",
+      NHC.dlog("[floor] map-container transform:",
                   mapContainer?.style.transform,
                   "origin:", mapContainer?.style.transformOrigin);
       if (msg.entities || msg.fov) {
@@ -194,7 +206,7 @@ const NHC = {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             const _flushStart = performance.now();
-            console.log("[floor] deferred flush: mapW=",
+            NHC.dlog("[floor] deferred flush: mapW=",
                         GameMap.mapW, "mapH=", GameMap.mapH,
                         "canvas=", GameMap.canvas?.width, "x",
                         GameMap.canvas?.height,
@@ -202,13 +214,13 @@ const NHC = {
                         "entities=", GameMap.entities?.length);
             GameMap.flush();
             GameMap.scrollToPlayer();
-            console.log("[floor] flush+scroll done, playerX=",
+            NHC.dlog("[floor] flush+scroll done, playerX=",
                         GameMap.playerX, "playerY=", GameMap.playerY);
             _emitFloorProfile(_flushStart, performance.now());
           });
         });
       } else {
-        console.log("[floor] NO entities/fov — skipping flush");
+        NHC.dlog("[floor] NO entities/fov — skipping flush");
         _emitFloorProfile(null, null);
       }
       NHC.waitingForFloor = false;
@@ -216,7 +228,7 @@ const NHC = {
     });
 
     WS.on("menu", async (msg) => {
-      console.log("menu:", msg.title, msg.options.length, "options");
+      NHC.dlog("menu:", msg.title, msg.options.length, "options");
       const choice = await UI.showMenu(msg.title, msg.options);
       WS.send({ type: "menu_select", choice });
     });

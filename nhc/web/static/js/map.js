@@ -113,7 +113,7 @@ const GameMap = {
       }
     }
 
-    console.log("GameMap.init(): canvas=", this.canvas,
+    NHC.dlog("GameMap.init(): canvas=", this.canvas,
                 "fog=", this.fogCanvas, "hatch=", this.hatchCanvas);
     this._loadZoomPrefs();
     this.initTooltip();
@@ -361,8 +361,11 @@ const GameMap = {
     const label = this.theme
       ? `theme=${this.theme} ${url}`
       : url;
+    // Profiled render path (per-layer [nhc-render] + [nhc-floor-load]
+    // timing) only for tester / god sessions; regular play uses the
+    // plain, slightly cheaper render with no console output.
     const { canvas, width, height } = await mod.fetchAndRender(url, {
-      profile: true,
+      profile: !!window.NHC_DEBUG,
       profileLabel: label,
     });
     const container = document.getElementById("floor-svg");
@@ -376,7 +379,7 @@ const GameMap = {
    * floor pixel dimensions and trigger the per-view auto-fit.
    */
   _installFloorDimensions(w, h, kind) {
-    console.log(`[setFloor${kind}] installed: new=`, w, "x", h,
+    NHC.dlog(`[setFloor${kind}] installed: new=`, w, "x", h,
                 "prerevealed=", this.prerevealed);
     this.canvas.width = w;
     this.canvas.height = h;
@@ -399,7 +402,7 @@ const GameMap = {
     }
     this.mapW = w;
     this.mapH = h;
-    console.log(`Floor ${kind} set:`, w, "x", h,
+    NHC.dlog(`Floor ${kind} set:`, w, "x", h,
                  "canvas:", this.canvas.width, this.canvas.height,
                  "fog:", this.fogCanvas?.width, this.fogCanvas?.height);
     // Auto-fit on first entry to a tile-layer view (site /
@@ -552,11 +555,11 @@ const GameMap = {
     // dimensions are 0 and nothing would be visible. The
     // floor handler will call flush() again after loading.
     if (!this.mapW || !this.mapH) {
-      console.log("[flush] SKIP: mapW=", this.mapW,
+      NHC.dlog("[flush] SKIP: mapW=", this.mapW,
                   "mapH=", this.mapH);
       return;
     }
-    console.log("[flush] rendering: mapW=", this.mapW,
+    NHC.dlog("[flush] rendering: mapW=", this.mapW,
                 "mapH=", this.mapH,
                 "canvas=", this.canvas?.width, "x",
                 this.canvas?.height,
@@ -657,7 +660,7 @@ const GameMap = {
    */
   loadHatchPattern() {
     const url = window.NHC_HATCH_URI;
-    console.log("loadHatchPattern: ctx=", !!this.hatchCtx);
+    NHC.dlog("loadHatchPattern: ctx=", !!this.hatchCtx);
     if (!this.hatchCtx || !url) {
       console.warn("loadHatchPattern SKIPPED: no ctx or pattern");
       return;
@@ -675,7 +678,7 @@ const GameMap = {
     }
     const img = new Image();
     img.onload = () => {
-      console.log("Hatch patch loaded:", img.width, "x", img.height);
+      NHC.dlog("Hatch patch loaded:", img.width, "x", img.height);
       // Render SVG patch to an offscreen canvas
       const patch = document.createElement("canvas");
       patch.width = img.width;
@@ -691,7 +694,7 @@ const GameMap = {
       // Bulk reveal everything explored so far (includes current
       // FOV on floor entry and the server-restored set on reconnect).
       this.clearHatch(this.exploredWalls);
-      console.log("Hatch stamped, cleared",
+      NHC.dlog("Hatch stamped, cleared",
                   this.exploredWalls.size, "explored tiles");
     };
     img.onerror = (e) => {
@@ -1153,7 +1156,7 @@ const GameMap = {
       return;
     }
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    console.log("draw:", this.entities.length, "entities");
+    NHC.dlog("draw:", this.entities.length, "entities");
 
     for (const ent of this.entities) {
       const px = ent.x * this.cellSize + this.padding;
