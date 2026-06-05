@@ -103,6 +103,27 @@ const NHC = {
     });
 
     WS.on("floor", async (msg) => {
+      // Transition profiling — attribute a "slow floor change" to
+      // server round-trip vs floor load (fetch/render, see
+      // [nhc-floor-load]) vs overlay flush. Emits one [nhc-floor]
+      // summary line once the floor is on screen.
+      const _t = { recv: performance.now() };
+      const _serverRtt = WS._lastSendAt ? _t.recv - WS._lastSendAt : -1;
+      const _sendType = WS._lastSendType || "?";
+      const _ms = (a, b) =>
+        (a != null && b != null ? (b - a).toFixed(2) : "n/a");
+      const _emitFloorProfile = (flushStart, flushEnd) => {
+        const end = flushEnd ?? _t.syncEnd ?? performance.now();
+        console.log(
+          `[nhc-floor] trigger=${_sendType} `
+          + `server_rtt=${_serverRtt >= 0 ? _serverRtt.toFixed(2) : "n/a"} `
+          + `floor_load=${_ms(_t.loadStart, _t.loadEnd)} `
+          + `state=${_ms(_t.loadEnd ?? _t.recv, _t.syncEnd)} `
+          + `defer_gap=${_ms(_t.syncEnd, flushStart)} `
+          + `flush=${_ms(flushStart, flushEnd)} `
+          + `total=${(end - _t.recv).toFixed(2)}ms`,
+        );
+      };
       console.log("[floor] msg keys:", Object.keys(msg),
                   "entities:", (msg.entities||[]).length,
                   "fov:", (msg.fov||[]).length,
@@ -132,7 +153,9 @@ const NHC = {
       // sibling .svg endpoint and the legacy inline-SVG path.
       if (msg.floor_url) {
         console.log("[floor] loading from:", msg.floor_url);
+        _t.loadStart = performance.now();
         await GameMap.setFloorURL(msg.floor_url);
+        _t.loadEnd = performance.now();
         console.log("[floor] after setFloorURL: mapW=",
                     GameMap.mapW, "mapH=", GameMap.mapH,
                     "canvas=", GameMap.canvas?.width, "x",
@@ -152,6 +175,7 @@ const NHC = {
         console.log("[floor] updateFOV:", msg.fov.length, "tiles");
       }
       GameMap.loadHatchPattern();
+      _t.syncEnd = performance.now();
       const mapContainer = document.getElementById("map-container");
       const hexContainer = document.getElementById("hex-container");
       const flowerContainer = document.getElementById("flower-container");
@@ -169,6 +193,7 @@ const NHC = {
         // the SVG and resize canvases.
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
+            const _flushStart = performance.now();
             console.log("[floor] deferred flush: mapW=",
                         GameMap.mapW, "mapH=", GameMap.mapH,
                         "canvas=", GameMap.canvas?.width, "x",
@@ -179,10 +204,12 @@ const NHC = {
             GameMap.scrollToPlayer();
             console.log("[floor] flush+scroll done, playerX=",
                         GameMap.playerX, "playerY=", GameMap.playerY);
+            _emitFloorProfile(_flushStart, performance.now());
           });
         });
       } else {
         console.log("[floor] NO entities/fov — skipping flush");
+        _emitFloorProfile(null, null);
       }
       NHC.waitingForFloor = false;
       NHC.hideLoading();

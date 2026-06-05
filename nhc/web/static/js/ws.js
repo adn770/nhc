@@ -5,6 +5,11 @@ const WS = {
   socket: null,
   sessionId: null,
   handlers: {},
+  // Timestamp + type of the last outbound message. The floor
+  // handler reads these to attribute server + websocket round-trip
+  // latency to a transition (the [nhc-floor] profile line).
+  _lastSendAt: 0,
+  _lastSendType: null,
 
   connect(sessionId) {
     // Close any existing connection before opening a new one
@@ -61,6 +66,9 @@ const WS = {
 
   send(msg) {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this._lastSendAt = performance.now();
+      this._lastSendType =
+        (msg && (msg.type || msg.action || msg.cmd)) || "?";
       this.socket.send(JSON.stringify(msg));
     }
   },

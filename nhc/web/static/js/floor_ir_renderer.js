@@ -114,6 +114,11 @@ export async function fetchAndRender(url, options = {}) {
   // path). Skip the cache for debug knobs (`layer`, `bare`,
   // non-default `scale`) so a one-off single-layer render can't
   // poison the production cache the production map.js path uses.
+  // Per-stage timing for the [nhc-floor-load] breakdown — lets us
+  // tell rasterize cost apart from network fetch / wasm init / DOM
+  // setup within a floor load. Pairs with the [nhc-render] line
+  // (per-layer) and the [nhc-floor] line (whole transition).
+  const tStart = performance.now();
   if (layer === null && !bare && scale === 1.0 && RENDER_CACHE.has(url)) {
     const hit = RENDER_CACHE.get(url);
     RENDER_CACHE.delete(url);
@@ -123,6 +128,10 @@ export async function fetchAndRender(url, options = {}) {
       console.log(
         `[nhc-render] ${label} cached=true canvas=${hit.width}x${hit.height}`,
       );
+      console.log(
+        `[nhc-floor-load] ${label} cache=hit `
+        + `total=${(performance.now() - tStart).toFixed(2)}ms`,
+      );
     }
     return {
       canvas: cloneCanvas(hit.canvas),
@@ -131,11 +140,13 @@ export async function fetchAndRender(url, options = {}) {
     };
   }
   const mod = await loadModule();
+  const tModule = performance.now();
   const resp = await fetch(url);
   if (!resp.ok) {
     throw new Error(`Floor IR fetch failed: ${resp.status} ${url}`);
   }
   const buf = new Uint8Array(await resp.arrayBuffer());
+  const tFetch = performance.now();
   const dims = mod.ir_canvas_dims(buf, scale);
   const w = dims[0];
   const h = dims[1];
@@ -147,6 +158,7 @@ export async function fetchAndRender(url, options = {}) {
   if (!ctx) {
     throw new Error("canvas.getContext('2d') returned null");
   }
+  const tDims = performance.now();
   // The render call returns dims too — they should match what
   // ir_canvas_dims produced; assert in dev mode so a regression
   // in either path surfaces loudly.
@@ -159,10 +171,25 @@ export async function fetchAndRender(url, options = {}) {
   } else {
     renderDims = mod.render_ir_to_canvas(buf, ctx, scale, layer, bare);
   }
+  const tRender = performance.now();
   if (renderDims[0] !== w || renderDims[1] !== h) {
     console.warn(
       "[floor_ir_renderer] dims mismatch:",
       "pre-flight=", w, h, "render=", renderDims[0], renderDims[1],
+    );
+  }
+  if (profile) {
+    const label = profileLabel ?? url;
+    // module = wasm import+init (≈0 after the first floor); fetch =
+    // NIR over the wire; dims = ir_canvas_dims + canvas alloc;
+    // render = the rasterize ([nhc-render] breaks it into layers).
+    console.log(
+      `[nhc-floor-load] ${label} cache=miss bytes=${buf.length} `
+      + `module=${(tModule - tStart).toFixed(2)} `
+      + `fetch=${(tFetch - tModule).toFixed(2)} `
+      + `dims=${(tDims - tFetch).toFixed(2)} `
+      + `render=${(tRender - tDims).toFixed(2)} `
+      + `total=${(tRender - tStart).toFixed(2)}ms`,
     );
   }
   // Cache only the canonical render shape (no debug knobs). Match
