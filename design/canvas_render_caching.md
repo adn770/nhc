@@ -63,26 +63,45 @@ pytest -m perf tests/perf/test_wasm_render_bench.py -s
 # fixture / iterations: NHC_PERF_FIXTURE, NHC_PERF_WARMUP, NHC_PERF_TIMED
 ```
 
-Loads the **real shipped `pkg/` bundle** in headless Chromium over a localhost
-origin, calls `render_ir_to_canvas_profiled` directly (no whole-floor cache),
-WARMUP=3 + TIMED=20, and reports min/median/p95 per layer + total. It is
-**reporting-only** — it asserts liveness (one profile line per render) but never
-a millisecond threshold (absolute ms is hardware-bound, and there is no CI to
-gate). A staleness guard fails the run if `pkg/` is older than `crates/*/src`,
-so it can never silently time stale code.
+Loads the **real shipped `pkg/` bundle** in Chromium over a localhost origin,
+calls `render_ir_to_canvas_profiled` directly (no whole-floor cache), WARMUP=3 +
+TIMED=20, and reports min/median/p95 per layer + total. It is **reporting-only**
+— it asserts liveness (one profile line per render) but never a millisecond
+threshold (absolute ms is hardware-bound, and there is no CI to gate). A
+staleness guard fails the run if `pkg/` is older than `crates/*/src`, so it can
+never silently time stale code.
 
-## ⚠️ Headless is software-rendered — read before trusting absolute ms
+### Two modes — software (default) vs GPU (opt-in)
 
-Headless Chromium rasterises Canvas2D in **software** (no GPU), so Tier 2's
-absolute numbers are paint-dominated and roughly an order of magnitude slower
-than a real GPU-accelerated browser. The original ~262 ms town baseline was
-captured in a real browser; **Tier 2 headless numbers are not comparable to
-it.** What Tier 2 *is* good for: a **reproducible relative baseline** for
-phase-over-phase deltas (the post-3.D run measured a 3.8 % total spread — well
-under the 5 % stability target) and the deterministic cache counts. Track the
-delta a phase produces, not the absolute total. For an absolute production
-number, capture a real GPU browser separately (e.g. DevTools on a deployed
-session).
+| | software headless (default) | `NHC_PERF_GPU=1` (headed) |
+|---|---|---|
+| backend | SwiftShader (CPU) | real GPU (Metal/ANGLE on a Mac) |
+| absolute ms | ~25× slow, **paint-heavy** (misleading) | **realistic**, fixture/roof-heavy |
+| reproducibility | high (~4 % spread) | lower (~15 %; thermal/compositor) |
+| needs | nothing | desktop display (no SSH/CI); pops a window |
+| use for | deterministic counts + relative tripwire | headline + which layer to optimise |
+
+`NHC_PERF_GPU=1` launches **headed system Chrome** (falls back to the bundled
+headed Chromium) with the GPU blocklist relaxed. The harness probes the WebGL
+`UNMASKED_RENDERER` and prints it (`gpu_renderer=…`) so you can confirm a real
+backend engaged rather than a silent SwiftShader fallback — if it says
+`SwiftShader`, GPU did NOT engage and the numbers are still software.
+
+```sh
+# Production-realistic spot-check (Mac desktop, pops a Chrome window):
+NHC_PERF_GPU=1 pytest -m perf tests/perf/test_wasm_render_bench.py -s
+```
+
+### ⚠️ Which number to trust
+
+- **Software headless** absolute ms is **not** comparable to production (no GPU,
+  paint-dominated). Use it for the deterministic counts and a reproducible
+  relative tripwire — track the phase-over-phase *delta*, not the total.
+- **GPU headed** is the production-realistic number and, crucially, shows the
+  **correct layer split** (fixture/roof dominate, matching the original
+  production profile — software's paint-dominated split is an artefact). Use it
+  to decide *which* layer a phase should attack and to read the headline total.
+  Take a larger TIMED median to tame the ~15 % spread.
 
 ## Post-3.D baseline (recorded 2026-06-05, seed19 city)
 
@@ -91,22 +110,26 @@ Both tiers, same fixture, cache counts identical across tiers
 — 157 sprite stamps, low reuse across the 256-bucket space; grove memo
 unwired):
 
-| layer (ms) | Tier 2 headless median | Tier 1 tiny_skia median |
-|------------|-----------------------:|------------------------:|
-| total      | 8365.70                | 25256.42                |
-| paint      | 7984.40                | 9590.65                 |
-| roof       | 230.55                 | 14407.37                |
-| fixture    | 132.80                 | 1014.50                 |
-| stroke     | 11.70                  | 147.29                  |
-| stamp      | 6.40                   | 70.71                   |
-| shadow     | 0.10                   | 25.17                   |
-| hatch/path | 0.00                   | 0.01                    |
+| layer (ms) | Tier 2 GPU (M4 Pro Metal) | Tier 2 headless (software) | Tier 1 tiny_skia |
+|------------|--------------------------:|---------------------------:|-----------------:|
+| total      | **333.20**                | 8365.70                    | 25256.42         |
+| paint      | 42.65                     | 7984.40                    | 9590.65          |
+| roof       | 156.75                    | 230.55                     | 14407.37         |
+| fixture    | 124.10                    | 132.80                     | 1014.50          |
+| stroke     | 2.60                      | 11.70                      | 147.29           |
+| stamp      | 6.40                      | 6.40                       | 70.71            |
+| shadow     | 0.10                      | 0.10                       | 25.17            |
+| hatch/path | 0.00                      | 0.00                       | 0.01             |
 
-Tier 2 total spread (max−min)/median = **3.8 %**. Note the two software
-rasterisers disagree on the layer split (Tier 2 paint-dominated; Tier 1
-roof-dominated), and both differ from a GPU browser's fixture/roof balance —
-another reason the absolute split is not load-bearing; the counts and the
-phase-over-phase delta are.
+Spread: GPU **14.9 %** (TIMED=10), software headless **3.8 %** (TIMED=20).
+`gpu_renderer = "ANGLE (Apple, ANGLE Metal Renderer: Apple M4 Pro)"` — a real
+GPU, confirmed. The **GPU total (333 ms on the city) is the production-realistic
+headline** — same ballpark as the original ~262 ms *town*, on a far heavier
+floor — and its layer split (fixture+roof dominant) matches the original
+production profile. The two software rasterisers (Tier 2 headless paint-heavy,
+Tier 1 tiny_skia roof-heavy) disagree with each other AND with the GPU, which is
+exactly why their absolute split is not load-bearing — use them for the
+deterministic counts and a relative tripwire only.
 
 The running local table of phase ↔ profile pairs lives (gitignored) at
 `debug/wasm-render-caching-profile.md`.

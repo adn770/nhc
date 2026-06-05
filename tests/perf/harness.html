@@ -34,6 +34,26 @@ const params = new URLSearchParams(window.location.search);
 const fixture = params.get("fixture") || "seed19_city_surface";
 const scale = parseFloat(params.get("scale") || "1.0");
 
+// Report the GPU the browser would use, so the driver can tell a
+// real Metal/ANGLE backend from a SwiftShader software fallback.
+// (No JS API says whether THIS 2d canvas is GPU-backed; the WebGL
+// renderer string + the measured total together reveal it.)
+function gpuRenderer() {
+  try {
+    const c = document.createElement("canvas");
+    const gl =
+      c.getContext("webgl") || c.getContext("experimental-webgl");
+    if (!gl) return "no-webgl";
+    const ext = gl.getExtension("WEBGL_debug_renderer_info");
+    return ext
+      ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL))
+      : "no-debug-renderer-info";
+  } catch (e) {
+    return "probe-error:" + e;
+  }
+}
+window.gpuRenderer = gpuRenderer();
+
 let buf = null;
 let ctx = null;
 let dims = [0, 0];

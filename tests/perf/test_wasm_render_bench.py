@@ -40,6 +40,37 @@ pytestmark = pytest.mark.perf
 FIXTURE = os.environ.get("NHC_PERF_FIXTURE", "seed19_city_surface")
 WARMUP = int(os.environ.get("NHC_PERF_WARMUP", "3"))
 TIMED = int(os.environ.get("NHC_PERF_TIMED", "20"))
+# NHC_PERF_GPU=1 → headed Chrome with GPU enabled (real Metal/ANGLE
+# on a Mac desktop), for production-like absolute numbers. Default
+# (unset) stays headless software (reproducible relative baseline).
+# GPU mode needs a display (no SSH/CI), pops a window, and is
+# noisier — see design/canvas_render_caching.md.
+GPU = os.environ.get("NHC_PERF_GPU") == "1"
+
+
+def _launch(p):
+    """Launch the browser per the GPU toggle.
+
+    GPU: headed system Chrome with the blocklist relaxed + 2D-canvas
+    accel forced. Falls back to the bundled headed Chromium if the
+    ``chrome`` channel isn't found. Default: headless shell
+    (software).
+    """
+    if not GPU:
+        return p.chromium.launch()
+    gpu_args = [
+        "--ignore-gpu-blocklist",
+        "--enable-gpu-rasterization",
+        "--enable-accelerated-2d-canvas",
+    ]
+    try:
+        return p.chromium.launch(
+            headless=False, channel="chrome", args=gpu_args,
+        )
+    except Exception:
+        # No system Chrome channel — use the bundled full Chromium
+        # (still GPU-capable headed; not the headless shell).
+        return p.chromium.launch(headless=False, args=gpu_args)
 
 
 def _parse_line(line: str) -> dict[str, float]:
@@ -76,7 +107,7 @@ def test_wasm_render_bench(static_server):
     lines: list[str] = []
     with sync_playwright() as p:
         try:
-            browser = p.chromium.launch()
+            browser = _launch(p)
         except Exception as exc:  # browser binary not installed
             pytest.skip(
                 f"chromium launch failed ({exc}) — run `make perf-bootstrap`",
@@ -95,6 +126,7 @@ def test_wasm_render_bench(static_server):
             if not ready:
                 err = page.evaluate("() => window.benchError || 'unknown'")
                 pytest.fail(f"harness setup failed: {err}")
+            gpu_renderer = page.evaluate("() => window.gpuRenderer")
             lines = page.evaluate(
                 "async (a) => window.runBench(a.warmup, a.timed)",
                 {"warmup": WARMUP, "timed": TIMED},
@@ -113,7 +145,9 @@ def test_wasm_render_bench(static_server):
         "total", "shadow", "hatch", "paint", "stroke", "stamp",
         "roof", "path", "fixture",
     ]
-    print(f"\n[tier2] fixture={FIXTURE} warmup={WARMUP} timed={TIMED}")
+    mode = "GPU/headed" if GPU else "software/headless"
+    print(f"\n[tier2] fixture={FIXTURE} warmup={WARMUP} timed={TIMED} mode={mode}")
+    print(f"[tier2]   gpu_renderer={gpu_renderer}")
     for key in keys:
         vals = [p[key] for p in parsed if key in p]
         if not vals:
