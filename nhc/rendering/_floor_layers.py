@@ -81,7 +81,25 @@ def _collect_corridor_tiles(
     WATER / GRASS / LAVA AND whose surface_type is CORRIDOR (or
     whose feature carries ``"door"``), excluding any tile already
     covered by ``cave_tiles``.
+
+    Door tiles are folded in only on dungeon floors, where a door
+    sits in a corridor and reads as a framed doorway. They are left
+    out on:
+
+    - building floors (``building_id`` set) — doors connect rooms,
+      not corridors; and
+    - site surfaces (``metadata.prerevealed``) — building *entry*
+      doors sit on the street.
+
+    On both, boxing each door tile draws a spurious square around it,
+    so they collect real CORRIDOR tiles only.
     """
+    meta = getattr(level, "metadata", None)
+    prerevealed = bool(getattr(meta, "prerevealed", False))
+    include_doors = (
+        getattr(level, "building_id", None) is None
+        and not prerevealed
+    )
     tiles: set[tuple[int, int]] = set()
     for y in range(level.origin_y, level.origin_y + level.height):
         for x in range(level.origin_x, level.origin_x + level.width):
@@ -95,7 +113,8 @@ def _collect_corridor_tiles(
                 continue
             if (
                 tile.surface_type == SurfaceType.CORRIDOR
-                or (tile.feature and "door" in (tile.feature or ""))
+                or (include_doors
+                    and tile.feature and "door" in (tile.feature or ""))
             ):
                 tiles.add((x, y))
     return tiles
