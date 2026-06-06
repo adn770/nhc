@@ -52,23 +52,28 @@ def _building_footprints(site) -> set[tuple[int, int]]:
     return out
 
 
-# ── 1. Trees only land on FIELD tiles ─────────────────────────
+# ── 1. Trees land on FIELD or a plaza apron ───────────────────
 
 
 class TestTreeSurface:
     @pytest.mark.parametrize("size_class", [
         "village", "town", "city",
     ])
-    def test_every_tree_on_field_tile(self, size_class):
+    def test_every_tree_on_field_or_plaza_apron(self, size_class):
+        # Scattered trees land on FIELD; the deliberate small-plaza
+        # tree sits on the well-square's GARDEN apron (D7/Q1). A tree on
+        # STREET / PAVEMENT would be the real bug.
         for seed in range(15):
             site = assemble_town(
                 "t1", random.Random(seed), size_class=size_class,
             )
             for x, y in _tree_positions(site):
                 tile = site.surface.tiles[y][x]
-                assert tile.surface_type == SurfaceType.FIELD, (
+                assert tile.surface_type in (
+                    SurfaceType.FIELD, SurfaceType.GARDEN,
+                ), (
                     f"seed={seed} {size_class}: tree at ({x},{y}) "
-                    f"on {tile.surface_type!r}, expected FIELD"
+                    f"on {tile.surface_type!r}, expected FIELD/GARDEN"
                 )
 
 

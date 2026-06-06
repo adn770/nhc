@@ -54,8 +54,9 @@ from nhc.sites._site import (
 from nhc.sites._placement import (
     safe_floor_near, smallest_leaf_door,
 )
+from nhc.sites._town_bsp import partition_interior
 from nhc.sites._town_layout import (
-    _ClusterMember, _ClusterPlan, _cluster_pack,
+    _ClusterMember, _ClusterPlan, _cluster_pack, fill_partition,
 )
 from nhc.sites._town_streets import (
     compute_town_street_network, connect_doors_to_street_network,
@@ -508,12 +509,10 @@ def assemble_town(
     else:
         n_buildings = rng.randint(*config.building_count_range)
 
-    # Assign the role of each building BEFORE placement so the
-    # cluster packer can draw a per-role size. The returned list
-    # is role-by-slot, one string per building, with every service
-    # role covered first and the rest filled with "residential".
+    # Assign the role of each building BEFORE placement so the per-plot
+    # fill can draw a per-role, per-tier size. The list is role-by-slot,
+    # service roles covered first, the rest "residential".
     roles = _roll_role_slots(rng, n_buildings)
-    sizes = [_draw_size_for_role(role, rng) for role in roles]
     has_palisade = (
         config.has_palisade and not overrides.suppress_palisade
     )
@@ -523,33 +522,23 @@ def assemble_town(
     else:
         gate_sides = []
     bounds = _buildable_bounds(config, has_palisade)
-    # Phase 5 two-pass placement: probe-pass packer determines a
-    # rough cluster bbox set; we compute the centerpiece patch
-    # origin and reserve it as a forbidden_rect for the final
-    # cluster pack so clusters arrange around the landmark.
-    probe_plans = _cluster_pack(
-        roles, sizes, config, size_class, rng, bounds=bounds,
+    # BSP-neighbourhood layout (design/town_generator.md): carve the
+    # interior into a few neighbourhood plots with reserved big/small
+    # plazas, then fill each plot independently. Non-palisade sites
+    # (hamlet / mountain lodge) skip the BSP and use a single plot.
+    min_x, min_y, max_x, max_y = bounds
+    interior = Rect(min_x, min_y, max_x - min_x, max_y - min_y)
+    partition = partition_interior(
+        interior, size_class, rng, single_plot=not has_palisade,
     )
-    cp_spec = _CENTERPIECE_PER_SIZE.get(size_class)
-    cp_origin: tuple[int, int] | None = None
-    forbidden_rects: list[Rect] = []
-    if cp_spec is not None and probe_plans:
-        cp_origin = _compute_centerpiece_origin(
-            probe_plans, gate_sides, cp_spec, bounds, rng,
-        )
-        if cp_origin is not None:
-            ox, oy = cp_origin
-            forbidden_rects.append(
-                Rect(ox, oy, cp_spec.patch_dim, cp_spec.patch_dim),
-            )
-
-    cluster_plans = _cluster_pack(
-        roles, sizes, config, size_class, rng,
-        forbidden_rects=forbidden_rects, bounds=bounds,
+    cluster_plans = fill_partition(partition, roles, size_class, rng)
+    plazas = [p.plaza for p in partition.plots if p.plaza is not None]
+    big_plaza_rect = next(
+        (z.rect for z in plazas if z.tier == "big"), None,
     )
+    small_plaza_rects = [z.rect for z in plazas if z.tier == "small"]
     buildings = _place_buildings(
-        site_id, rng, roles, sizes, cluster_plans,
-        overrides=overrides,
+        site_id, rng, roles, cluster_plans, overrides=overrides,
     )
     # Pair each placed building with its original role by index
     # (the cluster packer can drop members at the dense city
@@ -577,15 +566,14 @@ def assemble_town(
         )
     else:
         enclosure = None
-    cp_rect = forbidden_rects[0] if forbidden_rects else None
     surface = _build_town_surface(
         f"{site_id}_surface", buildings, enclosure,
         cluster_plans, size_class, config,
-        centerpiece_rect=cp_rect,
+        centerpiece_rect=big_plaza_rect,
         open_bounds=bounds,
+        blocked_rects=small_plaza_rects,
     )
-    if cp_origin is not None and cp_spec is not None:
-        _stamp_centerpiece(surface, cp_origin, cp_spec, biome)
+    stamp_plazas(surface, plazas, size_class, biome)
     if overrides.ambient is not None:
         surface.metadata.ambient = overrides.ambient
 
@@ -654,7 +642,10 @@ def assemble_town(
         # subsequent pass sees inner-courtyard tiles as PAVEMENT
         # (and skips them) while the outer ring stays FIELD and
         # accepts the canopy.
-        _pave_courtyard_post_pass(surface, _palisade_outer_rect(config))
+        _pave_courtyard_post_pass(
+            surface, _palisade_outer_rect(config),
+            protected_rects=small_plaza_rects,
+        )
     # Vegetation scatter walks every FIELD tile. After the
     # ``_paint_outer_grass_ring`` step, the outer grass apron is
     # FIELD too, so this pass also seeds trees / bushes outside
@@ -711,17 +702,14 @@ def _draw_size_for_role(
 
 def _place_buildings(
     site_id: str, rng: random.Random,
-    roles: list[str], sizes: list[tuple[int, int]],
+    roles: list[str],
     cluster_plans: list[_ClusterPlan],
     overrides: _BiomeOverrides | None = None,
 ) -> list[Building]:
-    """Materialise :class:`Building`s from the cluster packer's
-    output.
+    """Materialise :class:`Building`s from the per-plot fill output.
 
-    ``roles`` and ``sizes`` are parallel lists, one entry per
-    building. ``cluster_plans`` carries the placed cluster bboxes
-    + per-member rects produced by
-    :func:`nhc.sites._town_layout._cluster_pack`. Buildings are
+    ``roles`` is one entry per building; ``cluster_plans`` carries the
+    placed per-member rects (each member already sized). Buildings are
     indexed by their original input position so service-role
     assignment, descent rolls and stable building ids stay in
     register with the role list.
@@ -1335,6 +1323,8 @@ def _stamp_small_plaza(
             )
     if surface.in_bounds(cx, cy):
         surface.tiles[cy][cx].feature = feature_tag
+    # A single tree in a corner of the grass apron (a plaza tree, not a
+    # scattered-FIELD tree — see test_town_vegetation).
     if surface.in_bounds(rect.x, rect.y):
         surface.tiles[rect.y][rect.x].feature = "tree"
 
@@ -1347,6 +1337,7 @@ def _build_town_surface(
     config: _TownSizeConfig,
     centerpiece_rect: Rect | None = None,
     open_bounds: tuple[int, int, int, int] | None = None,
+    blocked_rects: list[Rect] | None = None,
 ) -> Level:
     """Route the street network and stamp STREET / GARDEN / FIELD
     tiles across the walkable area.
@@ -1378,6 +1369,13 @@ def _build_town_surface(
     blocked: set[tuple[int, int]] = set()
     for b in buildings:
         blocked |= b.base_shape.floor_tiles(b.base_rect)
+    # Keep streets out of the small-plaza patches: they are stamped as
+    # a grass apron + well AFTER routing, so a street routed through one
+    # would be severed and could disconnect a gate (S2).
+    for r in blocked_rects or []:
+        for x in range(r.x, r.x2):
+            for y in range(r.y, r.y2):
+                blocked.add((x, y))
 
     _, classification = compute_town_street_network(
         cluster_plans, enclosure,
@@ -1393,6 +1391,7 @@ def _build_town_surface(
 
 def _pave_courtyard_post_pass(
     surface: Level, palisade_rect: Rect,
+    protected_rects: list[Rect] | None = None,
 ) -> None:
     """Convert every GARDEN / FIELD tile **inside the palisade
     rect** to PAVEMENT.
@@ -1417,9 +1416,19 @@ def _pave_courtyard_post_pass(
     StaggeredJoint via ``pavement_material``), giving the city a
     visible split between the routed network and the open plaza.
     """
+    protected = protected_rects or []
+
+    def _is_protected(x: int, y: int) -> bool:
+        return any(
+            r.x <= x < r.x2 and r.y <= y < r.y2 for r in protected
+        )
+
     for y in range(palisade_rect.y, palisade_rect.y2):
         for x in range(palisade_rect.x, palisade_rect.x2):
             if not surface.in_bounds(x, y):
+                continue
+            # S5: keep small-plaza grass aprons green — don't pave them.
+            if _is_protected(x, y):
                 continue
             tile = surface.tiles[y][x]
             if tile.surface_type in (

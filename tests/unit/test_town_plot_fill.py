@@ -204,16 +204,23 @@ def test_residential_massing_gradient_core_pocket_edge():
 
 
 def test_archetype_fits_plot_aspect():
-    def mode(rect: Rect, n_members: int) -> str:
-        counts = Counter(
+    # The aspect bias is intentionally SOFT (a strong one towers tall
+    # plots — see _ASPECT_BOOST), so it shifts the distribution rather
+    # than forcing a single archetype: rows are commoner in wide plots,
+    # columns commoner in tall plots, and a square plot favours the
+    # courtyard.
+    def dist(rect: Rect, n_members: int) -> Counter:
+        return Counter(
             _roll_archetype_for_plot(n_members, "city", rect, random.Random(s))
-            for s in range(200)
+            for s in range(400)
         )
-        return counts.most_common(1)[0][0]
 
-    assert mode(Rect(0, 0, 60, 20), 3) == "row"       # wide
-    assert mode(Rect(0, 0, 20, 60), 3) == "column"    # tall
-    assert mode(Rect(0, 0, 40, 40), 4) == "courtyard"  # square
+    wide = dist(Rect(0, 0, 60, 20), 3)
+    tall = dist(Rect(0, 0, 20, 60), 3)
+    square = dist(Rect(0, 0, 40, 40), 4)
+    assert wide["row"] > tall["row"]        # rows lean wide
+    assert tall["column"] > wide["column"]  # columns lean tall
+    assert square.most_common(1)[0][0] == "courtyard"
 
 
 def test_fill_deterministic():

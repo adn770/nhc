@@ -754,16 +754,29 @@ def _placements_from_clusters(
 # Plot massing tier (D10): a plot hosting the big plaza is the civic
 # "core", one hosting a small plaza a residential "pocket", a plain
 # plot the "edge". Drives both the service-role bias and the size skew.
+# Tuned so the core (big-plaza) plot draws services without
+# over-concentrating them — a too-strong pull crams wide services into
+# one plot, forcing eviction cascades that thin the city (measured: 2.5
+# keeps the city's worst-case building count at the historical floor).
 _SERVICE_TIER_WEIGHT: dict[str, float] = {
-    "core": 4.0, "pocket": 1.5, "edge": 1.0,
+    "core": 2.5, "pocket": 1.5, "edge": 1.0,
 }
 
 # Archetype-to-plot-aspect bias (D3): a clearly wide plot favours rows,
-# a tall plot columns, a square plot courtyards / L-blocks.
+# a tall plot columns, a square plot courtyards / L-blocks. Kept SOFT
+# on purpose — a strong aspect bias turns a tall-narrow plot into a
+# stack of tall column "towers" that consume the plot's height and
+# strand the remaining buildings (measured). Small clusters
+# (_CLUSTER_SIZE_DIVISOR) do the real anti-tower work.
 _WIDE_ASPECT = 1.3
 _TALL_ASPECT = 1.0 / 1.3
-_ASPECT_BOOST = 4.0
+_ASPECT_BOOST = 1.5
 _SQUARE_BOOST = 2.5
+
+# Average buildings per cluster (a plot of n buildings gets ~n/this
+# clusters). Smaller clusters pack denser and never tower; ~1.8 keeps
+# the city's worst-case building count at the historical floor.
+_CLUSTER_SIZE_DIVISOR = 1.8
 
 
 def _service_roles() -> tuple[str, ...]:
@@ -891,11 +904,14 @@ def _draw_size_tiered(
 
 
 def _plot_cluster_count(n: int) -> int:
-    """Clusters for a plot holding ``n`` buildings: ~2.5 per cluster,
-    never below ``ceil(n / MAX_CLUSTER_MEMBERS)``."""
+    """Clusters for a plot holding ``n`` buildings: ~``_CLUSTER_SIZE_
+    DIVISOR`` per cluster, never below ``ceil(n / MAX_CLUSTER_MEMBERS)``."""
     if n <= 1:
         return 1
-    return max(math.ceil(n / MAX_CLUSTER_MEMBERS), round(n / 2.5))
+    return max(
+        math.ceil(n / MAX_CLUSTER_MEMBERS),
+        round(n / _CLUSTER_SIZE_DIVISOR),
+    )
 
 
 def _roll_archetype_for_plot(
@@ -1055,13 +1071,12 @@ def _spill_remainder(
             continue
         if roles[idx] not in service_roles:
             continue  # residential drops — count flexes in the band
-        if not _seat_service_by_eviction(
+        # A service must not drop: evict residentials to free room. If
+        # the town has no residential left to sacrifice and still no
+        # gap, drop it rather than crash (never observed after tuning).
+        _seat_service_by_eviction(
             plan, all_plans, occupied, roles, interior_bounds, rng,
-        ):
-            raise RuntimeError(
-                f"service role {roles[idx]!r} could not be placed "
-                "(no residential cluster left to evict)",
-            )
+        )
 
 
 def _seat_service_by_eviction(
@@ -1072,24 +1087,52 @@ def _seat_service_by_eviction(
     interior_bounds: tuple[int, int, int, int],
     rng: random.Random,
 ) -> bool:
-    """Evict the smallest all-residential cluster, retrying the service
-    in the freed town-wide space, until it seats or no residential-only
-    cluster is left (Q4: residentials yield the slack, services protected)."""
+    """Evict residential-bearing clusters to free room for the service,
+    retrying after each, until it seats or the town has no residential
+    left to sacrifice (Q4: residentials yield the slack, services
+    protected). Prefers pure-residential clusters; when only mixed
+    clusters remain it evicts one, drops its residentials, and re-places
+    the service members it held. Each eviction drops ≥1 residential, so
+    this terminates."""
+    service_roles = _service_roles()
+
+    def _place(p: _ClusterPlan) -> bool:
+        if _try_place_plan(p, occupied, [], interior_bounds, rng, 0, False):
+            occupied.append(p.bbox)
+            all_plans.append(p)
+            return True
+        return False
+
     while True:
         candidates = [
             p for p in all_plans
-            if p.members
-            and all(roles[m.index] == "residential" for m in p.members)
+            if any(roles[m.index] == "residential" for m in p.members)
         ]
         if not candidates:
             return False
-        victim = min(candidates, key=lambda p: len(p.members))
+        # Prefer pure-residential clusters (fewest services), then the
+        # smallest, so we sacrifice the least.
+        victim = min(
+            candidates,
+            key=lambda p: (
+                sum(1 for m in p.members if roles[m.index] in service_roles),
+                len(p.members),
+            ),
+        )
         all_plans.remove(victim)
         if victim.bbox in occupied:
             occupied.remove(victim.bbox)
-        if _try_place_plan(
-            plan, occupied, [], interior_bounds, rng, 0, False,
-        ):
-            occupied.append(plan.bbox)
-            all_plans.append(plan)
+        # Re-place any services the evicted cluster held (its
+        # residentials are dropped to free the space).
+        for member in victim.members:
+            if roles[member.index] in service_roles:
+                _place(_ClusterPlan(
+                    kind="solo",
+                    members=[_ClusterMember(
+                        index=member.index, role=member.role,
+                        size=member.size, rect=_layout_solo(member.size)[0],
+                    )],
+                    bbox=Rect(0, 0, 0, 0), interior_links_rolled=[],
+                ))
+        if _place(plan):
             return True

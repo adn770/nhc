@@ -214,10 +214,14 @@ Each leaf is filled **independently** (no global cluster pool):
    yielding a couple of dense blocks and a couple of sparser ones.
 2. **Roster per plot.** Service-role anchoring is applied **per plot** (same intent
    as today's `_roll_role_slots`, scoped to the plot's share).
-3. **Archetype fits plot aspect (D3).** Choose cluster archetypes that match the
+3. **Archetype fits plot aspect (D3) — softly.** Bias cluster archetypes toward the
    plot's shape: wide plot → `row`; tall plot → `column`; large square → `courtyard`
-   or `l_block`; small plot → `solo`. Reuse the `_layout_*` helpers, now fed plot
-   dims.
+   or `l_block`; small plot → `solo` (reuse the `_layout_*` helpers, fed plot dims).
+   The bias is deliberately **gentle**: a strong "tall → column" pull stacks tall
+   column *towers* that eat a narrow plot's whole height and strand the rest of its
+   buildings. The real anti-tower lever is **small clusters** (≈1.8 buildings/cluster)
+   — they never tower and pack denser, which is what keeps the city's worst-case
+   count at the historical floor.
 4. **Local pack.** Pack the plot's clusters into the plot's free space (plaza rect is
    a per-plot `forbidden_rect`) — a small, bounded search (a few clusters), not the
    whole interior.
@@ -229,13 +233,16 @@ Each leaf is filled **independently** (no global cluster pool):
    §4), matching today's contract rather than a stricter "zero drops" guarantee.
    Per-plot packing strands slack in the wrong plots more than the old whole-interior
    scan, so the remainder pool is the mechanism that keeps cities from reading sparse.
-   **Drop priority (Q4): residential-first; service roles are never dropped.** When
-   the remainder still won't fit, residential buildings are sacrificed before any
-   service role. A service role that fits nowhere triggers one escalation (split the
-   most-slack plot / shrink an adjacent garden) before it is ever dropped — and if
-   even that fails it is a **hard test error, not a silent drop**, because losing the
-   only smithy/temple/inn breaks the "service roles present" invariant (a city of 38
-   buildings reads fine; a city missing its temple does not).
+   **Drop priority (Q4): residential-first; service roles are protected.** When the
+   remainder still won't fit, a service **evicts placed residential clusters** (whole,
+   smallest / purest-residential first; a mixed cluster's residentials are dropped and
+   its services re-placed) and retries in the freed space until it seats. Each eviction
+   drops ≥1 residential, so it terminates. Only if the town has **no residential left
+   to sacrifice and still no gap** is a service dropped — astronomically rare (never
+   observed across 460 seeds after tuning), and a dropped service is a soft degrade,
+   not a crash. Losing the only smithy/temple/inn would weaken the "service roles
+   present" read, so residentials always yield first (a city of 38 buildings reads
+   fine; a city missing its temple does not).
 6. **Slack → gardens/yards (D8).** Leftover interstitial space inside a plot fills
    with **gardens / kitchen plots / fenced yards** (biome-appropriate: fields in
    farmland, scrub in arid), reusing the surface non-built fill. Keeps blocks looking

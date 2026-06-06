@@ -1,10 +1,10 @@
 {
   "op_counts": {
-    "PaintOp": 228,
+    "PaintOp": 4,
     "StampOp": 4,
     "StrokeOp": 9
   },
   "region_count": 6,
-  "region_polygon_rings": 4,
-  "region_polygon_vertices": 41
+  "region_polygon_rings": 3,
+  "region_polygon_vertices": 37
 }

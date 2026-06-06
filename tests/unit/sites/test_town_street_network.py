@@ -98,54 +98,49 @@ def _nearest_street(
 # ── 1b. Centerpiece patch reachable via streets ───────────────
 
 
-class TestCenterpieceReachability:
-    @pytest.mark.parametrize("size_class", [
-        "hamlet", "village", "town", "city",
-    ])
-    def test_centerpiece_patch_connected_to_street_network(
-        self, size_class,
-    ):
-        """Q10's reserved centerpiece patch is stamped as STREET so
-        the well / fountain plaza reads as cobblestone, but it
-        also has to be *reachable* on the street graph -- a town
-        whose fountain is an isolated paved island in the grass
-        is a routing bug.
-        """
-        from nhc.sites.town import (
-            _CENTERPIECE_PER_SIZE, _SIZE_CLASSES,
-        )
-        spec = _CENTERPIECE_PER_SIZE.get(size_class)
+class TestBigPlazaReachability:
+    """The big plaza is the civic street hub (D7), so its fountain must
+    be reachable from a gate over STREET tiles. (Small plazas are quiet
+    GARDEN well-squares reached on foot, not street hubs — see §3.2.)"""
+
+    @pytest.mark.parametrize("size_class", ["village", "town", "city"])
+    def test_big_plaza_reachable_from_gate(self, size_class):
         for seed in range(20):
             site = assemble_town(
                 "t1", random.Random(seed), size_class=size_class,
             )
-            entry = _any_centerpiece(site)
-            if entry is None or spec is None:
+            fountain = _find_fountain(site)
+            gates = site.enclosure.gates
+            if fountain is None or not gates:
                 continue
-            _, (cx, cy) = entry
-            patch = {
-                (cx + dx - (spec.patch_dim - spec.feature_dim) // 2,
-                 cy + dy - (spec.patch_dim - spec.feature_dim) // 2)
-                for dx in range(spec.patch_dim)
-                for dy in range(spec.patch_dim)
-            }
             streets = _street_tiles(site)
-            # A patch tile that has at least one STREET neighbour
-            # outside the patch -- i.e. a connector exists.
-            connector_found = False
-            for (px, py) in patch:
+            start = _nearest_street(streets, (gates[0][0], gates[0][1]))
+            if start is None:
+                continue
+            seen = {start}
+            queue: deque[tuple[int, int]] = deque([start])
+            while queue:
+                cx, cy = queue.popleft()
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    nb = (px + dx, py + dy)
-                    if nb in streets and nb not in patch:
-                        connector_found = True
-                        break
-                if connector_found:
-                    break
-            assert connector_found, (
-                f"seed={seed} {size_class}: centerpiece patch "
-                f"around ({cx},{cy}) is isolated -- no STREET tile "
-                f"adjacent to the patch perimeter"
+                    nb = (cx + dx, cy + dy)
+                    if nb in streets and nb not in seen:
+                        seen.add(nb)
+                        queue.append(nb)
+            assert fountain in seen, (
+                f"seed={seed} {size_class}: big-plaza fountain "
+                f"{fountain} unreachable from gate via STREET tiles"
             )
+
+
+def _find_fountain(site) -> tuple[int, int] | None:
+    for y, row in enumerate(site.surface.tiles):
+        for x, tile in enumerate(row):
+            if tile.feature in (
+                "fountain", "fountain_square",
+                "fountain_large", "fountain_large_square", "fountain_cross",
+            ):
+                return (x, y)
+    return None
 
 
 def _any_centerpiece(site):
@@ -306,9 +301,27 @@ class TestSurfaceClassification:
             site = assemble_town(
                 "t1", random.Random(seed), size_class="city",
             )
+            # S5: small-plaza grass aprons are protected from paving so
+            # the well-squares stay green. Tiles within the 5x5 apron
+            # (Chebyshev radius 2 of a well) are the allowed exception.
+            wells = [
+                (x, y)
+                for y, row in enumerate(site.surface.tiles)
+                for x, t in enumerate(row)
+                if t.feature in ("well", "well_square")
+            ]
+
+            def _in_apron(x, y, wells=wells):
+                return any(
+                    abs(x - wx) <= 2 and abs(y - wy) <= 2
+                    for wx, wy in wells
+                )
+
             for y in range(pal.y, pal.y2):
                 for x in range(pal.x, pal.x2):
                     tile = site.surface.tiles[y][x]
+                    if _in_apron(x, y):
+                        continue
                     assert tile.surface_type not in (
                         SurfaceType.FIELD, SurfaceType.GARDEN,
                     ), (
