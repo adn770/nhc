@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
@@ -864,11 +865,26 @@ class Level:
     teleporter_pairs: dict[
         tuple[int, int], tuple[int, int]
     ] = field(default_factory=dict)
+    # World-space origin of the tile grid. Surfaces and dungeons keep
+    # ``(0, 0)`` so ``tiles[y][x]`` is a world coordinate. Building
+    # floors allocate a footprint-sized grid anchored at the building's
+    # world position (``origin = base_rect.x - 1, base_rect.y - 1``) to
+    # avoid ~96% VOID padding — every door / stair / entry coordinate
+    # stays a *world value*, only the physical array is offset. All grid
+    # access routes through ``tile_at`` / ``set_tile`` / ``iter_world``
+    # so the offset is invisible to callers.
+    origin_x: int = 0
+    origin_y: int = 0
 
     @classmethod
     def create_empty(cls, id: str, name: str, depth: int,
-                     width: int, height: int) -> Level:
-        """Create a level filled with void."""
+                     width: int, height: int,
+                     origin_x: int = 0, origin_y: int = 0) -> Level:
+        """Create a level filled with void.
+
+        ``origin_x`` / ``origin_y`` anchor the grid in world space; the
+        default ``(0, 0)`` keeps surfaces and dungeons world-indexed.
+        """
         empty = Tile.empty
         tiles = [
             [empty() for _ in range(width)]
@@ -877,12 +893,43 @@ class Level:
         return cls(
             id=id, name=name, depth=depth,
             width=width, height=height, tiles=tiles,
+            origin_x=origin_x, origin_y=origin_y,
         )
 
     def in_bounds(self, x: int, y: int) -> bool:
-        return 0 <= x < self.width and 0 <= y < self.height
+        return (self.origin_x <= x < self.origin_x + self.width
+                and self.origin_y <= y < self.origin_y + self.height)
 
     def tile_at(self, x: int, y: int) -> Tile | None:
         if self.in_bounds(x, y):
-            return self.tiles[y][x]
+            return self.tiles[y - self.origin_y][x - self.origin_x]
         return None
+
+    def set_tile(self, x: int, y: int, tile: Tile) -> None:
+        """Replace the tile at world ``(x, y)`` through the origin.
+
+        Use for the replace-the-whole-Tile writes (shell walls, plaza
+        stamps) that ``tile_at`` mutation can't express. Out-of-bounds
+        writes raise ``IndexError`` — loud, never silent corruption.
+        """
+        if not self.in_bounds(x, y):
+            raise IndexError(
+                f"set_tile({x}, {y}) outside grid "
+                f"origin=({self.origin_x}, {self.origin_y}) "
+                f"size=({self.width}, {self.height})"
+            )
+        self.tiles[y - self.origin_y][x - self.origin_x] = tile
+
+    def iter_world(self) -> Iterator[tuple[int, int, Tile]]:
+        """Yield ``(world_x, world_y, tile)`` for every cell.
+
+        Replaces ``for y, row in enumerate(level.tiles)`` sweeps that
+        assume origin ``(0, 0)``; the yielded coordinates are world
+        values regardless of the grid's offset.
+        """
+        oy = self.origin_y
+        ox = self.origin_x
+        for ry, row in enumerate(self.tiles):
+            wy = ry + oy
+            for rx, tile in enumerate(row):
+                yield rx + ox, wy, tile

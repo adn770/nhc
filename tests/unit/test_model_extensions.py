@@ -57,6 +57,65 @@ class TestTileEmpty:
         )
 
 
+class TestLevelOrigin:
+    """``Level`` carries a world-space origin so building floors can
+    allocate a footprint-sized grid while every coordinate stays a
+    world value. Surfaces / dungeons keep origin (0, 0) and behave
+    exactly as before.
+    """
+
+    def test_default_origin_is_zero(self):
+        lvl = Level.create_empty("l", "L", 1, 4, 3)
+        assert (lvl.origin_x, lvl.origin_y) == (0, 0)
+
+    def test_origin_zero_tile_at_unchanged(self):
+        lvl = Level.create_empty("l", "L", 1, 4, 3)
+        assert lvl.tile_at(0, 0) is lvl.tiles[0][0]
+        assert lvl.tile_at(3, 2) is lvl.tiles[2][3]
+        assert lvl.tile_at(4, 0) is None  # out of bounds
+
+    def test_offset_grid_indexes_by_world_coord(self):
+        # A 4x3 grid anchored at world (10, 20): world (10,20) maps to
+        # physical [0][0], world (13,22) to physical [2][3].
+        lvl = Level.create_empty(
+            "f", "F", 1, 4, 3, origin_x=10, origin_y=20,
+        )
+        assert lvl.tile_at(10, 20) is lvl.tiles[0][0]
+        assert lvl.tile_at(13, 22) is lvl.tiles[2][3]
+
+    def test_offset_grid_bounds(self):
+        lvl = Level.create_empty(
+            "f", "F", 1, 4, 3, origin_x=10, origin_y=20,
+        )
+        assert lvl.in_bounds(10, 20)
+        assert lvl.in_bounds(13, 22)
+        assert not lvl.in_bounds(9, 20)
+        assert not lvl.in_bounds(14, 20)
+        assert not lvl.in_bounds(10, 19)
+        assert not lvl.in_bounds(10, 23)
+        # Out-of-bounds world coords return None, never IndexError.
+        assert lvl.tile_at(9, 20) is None
+        assert lvl.tile_at(14, 22) is None
+
+    def test_set_tile_replaces_through_offset(self):
+        lvl = Level.create_empty(
+            "f", "F", 1, 4, 3, origin_x=10, origin_y=20,
+        )
+        marker = Tile(terrain=Terrain.FLOOR)
+        lvl.set_tile(13, 22, marker)
+        assert lvl.tiles[2][3] is marker
+        assert lvl.tile_at(13, 22) is marker
+
+    def test_iter_world_yields_world_coords(self):
+        lvl = Level.create_empty(
+            "f", "F", 1, 2, 2, origin_x=10, origin_y=20,
+        )
+        coords = {(wx, wy) for wx, wy, _ in lvl.iter_world()}
+        assert coords == {(10, 20), (11, 20), (10, 21), (11, 21)}
+        for wx, wy, tile in lvl.iter_world():
+            assert lvl.tile_at(wx, wy) is tile
+
+
 class TestDungeonRefExtensions:
     def test_size_class_default(self):
         ref = DungeonRef(template="procedural:cave")

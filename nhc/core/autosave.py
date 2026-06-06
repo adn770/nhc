@@ -41,7 +41,7 @@ _save_lock = threading.Lock()
 
 _DEFAULT_DIR = Path.home() / ".nhc" / "saves"
 _DEFAULT_PATH = _DEFAULT_DIR / "autosave.nhc"
-AUTOSAVE_VERSION = 1
+AUTOSAVE_VERSION = 2
 
 # Binary framing: signed payloads start with this 4-byte magic
 # followed by a 32-byte HMAC-SHA256 digest, then the compressed

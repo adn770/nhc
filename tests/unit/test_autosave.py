@@ -6,6 +6,7 @@ import zlib
 import pytest
 
 from nhc.core.autosave import (
+    AUTOSAVE_VERSION,
     _DEFAULT_PATH,
     autosave,
     auto_restore,
@@ -147,7 +148,7 @@ class TestBuildPayload:
     def test_contains_required_keys(self):
         game = _make_game()
         payload = _build_payload(game)
-        assert payload["version"] == 1
+        assert payload["version"] == AUTOSAVE_VERSION
         assert payload["turn"] == 42
         assert payload["player_id"] == game.player_id
         assert "world_entities" in payload
@@ -264,7 +265,7 @@ class TestPickleRoundTrip:
         # Decompress + unpickle
         restored = pickle.loads(zlib.decompress(data))
         assert restored["turn"] == 42
-        assert restored["version"] == 1
+        assert restored["version"] == AUTOSAVE_VERSION
 
 
 class TestMultiFloor:
