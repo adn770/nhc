@@ -1226,7 +1226,13 @@ const GameMap = {
   /**
    * Draw doors on the entity canvas.
    *
-   * - door_secret (undiscovered): not drawn (invisible wall)
+   * - door_secret (undiscovered): not drawn here — the floor IR
+   *   renders the tile as plain wall (mask_secret_doors_as_walls),
+   *   so the WASM/stone wall is the single source of truth for the
+   *   disguise. Overlaying a segment here would paint over it (the
+   *   old hardcoded black no longer matched the grey walls and
+   *   revealed the door). On discovery the server flips the feature
+   *   to door_closed and it draws normally below.
    * - door_closed / door_locked: black-filled rectangle on the wall
    *   line, 80% tile in wall direction, ~25% across passage, with
    *   small wall connection lines on each side
@@ -1241,29 +1247,16 @@ const GameMap = {
     const connLen = cs * 0.1;    // wall connection stub
 
     for (const door of doorIter) {
+      // Secret doors are baked into the wall by the floor IR; never
+      // overlay them on the door layer (it would un-hide them).
+      if (door.state === "door_secret") {
+        continue;
+      }
+
       const px = door.x * cs + pad;
       const py = door.y * cs + pad;
       const cx = px + cs / 2;
       const cy = py + cs / 2;
-
-      // Secret doors: draw a wall segment on the door edge
-      if (door.state === "door_secret") {
-        ctx.strokeStyle = "#000000";
-        ctx.lineWidth = wallW;
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        if (door.edge === "left") {
-          ctx.moveTo(px, py); ctx.lineTo(px, py + cs);
-        } else if (door.edge === "right") {
-          ctx.moveTo(px + cs, py); ctx.lineTo(px + cs, py + cs);
-        } else if (door.edge === "top") {
-          ctx.moveTo(px, py); ctx.lineTo(px + cs, py);
-        } else {
-          ctx.moveTo(px, py + cs); ctx.lineTo(px + cs, py + cs);
-        }
-        ctx.stroke();
-        continue;
-      }
 
       const fill = door.state === "door_open" ? "#FFFFFF" : "#5C3A1E";
 

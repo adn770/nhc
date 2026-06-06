@@ -3,12 +3,51 @@ IR emitter (and the retained SVG-shape helper modules)."""
 
 from __future__ import annotations
 
+import dataclasses
 import math
 import random
 
 from nhc.rendering import _perlin as _noise
 
-from nhc.dungeon.model import Level, SurfaceType, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
+
+
+def mask_secret_doors_as_walls(level: Level) -> Level:
+    """Return a render-only view where secret doors read as wall.
+
+    A ``door_secret`` tile is ``Terrain.FLOOR`` with the hidden-door
+    feature, so the geometry pipeline (floor region, corridor grid,
+    hatch, wall stroke) would paint an open doorway through the wall —
+    on the grey NIR walls that makes the hidden passage obvious. Swap
+    every secret-door tile for a plain ``WALL`` so it is
+    indistinguishable from the surrounding masonry.
+
+    No discovery check is needed: searching / detection flips a found
+    secret door's feature to ``door_closed``, so any tile still tagged
+    ``door_secret`` is undiscovered. The swap is render-only — the
+    returned ``Level`` is a shallow copy and the live level keeps the
+    secret door so movement and search are unaffected. The wall
+    inherits the door tile's ``explored`` / ``visible`` flags so it
+    reads as already-seen masonry, matching the adjacent walls.
+    """
+    if not any(t.feature == "door_secret" for t in level.iter_tiles()):
+        return level
+    new_rows: list[list[Tile]] = []
+    for row in level.iter_rows():
+        new_row: list[Tile] = []
+        for t in row:
+            if t.feature == "door_secret":
+                new_row.append(Tile(
+                    terrain=Terrain.WALL,
+                    explored=t.explored,
+                    visible=t.visible,
+                ))
+            else:
+                # Emit only reads tiles, so sharing unchanged objects
+                # is safe and avoids copying the whole grid.
+                new_row.append(t)
+        new_rows.append(new_row)
+    return dataclasses.replace(level, _tiles=new_rows)
 
 # ── Constants (shared across IR-emitter modules) ───────────────────
 

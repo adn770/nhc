@@ -29,7 +29,9 @@ from nhc.rendering._render_context import (
     RenderContext, build_render_context,
 )
 from nhc.rendering._room_outlines import _hybrid_vertices, _polygon_vertices
-from nhc.rendering._ir_helpers import CELL, PADDING
+from nhc.rendering._ir_helpers import (
+    CELL, PADDING, mask_secret_doors_as_walls,
+)
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
 from nhc.rendering.ir._fb.CornerStyle import CornerStyle
 from nhc.rendering.ir._fb.CutStyle import CutStyle
@@ -1192,6 +1194,11 @@ def build_floor_ir(
     (:mod:`nhc.rendering.emit`) which reads ``builder.regions`` and
     ``builder.site`` directly to produce the canonical op stream.
     """
+    # Undiscovered secret doors render as plain wall (single source of
+    # truth: the wall material, not a hardcoded client colour). See
+    # ``mask_secret_doors_as_walls`` — render-only, the live level is
+    # untouched.
+    level = mask_secret_doors_as_walls(level)
     ctx = build_render_context(
         level,
         seed=seed,
