@@ -69,6 +69,12 @@ _PLAZA_PLAN: dict[str, list[str]] = {
 # (fountain kept). Trigger: host min dim < big dim + this keep-room.
 _PLAZA_BUILD_KEEP = 8
 
+# Room a big-plaza host leaf must keep beside the plaza for buildings.
+# Services (the widest buildings, ~16) are biased to the core plot
+# (D5), so its host must stay wide enough to seat them next to the
+# fountain — a narrow central leaf would strand them (spill-pool churn).
+_BIG_PLAZA_HOST_KEEP = 18
+
 
 @dataclass(frozen=True)
 class Plaza:
@@ -98,6 +104,7 @@ class Partition:
     plots: list[Plot]
     gutters: list[Rect]
     size_class: str
+    interior: Rect
 
 
 def partition_interior(
@@ -126,7 +133,10 @@ def partition_interior(
         leaves, gutters = _split_to_target(interior, target, gutter, rng)
 
     plots = _reserve_plazas(leaves, size_class, interior, rng, single_plot)
-    return Partition(plots=plots, gutters=gutters, size_class=size_class)
+    return Partition(
+        plots=plots, gutters=gutters, size_class=size_class,
+        interior=interior,
+    )
 
 
 def _split_to_target(
@@ -219,11 +229,12 @@ def _reserve_plazas(
 
     used: set[int] = set()
     for tier in plan:
-        # big → most central available leaf; small → most peripheral.
-        ranked = sorted(
-            range(len(plots)), key=dist_sq, reverse=(tier != "big"),
-        )
-        host_index = next((i for i in ranked if i not in used), None)
+        if tier == "big":
+            host_index = _pick_big_host(plots, used, dist_sq, size_class)
+        else:
+            # small → most peripheral available leaf.
+            ranked = sorted(range(len(plots)), key=dist_sq, reverse=True)
+            host_index = next((i for i in ranked if i not in used), None)
         if host_index is None:
             continue  # fewer leaves than plazas (degenerate tiny site)
         host = plots[host_index]
@@ -233,6 +244,34 @@ def _reserve_plazas(
         )
         used.add(host_index)
     return plots
+
+
+def _pick_big_host(
+    plots: list[Plot],
+    used: set[int],
+    dist_sq,
+    size_class: str,
+) -> int | None:
+    """Host the big plaza in the most central leaf that is also **roomy**
+    enough to seat services beside the fountain. Falls back to the
+    largest available leaf (auto-shrink then keeps the fountain) when no
+    central leaf is wide enough."""
+    available = [i for i in range(len(plots)) if i not in used]
+    if not available:
+        return None
+    big_dim = _BIG_PLAZA_DIM.get(size_class, _SMALL_PLAZA_DIM)
+    need = big_dim + _BIG_PLAZA_HOST_KEEP
+    central = sorted(available, key=dist_sq)
+    roomy = [
+        i for i in central
+        if min(plots[i].rect.width, plots[i].rect.height) >= need
+    ]
+    if roomy:
+        return roomy[0]
+    return max(
+        available,
+        key=lambda i: plots[i].rect.width * plots[i].rect.height,
+    )
 
 
 def _plaza_dim(tier: str, size_class: str, host: Rect) -> int:

@@ -16,6 +16,7 @@ See ``town_redesign_plan.md`` Phase 1 for the design rationale.
 
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass, field
 from itertools import permutations
@@ -24,6 +25,7 @@ from typing import TYPE_CHECKING
 from nhc.dungeon.model import Rect
 
 if TYPE_CHECKING:
+    from nhc.sites._town_bsp import Partition, Plot
     from nhc.sites.town import _TownSizeConfig
 
 
@@ -286,8 +288,10 @@ def _partition_sizes(
     introduce size variety (so courtyards / solos coexist)."""
     base, rem = divmod(n, k)
     sizes = [base + 1 if i < rem else base for i in range(k)]
-    # A few balanced ±1 swaps; clamp to [1, MAX_CLUSTER_MEMBERS].
-    swap_attempts = max(2, k)
+    # A few balanced ±1 swaps; clamp to [1, MAX_CLUSTER_MEMBERS]. Needs
+    # at least two clusters to swap between (per-plot fill can ask for a
+    # single cluster; the global packer never does).
+    swap_attempts = max(2, k) if k >= 2 else 0
     for _ in range(swap_attempts):
         i, j = rng.sample(range(k), 2)
         if (sizes[i] > 1 and sizes[j] < MAX_CLUSTER_MEMBERS):
@@ -503,11 +507,18 @@ def _try_place_plan(
     forbidden_rects: list[Rect],
     bounds: tuple[int, int, int, int],
     rng: random.Random,
+    random_attempts: int = MAX_PLACEMENT_ATTEMPTS,
+    scan_shuffle: bool = True,
 ) -> bool:
     """Search for a valid origin for ``plan``. Random sampling
-    first; on exhaustion, fall back to a shuffled deterministic
-    scan so any geometrically-valid position is found. Mutates
-    ``plan`` on success."""
+    first; on exhaustion, fall back to a deterministic scan so any
+    geometrically-valid position is found. Mutates ``plan`` on success.
+
+    Defaults reproduce the global cluster packer exactly (random
+    sampling + shuffled scan). The per-plot fill passes
+    ``random_attempts=0, scan_shuffle=False`` for a top-left scan that
+    packs clusters into a corner and keeps the remaining free space
+    contiguous — so a tight plot can still seat every building."""
     min_x, min_y, max_x, max_y = bounds
     rects = [m.rect for m in plan.members]
     cluster_w, cluster_h = _cluster_dims(rects)
@@ -533,19 +544,21 @@ def _try_place_plan(
         return not index.overlaps_any(bbox)
 
     valid_origin: tuple[int, int] | None = None
-    for _ in range(MAX_PLACEMENT_ATTEMPTS):
+    for _ in range(random_attempts):
         ox = rng.randint(ox_lo, ox_hi)
         oy = rng.randint(oy_lo, oy_hi)
         if _check(ox, oy):
             valid_origin = (ox, oy)
             break
     if valid_origin is None:
-        # Deterministic scan with shuffled order so the result
-        # remains seed-dependent and unbiased.
+        # Deterministic scan. Shuffled (global packer) keeps placement
+        # seed-dependent and unbiased; unshuffled (per-plot fill) packs
+        # top-left and keeps the free space contiguous.
         ox_range = list(range(ox_lo, ox_hi + 1))
         oy_range = list(range(oy_lo, oy_hi + 1))
-        rng.shuffle(ox_range)
-        rng.shuffle(oy_range)
+        if scan_shuffle:
+            rng.shuffle(ox_range)
+            rng.shuffle(oy_range)
         for ox in ox_range:
             for oy in oy_range:
                 if _check(ox, oy):
@@ -571,20 +584,31 @@ def _place_clusters(
     bounds: tuple[int, int, int, int],
     forbidden_rects: list[Rect],
     rng: random.Random,
+    random_attempts: int = MAX_PLACEMENT_ATTEMPTS,
+    scan_shuffle: bool = True,
 ) -> list[_ClusterPlan]:
     """Place each cluster bbox via rejection sampling. On
     exhaustion, demote the archetype one step and retry. ``solo``
     splits a row/column cluster into per-member solos placed
     independently. ``bounds`` is ``(min_x, min_y, max_x, max_y)``
     in surface coords (``max_*`` exclusive); clusters are placed
-    inside this region with a 1-tile internal buffer."""
+    inside this region with a 1-tile internal buffer.
+
+    ``random_attempts`` / ``scan_shuffle`` are forwarded to
+    :func:`_try_place_plan`; the defaults reproduce the global packer,
+    the per-plot fill passes ``0`` / ``False`` for contiguous top-left
+    packing."""
     placed_bboxes: list[Rect] = list(forbidden_rects)
     out: list[_ClusterPlan] = []
 
-    for plan in plans:
-        success = _try_place_plan(
+    def _place(plan: _ClusterPlan) -> bool:
+        return _try_place_plan(
             plan, placed_bboxes, forbidden_rects, bounds, rng,
+            random_attempts, scan_shuffle,
         )
+
+    for plan in plans:
+        success = _place(plan)
         current = plan
         while not success:
             next_kind = _DEMOTE_NEXT.get(current.kind)
@@ -594,10 +618,7 @@ def _place_clusters(
                 # Solo each member independently.
                 solo_plans = _split_into_solos(current, rng)
                 for sp in solo_plans:
-                    if _try_place_plan(
-                        sp, placed_bboxes, forbidden_rects, bounds,
-                        rng,
-                    ):
+                    if _place(sp):
                         placed_bboxes.append(sp.bbox)
                         out.append(sp)
                 # Original ``plan`` is replaced by the solos.
@@ -615,9 +636,7 @@ def _place_clusters(
                     current.interior_links_rolled.append(
                         rng.random() < 0.5,
                     )
-            success = _try_place_plan(
-                current, placed_bboxes, forbidden_rects, bounds, rng,
-            )
+            success = _place(current)
 
         if success and current is not None:
             placed_bboxes.append(current.bbox)
@@ -722,3 +741,355 @@ def _placements_from_clusters(
             )
     # Drop any None (cluster fully dropped) -- caller compacts.
     return [p for p in placements if p is not None]
+
+
+# ── Phase 2: BSP-neighbourhood per-plot fill ─────────────────
+#
+# Replaces the global ``_cluster_pack`` flow: the BSP partitioner
+# (``nhc.sites._town_bsp``) hands a few neighbourhood plots, and we
+# fill each plot independently. See design/town_generator.md §3.3-§3.5
+# (D3/D4/D5/D6/D8/D10) and the Q1-Q6 interview answers.
+
+
+# Plot massing tier (D10): a plot hosting the big plaza is the civic
+# "core", one hosting a small plaza a residential "pocket", a plain
+# plot the "edge". Drives both the service-role bias and the size skew.
+_SERVICE_TIER_WEIGHT: dict[str, float] = {
+    "core": 4.0, "pocket": 1.5, "edge": 1.0,
+}
+
+# Archetype-to-plot-aspect bias (D3): a clearly wide plot favours rows,
+# a tall plot columns, a square plot courtyards / L-blocks.
+_WIDE_ASPECT = 1.3
+_TALL_ASPECT = 1.0 / 1.3
+_ASPECT_BOOST = 4.0
+_SQUARE_BOOST = 2.5
+
+
+def _service_roles() -> tuple[str, ...]:
+    from nhc.sites.town import SERVICE_ROLES
+
+    return SERVICE_ROLES
+
+
+def _archetype_config():
+    from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
+
+    return ARCHETYPE_CONFIG
+
+
+def _plot_tier(plot: Plot) -> str:
+    if plot.plaza is None:
+        return "edge"
+    return "core" if plot.plaza.tier == "big" else "pocket"
+
+
+def _packable_area(plot: Plot) -> int:
+    """Plot area available for buildings: the leaf minus its plaza
+    rect (the gutter is already outside the leaf). N4."""
+    area = plot.rect.width * plot.rect.height
+    if plot.plaza is not None:
+        area -= plot.plaza.rect.width * plot.plaza.rect.height
+    return max(1, area)
+
+
+# Gross tiles a plot needs per building (footprint + buffer + packing
+# slack). Caps a plot's budget so a short / narrow plot isn't handed
+# more buildings than it can physically seat; the excess goes to the
+# global remainder pool (B4) and is placed wherever the town has room.
+_BUILDING_CELL = 135
+
+
+def _split_budget(plots: list[Plot], n: int) -> list[int]:
+    """Area-proportional split of ``n`` buildings across plots by
+    packable area, each plot capped at its physical capacity (D8/B4).
+    Returns budgets that may sum to **less** than ``n`` — the shortfall
+    is the global remainder pool placed by the spill pass."""
+    areas = [_packable_area(p) for p in plots]
+    caps = [max(1, a // _BUILDING_CELL) for a in areas]
+    total = sum(areas) or 1
+    raw = [n * a / total for a in areas]
+    budgets = [min(int(raw[i]), caps[i]) for i in range(len(plots))]
+    # Hand out the rounding remainder to plots that still have capacity,
+    # largest spare capacity first.
+    remaining = min(n, sum(caps)) - sum(budgets)
+    while remaining > 0:
+        spare = [
+            (caps[i] - budgets[i], i)
+            for i in range(len(plots)) if budgets[i] < caps[i]
+        ]
+        if not spare:
+            break
+        spare.sort(reverse=True)
+        budgets[spare[0][1]] += 1
+        remaining -= 1
+    return budgets
+
+
+def _distribute_indices(
+    tiers: list[str],
+    roles: list[str],
+    budgets: list[int],
+    rng: random.Random,
+) -> tuple[list[list[int]], list[int]]:
+    """Assign each building index to a plot, respecting per-plot
+    budgets. Service roles are softly biased toward the core (big-plaza)
+    plot (D5); residentials fill the rest by remaining capacity. Indices
+    that don't fit any plot's budget go to the returned **leftover** pool
+    (B4), placed town-wide by the spill pass."""
+    service_roles = _service_roles()
+    n_plots = len(tiers)
+    remaining = list(budgets)
+    assigned: list[list[int]] = [[] for _ in range(n_plots)]
+    leftover: list[int] = []
+    service_idx = [i for i, r in enumerate(roles) if r in service_roles]
+    rest_idx = [i for i, r in enumerate(roles) if r not in service_roles]
+    rng.shuffle(service_idx)
+    rng.shuffle(rest_idx)
+
+    def _pick(service: bool) -> int | None:
+        cands = [i for i in range(n_plots) if remaining[i] > 0]
+        if not cands:
+            return None
+        if service:
+            weights = [
+                remaining[i] * _SERVICE_TIER_WEIGHT[tiers[i]] for i in cands
+            ]
+        else:
+            weights = [float(remaining[i]) for i in cands]
+        choice = rng.choices(cands, weights=weights)[0]
+        remaining[choice] -= 1
+        return choice
+
+    for idx in service_idx:
+        plot_i = _pick(service=True)
+        (leftover if plot_i is None else assigned[plot_i]).append(idx)
+    for idx in rest_idx:
+        plot_i = _pick(service=False)
+        (leftover if plot_i is None else assigned[plot_i]).append(idx)
+    return assigned, leftover
+
+
+def _draw_size_tiered(
+    role: str, tier: str, rng: random.Random,
+) -> tuple[int, int]:
+    """Draw ``(w, h)`` from the role's ``size_range``, skewed within the
+    band by the plot's massing tier (D10/Q3). Residential only: core =
+    ``max`` of two draws (grand), edge = ``min`` (humble), pocket /
+    services = a single neutral draw. The value never leaves the role's
+    own band, so no role grows into another's and plot-fit is safe."""
+    lo, hi = _archetype_config()[role].size_range
+
+    def _draw() -> int:
+        return rng.randint(lo, hi)
+
+    if role == "residential" and tier == "core":
+        return (max(_draw(), _draw()), max(_draw(), _draw()))
+    if role == "residential" and tier == "edge":
+        return (min(_draw(), _draw()), min(_draw(), _draw()))
+    return (_draw(), _draw())
+
+
+def _plot_cluster_count(n: int) -> int:
+    """Clusters for a plot holding ``n`` buildings: ~2.5 per cluster,
+    never below ``ceil(n / MAX_CLUSTER_MEMBERS)``."""
+    if n <= 1:
+        return 1
+    return max(math.ceil(n / MAX_CLUSTER_MEMBERS), round(n / 2.5))
+
+
+def _roll_archetype_for_plot(
+    n_members: int, size_class: str, plot_rect: Rect, rng: random.Random,
+) -> str:
+    """Like :func:`_roll_archetype` but boosts the archetype that fits
+    the plot's aspect ratio (D3)."""
+    if n_members == 1:
+        return "solo"
+    base = CLUSTER_ARCHETYPE_WEIGHTS[size_class]
+    feasible = [a for a in _feasible_archetypes(n_members) if a in base]
+    if not feasible:
+        return "row"
+    aspect = plot_rect.width / max(1, plot_rect.height)
+    weights: list[float] = []
+    for arch in feasible:
+        weight = base[arch]
+        if arch == "row" and aspect >= _WIDE_ASPECT:
+            weight *= _ASPECT_BOOST
+        elif arch == "column" and aspect <= _TALL_ASPECT:
+            weight *= _ASPECT_BOOST
+        elif (
+            arch in ("courtyard", "l_block")
+            and _TALL_ASPECT < aspect < _WIDE_ASPECT
+        ):
+            weight *= _SQUARE_BOOST
+        weights.append(weight)
+    return rng.choices(feasible, weights=weights)[0]
+
+
+def _cluster_plot(
+    plot_indices: list[int],
+    roles: list[str],
+    sizes: list[tuple[int, int]],
+    size_class: str,
+    plot_rect: Rect,
+    rng: random.Random,
+) -> list[_ClusterPlan]:
+    """Group one plot's buildings into clusters (service-anchored,
+    archetype fit to plot aspect) in cluster-local coords."""
+    n = len(plot_indices)
+    if n == 0:
+        return []
+    k = _plot_cluster_count(n)
+    partition = _partition_sizes(n, k, rng)
+    plot_roles = [roles[i] for i in plot_indices]
+    local_groups = _assign_members(plot_roles, partition, rng)
+    plans: list[_ClusterPlan] = []
+    for group in local_groups:
+        if not group:
+            continue
+        global_indices = [plot_indices[li] for li in group]
+        archetype = _roll_archetype_for_plot(
+            len(global_indices), size_class, plot_rect, rng,
+        )
+        plans.append(_layout_plan(
+            roles, sizes, global_indices, archetype, rng,
+        ))
+    # Place the largest cluster bboxes first so big courtyards aren't
+    # squeezed out by previously-placed solos (mirrors _cluster_pack).
+    plans.sort(key=lambda p: -_plan_footprint_area(p))
+    return plans
+
+
+def _plan_footprint_area(plan: _ClusterPlan) -> int:
+    width, height = _cluster_dims([m.rect for m in plan.members])
+    return width * height
+
+
+def fill_partition(
+    partition: Partition,
+    roles: list[str],
+    size_class: str,
+    rng: random.Random,
+) -> list[_ClusterPlan]:
+    """Fill a BSP partition: distribute the roster across plots
+    (area-proportional, service-biased), draw tier-skewed sizes, cluster
+    and pack each plot independently, then spill overflow into any plot
+    with slack — dropping residential-first and never a service role
+    (B4/Q4). Returns the placed :class:`_ClusterPlan`s; member ``index``
+    fields point back into ``roles``."""
+    n = len(roles)
+    if n == 0:
+        return []
+    plots = partition.plots
+    tiers = [_plot_tier(p) for p in plots]
+    budgets = _split_budget(plots, n)
+    assigned, leftover = _distribute_indices(tiers, roles, budgets, rng)
+
+    sizes: list[tuple[int, int]] = [(0, 0)] * n
+    # Leftover-pool buildings have no home plot; draw them neutrally.
+    for idx in leftover:
+        sizes[idx] = _draw_size_tiered(roles[idx], "pocket", rng)
+    all_plans: list[_ClusterPlan] = []
+
+    for plot_i, plot in enumerate(plots):
+        tier = tiers[plot_i]
+        for idx in assigned[plot_i]:
+            sizes[idx] = _draw_size_tiered(roles[idx], tier, rng)
+        bounds = (plot.rect.x, plot.rect.y, plot.rect.x2, plot.rect.y2)
+        forbidden = [plot.plaza.rect] if plot.plaza is not None else []
+        plans = _cluster_plot(
+            assigned[plot_i], roles, sizes, size_class, plot.rect, rng,
+        )
+        placed = _place_clusters(
+            plans, bounds, forbidden, rng,
+            random_attempts=0, scan_shuffle=False,
+        )
+        all_plans.extend(placed)
+
+    # Single town-wide keep-out list for the spill pass: building bboxes
+    # + plaza rects + gutters (so spilled buildings never block a street).
+    occupied: list[Rect] = [p.bbox for p in all_plans]
+    occupied += [pl.plaza.rect for pl in plots if pl.plaza is not None]
+    occupied += list(partition.gutters)
+    interior = partition.interior
+    interior_bounds = (interior.x, interior.y, interior.x2, interior.y2)
+    _spill_remainder(
+        all_plans, occupied, roles, sizes, n, interior_bounds, rng,
+    )
+    return all_plans
+
+
+def _spill_remainder(
+    all_plans: list[_ClusterPlan],
+    occupied: list[Rect],
+    roles: list[str],
+    sizes: list[tuple[int, int]],
+    n: int,
+    interior_bounds: tuple[int, int, int, int],
+    rng: random.Random,
+) -> None:
+    """Second pass (B4/Q4): place each building its plot couldn't seat
+    into any town-wide gap. Services are placed first so they are never
+    the dropped ones; a service that still won't fit evicts placed
+    residentials until it seats. Residentials that don't fit drop
+    silently (count flexes within the size-class band)."""
+    service_roles = _service_roles()
+    placed = {m.index for plan in all_plans for m in plan.members}
+    spilled = [i for i in range(n) if i not in placed]
+    spilled.sort(key=lambda i: 0 if roles[i] in service_roles else 1)
+    for idx in spilled:
+        plan = _ClusterPlan(
+            kind="solo",
+            members=[_ClusterMember(
+                index=idx, role=roles[idx], size=sizes[idx],
+                rect=_layout_solo(sizes[idx])[0],
+            )],
+            bbox=Rect(0, 0, 0, 0),
+            interior_links_rolled=[],
+        )
+        if _try_place_plan(
+            plan, occupied, [], interior_bounds, rng, 0, False,
+        ):
+            occupied.append(plan.bbox)
+            all_plans.append(plan)
+            continue
+        if roles[idx] not in service_roles:
+            continue  # residential drops — count flexes in the band
+        if not _seat_service_by_eviction(
+            plan, all_plans, occupied, roles, interior_bounds, rng,
+        ):
+            raise RuntimeError(
+                f"service role {roles[idx]!r} could not be placed "
+                "(no residential cluster left to evict)",
+            )
+
+
+def _seat_service_by_eviction(
+    plan: _ClusterPlan,
+    all_plans: list[_ClusterPlan],
+    occupied: list[Rect],
+    roles: list[str],
+    interior_bounds: tuple[int, int, int, int],
+    rng: random.Random,
+) -> bool:
+    """Evict the smallest all-residential cluster, retrying the service
+    in the freed town-wide space, until it seats or no residential-only
+    cluster is left (Q4: residentials yield the slack, services protected)."""
+    while True:
+        candidates = [
+            p for p in all_plans
+            if p.members
+            and all(roles[m.index] == "residential" for m in p.members)
+        ]
+        if not candidates:
+            return False
+        victim = min(candidates, key=lambda p: len(p.members))
+        all_plans.remove(victim)
+        if victim.bbox in occupied:
+            occupied.remove(victim.bbox)
+        if _try_place_plan(
+            plan, occupied, [], interior_bounds, rng, 0, False,
+        ):
+            occupied.append(plan.bbox)
+            all_plans.append(plan)
+            return True
