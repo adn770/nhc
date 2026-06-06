@@ -39,6 +39,50 @@ def _floor_builder(building_id: str, base_shape, base_rect):
     return _build
 
 
+class TestFootprintSizedGrid:
+    """A building floor allocates a footprint-sized grid anchored at the
+    building's world position, not a grid sized to the world offset.
+
+    A building far from the origin used to allocate a grid spanning
+    ``(0, 0)..(base_rect.x2+2, base_rect.y2+2)`` — ~96% VOID padding.
+    The footprint-sized offset grid keeps every coordinate a world
+    value while shrinking the array (and its allocation cost).
+    """
+
+    def test_grid_is_footprint_sized_with_world_origin(self):
+        rect = Rect(60, 72, 14, 16)  # far from the origin
+        level = build_building_floor(
+            building_id="b", floor_idx=0,
+            base_shape=RectShape(), base_rect=rect,
+            n_floors=1, rng=random.Random(0),
+            archetype="test", tags=["t"],
+            partitioner=SingleRoomPartitioner(),
+        )
+        # Footprint (14x16) + a two-tile margin (shell ring + one VOID
+        # ring), not the ~76x90 a world-offset grid would allocate.
+        assert (level.width, level.height) == (18, 20)
+        assert (level.origin_x, level.origin_y) == (58, 70)
+
+    def test_footprint_tiles_addressable_by_world_coord(self):
+        rect = Rect(60, 72, 14, 16)
+        level = build_building_floor(
+            building_id="b", floor_idx=0,
+            base_shape=RectShape(), base_rect=rect,
+            n_floors=1, rng=random.Random(0),
+            archetype="test", tags=["t"],
+            partitioner=SingleRoomPartitioner(),
+        )
+        # Every footprint tile is FLOOR at its world coordinate, and the
+        # world frame is preserved (no rebasing to local indices).
+        for (wx, wy) in RectShape().floor_tiles(rect):
+            tile = level.tile_at(wx, wy)
+            assert tile is not None and tile.terrain is Terrain.FLOOR
+        # World coords below the origin are simply out of bounds, never
+        # a silent wrong-cell read.
+        assert level.tile_at(0, 0) is None
+        assert not level.in_bounds(0, 0)
+
+
 class TestBuildFloorsWithStairs:
     def test_three_floors_produces_two_internal_stair_links(self):
         rect = Rect(1, 1, 6, 6)

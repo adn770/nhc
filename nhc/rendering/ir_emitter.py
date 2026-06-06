@@ -142,8 +142,14 @@ class FloorIRBuilder:
         fir = FloorIRT()
         fir.major = _SCHEMA_MAJOR
         fir.minor = _SCHEMA_MINOR
-        fir.widthTiles = ctx.level.width
-        fir.heightTiles = ctx.level.height
+        # Canvas spans the world extent of the grid. For surfaces and
+        # dungeons (origin 0) this is just width/height; for an offset
+        # building floor it restores the world frame so every op,
+        # emitted at world tile coordinates, lands on the canvas.
+        fir.widthTiles = getattr(ctx.level, "origin_x", 0) + ctx.level.width
+        fir.heightTiles = (
+            getattr(ctx.level, "origin_y", 0) + ctx.level.height
+        )
         fir.cell = CELL
         fir.padding = PADDING
         fir.baseSeed = ctx.seed

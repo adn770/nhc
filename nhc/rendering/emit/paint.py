@@ -206,8 +206,8 @@ def emit_paints(builder: Any) -> list[OpEntryT]:
         )))
     elif is_wood:
         # Per-tile wood floor coverage when no polygon set.
-        for y in range(level.height):
-            for x in range(level.width):
+        for y in range(level.origin_y, level.origin_y + level.height):
+            for x in range(level.origin_x, level.origin_x + level.width):
                 tile = level.tile_at(x, y)
                 if tile.terrain is not Terrain.FLOOR:
                     continue

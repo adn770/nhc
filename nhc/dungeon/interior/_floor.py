@@ -67,12 +67,23 @@ def build_building_floor(
     helper covers the layout-only pass that every archetype
     shares.
     """
-    w = base_rect.x + base_rect.width + 2
-    h = base_rect.y + base_rect.height + 2
+    # Size the grid to the footprint plus a two-tile margin (the shell
+    # wall ring + one VOID ring the renderer needs around it) and
+    # anchor it at the building's world position. This drops the ~96%
+    # VOID padding a world-offset-sized grid carried (a 14x16 building
+    # at surface (60,72) used to allocate a ~76x90 grid). The world
+    # extent — ``origin + size`` — equals the old grid's size, so every
+    # op still lands at the same world coordinate and the render is
+    # byte-identical; only the array (and its allocation cost) shrinks.
+    # Coordinates stay world values, routed through Level's offset
+    # accessors.
+    w = base_rect.width + 4
+    h = base_rect.height + 4
     level = Level.create_empty(
         f"{building_id}_f{floor_idx}",
         f"{building_id} floor {floor_idx}",
         floor_idx + 1, w, h,
+        origin_x=base_rect.x - 2, origin_y=base_rect.y - 2,
     )
 
     footprint = base_shape.floor_tiles(base_rect)

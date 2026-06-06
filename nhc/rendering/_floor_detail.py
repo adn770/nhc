@@ -84,8 +84,8 @@ def _render_floor_grid(
     room_segments: list[str] = []
     corridor_segments: list[str] = []
 
-    for y in range(level.height):
-        for x in range(level.width):
+    for y in range(level.origin_y, level.origin_y + level.height):
+        for x in range(level.origin_x, level.origin_x + level.width):
             tile = level.tile_at(x, y)
             # Skip VOID tiles: they're truly empty space, never
             # rendered on surface levels (no dungeon_poly to clip

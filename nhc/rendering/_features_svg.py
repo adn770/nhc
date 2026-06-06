@@ -25,34 +25,32 @@ def _connected_tree_groves(
     groves (3+ tiles fused into one canopy union by the Rust
     port).
     """
-    height = level.height
-    width = level.width
-    visited: list[list[bool]] = [
-        [False] * width for _ in range(height)
-    ]
+    # World-coord flood fill. ``visited`` is a coordinate set rather
+    # than a positional buffer so the scan works regardless of the
+    # grid's origin (a building floor offsets it); out-of-bounds
+    # neighbours surface as ``tile_at`` returning ``None``.
+    visited: set[tuple[int, int]] = set()
     groves: list[frozenset[tuple[int, int]]] = []
-    for sy in range(height):
-        for sx in range(width):
-            if visited[sy][sx]:
+    for sx, sy, tile in level.iter_world():
+        if (sx, sy) in visited:
+            continue
+        if tile.feature != "tree":
+            continue
+        grove: set[tuple[int, int]] = set()
+        stack: list[tuple[int, int]] = [(sx, sy)]
+        while stack:
+            cx, cy = stack.pop()
+            if (cx, cy) in visited:
                 continue
-            if level.tile_at(sx, sy).feature != "tree":
+            nb = level.tile_at(cx, cy)
+            if nb is None or nb.feature != "tree":
                 continue
-            grove: set[tuple[int, int]] = set()
-            stack: list[tuple[int, int]] = [(sx, sy)]
-            while stack:
-                cx, cy = stack.pop()
-                if cx < 0 or cy < 0 or cx >= width or cy >= height:
-                    continue
-                if visited[cy][cx]:
-                    continue
-                if level.tile_at(cx, cy).feature != "tree":
-                    continue
-                visited[cy][cx] = True
-                grove.add((cx, cy))
-                stack.append((cx + 1, cy))
-                stack.append((cx - 1, cy))
-                stack.append((cx, cy + 1))
-                stack.append((cx, cy - 1))
-            if grove:
-                groves.append(frozenset(grove))
+            visited.add((cx, cy))
+            grove.add((cx, cy))
+            stack.append((cx + 1, cy))
+            stack.append((cx - 1, cy))
+            stack.append((cx, cy + 1))
+            stack.append((cx, cy - 1))
+        if grove:
+            groves.append(frozenset(grove))
     return groves

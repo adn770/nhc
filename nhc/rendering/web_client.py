@@ -932,8 +932,8 @@ class WebClient(GameClient):
     ) -> list[dict]:
         """Build door list for the client."""
         doors = []
-        for y in range(level.height):
-            for x in range(level.width):
+        for y in range(level.origin_y, level.origin_y + level.height):
+            for x in range(level.origin_x, level.origin_x + level.width):
                 tile = level.tile_at(x, y)
                 if not tile or not tile.visible:
                     continue
@@ -960,8 +960,8 @@ class WebClient(GameClient):
     def _gather_dug(self, level: "Level") -> list[dict]:
         """Build list of dug tile positions with type and edge info."""
         dug = []
-        for y in range(level.height):
-            for x in range(level.width):
+        for y in range(level.origin_y, level.origin_y + level.height):
+            for x in range(level.origin_x, level.origin_x + level.width):
                 tile = level.tile_at(x, y)
                 if not tile or not (tile.dug_wall or tile.dug_floor):
                     continue
@@ -988,8 +988,8 @@ class WebClient(GameClient):
     def _gather_fov(self, level: "Level") -> list[list[int]]:
         """Build list of visible tile coordinates."""
         visible = []
-        for y in range(level.height):
-            for x in range(level.width):
+        for y in range(level.origin_y, level.origin_y + level.height):
+            for x in range(level.origin_x, level.origin_x + level.width):
                 tile = level.tile_at(x, y)
                 if tile and tile.visible:
                     visible.append([x, y])
@@ -1118,8 +1118,8 @@ class WebClient(GameClient):
         expansion_cells = _active_expansion_cells(
             level, expansions, "visible")
         normal_cells: set[tuple[int, int]] = set()
-        for y in range(level.height):
-            for x in range(level.width):
+        for y in range(level.origin_y, level.origin_y + level.height):
+            for x in range(level.origin_x, level.origin_x + level.width):
                 tile = level.tile_at(x, y)
                 if not tile or not tile.visible:
                     continue
@@ -1155,8 +1155,8 @@ class WebClient(GameClient):
             level, expansions, "explored")
         normal_cells: set[tuple[int, int]] = set()
         explored_tiles: list[tuple[int, int]] = []
-        for y in range(level.height):
-            for x in range(level.width):
+        for y in range(level.origin_y, level.origin_y + level.height):
+            for x in range(level.origin_x, level.origin_x + level.width):
                 tile = level.tile_at(x, y)
                 if not tile or not tile.explored:
                     continue
@@ -1777,8 +1777,8 @@ class WebClient(GameClient):
         turn: int,
     ) -> None:
         tiles = []
-        for y in range(level.height):
-            for x in range(level.width):
+        for y in range(level.origin_y, level.origin_y + level.height):
+            for x in range(level.origin_x, level.origin_x + level.width):
                 tile = level.tile_at(x, y)
                 if tile:
                     tiles.append([x, y])

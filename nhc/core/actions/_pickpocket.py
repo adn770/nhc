@@ -224,34 +224,33 @@ def _nearest_edge_tile(
     """
     from nhc.ai.behavior import _ERRAND_BLOCKING_FEATURES
 
-    w, h = level.width, level.height
+    ox, oy = level.origin_x, level.origin_y
+    x_max, y_max = ox + level.width - 1, oy + level.height - 1
     best: tuple[int, int] | None = None
     best_d = 10 ** 9
-    for y in range(h):
-        for x in range(w):
-            on_edge = x == 0 or y == 0 or x == w - 1 or y == h - 1
-            if not on_edge:
+    for x, y, tile in level.iter_world():
+        on_edge = x == ox or y == oy or x == x_max or y == y_max
+        if not on_edge:
+            continue
+        if not tile.walkable:
+            continue
+        if tile.feature in _ERRAND_BLOCKING_FEATURES:
+            continue
+        occupied = False
+        for eid, _, bpos in world.query(
+            "BlocksMovement", "Position",
+        ):
+            if eid == thief_id:
                 continue
-            tile = level.tile_at(x, y)
-            if not tile or not tile.walkable:
-                continue
-            if tile.feature in _ERRAND_BLOCKING_FEATURES:
-                continue
-            occupied = False
-            for eid, _, bpos in world.query(
-                "BlocksMovement", "Position",
-            ):
-                if eid == thief_id:
-                    continue
-                if bpos.x == x and bpos.y == y:
-                    occupied = True
-                    break
-            if occupied:
-                continue
-            d = chebyshev(tx, ty, x, y)
-            if d < best_d:
-                best_d = d
-                best = (x, y)
+            if bpos.x == x and bpos.y == y:
+                occupied = True
+                break
+        if occupied:
+            continue
+        d = chebyshev(tx, ty, x, y)
+        if d < best_d:
+            best_d = d
+            best = (x, y)
     return best
 
 

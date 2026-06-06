@@ -433,6 +433,8 @@ def _build_synthetic_buf(fx: SyntheticRoofFixture) -> bytes:
     # Stub ctx + level — only the dimensions matter at finish-time.
     @dataclasses.dataclass
     class _Level:
+        origin_x = 0
+        origin_y = 0
         width: int
         height: int
 
@@ -547,6 +549,8 @@ def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
 
     @dataclasses.dataclass
     class _Level:
+        origin_x = 0
+        origin_y = 0
         width: int
         height: int
 
@@ -841,6 +845,8 @@ def _build_synthetic_building_wall_buf(
 
     @dataclasses.dataclass
     class _Level:
+        origin_x = 0
+        origin_y = 0
         width: int
         height: int
         interior_edges: list[tuple[int, int, str]]

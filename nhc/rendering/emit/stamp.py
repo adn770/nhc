@@ -113,8 +113,8 @@ def emit_stamps(builder: Any) -> list[OpEntryT]:
     # need a SECOND stamp targeting ``corridor`` for the corridor
     # grid + decoration coverage to land.
     has_grid_tile = False
-    for y in range(level.height):
-        for x in range(level.width):
+    for y in range(level.origin_y, level.origin_y + level.height):
+        for x in range(level.origin_x, level.origin_x + level.width):
             if level.tile_at(x, y).terrain != Terrain.VOID:
                 has_grid_tile = True
                 break
@@ -143,8 +143,8 @@ def emit_stamps(builder: Any) -> list[OpEntryT]:
         building_polygon = getattr(ctx, "building_polygon", None)
         wood_floor_tiles_present = False
         if building_polygon is None:
-            for y in range(level.height):
-                for x in range(level.width):
+            for y in range(level.origin_y, level.origin_y + level.height):
+                for x in range(level.origin_x, level.origin_x + level.width):
                     if level.tile_at(x, y).terrain is Terrain.FLOOR:
                         wood_floor_tiles_present = True
                         break

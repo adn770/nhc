@@ -38,8 +38,8 @@ def _render_corridor_hatching(
 
     # Collect VOID tiles that border a corridor or door tile
     hatch_tiles: set[tuple[int, int]] = set()
-    for y in range(level.height):
-        for x in range(level.width):
+    for y in range(level.origin_y, level.origin_y + level.height):
+        for x in range(level.origin_x, level.origin_x + level.width):
             tile = level.tile_at(x, y)
             if not (tile.surface_type == SurfaceType.CORRIDOR
                     or _is_door(level, x, y)):
@@ -196,8 +196,8 @@ def _render_hole_hatching(
     hatch_stones: list[str] = []
     hatch_lines: list[str] = []
 
-    for gy in range(level.height):
-        for gx in range(level.width):
+    for gy in range(level.origin_y, level.origin_y + level.height):
+        for gx in range(level.origin_x, level.origin_x + level.width):
             center = Point((gx + 0.5) * CELL, (gy + 0.5) * CELL)
             if not any(hp.contains(center) for hp in hole_polys):
                 continue
@@ -303,8 +303,8 @@ def _render_hatching(
     # leaving some adjacent wall tiles unhatched.  Any hatching
     # that overlaps floor area is covered by the floor fill.
     floor_set: set[tuple[int, int]] = set()
-    for ty in range(level.height):
-        for tx in range(level.width):
+    for ty in range(level.origin_y, level.origin_y + level.height):
+        for tx in range(level.origin_x, level.origin_x + level.width):
             if level.tile_at(tx, ty).terrain == Terrain.FLOOR:
                 floor_set.add((tx, ty))
 

@@ -83,8 +83,8 @@ def _collect_corridor_tiles(
     covered by ``cave_tiles``.
     """
     tiles: set[tuple[int, int]] = set()
-    for y in range(level.height):
-        for x in range(level.width):
+    for y in range(level.origin_y, level.origin_y + level.height):
+        for x in range(level.origin_x, level.origin_x + level.width):
             if (x, y) in cave_tiles:
                 continue
             tile = level.tile_at(x, y)
@@ -169,8 +169,8 @@ def _collect_predicate_components(
     """
     excluded = exclude or set()
     tiles: set[tuple[int, int]] = set()
-    for y in range(level.height):
-        for x in range(level.width):
+    for y in range(level.origin_y, level.origin_y + level.height):
+        for x in range(level.origin_x, level.origin_x + level.width):
             if (x, y) in excluded:
                 continue
             if predicate(level, x, y):
@@ -255,8 +255,8 @@ def _floor_detail_candidates(
     candidate lists in y-major / x-minor order.
     """
     candidates: list[tuple[int, int, bool]] = []
-    for y in range(level.height):
-        for x in range(level.width):
+    for y in range(level.origin_y, level.origin_y + level.height):
+        for x in range(level.origin_x, level.origin_x + level.width):
             tile = level.tile_at(x, y)
             if tile.terrain != Terrain.FLOOR:
                 continue

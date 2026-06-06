@@ -67,8 +67,8 @@ def emit_hatches(builder: Any) -> list[OpEntryT]:
     # visual artifact is overlapping hatch noise around corridors.
     corridor_hatch_tiles: set[tuple[int, int]] = set()
     if tiles_grid is not None:
-        for y in range(level.height):
-            for x in range(level.width):
+        for y in range(level.origin_y, level.origin_y + level.height):
+            for x in range(level.origin_x, level.origin_x + level.width):
                 tile = level.tile_at(x, y)
                 if not (
                     tile.surface_type == SurfaceType.CORRIDOR
@@ -97,8 +97,8 @@ def emit_hatches(builder: Any) -> list[OpEntryT]:
         base_distance_limit = hatch_distance * CELL
 
         floor_set: set[tuple[int, int]] = set()
-        for ty in range(level.height):
-            for tx in range(level.width):
+        for ty in range(level.origin_y, level.origin_y + level.height):
+            for tx in range(level.origin_x, level.origin_x + level.width):
                 if level.tile_at(tx, ty).terrain == Terrain.FLOOR:
                     floor_set.add((tx, ty))
 

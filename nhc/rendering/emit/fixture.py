@@ -87,8 +87,8 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
     # 1. Stairs — emitted in IR_STAGES before surface features, so
     # they appear first in builder.ops; mirror that order.
     stair_anchors: list[AnchorT] = []
-    for y in range(level.height):
-        for x in range(level.width):
+    for y in range(level.origin_y, level.origin_y + level.height):
+        for x in range(level.origin_x, level.origin_x + level.width):
             feat = level.tile_at(x, y).feature
             # StairDirection enum: Up=0, Down=1 (per floor_ir.fbs).
             if feat == "stairs_up":
@@ -110,8 +110,8 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
     # 2. Wells — per shape, in (Round, Square) order.
     well_round: list[tuple[int, int]] = []
     well_square: list[tuple[int, int]] = []
-    for y in range(level.height):
-        for x in range(level.width):
+    for y in range(level.origin_y, level.origin_y + level.height):
+        for x in range(level.origin_x, level.origin_x + level.width):
             f = level.tile_at(x, y).feature
             if f == "well":
                 well_round.append((x, y))
@@ -147,8 +147,8 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
         "fountain_large_square": 3,
         "fountain_cross": 4,
     }
-    for y in range(level.height):
-        for x in range(level.width):
+    for y in range(level.origin_y, level.origin_y + level.height):
+        for x in range(level.origin_x, level.origin_x + level.width):
             idx = fountain_feature_to_idx.get(
                 level.tile_at(x, y).feature
             )
@@ -210,8 +210,8 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
 
     # 5. Bushes.
     bush_anchors: list[AnchorT] = []
-    for y in range(level.height):
-        for x in range(level.width):
+    for y in range(level.origin_y, level.origin_y + level.height):
+        for x in range(level.origin_x, level.origin_x + level.width):
             if level.tile_at(x, y).feature == "bush":
                 bush_anchors.append(_make_anchor(x, y))
     if bush_anchors:
@@ -224,8 +224,8 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
 
     # 6. Flowers — manicured garden beds.
     flower_anchors: list[AnchorT] = []
-    for y in range(level.height):
-        for x in range(level.width):
+    for y in range(level.origin_y, level.origin_y + level.height):
+        for x in range(level.origin_x, level.origin_x + level.width):
             if level.tile_at(x, y).feature == "flower":
                 flower_anchors.append(_make_anchor(x, y))
     if flower_anchors:
