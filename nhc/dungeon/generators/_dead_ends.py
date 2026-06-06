@@ -29,7 +29,7 @@ def _prune_dead_ends(level: Level) -> None:
         pruned = False
         for y in range(level.height):
             for x in range(level.width):
-                tile = level.tiles[y][x]
+                tile = level.tile_at(x, y)
                 if not (tile.terrain == Terrain.FLOOR
                         and tile.surface_type == SurfaceType.CORRIDOR
                         and not tile.feature):
@@ -42,7 +42,7 @@ def _prune_dead_ends(level: Level) -> None:
                     if nb and nb.terrain == Terrain.FLOOR:
                         floor_neighbors += 1
                 if floor_neighbors <= 1:
-                    level.tiles[y][x] = Tile(terrain=Terrain.VOID)
+                    level.set_tile(x, y, Tile(terrain=Terrain.VOID))
                     pruned = True
 
 
@@ -57,7 +57,7 @@ def _handle_dead_ends(level: Level, rng: random.Random) -> None:
         changed = False
         for y in range(level.height):
             for x in range(level.width):
-                tile = level.tiles[y][x]
+                tile = level.tile_at(x, y)
                 if not (tile.terrain == Terrain.FLOOR
                         and tile.surface_type == SurfaceType.CORRIDOR
                         and not tile.feature):
@@ -86,7 +86,7 @@ def _handle_dead_ends(level: Level, rng: random.Random) -> None:
                     pass  # Keep as dead end
                 else:
                     # Prune
-                    level.tiles[y][x] = Tile(terrain=Terrain.VOID)
+                    level.set_tile(x, y, Tile(terrain=Terrain.VOID))
                     changed = True
 
 
@@ -94,7 +94,7 @@ def _remove_orphaned_doors(level: Level) -> None:
     """Remove doors that have no corridor on the non-room side."""
     for y in range(level.height):
         for x in range(level.width):
-            tile = level.tiles[y][x]
+            tile = level.tile_at(x, y)
             if tile.feature not in _DOOR_FEATS:
                 continue
             has_room_side = False
@@ -110,7 +110,7 @@ def _remove_orphaned_doors(level: Level) -> None:
                         and nb.surface_type == SurfaceType.CORRIDOR):
                     has_corridor_side = True
             if has_room_side and not has_corridor_side:
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
                 logger.debug(
                     "Removed orphaned door at (%d, %d)", x, y,
                 )
@@ -183,7 +183,7 @@ def _harmonize_doors(level: Level) -> None:
     """Unify adjacent door types so they match."""
     for y in range(level.height):
         for x in range(level.width):
-            tile = level.tiles[y][x]
+            tile = level.tile_at(x, y)
             if tile.feature not in _DOOR_FEATS:
                 continue
             for dx, dy in [(1, 0), (0, 1)]:

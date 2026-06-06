@@ -84,8 +84,7 @@ def pick_undead_population(
     excluded = set(exclude or ())
     floors = [
         (x, y)
-        for y, row in enumerate(surface.tiles)
-        for x, tile in enumerate(row)
+        for x, y, tile in surface.iter_world()
         if tile.terrain is Terrain.FLOOR and (x, y) not in excluded
     ]
     if not floors:
@@ -106,18 +105,16 @@ def _build_graveyard_surface(
     surface.metadata.theme = "crypt"
     surface.metadata.prerevealed = True
     surface.metadata.faction = "undead"
-    for y in range(height):
-        for x in range(width):
-            tile = surface.tiles[y][x]
-            on_border = (
-                x == 0 or y == 0
-                or x == width - 1 or y == height - 1
-            )
-            if on_border:
-                tile.terrain = Terrain.WALL
-            else:
-                tile.terrain = Terrain.FLOOR
-                tile.surface_type = SurfaceType.FIELD
+    for x, y, tile in surface.iter_world():
+        on_border = (
+            x == 0 or y == 0
+            or x == width - 1 or y == height - 1
+        )
+        if on_border:
+            tile.terrain = Terrain.WALL
+        else:
+            tile.terrain = Terrain.FLOOR
+            tile.surface_type = SurfaceType.FIELD
     return surface
 
 

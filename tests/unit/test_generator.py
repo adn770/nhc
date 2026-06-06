@@ -55,11 +55,11 @@ class TestClassicGenerator:
 
         # First room should have stairs_up
         first_cx, first_cy = level.rooms[0].rect.center
-        assert level.tiles[first_cy][first_cx].feature == "stairs_up"
+        assert level.tile_at(first_cx, first_cy).feature == "stairs_up"
 
         # Last room should have stairs_down
         last_cx, last_cy = level.rooms[-1].rect.center
-        assert level.tiles[last_cy][last_cx].feature == "stairs_down"
+        assert level.tile_at(last_cx, last_cy).feature == "stairs_down"
 
     def test_border_is_walls(self):
         set_seed(42)
@@ -69,11 +69,11 @@ class TestClassicGenerator:
 
         # Borders are void (rooms don't touch map edge)
         for x in range(level.width):
-            assert level.tiles[0][x].terrain != Terrain.FLOOR
-            assert level.tiles[level.height - 1][x].terrain != Terrain.FLOOR
+            assert level.tile_at(x, 0).terrain != Terrain.FLOOR
+            assert level.tile_at(x, level.height - 1).terrain != Terrain.FLOOR
         for y in range(level.height):
-            assert level.tiles[y][0].terrain != Terrain.FLOOR
-            assert level.tiles[y][level.width - 1].terrain != Terrain.FLOOR
+            assert level.tile_at(0, y).terrain != Terrain.FLOOR
+            assert level.tile_at(level.width - 1, y).terrain != Terrain.FLOOR
 
     def test_deterministic_with_seed(self):
         """Same seed produces identical layouts."""
@@ -197,21 +197,21 @@ class TestPopulator:
         # Room A: (1,1)-(4,5)
         for y in range(1, 5):
             for x in range(1, 4):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         level.rooms.append(Room(id="r1", rect=Rect(1, 1, 3, 4)))
         # Room B: (7,1)-(10,5)
         for y in range(1, 5):
             for x in range(7, 10):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         level.rooms.append(Room(id="r2", rect=Rect(7, 1, 3, 4)))
         # Door at (4,3) and (6,3)
-        level.tiles[3][4] = Tile(terrain=Terrain.FLOOR,
-                                 feature="door_closed")
-        level.tiles[3][6] = Tile(terrain=Terrain.FLOOR,
-                                 feature="door_closed")
+        level.set_tile(4, 3, Tile(terrain=Terrain.FLOOR,
+                                  feature="door_closed"))
+        level.set_tile(6, 3, Tile(terrain=Terrain.FLOOR,
+                                  feature="door_closed"))
         # Single-tile corridor at (5,3)
-        level.tiles[3][5] = Tile(terrain=Terrain.FLOOR,
-                                 surface_type=SurfaceType.CORRIDOR)
+        level.set_tile(5, 3, Tile(terrain=Terrain.FLOOR,
+                                  surface_type=SurfaceType.CORRIDOR))
 
         # Run populate many times and collect placements at (5,3)
         creature_count = 0

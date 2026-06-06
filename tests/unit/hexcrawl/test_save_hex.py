@@ -42,7 +42,7 @@ def _tiny_level() -> Level:
     ]
     return Level(
         id="test-level", name="Test", depth=1,
-        width=3, height=3, tiles=tiles, rooms=[], corridors=[],
+        width=3, height=3, _tiles=tiles, rooms=[], corridors=[],
         metadata=LevelMetadata(),
     )
 

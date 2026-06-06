@@ -21,7 +21,7 @@ def _empty_level(*rooms: Room) -> Level:
              for _ in range(10)]
     return Level(
         id="test", name="Test", depth=1,
-        width=10, height=10, tiles=tiles,
+        width=10, height=10, _tiles=tiles,
         rooms=list(rooms), corridors=[],
         metadata=LevelMetadata(),
     )

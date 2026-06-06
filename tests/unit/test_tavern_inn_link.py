@@ -124,7 +124,7 @@ class TestComposeShellSharedDoors:
             {"a": fp_a, "b": fp_b},
             shared_doors=[("a", "b", (4, 3))],
         )
-        tile = level.tiles[3][4]
+        tile = level.tile_at(4, 3)
         assert tile.feature == "door_closed"
 
     def test_shared_doors_default_empty(self) -> None:
@@ -132,6 +132,5 @@ class TestComposeShellSharedDoors:
         fp_a = {(2, 2), (2, 3), (3, 2), (3, 3)}
         compose_shell(level, {"a": fp_a})
         # No door placed anywhere.
-        for row in level.tiles:
-            for t in row:
-                assert t.feature != "door_closed"
+        for t in level.iter_tiles():
+            assert t.feature != "door_closed"

@@ -261,7 +261,7 @@ def test_renderable_bbox_includes_polygon_and_overhang() -> None:
 
     level = Level.create_empty("blank", "blank", 0, 20, 20)
     # Single floor tile so the non-VOID scan returns a hit.
-    level.tiles[10][10] = Tile(terrain=Terrain.FLOOR)
+    level.set_tile(10, 10, Tile(terrain=Terrain.FLOOR))
     enc = Enclosure(
         kind="palisade",
         polygon=[(2, 3), (15, 3), (15, 14), (2, 14)],

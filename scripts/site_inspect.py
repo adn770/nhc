@@ -93,10 +93,9 @@ def inspect_site(
 
     features: Counter[str] = Counter()
     surface = site.surface
-    for row in surface.tiles:
-        for tile in row:
-            if tile.feature is not None:
-                features[tile.feature] += 1
+    for tile in surface.iter_tiles():
+        if tile.feature is not None:
+            features[tile.feature] += 1
     # Stable keys so report diffs stay readable across seeds.
     features.setdefault("tree", 0)
     features.setdefault("bush", 0)

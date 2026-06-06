@@ -214,7 +214,7 @@ def load_level(path: str | Path) -> Level:
         depth=data["depth"],
         width=width,
         height=height,
-        tiles=tiles,
+        _tiles=tiles,
         rooms=rooms,
         corridors=corridors,
         entities=entities,

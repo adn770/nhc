@@ -14,7 +14,7 @@ from nhc.hexcrawl.underworld import assign_sector_map
 
 
 def _carve(level: Level, x: int, y: int) -> None:
-    level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+    level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
 
 def _make_level(width: int = 20, height: int = 10) -> Level:

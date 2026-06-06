@@ -18,7 +18,7 @@ def _make_world():
             tile.explored = True
     level = Level(
         id="test", name="Test", depth=1, width=10, height=10,
-        tiles=tiles, rooms=[], corridors=[], entities=[],
+        _tiles=tiles, rooms=[], corridors=[], entities=[],
     )
 
     player_id = world.create_entity({

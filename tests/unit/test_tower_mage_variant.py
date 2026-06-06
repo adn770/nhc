@@ -51,9 +51,8 @@ class TestMageTowerTeleporters:
             for floor in building.floors:
                 pad_tiles = [
                     (x, y)
-                    for y in range(floor.height)
-                    for x in range(floor.width)
-                    if floor.tiles[y][x].feature == "teleporter_pad"
+                    for x, y, tile in floor.iter_world()
+                    if tile.feature == "teleporter_pad"
                 ]
                 assert len(pad_tiles) == 2, (
                     f"seed={seed} floor={floor.floor_index}: "
@@ -74,8 +73,7 @@ class TestMageTowerTeleporters:
             for floor in building.floors:
                 pad_count = sum(
                     1
-                    for row in floor.tiles
-                    for t in row
+                    for t in floor.iter_tiles()
                     if t.feature == "teleporter_pad"
                 )
                 assert pad_count == 0

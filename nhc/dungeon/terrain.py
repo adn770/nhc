@@ -70,7 +70,7 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
     # Apply water (only on bare floor tiles, skip corridors)
     for y in range(1, level.height - 1):
         for x in range(1, level.width - 1):
-            tile = level.tiles[y][x]
+            tile = level.tile_at(x, y)
             if (tile.terrain == Terrain.FLOOR
                     and not tile.feature
                     and tile.surface_type != SurfaceType.CORRIDOR
@@ -84,7 +84,7 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
         )
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
-                tile = level.tiles[y][x]
+                tile = level.tile_at(x, y)
                 if (tile.terrain == Terrain.FLOOR
                         and not tile.feature
                         and tile.surface_type != SurfaceType.CORRIDOR
@@ -98,7 +98,7 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
         )
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
-                tile = level.tiles[y][x]
+                tile = level.tile_at(x, y)
                 if (tile.terrain == Terrain.FLOOR
                         and not tile.feature
                         and tile.surface_type != SurfaceType.CORRIDOR
@@ -106,15 +106,15 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
                     tile.terrain = Terrain.LAVA
 
     water_count = sum(
-        1 for row in level.tiles for t in row
+        1 for t in level.iter_tiles()
         if t.terrain == Terrain.WATER
     )
     grass_count = sum(
-        1 for row in level.tiles for t in row
+        1 for t in level.iter_tiles()
         if t.terrain == Terrain.GRASS
     )
     lava_count = sum(
-        1 for row in level.tiles for t in row
+        1 for t in level.iter_tiles()
         if t.terrain == Terrain.LAVA
     )
     logger.info(

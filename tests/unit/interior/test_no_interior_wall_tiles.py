@@ -37,7 +37,7 @@ def test_no_wall_tile_inside_footprint(name, assemble) -> None:
             )
             for floor in building.floors:
                 for (x, y) in footprint:
-                    tile = floor.tiles[y][x]
+                    tile = floor.tile_at(x, y)
                     assert tile.terrain is not Terrain.WALL, (
                         f"{name} seed={seed} building={building.id} "
                         f"floor={floor.id}: tile ({x}, {y}) inside "

@@ -267,31 +267,29 @@ def _compute_door_sides(level: Level) -> None:
         (-1, 0): "west",
     }
 
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.feature not in door_feats:
-                continue
-            if tile.door_side:
-                # Already set explicitly at generation time.
-                continue
-            # Primary: room-floor direction (BSP dungeons).
-            matched = False
-            for delta, side in _DIR.items():
-                if (x + delta[0], y + delta[1]) in floor_to_room:
-                    tile.door_side = side
-                    matched = True
-                    break
-            if matched:
-                continue
-            # Fallback: adjacent wall / void direction.
-            for delta, side in _DIR.items():
-                nb = level.tile_at(x + delta[0], y + delta[1])
-                if nb and nb.terrain in (
-                    Terrain.WALL, Terrain.VOID,
-                ):
-                    tile.door_side = side
-                    break
+    for x, y, tile in level.iter_world():
+        if tile.feature not in door_feats:
+            continue
+        if tile.door_side:
+            # Already set explicitly at generation time.
+            continue
+        # Primary: room-floor direction (BSP dungeons).
+        matched = False
+        for delta, side in _DIR.items():
+            if (x + delta[0], y + delta[1]) in floor_to_room:
+                tile.door_side = side
+                matched = True
+                break
+        if matched:
+            continue
+        # Fallback: adjacent wall / void direction.
+        for delta, side in _DIR.items():
+            nb = level.tile_at(x + delta[0], y + delta[1])
+            if nb and nb.terrain in (
+                Terrain.WALL, Terrain.VOID,
+            ):
+                tile.door_side = side
+                break
 
 
 def _remove_non_straight_doors(level: Level) -> None:
@@ -332,72 +330,70 @@ def _remove_non_straight_doors(level: Level) -> None:
             floor_to_room[pos] = room
 
     removed = 0
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.feature not in door_feats:
-                continue
-            if not tile.door_side:
-                continue
-            # Find the room floor tile adjacent to this door
-            rdx, rdy = _ROOM_DIR[tile.door_side]
-            floor_pos = (x + rdx, y + rdy)
-            room = floor_to_room.get(floor_pos)
-            if room is None:
-                continue  # rect room — keep door
+    for x, y, tile in level.iter_world():
+        if tile.feature not in door_feats:
+            continue
+        if not tile.door_side:
+            continue
+        # Find the room floor tile adjacent to this door
+        rdx, rdy = _ROOM_DIR[tile.door_side]
+        floor_pos = (x + rdx, y + rdy)
+        room = floor_to_room.get(floor_pos)
+        if room is None:
+            continue  # rect room — keep door
 
-            # A door on the bounding rect's edge is straight
-            # when the floor reaches that edge at the door's
-            # row/column.  This keeps doors on flat sides of
-            # octagons, rect halves of hybrids, and cross arms
-            # while removing them at curves and diagonals.
-            r = room.rect
-            fx, fy = floor_pos
-            floor_tiles = room.floor_tiles()
-            straight = True
-            # A door is on a straight wall when the room
-            # outline runs parallel to the rect boundary at
-            # the door position.  This holds when the floor
-            # reaches the rect edge AND enough floor tiles
-            # span the wall direction (≥3 tiles in a row
-            # along the rect edge) — indicating a flat side,
-            # not a narrow tip or diagonal.
-            if tile.door_side in ("east", "west"):
-                edge_x = r.x if tile.door_side == "east" \
-                    else r.x2 - 1
-                if fx != edge_x:
-                    straight = False
-                else:
-                    # Count floor tiles along Y at this column
-                    span = sum(
-                        1 for yy in range(r.y, r.y2)
-                        if (edge_x, yy) in floor_tiles
-                    )
-                    straight = span >= 3
+        # A door on the bounding rect's edge is straight
+        # when the floor reaches that edge at the door's
+        # row/column.  This keeps doors on flat sides of
+        # octagons, rect halves of hybrids, and cross arms
+        # while removing them at curves and diagonals.
+        r = room.rect
+        fx, fy = floor_pos
+        floor_tiles = room.floor_tiles()
+        straight = True
+        # A door is on a straight wall when the room
+        # outline runs parallel to the rect boundary at
+        # the door position.  This holds when the floor
+        # reaches the rect edge AND enough floor tiles
+        # span the wall direction (≥3 tiles in a row
+        # along the rect edge) — indicating a flat side,
+        # not a narrow tip or diagonal.
+        if tile.door_side in ("east", "west"):
+            edge_x = r.x if tile.door_side == "east" \
+                else r.x2 - 1
+            if fx != edge_x:
+                straight = False
             else:
-                edge_y = r.y if tile.door_side == "south" \
-                    else r.y2 - 1
-                if fy != edge_y:
-                    straight = False
-                else:
-                    span = sum(
-                        1 for xx in range(r.x, r.x2)
-                        if (xx, edge_y) in floor_tiles
-                    )
-                    straight = span >= 3
-            # For hybrid rooms, even a "straight" span can be
-            # invalid if the door sits in the circle half's
-            # range — diagonal transition tiles inflate the
-            # span but the wall is curved there.
-            if straight and isinstance(room.shape, HybridShape):
-                straight = _hybrid_door_ok(
-                    room, x, y, tile.door_side,
+                # Count floor tiles along Y at this column
+                span = sum(
+                    1 for yy in range(r.y, r.y2)
+                    if (edge_x, yy) in floor_tiles
                 )
+                straight = span >= 3
+        else:
+            edge_y = r.y if tile.door_side == "south" \
+                else r.y2 - 1
+            if fy != edge_y:
+                straight = False
+            else:
+                span = sum(
+                    1 for xx in range(r.x, r.x2)
+                    if (xx, edge_y) in floor_tiles
+                )
+                straight = span >= 3
+        # For hybrid rooms, even a "straight" span can be
+        # invalid if the door sits in the circle half's
+        # range — diagonal transition tiles inflate the
+        # span but the wall is curved there.
+        if straight and isinstance(room.shape, HybridShape):
+            straight = _hybrid_door_ok(
+                room, x, y, tile.door_side,
+            )
 
-            if not straight:
-                tile.feature = None
-                tile.surface_type = SurfaceType.CORRIDOR
-                tile.door_side = ""
-                removed += 1
+        if not straight:
+            tile.feature = None
+            tile.surface_type = SurfaceType.CORRIDOR
+            tile.door_side = ""
+            removed += 1
     if removed:
         logger.info("Removed %d doors on non-straight walls", removed)

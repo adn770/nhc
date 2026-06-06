@@ -145,25 +145,24 @@ def _scatter_cottage_trees(
     for sx, sy in site.building_doors:
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             door_ring.add((sx + dx, sy + dy))
-    for y, row in enumerate(surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.terrain is not Terrain.GRASS:
-                continue
-            if tile.surface_type != SurfaceType.FIELD:
-                continue
-            if tile.feature is not None:
-                continue
-            if (x, y) in door_ring:
-                continue
-            blocked = False
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                if (x + dx, y + dy) in footprints:
-                    blocked = True
-                    break
-            if blocked:
-                continue
-            if rng.random() < COTTAGE_TREE_DENSITY:
-                tile.feature = "tree"
+    for x, y, tile in surface.iter_world():
+        if tile.terrain is not Terrain.GRASS:
+            continue
+        if tile.surface_type != SurfaceType.FIELD:
+            continue
+        if tile.feature is not None:
+            continue
+        if (x, y) in door_ring:
+            continue
+        blocked = False
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            if (x + dx, y + dy) in footprints:
+                blocked = True
+                break
+        if blocked:
+            continue
+        if rng.random() < COTTAGE_TREE_DENSITY:
+            tile.feature = "tree"
 
 
 def _scatter_cottage_bushes(
@@ -185,29 +184,28 @@ def _scatter_cottage_bushes(
             door_ring.add((sx + dx, sy + dy))
 
     bush_set: set[tuple[int, int]] = set()
-    for y, row in enumerate(surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.terrain is not Terrain.GRASS:
-                continue
-            if tile.surface_type != SurfaceType.FIELD:
-                continue
-            if tile.feature is not None:
-                continue
-            if (x, y) in door_ring:
-                continue
-            has_bush_nb = (
-                (x - 1, y) in bush_set
-                or (x, y - 1) in bush_set
-            )
-            prob = (
-                COTTAGE_BUSH_DENSITY
-                * COTTAGE_BUSH_NEIGHBOUR_BIAS_MULT
-                if has_bush_nb
-                else COTTAGE_BUSH_DENSITY
-            )
-            if rng.random() < prob:
-                tile.feature = "bush"
-                bush_set.add((x, y))
+    for x, y, tile in surface.iter_world():
+        if tile.terrain is not Terrain.GRASS:
+            continue
+        if tile.surface_type != SurfaceType.FIELD:
+            continue
+        if tile.feature is not None:
+            continue
+        if (x, y) in door_ring:
+            continue
+        has_bush_nb = (
+            (x - 1, y) in bush_set
+            or (x, y - 1) in bush_set
+        )
+        prob = (
+            COTTAGE_BUSH_DENSITY
+            * COTTAGE_BUSH_NEIGHBOUR_BIAS_MULT
+            if has_bush_nb
+            else COTTAGE_BUSH_DENSITY
+        )
+        if rng.random() < prob:
+            tile.feature = "bush"
+            bush_set.add((x, y))
 
 
 def _build_cottage_building(
@@ -329,14 +327,14 @@ def _place_entry_door(
     ground = building.ground
     candidates: list[tuple[int, int]] = []
     for (px, py) in building.shared_perimeter():
-        tile = ground.tiles[py][px]
+        tile = ground.tile_at(px, py)
         if tile.feature is not None:
             continue
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
-            if ground.tiles[ny][nx].terrain is Terrain.WALL:
+            if ground.tile_at(nx, ny).terrain is Terrain.WALL:
                 candidates.append((px, py))
                 break
     if not candidates:
@@ -399,5 +397,5 @@ def _build_cottage_surface(
                     terrain=Terrain.GRASS,
                     surface_type=SurfaceType.FIELD,
                 )
-            surface.tiles[y][x] = tile
+            surface.set_tile(x, y, tile)
     return surface

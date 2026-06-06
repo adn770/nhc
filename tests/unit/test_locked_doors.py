@@ -25,7 +25,7 @@ def _make_level_with_locked_door() -> Level:
         for t in row:
             t.visible = True
     return Level(id="t", name="T", depth=1, width=10, height=10,
-                 tiles=tiles, rooms=[], corridors=[], entities=[])
+                 _tiles=tiles, rooms=[], corridors=[], entities=[])
 
 
 def _make_world(
@@ -240,7 +240,7 @@ class TestForceDoorWithTool:
         # when a crowbar is used.
         failed_at_least_once = False
         for seed in range(50):
-            level.tiles[5][6].feature = "door_locked"
+            level.tile_at(6, 5).feature = "door_locked"
             health.current = 20
             set_seed(seed)
             action = ForceDoorAction(
@@ -248,7 +248,7 @@ class TestForceDoorWithTool:
             )
             await action.validate(world, level)
             await action.execute(world, level)
-            if level.tiles[5][6].feature == "door_locked":
+            if level.tile_at(6, 5).feature == "door_locked":
                 failed_at_least_once = True
                 assert health.current == 20, (
                     f"Crowbar failure at seed {seed} dealt damage"
@@ -273,13 +273,13 @@ class TestForceDoorWithTool:
 
         hurt = False
         for seed in range(50):
-            level.tiles[5][6].feature = "door_locked"
+            level.tile_at(6, 5).feature = "door_locked"
             health.current = 20
             set_seed(seed)
             action = ForceDoorAction(actor=pid, dx=1, dy=0, tool=None)
             await action.validate(world, level)
             await action.execute(world, level)
-            if (level.tiles[5][6].feature == "door_locked"
+            if (level.tile_at(6, 5).feature == "door_locked"
                     and health.current < 20):
                 hurt = True
                 break
@@ -302,7 +302,7 @@ class TestForceDoorWithTool:
         broke = False
         for seed in range(200):
             # Re-create fresh state each time
-            level.tiles[5][6].feature = "door_locked"
+            level.tile_at(6, 5).feature = "door_locked"
             set_seed(seed)
             action = ForceDoorAction(actor=pid, dx=1, dy=0, tool=crowbar)
             if not await action.validate(world, level):
@@ -313,7 +313,7 @@ class TestForceDoorWithTool:
                 broke = True
                 break
             # Reset door for next attempt
-            level.tiles[5][6].feature = "door_locked"
+            level.tile_at(6, 5).feature = "door_locked"
         assert broke, "Crowbar never broke in 200 attempts (10% chance each)"
 
 
@@ -421,12 +421,9 @@ class TestLockedDoorGeneration:
             level = BSPGenerator().generate(
                 GenerationParams(width=80, height=50, depth=3),
             )
-            for row in level.tiles:
-                for tile in row:
-                    if tile.feature == "door_locked":
-                        found = True
-                        break
-                if found:
+            for tile in level.iter_tiles():
+                if tile.feature == "door_locked":
+                    found = True
                     break
             if found:
                 break

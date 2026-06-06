@@ -79,12 +79,11 @@ def _install_building_ground_floor(g: Game) -> Level:
     level.metadata = LevelMetadata(theme="dungeon")
     level.building_id = "b0"
     level.floor_index = 0
-    for y in range(level.height):
-        for x in range(level.width):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-    level.tiles[2][2] = Tile(
+    for x, y, _tile in level.iter_world():
+        level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
+    level.set_tile(2, 2, Tile(
         terrain=Terrain.FLOOR, feature="stairs_up",
-    )
+    ))
     g.level = level
     pos = g.world.get_component(g.player_id, "Position")
     pos.x, pos.y = 2, 2
@@ -134,12 +133,11 @@ async def test_ascend_on_plain_dungeon_stairs_up_still_exits(
     g = _make_game(tmp_path, [("ascend", None)])
     level = Level.create_empty("cave_1", "cave", 1, 5, 5)
     level.metadata = LevelMetadata(theme="dungeon")
-    for y in range(level.height):
-        for x in range(level.width):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-    level.tiles[2][2] = Tile(
+    for x, y, _tile in level.iter_world():
+        level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
+    level.set_tile(2, 2, Tile(
         terrain=Terrain.FLOOR, feature="stairs_up",
-    )
+    ))
     g.level = level
     pos = g.world.get_component(g.player_id, "Position")
     pos.x, pos.y = 2, 2

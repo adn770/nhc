@@ -40,7 +40,7 @@ def _make_level(w: int = 12, h: int = 12) -> Level:
         tiles[y][w - 1].terrain = Terrain.WALL
     return Level(
         id="t", name="T", depth=1, width=w, height=h,
-        tiles=tiles, rooms=[], corridors=[], entities=[],
+        _tiles=tiles, rooms=[], corridors=[], entities=[],
     )
 
 
@@ -142,7 +142,7 @@ class TestPlayerRetreatNarration:
         pid = _make_player(world, x=5, y=5)
         _make_hostile(world, 6, 5)
         # Hide the goblin's tile from FOV.
-        level.tiles[5][6].visible = False
+        level.tile_at(6, 5).visible = False
 
         action = MoveAction(actor=pid, dx=-1, dy=0)
         events = await action.execute(world, level)

@@ -20,7 +20,7 @@ def _blank_level(prerevealed: bool) -> Level:
     tiles = [[Tile(terrain=Terrain.FLOOR) for _ in range(5)]
              for _ in range(5)]
     return Level(
-        id="t", name="T", depth=0, width=5, height=5, tiles=tiles,
+        id="t", name="T", depth=0, width=5, height=5, _tiles=tiles,
         metadata=LevelMetadata(prerevealed=prerevealed),
     )
 
@@ -43,6 +43,6 @@ def test_fov_radius_picks_default_for_level_without_metadata():
     tiles = [[Tile(terrain=Terrain.FLOOR) for _ in range(5)]
              for _ in range(5)]
     level = Level(id="t", name="T", depth=0, width=5, height=5,
-                  tiles=tiles)
+                  _tiles=tiles)
     level.metadata = None  # type: ignore[assignment]
     assert _fov_radius_for_level(level) == FOV_RADIUS

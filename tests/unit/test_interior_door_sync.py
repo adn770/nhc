@@ -56,7 +56,7 @@ def _building(bid: str, width: int = 8, height: int = 6) -> Building:
     ]
     level = Level(
         id=f"{bid}_f0", name=f"{bid}_f0", depth=1,
-        width=width, height=height, tiles=tiles,
+        width=width, height=height, _tiles=tiles,
         building_id=bid, floor_index=0,
     )
     return Building(
@@ -69,8 +69,8 @@ def _building(bid: str, width: int = 8, height: int = 6) -> Building:
 def _linked_site() -> Site:
     a = _building("a")
     b = _building("b")
-    a.floors[0].tiles[2][3].feature = "door_closed"
-    b.floors[0].tiles[2][5].feature = "door_closed"
+    a.floors[0].tile_at(3, 2).feature = "door_closed"
+    b.floors[0].tile_at(5, 2).feature = "door_closed"
     site = Site(
         id="s", kind="town", buildings=[a, b],
         surface=Level.create_empty("surf", "surf", 0, 12, 8),
@@ -85,8 +85,8 @@ def _linked_site() -> Site:
 class TestTickDoorsSyncsLinkedPair:
     def test_autoclose_syncs_mirrored_tile(self) -> None:
         site = _linked_site()
-        a_tile = site.buildings[0].floors[0].tiles[2][3]
-        b_tile = site.buildings[1].floors[0].tiles[2][5]
+        a_tile = site.buildings[0].floors[0].tile_at(3, 2)
+        b_tile = site.buildings[1].floors[0].tile_at(5, 2)
         for tile in (a_tile, b_tile):
             tile.feature = "door_open"
             tile.opened_at_turn = 0
@@ -104,7 +104,7 @@ class TestTickDoorsSyncsLinkedPair:
         """Legacy callers (dungeon levels) have ``_active_site=None``;
         tick_doors must not raise."""
         site = _linked_site()
-        a_tile = site.buildings[0].floors[0].tiles[2][3]
+        a_tile = site.buildings[0].floors[0].tile_at(3, 2)
         a_tile.feature = "door_open"
         a_tile.opened_at_turn = 0
         world = World()
@@ -122,7 +122,7 @@ class TestCloseDoorActionEmitsEvent:
         loop can propagate the close to any linked pair."""
         site = _linked_site()
         a_floor = site.buildings[0].floors[0]
-        a_tile = a_floor.tiles[2][3]
+        a_tile = a_floor.tile_at(3, 2)
         a_tile.feature = "door_open"
         a_tile.opened_at_turn = 5
 

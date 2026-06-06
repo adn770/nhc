@@ -25,11 +25,11 @@ def _make_level(
     )
     for y in range(rect.y, rect.y2):
         for x in range(rect.x, rect.x2):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     for (x, y) in walls:
-        level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+        level.set_tile(x, y, Tile(terrain=Terrain.WALL))
     for (x, y) in doors:
-        level.tiles[y][x].feature = "door_closed"
+        level.tile_at(x, y).feature = "door_closed"
     room = Room(
         id="r", rect=rect, shape=RectShape(), tags=[],
     )
@@ -50,8 +50,8 @@ class TestSafeFloorNear:
         )
         x, y = safe_floor_near(level, 3, 3, room)
         assert (x, y) != (3, 3)
-        assert level.tiles[y][x].terrain is Terrain.FLOOR
-        assert level.tiles[y][x].feature is None
+        assert level.tile_at(x, y).terrain is Terrain.FLOOR
+        assert level.tile_at(x, y).feature is None
 
     def test_shifts_off_door_at_center(self):
         level, room = _make_level(
@@ -59,7 +59,7 @@ class TestSafeFloorNear:
         )
         x, y = safe_floor_near(level, 3, 3, room)
         assert (x, y) != (3, 3)
-        assert level.tiles[y][x].feature is None
+        assert level.tile_at(x, y).feature is None
 
     def test_picks_tile_inside_room_floor(self):
         """The picked tile must be inside the room's floor set even
@@ -71,7 +71,7 @@ class TestSafeFloorNear:
         for y in range(0, level.height):
             for x in range(0, level.width):
                 if (x, y) == (0, 0):
-                    level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                    level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         x, y = safe_floor_near(level, 3, 3, room)
         assert (x, y) in room.floor_tiles()
 
@@ -85,6 +85,6 @@ class TestSafeFloorNear:
         }
         level, room = _make_level(rect, walls=walls)
         # Mark one tile elsewhere walkable.
-        level.tiles[0][0] = Tile(terrain=Terrain.FLOOR)
+        level.set_tile(0, 0, Tile(terrain=Terrain.FLOOR))
         x, y = safe_floor_near(level, 2, 2, room)
         assert (x, y) == (0, 0)

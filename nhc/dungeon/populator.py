@@ -465,12 +465,10 @@ def _bury_items(
 def _find_single_tile_corridors(level: Level) -> list[tuple[int, int]]:
     """Find corridor tiles that form segments of exactly one tile."""
     corridor_tiles: set[tuple[int, int]] = set()
-    for y in range(level.height):
-        for x in range(level.width):
-            t = level.tiles[y][x]
-            if (t.terrain == Terrain.FLOOR
-                    and t.surface_type == SurfaceType.CORRIDOR):
-                corridor_tiles.add((x, y))
+    for x, y, t in level.iter_world():
+        if (t.terrain == Terrain.FLOOR
+                and t.surface_type == SurfaceType.CORRIDOR):
+            corridor_tiles.add((x, y))
 
     # Flood-fill into connected segments
     visited: set[tuple[int, int]] = set()

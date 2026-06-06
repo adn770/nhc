@@ -35,7 +35,7 @@ def _connected_tree_groves(
         for sx in range(width):
             if visited[sy][sx]:
                 continue
-            if level.tiles[sy][sx].feature != "tree":
+            if level.tile_at(sx, sy).feature != "tree":
                 continue
             grove: set[tuple[int, int]] = set()
             stack: list[tuple[int, int]] = [(sx, sy)]
@@ -45,7 +45,7 @@ def _connected_tree_groves(
                     continue
                 if visited[cy][cx]:
                     continue
-                if level.tiles[cy][cx].feature != "tree":
+                if level.tile_at(cx, cy).feature != "tree":
                     continue
                 visited[cy][cx] = True
                 grove.add((cx, cy))

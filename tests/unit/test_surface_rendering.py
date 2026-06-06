@@ -24,7 +24,7 @@ def _blank_level(
     level = Level.create_empty("t", "t", 1, w, h)
     for y in range(h):
         for x in range(w):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     level.rooms = [Room(id=room_id, rect=Rect(0, 0, w, h))]
     return level
 
@@ -56,7 +56,7 @@ def _wood_palette_for_test(
 class TestSurfaceTypeStreetRendering:
     def test_surface_type_street_triggers_cobblestone(self):
         level = _blank_level()
-        level.tiles[5][5].surface_type = SurfaceType.STREET
+        level.tile_at(5, 5).surface_type = SurfaceType.STREET
         svg = render_floor_svg_from_ir(level, seed=42)
         # Cobblestone stroke colour is the canonical street marker.
         assert "#8A7A6A" in svg
@@ -70,7 +70,7 @@ class TestSurfaceTypeStreetRendering:
 
     def test_street_surface_renders_idempotently(self):
         level = _blank_level()
-        level.tiles[3][3].surface_type = SurfaceType.STREET
+        level.tile_at(3, 3).surface_type = SurfaceType.STREET
         svg = render_floor_svg_from_ir(level, seed=42)
         assert "#8A7A6A" in svg
 
@@ -86,7 +86,7 @@ class TestSurfaceTypeStreetRendering:
             SurfaceType.FORTIFICATION,
         ):
             tile = Tile(terrain=Terrain.FLOOR, surface_type=st)
-            level.tiles[4][4] = tile
+            level.set_tile(4, 4, tile)
         svg = render_floor_svg_from_ir(level, seed=42)
         assert "#8A7A6A" not in svg
 
@@ -101,8 +101,8 @@ class TestFieldSurface:
         theme grass tint paints under the scattered-stone overlay."""
         from nhc.rendering.terrain_palette import get_palette
         level = _blank_level()
-        level.tiles[4][4].terrain = Terrain.GRASS
-        level.tiles[4][4].surface_type = SurfaceType.FIELD
+        level.tile_at(4, 4).terrain = Terrain.GRASS
+        level.tile_at(4, 4).surface_type = SurfaceType.FIELD
         svg = render_floor_svg_from_ir(level, seed=42)
         grass_tint = get_palette("dungeon").grass.tint
         assert grass_tint in svg
@@ -113,10 +113,9 @@ class TestFieldSurface:
             FIELD_STONE_FILL,
         )
         level = _blank_level(20, 20)
-        for y in range(20):
-            for x in range(20):
-                level.tiles[y][x].terrain = Terrain.GRASS
-                level.tiles[y][x].surface_type = SurfaceType.FIELD
+        for _x, _y, tile in level.iter_world():
+            tile.terrain = Terrain.GRASS
+            tile.surface_type = SurfaceType.FIELD
         svg = render_floor_svg_from_ir(level, seed=42)
         # Over 400 field tiles, the stone probability should produce
         # several visible stones.
@@ -125,8 +124,8 @@ class TestFieldSurface:
     def test_field_surface_skips_cobblestones(self):
         """Field tiles never get the street's cobblestone style."""
         level = _blank_level()
-        level.tiles[5][5].terrain = Terrain.GRASS
-        level.tiles[5][5].surface_type = SurfaceType.FIELD
+        level.tile_at(5, 5).terrain = Terrain.GRASS
+        level.tile_at(5, 5).surface_type = SurfaceType.FIELD
         svg = render_floor_svg_from_ir(level, seed=42)
         assert "#8A7A6A" not in svg
 
@@ -141,8 +140,8 @@ class TestGardenSurface:
         theme grass tint paints under the hoe-row overlay."""
         from nhc.rendering.terrain_palette import get_palette
         level = _blank_level()
-        level.tiles[4][4].terrain = Terrain.GRASS
-        level.tiles[4][4].surface_type = SurfaceType.GARDEN
+        level.tile_at(4, 4).terrain = Terrain.GRASS
+        level.tile_at(4, 4).surface_type = SurfaceType.GARDEN
         svg = render_floor_svg_from_ir(level, seed=42)
         grass_tint = get_palette("dungeon").grass.tint
         assert grass_tint in svg
@@ -152,10 +151,9 @@ class TestGardenSurface:
         per-tile hoe-row stroke decorator was removed because at
         scale the random oblique lines read as scribble noise."""
         level = _blank_level(20, 20)
-        for y in range(20):
-            for x in range(20):
-                level.tiles[y][x].terrain = Terrain.GRASS
-                level.tiles[y][x].surface_type = SurfaceType.GARDEN
+        for _x, _y, tile in level.iter_world():
+            tile.terrain = Terrain.GRASS
+            tile.surface_type = SurfaceType.GARDEN
         svg = render_floor_svg_from_ir(level, seed=42)
         # Old GARDEN_LINE_STROKE colour. If it ever reappears the
         # hoe-row scribble noise has come back.
@@ -163,8 +161,8 @@ class TestGardenSurface:
 
     def test_garden_surface_skips_cobblestones(self):
         level = _blank_level()
-        level.tiles[5][5].terrain = Terrain.GRASS
-        level.tiles[5][5].surface_type = SurfaceType.GARDEN
+        level.tile_at(5, 5).terrain = Terrain.GRASS
+        level.tile_at(5, 5).surface_type = SurfaceType.GARDEN
         svg = render_floor_svg_from_ir(level, seed=42)
         assert "#8A7A6A" not in svg
 
@@ -173,10 +171,9 @@ class TestGardenSurface:
         should not appear when only GARDEN tiles are present."""
         from nhc.rendering._floor_detail import FIELD_STONE_FILL
         level = _blank_level(10, 10)
-        for y in range(10):
-            for x in range(10):
-                level.tiles[y][x].terrain = Terrain.GRASS
-                level.tiles[y][x].surface_type = SurfaceType.GARDEN
+        for _x, _y, tile in level.iter_world():
+            tile.terrain = Terrain.GRASS
+            tile.surface_type = SurfaceType.GARDEN
         svg = render_floor_svg_from_ir(level, seed=42)
         assert FIELD_STONE_FILL not in svg
 
@@ -226,10 +223,10 @@ class TestTownGrassTint:
         from nhc.rendering.terrain_palette import get_palette
         level = _blank_level()
         level.metadata = LevelMetadata(theme="town")
-        level.tiles[4][4].terrain = Terrain.GRASS
-        level.tiles[4][4].surface_type = SurfaceType.FIELD
-        level.tiles[5][5].terrain = Terrain.GRASS
-        level.tiles[5][5].surface_type = SurfaceType.GARDEN
+        level.tile_at(4, 4).terrain = Terrain.GRASS
+        level.tile_at(4, 4).surface_type = SurfaceType.FIELD
+        level.tile_at(5, 5).terrain = Terrain.GRASS
+        level.tile_at(5, 5).surface_type = SurfaceType.GARDEN
         svg = render_floor_svg_from_ir(level, seed=42)
         assert get_palette("town").grass.tint in svg
 

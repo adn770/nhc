@@ -25,8 +25,8 @@ from nhc.sites.keep import (
 
 def _surface_count(site: Site, surface: SurfaceType) -> int:
     return sum(
-        1 for row in site.surface.tiles
-        for t in row if t.surface_type == surface
+        1 for t in site.surface.iter_tiles()
+        if t.surface_type == surface
     )
 
 
@@ -127,7 +127,7 @@ class TestKeepSurface:
         for b in site.buildings:
             for (x, y) in b.base_shape.floor_tiles(b.base_rect):
                 if site.surface.in_bounds(x, y):
-                    t = site.surface.tiles[y][x]
+                    t = site.surface.tile_at(x, y)
                     assert t.surface_type != SurfaceType.STREET
 
     def test_street_tiles_lie_inside_fortification_polygon(self):
@@ -139,18 +139,17 @@ class TestKeepSurface:
         ys = [p[1] for p in site.enclosure.polygon]
         min_x, max_x = min(xs), max(xs)
         min_y, max_y = min(ys), max(ys)
-        for y, row in enumerate(site.surface.tiles):
-            for x, t in enumerate(row):
-                if t.surface_type != SurfaceType.STREET:
-                    continue
-                assert min_x <= x and x + 1 <= max_x, (
-                    f"STREET tile x={x} outside wall "
-                    f"x-range [{min_x}, {max_x})"
-                )
-                assert min_y <= y and y + 1 <= max_y, (
-                    f"STREET tile y={y} outside wall "
-                    f"y-range [{min_y}, {max_y})"
-                )
+        for x, y, t in site.surface.iter_world():
+            if t.surface_type != SurfaceType.STREET:
+                continue
+            assert min_x <= x and x + 1 <= max_x, (
+                f"STREET tile x={x} outside wall "
+                f"x-range [{min_x}, {max_x})"
+            )
+            assert min_y <= y and y + 1 <= max_y, (
+                f"STREET tile y={y} outside wall "
+                f"y-range [{min_y}, {max_y})"
+            )
 
 
 class TestKeepDescent:

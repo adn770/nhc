@@ -40,7 +40,7 @@ def _render_corridor_hatching(
     hatch_tiles: set[tuple[int, int]] = set()
     for y in range(level.height):
         for x in range(level.width):
-            tile = level.tiles[y][x]
+            tile = level.tile_at(x, y)
             if not (tile.surface_type == SurfaceType.CORRIDOR
                     or _is_door(level, x, y)):
                 continue
@@ -48,7 +48,7 @@ def _render_corridor_hatching(
                 nx, ny = x + dx, y + dy
                 if not level.in_bounds(nx, ny):
                     continue
-                nb = level.tiles[ny][nx]
+                nb = level.tile_at(nx, ny)
                 if (nb.terrain == Terrain.VOID
                         and nb.surface_type != SurfaceType.CORRIDOR):
                     hatch_tiles.add((nx, ny))
@@ -305,7 +305,7 @@ def _render_hatching(
     floor_set: set[tuple[int, int]] = set()
     for ty in range(level.height):
         for tx in range(level.width):
-            if level.tiles[ty][tx].terrain == Terrain.FLOOR:
+            if level.tile_at(tx, ty).terrain == Terrain.FLOOR:
                 floor_set.add((tx, ty))
 
     tile_fills: list[str] = []

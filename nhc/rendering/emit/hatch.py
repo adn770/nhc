@@ -56,7 +56,7 @@ def emit_hatches(builder: Any) -> list[OpEntryT]:
     result: list[OpEntryT] = []
 
     dungeon_poly = getattr(ctx, "dungeon_poly", None)
-    tiles_grid = getattr(level, "tiles", None)
+    tiles_grid = getattr(level, "_tiles", None)
     cave_wall_poly = getattr(ctx, "cave_wall_poly", None)
     hatch_distance = getattr(ctx, "hatch_distance", 2.0)
 
@@ -69,7 +69,7 @@ def emit_hatches(builder: Any) -> list[OpEntryT]:
     if tiles_grid is not None:
         for y in range(level.height):
             for x in range(level.width):
-                tile = level.tiles[y][x]
+                tile = level.tile_at(x, y)
                 if not (
                     tile.surface_type == SurfaceType.CORRIDOR
                     or _is_door(level, x, y)
@@ -79,7 +79,7 @@ def emit_hatches(builder: Any) -> list[OpEntryT]:
                     nx, ny = x + dx, y + dy
                     if not level.in_bounds(nx, ny):
                         continue
-                    nb = level.tiles[ny][nx]
+                    nb = level.tile_at(nx, ny)
                     if (
                         nb.terrain == Terrain.VOID
                         and nb.surface_type != SurfaceType.CORRIDOR
@@ -99,7 +99,7 @@ def emit_hatches(builder: Any) -> list[OpEntryT]:
         floor_set: set[tuple[int, int]] = set()
         for ty in range(level.height):
             for tx in range(level.width):
-                if level.tiles[ty][tx].terrain == Terrain.FLOOR:
+                if level.tile_at(tx, ty).terrain == Terrain.FLOOR:
                     floor_set.add((tx, ty))
 
         candidate_tiles: list[TileCoordT] = []

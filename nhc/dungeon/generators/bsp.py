@@ -248,11 +248,11 @@ class BSPGenerator(DungeonGenerator):
         # Remove doors on non-straight wall sections (arcs, diagonals)
         _remove_non_straight_doors(level)
 
-        doors = sum(1 for row in level.tiles for t in row
+        doors = sum(1 for t in level.iter_tiles()
                     if t.feature and "door" in t.feature)
-        secrets = sum(1 for row in level.tiles for t in row
+        secrets = sum(1 for t in level.iter_tiles()
                       if t.feature == "door_secret")
-        corridors_total = sum(1 for row in level.tiles for t in row
+        corridors_total = sum(1 for t in level.iter_tiles()
                               if t.surface_type == SurfaceType.CORRIDOR)
         logger.info(
             "Generation complete: %d rooms, %d corridors, %d doors "

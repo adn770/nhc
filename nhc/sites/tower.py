@@ -232,10 +232,10 @@ def _build_tower_surface(
         for x in range(1, surface.width - 1):
             if (x, y) in blocked:
                 continue
-            surface.tiles[y][x] = Tile(
+            surface.set_tile(x, y, Tile(
                 terrain=Terrain.GRASS,
                 surface_type=SurfaceType.FIELD,
-            )
+            ))
     return surface
 
 
@@ -261,24 +261,23 @@ def _scatter_tower_trees(
     for sx, sy in site.building_doors:
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             door_ring.add((sx + dx, sy + dy))
-    for y, row in enumerate(surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.terrain is not Terrain.GRASS:
-                continue
-            if tile.surface_type != SurfaceType.FIELD:
-                continue
-            if tile.feature is not None:
-                continue
-            if (x, y) in door_ring:
-                continue
-            adj_to_footprint = any(
-                (x + dx, y + dy) in footprints
-                for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1))
-            )
-            if adj_to_footprint:
-                continue
-            if rng.random() < tree_p:
-                tile.feature = "tree"
+    for x, y, tile in surface.iter_world():
+        if tile.terrain is not Terrain.GRASS:
+            continue
+        if tile.surface_type != SurfaceType.FIELD:
+            continue
+        if tile.feature is not None:
+            continue
+        if (x, y) in door_ring:
+            continue
+        adj_to_footprint = any(
+            (x + dx, y + dy) in footprints
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1))
+        )
+        if adj_to_footprint:
+            continue
+        if rng.random() < tree_p:
+            tile.feature = "tree"
 
 
 def _scatter_tower_bushes(
@@ -302,27 +301,26 @@ def _scatter_tower_bushes(
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             door_ring.add((sx + dx, sy + dy))
     bush_set: set[tuple[int, int]] = set()
-    for y, row in enumerate(surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.terrain is not Terrain.GRASS:
-                continue
-            if tile.surface_type != SurfaceType.FIELD:
-                continue
-            if tile.feature is not None:
-                continue
-            if (x, y) in door_ring:
-                continue
-            has_bush_nb = (
-                (x - 1, y) in bush_set or (x, y - 1) in bush_set
-            )
-            prob = (
-                bush_p * TOWER_BUSH_NEIGHBOUR_BIAS_MULT
-                if has_bush_nb
-                else bush_p
-            )
-            if rng.random() < prob:
-                tile.feature = "bush"
-                bush_set.add((x, y))
+    for x, y, tile in surface.iter_world():
+        if tile.terrain is not Terrain.GRASS:
+            continue
+        if tile.surface_type != SurfaceType.FIELD:
+            continue
+        if tile.feature is not None:
+            continue
+        if (x, y) in door_ring:
+            continue
+        has_bush_nb = (
+            (x - 1, y) in bush_set or (x, y - 1) in bush_set
+        )
+        prob = (
+            bush_p * TOWER_BUSH_NEIGHBOUR_BIAS_MULT
+            if has_bush_nb
+            else bush_p
+        )
+        if rng.random() < prob:
+            tile.feature = "bush"
+            bush_set.add((x, y))
 
 
 def _stamp_mage_teleporters(
@@ -338,14 +336,12 @@ def _stamp_mage_teleporters(
     """
     for floor in building.floors:
         candidates: list[tuple[int, int]] = []
-        for y in range(floor.height):
-            for x in range(floor.width):
-                tile = floor.tiles[y][x]
-                if tile.terrain is not Terrain.FLOOR:
-                    continue
-                if tile.feature is not None:
-                    continue
-                candidates.append((x, y))
+        for x, y, tile in floor.iter_world():
+            if tile.terrain is not Terrain.FLOOR:
+                continue
+            if tile.feature is not None:
+                continue
+            candidates.append((x, y))
         if len(candidates) < 2:
             continue
         # Pick the most-separated pair so the teleport is visibly
@@ -361,8 +357,8 @@ def _stamp_mage_teleporters(
         if best is None:
             continue
         ax, ay, bx, by = best
-        floor.tiles[ay][ax].feature = "teleporter_pad"
-        floor.tiles[by][bx].feature = "teleporter_pad"
+        floor.tile_at(ax, ay).feature = "teleporter_pad"
+        floor.tile_at(bx, by).feature = "teleporter_pad"
         floor.teleporter_pairs[(ax, ay)] = (bx, by)
         floor.teleporter_pairs[(bx, by)] = (ax, ay)
 
@@ -400,7 +396,7 @@ def _place_entry_door(
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
     for (px, py) in perim:
-        tile = ground.tiles[py][px]
+        tile = ground.tile_at(px, py)
         if tile.feature is not None:
             continue
         # Reject chamfer steps -- circle towers put diagonal
@@ -414,7 +410,7 @@ def _place_entry_door(
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
-            if ground.tiles[ny][nx].terrain == Terrain.WALL:
+            if ground.tile_at(nx, ny).terrain == Terrain.WALL:
                 candidates.append((px, py))
                 break
     if not candidates:

@@ -187,12 +187,9 @@ async def test_edge_exit_helper_building_interior(tmp_path) -> None:
     building = g._active_site.buildings[0]
     # Find any walkable tile in the building ground floor.
     bx = by = 1
-    for y, row in enumerate(building.ground.tiles):
-        for x, tile in enumerate(row):
-            if tile.terrain == Terrain.FLOOR:
-                bx, by = x, y
-                break
-        if (bx, by) != (1, 1):
+    for x, y, tile in building.ground.iter_world():
+        if tile.terrain == Terrain.FLOOR:
+            bx, by = x, y
             break
     g._swap_to_building(building, bx, by)
     # Force to corner so an off-map step is available.

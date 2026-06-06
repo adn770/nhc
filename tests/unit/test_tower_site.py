@@ -113,7 +113,7 @@ class TestTowerFloorGeometry:
         footprint = b.base_shape.floor_tiles(b.base_rect)
         for floor in b.floors:
             for (x, y) in footprint:
-                tile = floor.tiles[y][x]
+                tile = floor.tile_at(x, y)
                 assert tile.terrain in (Terrain.FLOOR, Terrain.WALL), (
                     f"footprint tile ({x},{y}) has terrain "
                     f"{tile.terrain}"
@@ -172,8 +172,8 @@ class TestTowerStairs:
             hi = b.floors[link.to_floor]
             lx, ly = link.from_tile
             ux, uy = link.to_tile
-            assert lo.tiles[ly][lx].feature == "stairs_up"
-            assert hi.tiles[uy][ux].feature == "stairs_down"
+            assert lo.tile_at(lx, ly).feature == "stairs_up"
+            assert hi.tile_at(ux, uy).feature == "stairs_down"
 
     def test_building_validate_passes(self):
         site = assemble_tower("t1", random.Random(1))
@@ -212,8 +212,8 @@ class TestTowerEntryDoor:
         site = assemble_tower("t1", random.Random(1))
         ground = site.buildings[0].floors[0]
         doors = [
-            (x, y) for y, row in enumerate(ground.tiles)
-            for x, t in enumerate(row) if t.feature == "door_closed"
+            (x, y) for x, y, t in ground.iter_world()
+            if t.feature == "door_closed"
         ]
         assert len(doors) >= 1
 
@@ -226,8 +226,7 @@ class TestTowerEntryDoor:
         perim = b.shared_perimeter()
         ground = b.floors[0]
         perim_doors = [
-            (x, y) for y, row in enumerate(ground.tiles)
-            for x, t in enumerate(row)
+            (x, y) for x, y, t in ground.iter_world()
             if t.feature == "door_closed" and (x, y) in perim
         ]
         assert len(perim_doors) >= 1
@@ -283,7 +282,7 @@ class TestTowerDescent:
             )
             fx, fy = dlink.from_tile
             assert (
-                b.ground.tiles[fy][fx].feature == "stairs_down"
+                b.ground.tile_at(fx, fy).feature == "stairs_down"
             )
             return
         pytest.skip("No descent tower in 200 seeds")
@@ -319,8 +318,7 @@ class TestTowerSurfaceSize:
             )
             field_count = sum(
                 1
-                for row in site.surface.tiles
-                for tile in row
+                for tile in site.surface.iter_tiles()
                 if tile.terrain is Terrain.GRASS
                 and tile.surface_type is SurfaceType.FIELD
             )
@@ -335,17 +333,17 @@ class TestTowerSurfaceSize:
         w, h = site.surface.width, site.surface.height
         for x in range(w):
             assert (
-                site.surface.tiles[0][x].terrain is Terrain.VOID
+                site.surface.tile_at(x, 0).terrain is Terrain.VOID
             )
             assert (
-                site.surface.tiles[h - 1][x].terrain is Terrain.VOID
+                site.surface.tile_at(x, h - 1).terrain is Terrain.VOID
             )
         for y in range(h):
             assert (
-                site.surface.tiles[y][0].terrain is Terrain.VOID
+                site.surface.tile_at(0, y).terrain is Terrain.VOID
             )
             assert (
-                site.surface.tiles[y][w - 1].terrain is Terrain.VOID
+                site.surface.tile_at(w - 1, y).terrain is Terrain.VOID
             )
 
 
@@ -361,8 +359,10 @@ class TestTowerSurfaceVegetation:
             site = assemble_tower(
                 f"t{seed}", random.Random(seed), biome=biome,
             )
-            for row in site.surface.tiles:
-                total += sum(1 for t in row if t.feature == feature)
+            total += sum(
+                1 for t in site.surface.iter_tiles()
+                if t.feature == feature
+            )
         return total
 
     def test_some_trees_scatter_with_default_biome(self):
@@ -397,7 +397,7 @@ class TestTowerSurfaceVegetation:
                     nx, ny = sx + dx, sy + dy
                     if not site.surface.in_bounds(nx, ny):
                         continue
-                    tile = site.surface.tiles[ny][nx]
+                    tile = site.surface.tile_at(nx, ny)
                     assert tile.feature not in ("tree", "bush"), (
                         f"seed={seed}: vegetation at door-adjacent "
                         f"({nx},{ny})"

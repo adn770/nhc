@@ -16,7 +16,7 @@ def _make_world_and_level():
              for _ in range(5)]
     level = Level(
         id="test", name="Test", depth=1, width=5, height=5,
-        tiles=tiles, rooms=[], corridors=[], entities=[],
+        _tiles=tiles, rooms=[], corridors=[], entities=[],
     )
 
     player_id = world.create_entity({

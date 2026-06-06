@@ -44,7 +44,7 @@ def _street_level(width: int = 12, height: int = 12) -> Level:
         depth=0,
         width=width,
         height=height,
-        tiles=tiles,
+        _tiles=tiles,
         rooms=[],
         corridors=[],
         entities=[],
@@ -167,7 +167,7 @@ class TestErrandDoorAvoidance:
         level = Level(
             id="town_surface", name="T", depth=0,
             width=3, height=1,
-            tiles=[[
+            _tiles=[[
                 Tile(
                     terrain=Terrain.FLOOR,
                     surface_type=SurfaceType.STREET,

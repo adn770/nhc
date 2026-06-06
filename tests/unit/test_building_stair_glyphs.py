@@ -28,11 +28,10 @@ from nhc.hexcrawl.model import DungeonRef
 def _all_stair_tiles(building):
     rows = []
     for fi, floor in enumerate(building.floors):
-        for y in range(floor.height):
-            for x in range(floor.width):
-                feat = floor.tiles[y][x].feature
-                if feat in ("stairs_up", "stairs_down"):
-                    rows.append((fi, x, y, feat))
+        for x, y, tile in floor.iter_world():
+            feat = tile.feature
+            if feat in ("stairs_up", "stairs_down"):
+                rows.append((fi, x, y, feat))
     return rows
 
 
@@ -55,12 +54,12 @@ class TestBuildingCrossFloorGlyphs:
                 hi = b.floors[link.to_floor]
                 lx, ly = link.from_tile
                 ux, uy = link.to_tile
-                assert lo.tiles[ly][lx].feature == "stairs_up", (
+                assert lo.tile_at(lx, ly).feature == "stairs_up", (
                     f"seed {seed}: lower floor cross-floor stair "
                     "must be stairs_up (<) -- physically walking "
                     "up reaches the upper floor"
                 )
-                assert hi.tiles[uy][ux].feature == "stairs_down", (
+                assert hi.tile_at(ux, uy).feature == "stairs_down", (
                     f"seed {seed}: upper floor cross-floor stair "
                     "must be stairs_down (>) -- physically walking "
                     "down reaches the lower floor"
@@ -85,7 +84,7 @@ class TestBuildingCrossFloorGlyphs:
                 ]
                 for l in descent_links:
                     dx, dy = l.from_tile
-                    assert b.ground.tiles[dy][dx].feature == (
+                    assert b.ground.tile_at(dx, dy).feature == (
                         "stairs_down"
                     ), (
                         f"seed {seed}: descent stair on ground "
@@ -110,9 +109,8 @@ class TestBuildingCrossFloorGlyphs:
                 if len(b.floors) < 2:
                     continue
                 down_count = sum(
-                    1 for y in range(b.ground.height)
-                    for x in range(b.ground.width)
-                    if b.ground.tiles[y][x].feature == "stairs_down"
+                    1 for t in b.ground.iter_tiles()
+                    if t.feature == "stairs_down"
                 )
                 assert down_count <= 1, (
                     f"seed {seed}, tower ground floor has "
@@ -143,9 +141,9 @@ class TestBuildingStairActionRouting:
         level.metadata = LevelMetadata(theme="dungeon")
         level.building_id = "b0"
         level.floor_index = 0
-        level.tiles[2][2] = Tile(
+        level.set_tile(2, 2, Tile(
             terrain=Terrain.FLOOR, feature="stairs_up",
-        )
+        ))
 
         class _World:
             def get_component(self, eid, name):
@@ -174,9 +172,9 @@ class TestBuildingStairActionRouting:
         level.metadata = LevelMetadata(theme="dungeon")
         level.building_id = "b0"
         level.floor_index = 1
-        level.tiles[2][2] = Tile(
+        level.set_tile(2, 2, Tile(
             terrain=Terrain.FLOOR, feature="stairs_down",
-        )
+        ))
 
         class _World:
             def get_component(self, eid, name):
@@ -209,9 +207,9 @@ class TestBuildingStairActionRouting:
         level.metadata = LevelMetadata(theme="dungeon")
         level.building_id = "b0"
         level.floor_index = 0
-        level.tiles[2][2] = Tile(
+        level.set_tile(2, 2, Tile(
             terrain=Terrain.FLOOR, feature="stairs_down",
-        )
+        ))
 
         class _World:
             def get_component(self, eid, name):

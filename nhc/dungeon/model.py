@@ -844,7 +844,14 @@ class Level:
     depth: int
     width: int
     height: int
-    tiles: list[list[Tile]] = field(default_factory=list)
+    # Physical tile grid, indexed ``_tiles[local_y][local_x]``. PRIVATE
+    # on purpose: a building floor offsets it from world coordinates
+    # (see ``origin_x`` / ``origin_y``), so a raw world-coord index
+    # would silently read the wrong cell. All access routes through
+    # ``tile_at`` / ``set_tile`` / ``iter_world`` / ``iter_local`` /
+    # ``iter_tiles`` / ``iter_rows`` so the offset is handled in one
+    # place. Construction injects the grid via the ``_tiles=`` keyword.
+    _tiles: list[list[Tile]] = field(default_factory=list)
     rooms: list[Room] = field(default_factory=list)
     corridors: list[Corridor] = field(default_factory=list)
     entities: list[EntityPlacement] = field(default_factory=list)
@@ -892,7 +899,7 @@ class Level:
         ]
         return cls(
             id=id, name=name, depth=depth,
-            width=width, height=height, tiles=tiles,
+            width=width, height=height, _tiles=tiles,
             origin_x=origin_x, origin_y=origin_y,
         )
 
@@ -901,8 +908,9 @@ class Level:
                 and self.origin_y <= y < self.origin_y + self.height)
 
     def tile_at(self, x: int, y: int) -> Tile | None:
+        """Return the tile at world ``(x, y)``, or ``None`` if OOB."""
         if self.in_bounds(x, y):
-            return self.tiles[y - self.origin_y][x - self.origin_x]
+            return self._tiles[y - self.origin_y][x - self.origin_x]
         return None
 
     def set_tile(self, x: int, y: int, tile: Tile) -> None:
@@ -918,18 +926,51 @@ class Level:
                 f"origin=({self.origin_x}, {self.origin_y}) "
                 f"size=({self.width}, {self.height})"
             )
-        self.tiles[y - self.origin_y][x - self.origin_x] = tile
+        self._tiles[y - self.origin_y][x - self.origin_x] = tile
 
     def iter_world(self) -> Iterator[tuple[int, int, Tile]]:
         """Yield ``(world_x, world_y, tile)`` for every cell.
 
         Replaces ``for y, row in enumerate(level.tiles)`` sweeps that
-        assume origin ``(0, 0)``; the yielded coordinates are world
-        values regardless of the grid's offset.
+        treat the index as a world coordinate; the yielded coordinates
+        are world values regardless of the grid's offset. Use this for
+        game logic (FOV, AoE, stairs, doors) that reasons in world
+        space.
         """
         oy = self.origin_y
         ox = self.origin_x
-        for ry, row in enumerate(self.tiles):
+        for ry, row in enumerate(self._tiles):
             wy = ry + oy
             for rx, tile in enumerate(row):
                 yield rx + ox, wy, tile
+
+    def iter_local(self) -> Iterator[tuple[int, int, Tile]]:
+        """Yield ``(local_x, local_y, tile)`` — physical array indices.
+
+        Use this for renderers that build a canvas sized to the grid
+        itself (``width`` × ``height``): the coordinates address the
+        local frame, so a footprint-sized building floor emits onto a
+        footprint-sized canvas. World-anchored overlays are translated
+        by ``-origin`` to match.
+        """
+        for ly, row in enumerate(self._tiles):
+            for lx, tile in enumerate(row):
+                yield lx, ly, tile
+
+    def iter_tiles(self) -> Iterator[Tile]:
+        """Yield every tile, no coordinates.
+
+        Replaces ``for row in level.tiles: for tile in row`` sweeps
+        (FOV clear, terrain counts) that don't care where a cell is.
+        """
+        for row in self._tiles:
+            yield from row
+
+    def iter_rows(self) -> Iterator[list[Tile]]:
+        """Yield the physical tile rows top-to-bottom.
+
+        For serialization and client grid building, which need the raw
+        ``height`` × ``width`` array. Coordinate consumers should use
+        ``iter_world`` / ``iter_local`` instead.
+        """
+        yield from self._tiles

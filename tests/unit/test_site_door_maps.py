@@ -38,7 +38,7 @@ class TestTowerDoorMap:
         ((sx, sy), (bid, bx, by)), = site.building_doors.items()
         assert bid == building.id
         assert _adjacent((sx, sy), (bx, by))
-        assert building.ground.tiles[by][bx].feature == "door_closed"
+        assert building.ground.tile_at(bx, by).feature == "door_closed"
 
     def test_no_interior_doors(self):
         site = assemble_tower("t1", random.Random(1))
@@ -59,7 +59,7 @@ class TestFarmDoorMap:
         for (sx, sy), (bid, bx, by) in site.building_doors.items():
             assert _adjacent((sx, sy), (bx, by))
             assert (
-                by_id[bid].ground.tiles[by][bx].feature == "door_closed"
+                by_id[bid].ground.tile_at(bx, by).feature == "door_closed"
             )
 
 
@@ -76,7 +76,7 @@ class TestKeepDoorMap:
         for (sx, sy), (bid, bx, by) in site.building_doors.items():
             assert _adjacent((sx, sy), (bx, by))
             assert (
-                by_id[bid].ground.tiles[by][bx].feature == "door_closed"
+                by_id[bid].ground.tile_at(bx, by).feature == "door_closed"
             )
 
 
@@ -113,11 +113,11 @@ class TestMansionDoorMap:
             from_id, fx, fy = key
             to_id, tx, ty = target
             assert (
-                by_id[from_id].ground.tiles[fy][fx].feature
+                by_id[from_id].ground.tile_at(fx, fy).feature
                 == "door_closed"
             )
             assert (
-                by_id[to_id].ground.tiles[ty][tx].feature
+                by_id[to_id].ground.tile_at(tx, ty).feature
                 == "door_closed"
             )
 
@@ -147,7 +147,7 @@ class TestSurfaceDoorPaint:
         for seed in range(10):
             site = assemble_keep("k1", random.Random(seed))
             for (sx, sy) in site.building_doors.keys():
-                tile = site.surface.tiles[sy][sx]
+                tile = site.surface.tile_at(sx, sy)
                 assert tile.terrain in (Terrain.FLOOR, Terrain.GRASS)
                 assert tile.feature == "door_closed"
 
@@ -155,7 +155,7 @@ class TestSurfaceDoorPaint:
         for seed in range(10):
             site = assemble_town("t1", random.Random(seed))
             for (sx, sy) in site.building_doors.keys():
-                tile = site.surface.tiles[sy][sx]
+                tile = site.surface.tile_at(sx, sy)
                 assert tile.terrain in (Terrain.FLOOR, Terrain.GRASS)
                 assert tile.feature == "door_closed"
 
@@ -165,7 +165,7 @@ class TestSurfaceDoorPaint:
             for (sx, sy) in site.building_doors.keys():
                 if not site.surface.in_bounds(sx, sy):
                     continue
-                tile = site.surface.tiles[sy][sx]
+                tile = site.surface.tile_at(sx, sy)
                 assert tile.terrain in (Terrain.FLOOR, Terrain.GRASS)
                 assert tile.feature == "door_closed"
 
@@ -175,7 +175,7 @@ class TestSurfaceDoorPaint:
             for (sx, sy) in site.building_doors.keys():
                 if not site.surface.in_bounds(sx, sy):
                     continue
-                tile = site.surface.tiles[sy][sx]
+                tile = site.surface.tile_at(sx, sy)
                 assert tile.terrain in (Terrain.FLOOR, Terrain.GRASS)
                 assert tile.feature == "door_closed"
 

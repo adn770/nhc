@@ -788,7 +788,7 @@ class TestShapeSaveLoad:
         ]
         level = Level(
             id="test", name="Test", depth=1,
-            width=10, height=10, tiles=tiles,
+            width=10, height=10, _tiles=tiles,
             rooms=[Room(id="room_1", rect=Rect(1, 1, 5, 5))],
         )
 
@@ -818,7 +818,7 @@ class TestShapeSaveLoad:
         ]
         level = Level(
             id="test", name="Test", depth=1,
-            width=10, height=10, tiles=tiles,
+            width=10, height=10, _tiles=tiles,
             rooms=[Room(
                 id="room_1", rect=Rect(1, 1, 7, 7),
                 shape=CircleShape(),
@@ -871,12 +871,9 @@ class TestCircleRoomGeneration:
         level = self._generate_with_circles()
         # Find stairs_up as starting point
         start = None
-        for y in range(level.height):
-            for x in range(level.width):
-                if level.tiles[y][x].feature == "stairs_up":
-                    start = (x, y)
-                    break
-            if start:
+        for x, y, tile in level.iter_world():
+            if tile.feature == "stairs_up":
+                start = (x, y)
                 break
         assert start is not None
 
@@ -907,7 +904,7 @@ class TestCircleRoomGeneration:
     def test_has_doors(self):
         level = self._generate_with_circles()
         door_count = sum(
-            1 for row in level.tiles for t in row
+            1 for t in level.iter_tiles()
             if t.feature and "door" in t.feature
         )
         assert door_count >= 2
@@ -915,7 +912,7 @@ class TestCircleRoomGeneration:
     def test_has_stairs(self):
         level = self._generate_with_circles()
         features = {
-            t.feature for row in level.tiles for t in row if t.feature
+            t.feature for t in level.iter_tiles() if t.feature
         }
         assert "stairs_up" in features
         assert "stairs_down" in features
@@ -1018,7 +1015,7 @@ class TestRoundedWallGlyphs:
 
         # Carve floor
         for x, y in shape.floor_tiles(rect):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         # Build walls (8-neighbor)
         floor_set = shape.floor_tiles(rect)
         for fx, fy in floor_set:
@@ -1026,28 +1023,27 @@ class TestRoundedWallGlyphs:
                 for dx in range(-1, 2):
                     nx, ny = fx + dx, fy + dy
                     if (nx, ny) not in floor_set and level.in_bounds(nx, ny):
-                        if level.tiles[ny][nx].terrain == Terrain.VOID:
-                            level.tiles[ny][nx] = Tile(terrain=Terrain.WALL)
+                        if level.tile_at(nx, ny).terrain == Terrain.VOID:
+                            level.set_tile(nx, ny, Tile(terrain=Terrain.WALL))
 
         # Find a corner wall tile (L-shaped connection)
         # and verify it gets a rounded glyph
         corner_found = False
-        for y in range(15):
-            for x in range(15):
-                if level.tiles[y][x].terrain != Terrain.WALL:
-                    continue
-                glyph_normal = TerminalRenderer._wall_char_at(
-                    level, x, y, rounded=False,
+        for x, y, tile in level.iter_world():
+            if tile.terrain != Terrain.WALL:
+                continue
+            glyph_normal = TerminalRenderer._wall_char_at(
+                level, x, y, rounded=False,
+            )
+            glyph_rounded = TerminalRenderer._wall_char_at(
+                level, x, y, rounded=True,
+            )
+            if glyph_normal in ("┌", "┐", "└", "┘"):
+                assert glyph_rounded in ("╭", "╮", "╰", "╯"), (
+                    f"Wall at ({x},{y}) with glyph {glyph_normal} "
+                    f"should be rounded but got {glyph_rounded}"
                 )
-                glyph_rounded = TerminalRenderer._wall_char_at(
-                    level, x, y, rounded=True,
-                )
-                if glyph_normal in ("┌", "┐", "└", "┘"):
-                    assert glyph_rounded in ("╭", "╮", "╰", "╯"), (
-                        f"Wall at ({x},{y}) with glyph {glyph_normal} "
-                        f"should be rounded but got {glyph_rounded}"
-                    )
-                    corner_found = True
+                corner_found = True
 
         assert corner_found, "No corner walls found in circle room"
         set_theme("modern")  # reset

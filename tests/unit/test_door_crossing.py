@@ -22,15 +22,15 @@ def _make_corridor_door_room():
     level = Level.create_empty("t", "T", depth=1, width=6, height=6)
     # Room floor
     for x in range(1, 3):
-        level.tiles[3][x] = Tile(terrain=Terrain.FLOOR)
+        level.set_tile(x, 3, Tile(terrain=Terrain.FLOOR))
     # Door tile
-    level.tiles[3][3] = Tile(
+    level.set_tile(3, 3, Tile(
         terrain=Terrain.FLOOR, feature="door_closed", door_side="west",
-    )
+    ))
     # Corridor
-    level.tiles[3][4] = Tile(
+    level.set_tile(4, 3, Tile(
         terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
-    )
+    ))
     level.rooms.append(Room(id="r", rect=Rect(1, 2, 2, 3)))
     return level
 
@@ -102,7 +102,7 @@ class TestDoorMovement:
         pos = world.get_component(pid, "Position")
         assert pos.x == 3
         assert pos.y == 3
-        assert level.tiles[3][3].feature == "door_closed"
+        assert level.tile_at(3, 3).feature == "door_closed"
 
     async def test_crossing_door_from_door_tile(self):
         """Edge mode: leaving door tile toward room = opens."""
@@ -112,7 +112,7 @@ class TestDoorMovement:
 
         action = MoveAction(actor=pid, dx=-1, dy=0, edge_doors=True)
         await action.execute(world, level)
-        assert level.tiles[3][3].feature == "door_open"
+        assert level.tile_at(3, 3).feature == "door_open"
         pos = world.get_component(pid, "Position")
         assert pos.x == 3  # didn't move, door open consumed action
 
@@ -124,12 +124,12 @@ class TestDoorMovement:
 
         action = MoveAction(actor=pid, dx=1, dy=0, edge_doors=True)
         await action.execute(world, level)
-        assert level.tiles[3][3].feature == "door_open"
+        assert level.tile_at(3, 3).feature == "door_open"
 
     async def test_walk_onto_secret_door_from_corridor(self):
         """Edge mode: can walk onto secret door tile from corridor side."""
         level = _make_corridor_door_room()
-        level.tiles[3][3].feature = "door_secret"
+        level.tile_at(3, 3).feature = "door_secret"
         world = World()
         pid = _make_player(world, 4, 3)
 
@@ -138,12 +138,12 @@ class TestDoorMovement:
         await action.execute(world, level)
         pos = world.get_component(pid, "Position")
         assert pos.x == 3  # moved onto the tile
-        assert level.tiles[3][3].feature == "door_secret"  # still secret
+        assert level.tile_at(3, 3).feature == "door_secret"  # still secret
 
     async def test_secret_door_blocks_crossing(self):
         """Edge mode: can't cross through secret door edge."""
         level = _make_corridor_door_room()
-        level.tiles[3][3].feature = "door_secret"
+        level.tile_at(3, 3).feature = "door_secret"
         world = World()
         pid = _make_player(world, 3, 3)  # on the secret door tile
 
@@ -152,12 +152,12 @@ class TestDoorMovement:
         # Blocked — feels like a wall
         pos = world.get_component(pid, "Position")
         assert pos.x == 3  # didn't move
-        assert level.tiles[3][3].feature == "door_secret"  # still secret
+        assert level.tile_at(3, 3).feature == "door_secret"  # still secret
 
     async def test_secret_door_terminal_mode_blocks(self):
         """Center mode: secret doors are not walkable at all."""
         level = _make_corridor_door_room()
-        level.tiles[3][3].feature = "door_secret"
+        level.tile_at(3, 3).feature = "door_secret"
         world = World()
         pid = _make_player(world, 4, 3)
 
@@ -174,7 +174,7 @@ class TestDoorMovement:
         action = MoveAction(actor=pid, dx=-1, dy=0, edge_doors=False)
         await action.execute(world, level)
         # Terminal: bump opens immediately
-        assert level.tiles[3][3].feature == "door_open"
+        assert level.tile_at(3, 3).feature == "door_open"
         # Player stays at corridor (door open consumed action)
         pos = world.get_component(pid, "Position")
         assert pos.x == 4
@@ -212,7 +212,7 @@ class TestBumpThroughClosedDoorWithCreatureBehind:
         assert await bump.validate(world, level)
         events = await bump.execute(world, level)
         # Door must be open now, not a silent no-op.
-        assert level.tiles[3][3].feature == "door_open", (
+        assert level.tile_at(3, 3).feature == "door_open", (
             "bump toward a creature behind a closed door should "
             "open the door instead of stalling on a blocked "
             "melee attack"

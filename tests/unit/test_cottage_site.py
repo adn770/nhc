@@ -74,14 +74,14 @@ def test_assemble_cottage_has_walkable_surface_ring_around_building() -> None:
     # Phase 3a/3b: GARDEN + FIELD ride on Terrain.GRASS so
     # walkable tiles include both FLOOR and GRASS terrain.
     walkable = sum(
-        1 for row in surface.tiles for t in row
+        1 for t in surface.iter_tiles()
         if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
     )
     assert walkable > 0
     # GARDEN ring specifically, per the design doc.
     garden = sum(
-        1 for row in surface.tiles
-        for t in row if t.surface_type is SurfaceType.GARDEN
+        1 for t in surface.iter_tiles()
+        if t.surface_type is SurfaceType.GARDEN
     )
     assert garden > 0
 
@@ -95,7 +95,7 @@ def test_assemble_cottage_has_perimeter_door() -> None:
     b = site.buildings[0]
     doors = [
         (x, y) for (x, y) in b.shared_perimeter()
-        if b.ground.tiles[y][x].feature == "door_closed"
+        if b.ground.tile_at(x, y).feature == "door_closed"
     ]
     assert len(doors) == 1
     # building_doors maps the outside neighbour of the door to the

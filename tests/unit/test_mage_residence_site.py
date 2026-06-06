@@ -23,10 +23,9 @@ from nhc.sites.tower import assemble_tower
 
 def _features(surface):
     feats: dict[tuple[int, int], str] = {}
-    for y, row in enumerate(surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.feature is not None:
-                feats[(x, y)] = tile.feature
+    for x, y, tile in surface.iter_world():
+        if tile.feature is not None:
+            feats[(x, y)] = tile.feature
     return feats
 
 
@@ -132,11 +131,11 @@ class TestMageGarden:
         site = assemble_mage_residence("m1", random.Random(5))
         s = site.surface
         for x in range(s.width):
-            assert s.tiles[0][x].terrain is Terrain.VOID
-            assert s.tiles[s.height - 1][x].terrain is Terrain.VOID
+            assert s.tile_at(x, 0).terrain is Terrain.VOID
+            assert s.tile_at(x, s.height - 1).terrain is Terrain.VOID
         for y in range(s.height):
-            assert s.tiles[y][0].terrain is Terrain.VOID
-            assert s.tiles[y][s.width - 1].terrain is Terrain.VOID
+            assert s.tile_at(0, y).terrain is Terrain.VOID
+            assert s.tile_at(s.width - 1, y).terrain is Terrain.VOID
 
 
 class TestTowerStaysSimple:

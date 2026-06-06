@@ -24,8 +24,8 @@ class TestLoadLevel:
 
     def test_tile_grid_dimensions(self):
         level = load_level(LEVEL_PATH)
-        assert len(level.tiles) == level.height
-        assert all(len(row) == level.width for row in level.tiles)
+        assert len(list(level.iter_rows())) == level.height
+        assert all(len(row) == level.width for row in level.iter_rows())
 
     def test_walls_parsed(self):
         level = load_level(LEVEL_PATH)
@@ -207,12 +207,11 @@ class TestLevelConsistency:
         level = load_level(LEVEL_PATH)
         stairs_up = False
         stairs_down = False
-        for row in level.tiles:
-            for tile in row:
-                if tile.feature == "stairs_up":
-                    stairs_up = True
-                if tile.feature == "stairs_down":
-                    stairs_down = True
+        for tile in level.iter_tiles():
+            if tile.feature == "stairs_up":
+                stairs_up = True
+            if tile.feature == "stairs_down":
+                stairs_down = True
         assert stairs_up, "Level must have stairs up"
         assert stairs_down, "Level must have stairs down"
 

@@ -52,7 +52,7 @@ def emit_paths(builder: Any) -> list[OpEntryT]:
         return []
 
     level = ctx.level
-    tiles_grid = getattr(level, "tiles", None)
+    tiles_grid = getattr(level, "_tiles", None)
     if tiles_grid is None:
         return []
 

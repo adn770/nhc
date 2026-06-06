@@ -16,7 +16,7 @@ class TestLavaGeneration:
         )
         level = generate_level(params)
         lava_count = sum(
-            1 for row in level.tiles for t in row
+            1 for t in level.iter_tiles()
             if t.terrain == Terrain.LAVA
         )
         assert lava_count > 0
@@ -29,7 +29,7 @@ class TestLavaGeneration:
         )
         level = generate_level(params)
         lava_count = sum(
-            1 for row in level.tiles for t in row
+            1 for t in level.iter_tiles()
             if t.terrain == Terrain.LAVA
         )
         assert lava_count == 0
@@ -41,8 +41,7 @@ class TestLavaGeneration:
             theme="lava_chamber",
         )
         level = generate_level(params)
-        for row in level.tiles:
-            for t in row:
-                if t.terrain == Terrain.LAVA:
-                    assert t.surface_type != SurfaceType.CORRIDOR
-                    assert not t.feature
+        for t in level.iter_tiles():
+            if t.terrain == Terrain.LAVA:
+                assert t.surface_type != SurfaceType.CORRIDOR
+                assert not t.feature

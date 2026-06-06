@@ -182,15 +182,13 @@ def tick_doors(game: Game) -> None:
 
     # Collect open doors that have been open long enough
     candidates: list[tuple[int, int]] = []
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tile_at(x, y)
-            if (tile
-                    and tile.feature == "door_open"
-                    and tile.opened_at_turn is not None
-                    and game.turn - tile.opened_at_turn
-                    >= DOOR_CLOSE_TURNS):
-                candidates.append((x, y))
+    for x, y, tile in level.iter_world():
+        if (tile
+                and tile.feature == "door_open"
+                and tile.opened_at_turn is not None
+                and game.turn - tile.opened_at_turn
+                >= DOOR_CLOSE_TURNS):
+            candidates.append((x, y))
 
     if not candidates:
         return
@@ -203,7 +201,7 @@ def tick_doors(game: Game) -> None:
 
     for x, y in candidates:
         if (x, y) not in occupied:
-            tile = level.tiles[y][x]
+            tile = level.tile_at(x, y)
             tile.feature = "door_closed"
             tile.opened_at_turn = None
             if tile.visible:

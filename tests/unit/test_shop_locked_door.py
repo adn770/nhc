@@ -19,10 +19,9 @@ def _doors_by_kind(site) -> dict[str, dict[str, int]]:
     for b in site.buildings:
         counts = {"door_closed": 0, "door_locked": 0}
         for floor in b.floors:
-            for row in floor.tiles:
-                for t in row:
-                    if t.feature in counts:
-                        counts[t.feature] += 1
+            for t in floor.iter_tiles():
+                if t.feature in counts:
+                    counts[t.feature] += 1
         out[b.id] = counts
     return out
 

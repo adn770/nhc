@@ -28,10 +28,10 @@ def apply_plan(level: Level, plan: LayoutPlan) -> None:
 
     level.interior_edges.update(plan.interior_edges)
     for (x, y) in plan.corridor_tiles:
-        tile = level.tiles[y][x]
+        tile = level.tile_at(x, y)
         tile.surface_type = SurfaceType.CORRIDOR
     for door in plan.doors:
-        tile = level.tiles[door.y][door.x]
+        tile = level.tile_at(door.x, door.y)
         tile.terrain = Terrain.FLOOR
         tile.feature = door.feature
         tile.door_side = door.side

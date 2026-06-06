@@ -1976,10 +1976,9 @@ class Game:
         level = self.level
         if not (level and level.metadata and level.metadata.prerevealed):
             return
-        for row in level.tiles:
-            for tile in row:
-                if tile.terrain != Terrain.VOID:
-                    tile.explored = True
+        for tile in level.iter_tiles():
+            if tile.terrain != Terrain.VOID:
+                tile.explored = True
 
     def _place_player_on_surface(self) -> None:
         """Land the player on the site surface near a gate.
@@ -2652,7 +2651,8 @@ class Game:
             if not sector:
                 sector = [rng.choice(floors)]
             sx, sy = sector[len(sector) // 2]
-            self.level.tiles[sy][sx].feature = "stairs_up"
+            t = self.level.tile_at(sx, sy)
+            t.feature = "stairs_up"
             key = f"{member.q}_{member.r}"
             self._cave_floor2_stairs[key] = (sx, sy)
             stairs_by_member[member] = (sx, sy)
@@ -2739,7 +2739,8 @@ class Game:
              self.hex_player_position)),
         )
         _, sx, sy = rng.choice(top)
-        self.level.tiles[sy][sx].feature = "stairs_down"
+        t = self.level.tile_at(sx, sy)
+        t.feature = "stairs_down"
 
     def _is_site_edge_exit(self, dx: int, dy: int) -> bool:
         """Return True when a move of ``(dx, dy)`` from the
@@ -3552,9 +3553,8 @@ class Game:
             return
 
         # Clear visibility
-        for row in self.level.tiles:
-            for tile in row:
-                tile.visible = False
+        for tile in self.level.iter_tiles():
+            tile.visible = False
 
         # Check if player is on a closed/secret door tile (edge mode).
         # If so, block FOV in the door_side direction so the room

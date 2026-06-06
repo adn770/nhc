@@ -59,18 +59,16 @@ def _build_den_surface(
     surface.metadata.theme = "den"
     surface.metadata.prerevealed = True
     surface.metadata.faction = _biome_creature_faction(biome)
-    for y in range(height):
-        for x in range(width):
-            tile = surface.tiles[y][x]
-            on_border = (
-                x == 0 or y == 0
-                or x == width - 1 or y == height - 1
-            )
-            if on_border:
-                tile.terrain = Terrain.WALL
-            else:
-                tile.terrain = Terrain.FLOOR
-                tile.surface_type = SurfaceType.FIELD
+    for x, y, tile in surface.iter_world():
+        on_border = (
+            x == 0 or y == 0
+            or x == width - 1 or y == height - 1
+        )
+        if on_border:
+            tile.terrain = Terrain.WALL
+        else:
+            tile.terrain = Terrain.FLOOR
+            tile.surface_type = SurfaceType.FIELD
     return surface
 
 

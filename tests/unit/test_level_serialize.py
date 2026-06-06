@@ -15,19 +15,19 @@ def _make_level() -> Level:
         "test", "Test", depth=1, width=10, height=8,
     )
     # A floor tile with surface_type=CORRIDOR
-    level.tiles[3][3] = Tile(
+    level.set_tile(3, 3, Tile(
         terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
-    )
+    ))
     # A floor tile that's visible
-    level.tiles[4][4] = Tile(
+    level.set_tile(4, 4, Tile(
         terrain=Terrain.FLOOR, visible=True,
-    )
+    ))
     # A door tile with door_side
-    level.tiles[5][5] = Tile(
+    level.set_tile(5, 5, Tile(
         terrain=Terrain.FLOOR,
         feature="door_closed",
         door_side="north",
-    )
+    ))
     return level
 
 
@@ -43,7 +43,7 @@ class TestTileFieldSerialization:
         # Deserialize and verify
         level2 = _deserialize_level(data)
         assert (
-            level2.tiles[3][3].surface_type == SurfaceType.CORRIDOR
+            level2.tile_at(3, 3).surface_type == SurfaceType.CORRIDOR
         )
 
     def test_visible_roundtrip(self):
@@ -52,7 +52,7 @@ class TestTileFieldSerialization:
         serialized_tile = data["tiles"][4][4]
         assert serialized_tile.get("visible") is True
         level2 = _deserialize_level(data)
-        assert level2.tiles[4][4].visible is True
+        assert level2.tile_at(4, 4).visible is True
 
     def test_door_side_roundtrip(self):
         level = _make_level()
@@ -60,7 +60,7 @@ class TestTileFieldSerialization:
         serialized_tile = data["tiles"][5][5]
         assert serialized_tile.get("door_side") == "north"
         level2 = _deserialize_level(data)
-        assert level2.tiles[5][5].door_side == "north"
+        assert level2.tile_at(5, 5).door_side == "north"
 
     def test_false_defaults_omitted(self):
         """Tiles with default values should not bloat the export."""
@@ -80,7 +80,7 @@ class TestCaveShapeSerialization:
         )
         cave_tiles = {(5, 5), (6, 5), (7, 5), (5, 6), (6, 6)}
         for x, y in cave_tiles:
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         shape = CaveShape(cave_tiles)
         level.rooms.append(
             Room(id="cave_1", rect=Rect(5, 5, 3, 2), shape=shape)
@@ -100,7 +100,7 @@ class TestCaveShapeSerialization:
         )
         cave_tiles = {(5, 5), (6, 5), (7, 5), (5, 6), (6, 6)}
         for x, y in cave_tiles:
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         shape = CaveShape(cave_tiles)
         level.rooms.append(
             Room(id="cave_1", rect=Rect(5, 5, 3, 2), shape=shape)

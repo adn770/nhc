@@ -35,7 +35,7 @@ def _walk_street_component(
     surface = site.surface
     if not surface.in_bounds(*start):
         return set()
-    if surface.tiles[start[1]][start[0]].surface_type is not SurfaceType.STREET:
+    if surface.tile_at(start[0], start[1]).surface_type is not SurfaceType.STREET:
         return set()
     seen: set[tuple[int, int]] = {start}
     stack = [start]
@@ -47,7 +47,7 @@ def _walk_street_component(
                 continue
             if not surface.in_bounds(nx, ny):
                 continue
-            if surface.tiles[ny][nx].surface_type is not SurfaceType.STREET:
+            if surface.tile_at(nx, ny).surface_type is not SurfaceType.STREET:
                 continue
             seen.add((nx, ny))
             stack.append((nx, ny))
@@ -68,17 +68,16 @@ def _door_street_neighbour(
         nx, ny = sx + dx, sy + dy
         if not site.surface.in_bounds(nx, ny):
             continue
-        if site.surface.tiles[ny][nx].surface_type is SurfaceType.STREET:
+        if site.surface.tile_at(nx, ny).surface_type is SurfaceType.STREET:
             return (nx, ny)
     return None
 
 
 def _all_street_tiles(site) -> set[tuple[int, int]]:
     out: set[tuple[int, int]] = set()
-    for y, row in enumerate(site.surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.surface_type is SurfaceType.STREET:
-                out.add((x, y))
+    for x, y, tile in site.surface.iter_world():
+        if tile.surface_type is SurfaceType.STREET:
+            out.add((x, y))
     return out
 
 
@@ -114,7 +113,7 @@ class TestEveryDoorHasStreetNeighbour:
                 for nx, ny in neighbours:
                     if not site.surface.in_bounds(nx, ny):
                         continue
-                    if site.surface.tiles[ny][nx].surface_type is SurfaceType.STREET:
+                    if site.surface.tile_at(nx, ny).surface_type is SurfaceType.STREET:
                         has_street = True
                         break
                 assert has_street, (

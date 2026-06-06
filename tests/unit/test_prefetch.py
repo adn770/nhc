@@ -24,7 +24,7 @@ def _make_level(depth: int = 1, width: int = 20, height: int = 20):
              for _ in range(height)]
     return Level(
         id=f"depth_{depth}", name=f"Test Level {depth}", depth=depth,
-        width=width, height=height, tiles=tiles,
+        width=width, height=height, _tiles=tiles,
         rooms=[Room(id="r1", rect=Rect(1, 1, 10, 10), tags=["entry"])],
     )
 
@@ -73,7 +73,7 @@ class TestStairsProximityTick:
 
     def test_triggers_prefetch_when_near_stairs(self):
         level = _make_level(depth=2)
-        level.tiles[8][5].feature = "stairs_down"  # 3 tiles from player
+        level.tile_at(5, 8).feature = "stairs_down"  # 3 tiles from player
         game = FakeGame(level)
 
         game_ticks.tick_stairs_proximity(game)
@@ -87,7 +87,7 @@ class TestStairsProximityTick:
 
     def test_no_prefetch_when_far_from_stairs(self):
         level = _make_level(depth=1, width=30, height=30)
-        level.tiles[20][20].feature = "stairs_down"  # far from (5,5)
+        level.tile_at(20, 20).feature = "stairs_down"  # far from (5,5)
         game = FakeGame(level)
 
         game_ticks.tick_stairs_proximity(game)
@@ -97,7 +97,7 @@ class TestStairsProximityTick:
 
     def test_no_prefetch_when_depth_already_cached(self):
         level = _make_level(depth=1)
-        level.tiles[6][5].feature = "stairs_down"  # adjacent
+        level.tile_at(5, 6).feature = "stairs_down"  # adjacent
         game = FakeGame(level)
         game._floor_cache[2] = ("cached", {})
 
@@ -107,7 +107,7 @@ class TestStairsProximityTick:
 
     def test_no_duplicate_prefetch(self):
         level = _make_level(depth=1)
-        level.tiles[6][5].feature = "stairs_down"
+        level.tile_at(5, 6).feature = "stairs_down"
         game = FakeGame(level)
 
         game_ticks.tick_stairs_proximity(game)
@@ -122,7 +122,7 @@ class TestStairsProximityTick:
 
     def test_skips_when_prefetch_thread_running(self):
         level = _make_level(depth=1)
-        level.tiles[6][5].feature = "stairs_down"
+        level.tile_at(5, 6).feature = "stairs_down"
         game = FakeGame(level)
         # Simulate a running thread
         game._prefetch_thread = threading.Thread(target=lambda: None)

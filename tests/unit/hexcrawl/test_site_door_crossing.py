@@ -128,12 +128,12 @@ async def test_keep_surface_to_building_via_door(tmp_path) -> None:
     # fires on a stepped cross, so we directly trigger the swap
     # via an attempt onto an adjacent tile that opens and crosses
     # the door in one go).
-    surface.tiles[sy][sx].feature = "door_open"
+    surface.tile_at(sx, sy).feature = "door_open"
     _place_player(g, sx, sy)
     # Dispatch the swap by calling the handler directly with
     # the move direction that represents stepping *through* the
     # door (perpendicular to the wall carrying the door).
-    cross_dx, cross_dy = _SIDE_TO_DIR[surface.tiles[sy][sx].door_side]
+    cross_dx, cross_dy = _SIDE_TO_DIR[surface.tile_at(sx, sy).door_side]
     g._maybe_traverse_building_door(cross_dx, cross_dy)
     assert g.level is not surface
     assert g.level.building_id == bid
@@ -154,9 +154,9 @@ async def test_building_to_surface_via_reverse_door(tmp_path) -> None:
     target_building = next(b for b in site.buildings if b.id == bid)
     g.level = target_building.ground
     # Mark the building-side door open and stand on it.
-    g.level.tiles[by][bx].feature = "door_open"
+    g.level.tile_at(bx, by).feature = "door_open"
     _place_player(g, bx, by)
-    cross_dx, cross_dy = _SIDE_TO_DIR[g.level.tiles[by][bx].door_side]
+    cross_dx, cross_dy = _SIDE_TO_DIR[g.level.tile_at(bx, by).door_side]
     g._maybe_traverse_building_door(cross_dx, cross_dy)
     assert g.level is surface
     pos = g.world.get_component(g.player_id, "Position")
@@ -179,9 +179,9 @@ async def test_mansion_shared_interior_door(tmp_path) -> None:
     source = next(b for b in site.buildings if b.id == fid)
     target = next(b for b in site.buildings if b.id == tid)
     g.level = source.ground
-    g.level.tiles[fy][fx].feature = "door_open"
+    g.level.tile_at(fx, fy).feature = "door_open"
     _place_player(g, fx, fy)
-    cross_dx, cross_dy = _SIDE_TO_DIR[g.level.tiles[fy][fx].door_side]
+    cross_dx, cross_dy = _SIDE_TO_DIR[g.level.tile_at(fx, fy).door_side]
     g._maybe_traverse_building_door(cross_dx, cross_dy)
     assert g.level is target.ground
     pos = g.world.get_component(g.player_id, "Position")
@@ -205,13 +205,13 @@ async def test_step_onto_door_does_not_teleport(tmp_path) -> None:
     site = g._active_site
     surface = site.surface
     (sx, sy), _ = next(iter(site.building_doors.items()))
-    surface.tiles[sy][sx].feature = "door_open"
+    surface.tile_at(sx, sy).feature = "door_open"
     _place_player(g, sx, sy)
     # Simulate a step *onto* the door: pre-pos is the adjacent
     # tile on the door's wall-opposite side, post-pos (current)
     # is the door tile. Direction matches door_side -- the move
     # that naturally lands the player on the door.
-    cross_dx, cross_dy = _SIDE_TO_DIR[surface.tiles[sy][sx].door_side]
+    cross_dx, cross_dy = _SIDE_TO_DIR[surface.tile_at(sx, sy).door_side]
     g._maybe_traverse_building_door(
         cross_dx, cross_dy,
         sx - cross_dx, sy - cross_dy,
@@ -243,11 +243,11 @@ async def test_lateral_step_does_not_teleport(tmp_path) -> None:
     site = g._active_site
     surface = site.surface
     (sx, sy), _ = next(iter(site.building_doors.items()))
-    surface.tiles[sy][sx].feature = "door_open"
+    surface.tile_at(sx, sy).feature = "door_open"
     _place_player(g, sx, sy)
     # Pick a direction perpendicular to the door's wall -- a
     # lateral step that walks *along* the wall, not through it.
-    cross_dx, cross_dy = _cross_dir(surface.tiles[sy][sx])
+    cross_dx, cross_dy = _cross_dir(surface.tile_at(sx, sy))
     lateral_dx, lateral_dy = -cross_dy, cross_dx  # 90° rotation
     g._maybe_traverse_building_door(lateral_dx, lateral_dy)
     assert g.level is surface, (
@@ -270,8 +270,8 @@ async def test_closed_door_does_not_trigger_crossing(tmp_path) -> None:
     # Door remains closed. Pass a direction that *would* match
     # the door's side so this test specifically exercises the
     # closed-door guard (not the direction guard).
-    cross_dx, cross_dy = _SIDE_TO_DIR[surface.tiles[sy][sx].door_side]
-    surface.tiles[sy][sx].feature = "door_closed"
+    cross_dx, cross_dy = _SIDE_TO_DIR[surface.tile_at(sx, sy).door_side]
+    surface.tile_at(sx, sy).feature = "door_closed"
     _place_player(g, sx, sy)
     g._maybe_traverse_building_door(cross_dx, cross_dy)
     assert g.level is surface
@@ -301,7 +301,7 @@ async def test_resolve_does_not_call_door_traversal_hook(tmp_path) -> None:
     # Stand the player on a surface door tile in the exact state
     # left by a just-completed building exit.
     (sx, sy), _ = next(iter(site.building_doors.items()))
-    surface.tiles[sy][sx].feature = "door_open"
+    surface.tile_at(sx, sy).feature = "door_open"
     g.level = surface
     _place_player(g, sx, sy)
     # Spy on the hook.

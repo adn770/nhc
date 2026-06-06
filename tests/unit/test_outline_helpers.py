@@ -376,7 +376,7 @@ def _make_room_with_door(
     # Floor the room tiles.
     for ry in range(rect.y, rect.y2):
         for rx in range(rect.x, rect.x2):
-            level.tiles[ry][rx] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(rx, ry, Tile(terrain=Terrain.FLOOR))
 
     if door_side == "north":
         dx, dy = rect.x, rect.y - 1
@@ -386,11 +386,11 @@ def _make_room_with_door(
         dx, dy = rect.x - 1, rect.y
     else:  # east
         dx, dy = rect.x2, rect.y
-    level.tiles[dy][dx] = Tile(
+    level.set_tile(dx, dy, Tile(
         terrain=Terrain.FLOOR,
         feature=door_feature,
         door_side=door_side,
-    )
+    ))
     return level, room
 
 
@@ -437,7 +437,7 @@ def test_cuts_for_room_doors_no_doors_returns_empty() -> None:
     room = Room(id="r1", rect=rect)
     for ry in range(rect.y, rect.y2):
         for rx in range(rect.x, rect.x2):
-            level.tiles[ry][rx] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(rx, ry, Tile(terrain=Terrain.FLOOR))
 
     assert cuts_for_room_doors(room, level) == []
 
@@ -554,7 +554,7 @@ def _make_room_with_corridor(
 
     for ry in range(rect.y, rect.y2):
         for rx in range(rect.x, rect.x2):
-            level.tiles[ry][rx] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(rx, ry, Tile(terrain=Terrain.FLOOR))
 
     if corridor_side == "north":
         cx, cy = rect.x, rect.y - 1
@@ -565,10 +565,10 @@ def _make_room_with_corridor(
     else:  # east
         cx, cy = rect.x2, rect.y
 
-    level.tiles[cy][cx] = Tile(
+    level.set_tile(cx, cy, Tile(
         terrain=Terrain.FLOOR,
         surface_type=SurfaceType.CORRIDOR,
-    )
+    ))
     return level, room
 
 
@@ -661,7 +661,7 @@ def test_cuts_for_room_corridor_openings_skips_void_neighbors() -> None:
     level.rooms = [room]
     for ry in range(rect.y, rect.y2):
         for rx in range(rect.x, rect.x2):
-            level.tiles[ry][rx] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(rx, ry, Tile(terrain=Terrain.FLOOR))
 
     # All neighbors are VOID (default); no cuts expected.
     cuts = cuts_for_room_corridor_openings(room, level)

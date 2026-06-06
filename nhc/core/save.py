@@ -217,7 +217,7 @@ def _deserialize_component(comp_type: str, data: Any) -> Any:
 def _serialize_level(level: Level) -> dict[str, Any]:
     """Serialize a Level to a JSON-safe dict."""
     tiles_data = []
-    for row in level.tiles:
+    for row in level.iter_rows():
         row_data = []
         for tile in row:
             td: dict[str, Any] = {"terrain": tile.terrain.name}
@@ -364,7 +364,7 @@ def _deserialize_level(data: dict[str, Any]) -> Level:
         height=data["height"],
         origin_x=data.get("origin_x", 0),
         origin_y=data.get("origin_y", 0),
-        tiles=tiles,
+        _tiles=tiles,
         rooms=rooms,
         corridors=corridors,
         metadata=metadata,

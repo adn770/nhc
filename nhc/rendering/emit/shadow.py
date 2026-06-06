@@ -50,7 +50,7 @@ def emit_shadows(builder: Any) -> list[OpEntryT]:
     # height; gate on the canonical room / tile accessors to keep
     # those builders working until they migrate to a real level.
     rooms = getattr(level, "rooms", None)
-    tiles_grid = getattr(level, "tiles", None)
+    tiles_grid = getattr(level, "_tiles", None)
     if rooms is None and tiles_grid is None:
         return []
 
@@ -68,7 +68,7 @@ def emit_shadows(builder: Any) -> list[OpEntryT]:
     if tiles_grid is not None:
         for y in range(level.height):
             for x in range(level.width):
-                tile = level.tiles[y][x]
+                tile = level.tile_at(x, y)
                 if not (
                     tile.surface_type == SurfaceType.CORRIDOR
                     or _is_door(level, x, y)

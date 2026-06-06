@@ -86,10 +86,10 @@ class ClassicGenerator(DungeonGenerator):
         if rooms:
             # Stairs up in first room, stairs down in last room
             sx, sy = rooms[0].center
-            level.tiles[sy][sx].feature = "stairs_up"
+            level.tile_at(sx, sy).feature = "stairs_up"
 
             ex, ey = rooms[-1].center
-            level.tiles[ey][ex].feature = "stairs_down"
+            level.tile_at(ex, ey).feature = "stairs_down"
 
         # Build walls around carved areas
         self._build_walls(level)
@@ -104,30 +104,27 @@ class ClassicGenerator(DungeonGenerator):
         """Place WALL tiles around room floors only (not corridors)."""
         walkable = {Terrain.FLOOR, Terrain.WATER}
         to_wall: set[tuple[int, int]] = set()
-        for y in range(level.height):
-            for x in range(level.width):
-                tile = level.tiles[y][x]
-                if (tile.terrain not in walkable
-                        or tile.surface_type == SurfaceType.CORRIDOR):
-                    continue
-                for dy in range(-1, 2):
-                    for dx in range(-1, 2):
-                        if dx == 0 and dy == 0:
-                            continue
-                        nx, ny = x + dx, y + dy
-                        if (level.in_bounds(nx, ny)
-                                and level.tiles[ny][nx].terrain
-                                == Terrain.VOID):
-                            to_wall.add((nx, ny))
+        for x, y, tile in level.iter_world():
+            if (tile.terrain not in walkable
+                    or tile.surface_type == SurfaceType.CORRIDOR):
+                continue
+            for dy in range(-1, 2):
+                for dx in range(-1, 2):
+                    if dx == 0 and dy == 0:
+                        continue
+                    nx, ny = x + dx, y + dy
+                    nb = level.tile_at(nx, ny)
+                    if nb is not None and nb.terrain == Terrain.VOID:
+                        to_wall.add((nx, ny))
         for wx, wy in to_wall:
-            level.tiles[wy][wx] = Tile(terrain=Terrain.WALL)
+            level.set_tile(wx, wy, Tile(terrain=Terrain.WALL))
 
     def _carve_room(self, level: Level, rect: Rect) -> None:
         """Carve a rectangular room into the level."""
         for y in range(rect.y, rect.y2):
             for x in range(rect.x, rect.x2):
                 if level.in_bounds(x, y):
-                    level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                    level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
     def _carve_h_tunnel(
         self, level: Level, x1: int, x2: int, y: int,
@@ -136,11 +133,11 @@ class ClassicGenerator(DungeonGenerator):
         points: list[tuple[int, int]] = []
         for x in range(min(x1, x2), max(x1, x2) + 1):
             if level.in_bounds(x, y):
-                existing = level.tiles[y][x]
+                existing = level.tile_at(x, y)
                 if existing.terrain != Terrain.FLOOR:
-                    level.tiles[y][x] = Tile(
+                    level.set_tile(x, y, Tile(
                         terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
-                    )
+                    ))
                 points.append((x, y))
         return points
 
@@ -151,11 +148,11 @@ class ClassicGenerator(DungeonGenerator):
         points: list[tuple[int, int]] = []
         for y in range(min(y1, y2), max(y1, y2) + 1):
             if level.in_bounds(x, y):
-                existing = level.tiles[y][x]
+                existing = level.tile_at(x, y)
                 if existing.terrain != Terrain.FLOOR:
-                    level.tiles[y][x] = Tile(
+                    level.set_tile(x, y, Tile(
                         terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
-                    )
+                    ))
                 points.append((x, y))
         return points
 
@@ -163,27 +160,26 @@ class ClassicGenerator(DungeonGenerator):
         """Place doors at corridor-room transition points."""
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
-                tile = level.tiles[y][x]
+                tile = level.tile_at(x, y)
                 if tile.terrain != Terrain.FLOOR or tile.feature:
                     continue
 
                 # Check for door-like patterns (corridor between walls)
                 h_walls = (
-                    level.tiles[y - 1][x].terrain == Terrain.WALL
-                    and level.tiles[y + 1][x].terrain == Terrain.WALL
+                    level.tile_at(x, y - 1).terrain == Terrain.WALL
+                    and level.tile_at(x, y + 1).terrain == Terrain.WALL
                 )
                 v_walls = (
-                    level.tiles[y][x - 1].terrain == Terrain.WALL
-                    and level.tiles[y][x + 1].terrain == Terrain.WALL
+                    level.tile_at(x - 1, y).terrain == Terrain.WALL
+                    and level.tile_at(x + 1, y).terrain == Terrain.WALL
                 )
 
                 if h_walls or v_walls:
                     # Count adjacent floor tiles
-                    adj_floor = sum(
-                        1 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
-                        if (level.in_bounds(x + dx, y + dy)
-                            and level.tiles[y + dy][x + dx].terrain
-                            == Terrain.FLOOR)
-                    )
+                    adj_floor = 0
+                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nb = level.tile_at(x + dx, y + dy)
+                        if nb is not None and nb.terrain == Terrain.FLOOR:
+                            adj_floor += 1
                     if adj_floor == 2:
                         tile.feature = "door_closed"

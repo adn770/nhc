@@ -40,12 +40,12 @@ def _make_terrain_level(
     level.rooms.append(room)
     for y in range(2, 6):
         for x in range(2, 8):
-            level.tiles[y][x] = Tile(terrain=terrain)
+            level.set_tile(x, y, Tile(terrain=terrain))
 
     # One corridor tile so walls render properly
-    level.tiles[3][8] = Tile(
+    level.set_tile(8, 3, Tile(
         terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
-    )
+    ))
 
     return level
 
@@ -152,7 +152,7 @@ class TestTerrainTintSVG:
         """A corridor tile with WATER terrain still gets white base."""
         level = _make_terrain_level(Terrain.FLOOR)
         # Make the corridor tile water
-        level.tiles[3][8].terrain = Terrain.WATER
+        level.tile_at(8, 3).terrain = Terrain.WATER
         svg = render_floor_svg_from_ir(level)
         # The corridor tile at (8,3) should have a white rect
         px, py = 8 * 32, 3 * 32

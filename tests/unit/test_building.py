@@ -28,7 +28,7 @@ def _floor_level(id_: str, depth: int, rect: Rect) -> Level:
     )
     for y in range(rect.y, rect.y2):
         for x in range(rect.x, rect.x2):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     return level
 
 
@@ -274,8 +274,8 @@ class TestPlaceCrossFloorStairs:
         lx, ly = link.from_tile
         ux, uy = link.to_tile
         # Lower floor's tile is stairs_up; upper's is stairs_down.
-        assert lower.tiles[ly][lx].feature == "stairs_up"
-        assert upper.tiles[uy][ux].feature == "stairs_down"
+        assert lower.tile_at(lx, ly).feature == "stairs_up"
+        assert upper.tile_at(ux, uy).feature == "stairs_down"
 
     def test_aligned_tiles_across_floors(self):
         rect = Rect(1, 1, 6, 6)
@@ -320,7 +320,7 @@ class TestPlaceCrossFloorStairs:
                 for x in range(rect.x, rect.x2):
                     if (x, y) in perim or (x, y) == keep:
                         continue
-                    floor.tiles[y][x].feature = "door_closed"
+                    floor.tile_at(x, y).feature = "door_closed"
         links = place_cross_floor_stairs(b, random.Random(42))
         assert len(links) == 1
         assert links[0].from_tile == keep
@@ -340,7 +340,7 @@ class TestPlaceCrossFloorStairs:
         assert descent[0].from_floor == 0
         assert descent[0].to_floor is ref
         dx, dy = descent[0].from_tile
-        assert b.ground.tiles[dy][dx].feature == "stairs_down"
+        assert b.ground.tile_at(dx, dy).feature == "stairs_down"
 
     def test_descent_and_upstair_use_distinct_tiles(self):
         rect = Rect(1, 1, 6, 6)
@@ -370,7 +370,7 @@ class TestPlaceCrossFloorStairs:
         for y in range(rect.y, rect.y2):
             for x in range(rect.x, rect.x2):
                 if (x, y) not in perim:
-                    f0.tiles[y][x].feature = "door_closed"
+                    f0.tile_at(x, y).feature = "door_closed"
         with pytest.raises(ValueError, match="no valid stair tile"):
             place_cross_floor_stairs(b, random.Random(42))
 

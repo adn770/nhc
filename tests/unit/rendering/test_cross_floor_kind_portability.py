@@ -67,9 +67,8 @@ def _floor_grid(w: int, h: int) -> Level:
     interior. Sufficient for ``build_floor_ir`` to produce a
     dungeon-poly clip."""
     level = Level.create_empty("L", "L", 1, w, h)
-    for y in range(h):
-        for x in range(w):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+    for x, y, _tile in level.iter_world():
+        level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     level.rooms = [Room(id="r1", rect=Rect(0, 0, w, h))]
     return level
 
@@ -140,19 +139,19 @@ def _v5_stamp_decorator_bit_set(
 class TestTreePortability:
     def test_tree_paints_on_dungeon(self) -> None:
         level = _floor_grid(6, 6)
-        level.tiles[3][3].feature = "tree"
+        level.tile_at(3, 3).feature = "tree"
         assert _v5_fixture_kind_counts(level).get("Tree", 0) >= 1
 
     def test_tree_paints_on_building_interior(self) -> None:
         level = _floor_grid(6, 6)
         level.building_id = "b1"
-        level.tiles[3][3].feature = "tree"
+        level.tile_at(3, 3).feature = "tree"
         assert _v5_fixture_kind_counts(level).get("Tree", 0) >= 1
 
     def test_tree_paints_on_surface(self) -> None:
         level = _floor_grid(6, 6)
         level.metadata.prerevealed = True
-        level.tiles[3][3].feature = "tree"
+        level.tile_at(3, 3).feature = "tree"
         assert _v5_fixture_kind_counts(level).get("Tree", 0) >= 1
 
     def test_tree_paints_on_cave(self) -> None:
@@ -164,7 +163,7 @@ class TestTreePortability:
                 (x, y) for y in range(6) for x in range(6)
             }),
         )]
-        level.tiles[3][3].feature = "tree"
+        level.tile_at(3, 3).feature = "tree"
         assert _v5_fixture_kind_counts(level, seed=11).get("Tree", 0) >= 1
 
 
@@ -174,19 +173,19 @@ class TestTreePortability:
 class TestBushPortability:
     def test_bush_paints_on_dungeon(self) -> None:
         level = _floor_grid(6, 6)
-        level.tiles[3][3].feature = "bush"
+        level.tile_at(3, 3).feature = "bush"
         assert _v5_fixture_kind_counts(level).get("Bush", 0) >= 1
 
     def test_bush_paints_on_building_interior(self) -> None:
         level = _floor_grid(6, 6)
         level.building_id = "b1"
-        level.tiles[3][3].feature = "bush"
+        level.tile_at(3, 3).feature = "bush"
         assert _v5_fixture_kind_counts(level).get("Bush", 0) >= 1
 
     def test_bush_paints_on_surface(self) -> None:
         level = _floor_grid(6, 6)
         level.metadata.prerevealed = True
-        level.tiles[3][3].feature = "bush"
+        level.tile_at(3, 3).feature = "bush"
         assert _v5_fixture_kind_counts(level).get("Bush", 0) >= 1
 
     def test_bush_paints_on_cave(self) -> None:
@@ -198,7 +197,7 @@ class TestBushPortability:
                 (x, y) for y in range(6) for x in range(6)
             }),
         )]
-        level.tiles[3][3].feature = "bush"
+        level.tile_at(3, 3).feature = "bush"
         assert _v5_fixture_kind_counts(level, seed=11).get("Bush", 0) >= 1
 
 
@@ -208,19 +207,19 @@ class TestBushPortability:
 class TestWaterPortability:
     def test_water_paints_on_dungeon(self) -> None:
         level = _floor_grid(6, 6)
-        level.tiles[3][3] = Tile(terrain=Terrain.WATER)
+        level.set_tile(3, 3, Tile(terrain=Terrain.WATER))
         assert _v5_stamp_decorator_bit_set(level, _V5_BIT_RIPPLES)
 
     def test_water_paints_on_building_interior(self) -> None:
         level = _floor_grid(6, 6)
         level.building_id = "b1"
-        level.tiles[3][3] = Tile(terrain=Terrain.WATER)
+        level.set_tile(3, 3, Tile(terrain=Terrain.WATER))
         assert _v5_stamp_decorator_bit_set(level, _V5_BIT_RIPPLES)
 
     def test_water_paints_on_surface(self) -> None:
         level = _floor_grid(6, 6)
         level.metadata.prerevealed = True
-        level.tiles[3][3] = Tile(terrain=Terrain.WATER)
+        level.set_tile(3, 3, Tile(terrain=Terrain.WATER))
         assert _v5_stamp_decorator_bit_set(level, _V5_BIT_RIPPLES)
 
 
@@ -237,14 +236,14 @@ class TestCobblestonePortability:
 
     def test_street_paints_on_dungeon(self) -> None:
         level = _floor_grid(6, 6)
-        level.tiles[3][3].surface_type = SurfaceType.STREET
+        level.tile_at(3, 3).surface_type = SurfaceType.STREET
         svg = render_floor_svg_from_ir(level)
         assert self._COBBLE in svg
 
     def test_paved_paints_on_building_interior(self) -> None:
         level = _floor_grid(6, 6)
         level.building_id = "b1"
-        level.tiles[3][3].surface_type = SurfaceType.PAVED
+        level.tile_at(3, 3).surface_type = SurfaceType.PAVED
         svg = render_floor_svg_from_ir(level)
         assert self._COBBLE in svg
 
@@ -257,7 +256,7 @@ class TestCobblestonePortability:
                 (x, y) for y in range(6) for x in range(6)
             }),
         )]
-        level.tiles[3][3].surface_type = SurfaceType.STREET
+        level.tile_at(3, 3).surface_type = SurfaceType.STREET
         svg = render_floor_svg_from_ir(level, seed=11)
         assert self._COBBLE in svg
 

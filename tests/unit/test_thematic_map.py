@@ -62,7 +62,7 @@ def _make_cave_room_level(
                 continue
             tiles.add((x, y))
     for tx, ty in tiles:
-        level.tiles[ty][tx] = Tile(terrain=Terrain.FLOOR)
+        level.set_tile(tx, ty, Tile(terrain=Terrain.FLOOR))
     # Walls around floor
     for fx, fy in tiles:
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1),
@@ -70,8 +70,8 @@ def _make_cave_room_level(
             nx, ny = fx + dx, fy + dy
             if ((nx, ny) not in tiles
                     and level.in_bounds(nx, ny)
-                    and level.tiles[ny][nx].terrain == Terrain.VOID):
-                level.tiles[ny][nx] = Tile(terrain=Terrain.WALL)
+                    and level.tile_at(nx, ny).terrain == Terrain.VOID):
+                level.set_tile(nx, ny, Tile(terrain=Terrain.WALL))
     shape = CaveShape(tiles)
     room = Room(id="cave_1", rect=Rect(3, 3, 11, 7), shape=shape)
     level.rooms.append(room)
@@ -80,17 +80,17 @@ def _make_cave_room_level(
         # Doorless corridor entering from the west at y=6.
         # Room's leftmost floor at y=6 is (3, 6).
         for cx in range(0, 3):
-            level.tiles[6][cx] = Tile(
+            level.set_tile(cx, 6, Tile(
                 terrain=Terrain.FLOOR,
                 surface_type=SurfaceType.CORRIDOR,
-            )
+            ))
         # Walls above/below the corridor
         for cx in range(0, 3):
             for dy in (-1, 1):
-                if level.tiles[6 + dy][cx].terrain == Terrain.VOID:
-                    level.tiles[6 + dy][cx] = Tile(
+                if level.tile_at(cx, 6 + dy).terrain == Terrain.VOID:
+                    level.set_tile(cx, 6 + dy, Tile(
                         terrain=Terrain.WALL,
-                    )
+                    ))
         # The tile at (3, 6) is cave floor, neighbor (2, 6) is
         # corridor → this is a doorless opening. Also ensure the
         # wall that was between them (none, since (3,6) is floor
@@ -112,11 +112,10 @@ class TestCaveDoors:
         }
         for seed in range(20):
             level = _generate_cave(seed=seed)
-            for row in level.tiles:
-                for tile in row:
-                    assert tile.feature not in door_feats, (
-                        f"Cave (seed={seed}) has {tile.feature}"
-                    )
+            for tile in level.iter_tiles():
+                assert tile.feature not in door_feats, (
+                    f"Cave (seed={seed}) has {tile.feature}"
+                )
 
 
 

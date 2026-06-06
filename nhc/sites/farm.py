@@ -172,25 +172,24 @@ def _scatter_farm_trees(
     for sx, sy in site.building_doors:
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             door_ring.add((sx + dx, sy + dy))
-    for y, row in enumerate(surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.terrain is not Terrain.GRASS:
-                continue
-            if tile.surface_type != SurfaceType.FIELD:
-                continue
-            if tile.feature is not None:
-                continue
-            if (x, y) in door_ring:
-                continue
-            blocked = False
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                if (x + dx, y + dy) in footprints:
-                    blocked = True
-                    break
-            if blocked:
-                continue
-            if rng.random() < FARM_TREE_DENSITY:
-                tile.feature = "tree"
+    for x, y, tile in surface.iter_world():
+        if tile.terrain is not Terrain.GRASS:
+            continue
+        if tile.surface_type != SurfaceType.FIELD:
+            continue
+        if tile.feature is not None:
+            continue
+        if (x, y) in door_ring:
+            continue
+        blocked = False
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            if (x + dx, y + dy) in footprints:
+                blocked = True
+                break
+        if blocked:
+            continue
+        if rng.random() < FARM_TREE_DENSITY:
+            tile.feature = "tree"
 
 
 def _scatter_farm_bushes(
@@ -211,29 +210,28 @@ def _scatter_farm_bushes(
             door_ring.add((sx + dx, sy + dy))
 
     bush_set: set[tuple[int, int]] = set()
-    for y, row in enumerate(surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.terrain is not Terrain.GRASS:
-                continue
-            if tile.surface_type != SurfaceType.FIELD:
-                continue
-            if tile.feature is not None:
-                continue
-            if (x, y) in door_ring:
-                continue
-            has_bush_nb = (
-                (x - 1, y) in bush_set
-                or (x, y - 1) in bush_set
-            )
-            prob = (
-                FARM_BUSH_DENSITY
-                * FARM_BUSH_NEIGHBOUR_BIAS_MULT
-                if has_bush_nb
-                else FARM_BUSH_DENSITY
-            )
-            if rng.random() < prob:
-                tile.feature = "bush"
-                bush_set.add((x, y))
+    for x, y, tile in surface.iter_world():
+        if tile.terrain is not Terrain.GRASS:
+            continue
+        if tile.surface_type != SurfaceType.FIELD:
+            continue
+        if tile.feature is not None:
+            continue
+        if (x, y) in door_ring:
+            continue
+        has_bush_nb = (
+            (x - 1, y) in bush_set
+            or (x, y - 1) in bush_set
+        )
+        prob = (
+            FARM_BUSH_DENSITY
+            * FARM_BUSH_NEIGHBOUR_BIAS_MULT
+            if has_bush_nb
+            else FARM_BUSH_DENSITY
+        )
+        if rng.random() < prob:
+            tile.feature = "bush"
+            bush_set.add((x, y))
 
 
 def _pick_shape(rng: random.Random) -> RoomShape:
@@ -321,7 +319,7 @@ def _place_entry_door(
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
     for (px, py) in perim:
-        tile = ground.tiles[py][px]
+        tile = ground.tile_at(px, py)
         if tile.feature is not None:
             continue
         has_wall = False
@@ -329,7 +327,7 @@ def _place_entry_door(
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
-            if ground.tiles[ny][nx].terrain == Terrain.WALL:
+            if ground.tile_at(nx, ny).terrain == Terrain.WALL:
                 has_wall = True
                 break
         if not has_wall:
@@ -352,7 +350,7 @@ def _find_entry_doors(
     ground = building.ground
     out: list[tuple[int, int]] = []
     for (px, py) in building.shared_perimeter():
-        if ground.tiles[py][px].feature == "door_closed":
+        if ground.tile_at(px, py).feature == "door_closed":
             out.append((px, py))
     return out
 
@@ -420,5 +418,5 @@ def _build_farm_surface(
                     terrain=Terrain.GRASS,
                     surface_type=SurfaceType.FIELD,
                 )
-            surface.tiles[y][x] = tile
+            surface.set_tile(x, y, tile)
     return surface

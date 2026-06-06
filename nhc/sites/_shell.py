@@ -49,12 +49,12 @@ def compose_shell(
                     continue
                 if not level.in_bounds(nx, ny):
                     continue
-                if level.tiles[ny][nx].terrain is Terrain.VOID:
-                    level.tiles[ny][nx] = Tile(terrain=Terrain.WALL)
+                if level.tile_at(nx, ny).terrain is Terrain.VOID:
+                    level.set_tile(nx, ny, Tile(terrain=Terrain.WALL))
 
     for (_from_id, _to_id, xy) in shared_doors or ():
         x, y = xy
         if not level.in_bounds(x, y):
             continue
-        tile = level.tiles[y][x]
+        tile = level.tile_at(x, y)
         tile.feature = "door_closed"

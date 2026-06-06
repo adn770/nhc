@@ -19,7 +19,7 @@ def _setup():
         for t in row:
             t.visible = True
     level = Level(id="t", name="T", depth=1, width=10, height=10,
-                  tiles=tiles, rooms=[], corridors=[], entities=[])
+                  _tiles=tiles, rooms=[], corridors=[], entities=[])
     pid = w.create_entity({
         "Position": Position(x=5, y=5),
         "Stats": Stats(), "Health": Health(current=10, maximum=10),
@@ -91,7 +91,7 @@ class TestThrowPotion:
     async def test_throw_validates_target_visible(self):
         w, l, pid, mob = _setup()
         # Make mob's tile not visible
-        l.tiles[5][6].visible = False
+        l.tile_at(6, 5).visible = False
         pot = w.create_entity({
             "Consumable": Consumable(effect="fireball", dice="1d4"),
             "Description": Description(name="Potion"),

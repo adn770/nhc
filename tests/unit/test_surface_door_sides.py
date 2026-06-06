@@ -59,7 +59,7 @@ def _assert_all_doors_tagged(site) -> None:
     for (sx, sy), (_bid, bx, by) in site.building_doors.items():
         if not surface.in_bounds(sx, sy):
             continue
-        tile = surface.tiles[sy][sx]
+        tile = surface.tile_at(sx, sy)
         assert tile.feature == "door_closed"
         assert tile.door_side in VALID_SIDES, (
             f"surface door at ({sx},{sy}) lacks door_side: "

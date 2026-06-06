@@ -87,9 +87,8 @@ async def _descend_onto_floor(
     g.level = building.ground
     stair_xy = next(
         (x, y)
-        for y in range(building.ground.height)
-        for x in range(building.ground.width)
-        if building.ground.tiles[y][x].feature == "stairs_down"
+        for x, y, tile in building.ground.iter_world()
+        if tile.feature == "stairs_down"
     )
     pos = g.world.get_component(g.player_id, "Position")
     pos.x, pos.y = stair_xy

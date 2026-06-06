@@ -33,7 +33,7 @@ def _make_world():
     tiles = [[Tile(terrain=Terrain.FLOOR) for _ in range(10)]
              for _ in range(10)]
     level = Level(id="t", name="T", depth=1, width=10, height=10,
-                  tiles=tiles, rooms=[], corridors=[], entities=[])
+                  _tiles=tiles, rooms=[], corridors=[], entities=[])
     pid = world.create_entity({
         "Position": Position(x=5, y=5, level_id="t"),
         "Stats": Stats(strength=2, dexterity=2),
@@ -151,13 +151,13 @@ class TestDetectionRing:
     def test_reveals_secret_doors(self):
         w, l, pid = _make_world()
         _equip_ring(w, pid, "detection")
-        l.tiles[3][3].feature = "door_secret"
-        l.tiles[3][3].visible = True
+        l.tile_at(3, 3).feature = "door_secret"
+        l.tile_at(3, 3).visible = True
         game = FakeGame(w, l, pid)
 
         game_ticks.tick_rings(game)
 
-        assert l.tiles[3][3].feature == "door_closed"
+        assert l.tile_at(3, 3).feature == "door_closed"
 
     def test_reveals_hidden_traps(self):
         w, l, pid = _make_world()
@@ -166,7 +166,7 @@ class TestDetectionRing:
             "Trap": Trap(hidden=True),
             "Position": Position(x=4, y=4, level_id="t"),
         })
-        l.tiles[4][4].visible = True
+        l.tile_at(4, 4).visible = True
         game = FakeGame(w, l, pid)
 
         game_ticks.tick_rings(game)
@@ -177,13 +177,13 @@ class TestDetectionRing:
     def test_ignores_non_visible_tiles(self):
         w, l, pid = _make_world()
         _equip_ring(w, pid, "detection")
-        l.tiles[3][3].feature = "door_secret"
-        l.tiles[3][3].visible = False
+        l.tile_at(3, 3).feature = "door_secret"
+        l.tile_at(3, 3).visible = False
         game = FakeGame(w, l, pid)
 
         game_ticks.tick_rings(game)
 
-        assert l.tiles[3][3].feature == "door_secret"
+        assert l.tile_at(3, 3).feature == "door_secret"
 
 
 # ── Haste ring ─────────────────────────────────────────────────────

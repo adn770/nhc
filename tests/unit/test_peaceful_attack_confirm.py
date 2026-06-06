@@ -50,7 +50,7 @@ def _street_level() -> Level:
     return Level(
         id="town_surface", name="Town", depth=0,
         width=10, height=10,
-        tiles=tiles, rooms=[], corridors=[], entities=[],
+        _tiles=tiles, rooms=[], corridors=[], entities=[],
     )
 
 

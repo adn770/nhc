@@ -201,7 +201,6 @@ def _pick_errand_destination(
         anchor = (errand.anchor_x, errand.anchor_y)
 
     for y in range(level.height):
-        row = level.tiles[y]
         for x in range(level.width):
             if (x, y) == (pos.x, pos.y):
                 continue
@@ -217,7 +216,7 @@ def _pick_errand_destination(
                 if not (0 <= nx < level.width
                         and 0 <= ny < level.height):
                     continue
-                feat = level.tiles[ny][nx].feature
+                feat = level.tile_at(nx, ny).feature
                 if feat is not None and feat.startswith("door_"):
                     door_adjacent.append((x, y))
                     break

@@ -142,7 +142,7 @@ class TestRegressionsPartialWallsAndLocales:
                     perimeter.add((nx, ny))
         void_count = sum(
             1 for (x, y) in perimeter
-            if ground.tiles[y][x].terrain is Terrain.VOID
+            if ground.tile_at(x, y).terrain is Terrain.VOID
         )
         assert 2 <= void_count <= 4
 

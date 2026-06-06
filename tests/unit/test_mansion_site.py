@@ -24,8 +24,8 @@ from nhc.sites.mansion import (
 
 def _surface_count(site: Site, surface: SurfaceType) -> int:
     return sum(
-        1 for row in site.surface.tiles
-        for t in row if t.surface_type == surface
+        1 for t in site.surface.iter_tiles()
+        if t.surface_type == surface
     )
 
 
@@ -88,8 +88,8 @@ class TestMansionInteriorDoors:
 
 def _door_tiles(level) -> list[tuple[int, int]]:
     return [
-        (x, y) for y, row in enumerate(level.tiles)
-        for x, t in enumerate(row) if t.feature == "door_closed"
+        (x, y) for x, y, t in level.iter_world()
+        if t.feature == "door_closed"
     ]
 
 
@@ -103,13 +103,12 @@ class TestMansionSurface:
         site = assemble_mansion("m1", random.Random(1))
         outdoor_walkable = 0
         gardens = 0
-        for row in site.surface.tiles:
-            for t in row:
-                if t.terrain not in (Terrain.FLOOR, Terrain.GRASS):
-                    continue
-                outdoor_walkable += 1
-                if t.surface_type == SurfaceType.GARDEN:
-                    gardens += 1
+        for t in site.surface.iter_tiles():
+            if t.terrain not in (Terrain.FLOOR, Terrain.GRASS):
+                continue
+            outdoor_walkable += 1
+            if t.surface_type == SurfaceType.GARDEN:
+                gardens += 1
         assert outdoor_walkable > 0
         assert gardens == outdoor_walkable, (
             f"{outdoor_walkable - gardens} walkable tiles outside "
@@ -134,7 +133,7 @@ class TestMansionSurface:
         for b in site.buildings:
             for (x, y) in b.base_shape.floor_tiles(b.base_rect):
                 if site.surface.in_bounds(x, y):
-                    t = site.surface.tiles[y][x]
+                    t = site.surface.tile_at(x, y)
                     assert t.surface_type != SurfaceType.GARDEN
 
 
@@ -166,10 +165,9 @@ class TestMansionDeterminism:
 
 def _features(surface):
     feats: dict[tuple[int, int], str] = {}
-    for y, row in enumerate(surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.feature is not None:
-                feats[(x, y)] = tile.feature
+    for x, y, tile in surface.iter_world():
+        if tile.feature is not None:
+            feats[(x, y)] = tile.feature
     return feats
 
 
@@ -213,8 +211,8 @@ class TestMansionGarden:
         site = assemble_mansion("m1", random.Random(5))
         s = site.surface
         for x in range(s.width):
-            assert s.tiles[0][x].terrain is Terrain.VOID
-            assert s.tiles[s.height - 1][x].terrain is Terrain.VOID
+            assert s.tile_at(x, 0).terrain is Terrain.VOID
+            assert s.tile_at(x, s.height - 1).terrain is Terrain.VOID
         for y in range(s.height):
-            assert s.tiles[y][0].terrain is Terrain.VOID
-            assert s.tiles[y][s.width - 1].terrain is Terrain.VOID
+            assert s.tile_at(0, y).terrain is Terrain.VOID
+            assert s.tile_at(s.width - 1, y).terrain is Terrain.VOID

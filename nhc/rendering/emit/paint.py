@@ -70,7 +70,7 @@ def emit_paints(builder: Any) -> list[OpEntryT]:
     """Walk builder.ctx + level to produce V5PaintOp entries.
 
     Defensive on synthetic fixture builders: returns an empty list
-    when ``level.tiles`` is missing.
+    when the grid (``level._tiles``) is missing.
     """
     from nhc.dungeon.generators.cellular import CaveShape
     from nhc.dungeon.model import (
@@ -86,7 +86,7 @@ def emit_paints(builder: Any) -> list[OpEntryT]:
 
     ctx = builder.ctx
     level = ctx.level
-    tiles_grid = getattr(level, "tiles", None)
+    tiles_grid = getattr(level, "_tiles", None)
     if tiles_grid is None:
         return []
 
@@ -208,7 +208,7 @@ def emit_paints(builder: Any) -> list[OpEntryT]:
         # Per-tile wood floor coverage when no polygon set.
         for y in range(level.height):
             for x in range(level.width):
-                tile = level.tiles[y][x]
+                tile = level.tile_at(x, y)
                 if tile.terrain is not Terrain.FLOOR:
                     continue
                 if (x, y) in cave_tiles:

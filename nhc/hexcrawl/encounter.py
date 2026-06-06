@@ -166,7 +166,7 @@ def generate_encounter_arena(
         depth=1,
         width=_ARENA_WIDTH,
         height=_ARENA_HEIGHT,
-        tiles=tiles,
+        _tiles=tiles,
         rooms=[room],
         corridors=[],
         entities=entities,

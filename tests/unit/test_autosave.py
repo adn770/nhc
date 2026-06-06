@@ -88,7 +88,7 @@ def _make_level():
              for _ in range(10)]
     return Level(
         id="test_1", name="Test Level", depth=1,
-        width=10, height=10, tiles=tiles,
+        width=10, height=10, _tiles=tiles,
         rooms=[Room(id="room_1", rect=Rect(1, 1, 5, 5))],
         corridors=[], entities=[],
         metadata=LevelMetadata(theme="dungeon", difficulty=1),

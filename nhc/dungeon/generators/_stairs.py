@@ -29,7 +29,8 @@ def _place_stairs(
     if n < 2:
         # Degenerate: single room gets both stairs
         cx, cy = rects[0].center
-        level.tiles[cy][cx].feature = "stairs_up"
+        t = level.tile_at(cx, cy)
+        t.feature = "stairs_up"
         level.rooms[0].tags.append("entry")
         level.rooms[0].tags.append("exit")
         return
@@ -64,9 +65,11 @@ def _place_stairs(
 
     # Place stairs
     sx, sy = rects[entry].center
-    level.tiles[sy][sx].feature = "stairs_up"
+    t = level.tile_at(sx, sy)
+    t.feature = "stairs_up"
     ex, ey = rects[exit_idx].center
-    level.tiles[ey][ex].feature = "stairs_down"
+    t = level.tile_at(ex, ey)
+    t.feature = "stairs_down"
     level.rooms[entry].tags.append("entry")
     level.rooms[exit_idx].tags.append("exit")
 
@@ -78,7 +81,8 @@ def _place_stairs(
         if second:
             idx2 = rng.choice(second)
             x2, y2 = rects[idx2].center
-            level.tiles[y2][x2].feature = "stairs_down"
+            t = level.tile_at(x2, y2)
+            t.feature = "stairs_down"
             level.rooms[idx2].tags.append("exit")
 
 
@@ -87,15 +91,14 @@ def _valid_stair_tiles(
 ) -> set[tuple[int, int]]:
     """Interior floor tiles without a feature, off the shared perimeter."""
     valid: set[tuple[int, int]] = set()
-    for y, row in enumerate(floor.tiles):
-        for x, tile in enumerate(row):
-            if tile.terrain != Terrain.FLOOR:
-                continue
-            if tile.feature is not None:
-                continue
-            if (x, y) in perimeter:
-                continue
-            valid.add((x, y))
+    for x, y, tile in floor.iter_world():
+        if tile.terrain != Terrain.FLOOR:
+            continue
+        if tile.feature is not None:
+            continue
+        if (x, y) in perimeter:
+            continue
+        valid.add((x, y))
     return valid
 
 
@@ -153,8 +156,10 @@ def place_cross_floor_stairs(
     for i in range(len(building.floors) - 1):
         tile = _shared_pick(i, i + 1)
         x, y = tile
-        building.floors[i].tiles[y][x].feature = "stairs_up"
-        building.floors[i + 1].tiles[y][x].feature = "stairs_down"
+        t = building.floors[i].tile_at(x, y)
+        t.feature = "stairs_up"
+        t = building.floors[i + 1].tile_at(x, y)
+        t.feature = "stairs_down"
         used.setdefault(i, set()).add(tile)
         used.setdefault(i + 1, set()).add(tile)
         links.append(StairLink(
@@ -165,7 +170,8 @@ def place_cross_floor_stairs(
     if building.descent is not None:
         tile = _pick(0)
         x, y = tile
-        building.floors[0].tiles[y][x].feature = "stairs_down"
+        t = building.floors[0].tile_at(x, y)
+        t.feature = "stairs_down"
         used.setdefault(0, set()).add(tile)
         links.append(StairLink(
             from_floor=0, to_floor=building.descent,
@@ -289,11 +295,12 @@ def build_floors_with_stairs(
                 "pending stair landing came from a non-adjacent floor"
             )
             px, py = prev_tile
-            assert level.tiles[py][px].terrain is Terrain.FLOOR, (
+            t = level.tile_at(px, py)
+            assert t.terrain is Terrain.FLOOR, (
                 f"required_walkable tile {prev_tile} lost its FLOOR "
                 f"on floor {idx}"
             )
-            level.tiles[py][px].feature = "stairs_down"
+            t.feature = "stairs_down"
             used.setdefault(idx, set()).add(prev_tile)
             pending_upper = None
 
@@ -304,7 +311,7 @@ def build_floors_with_stairs(
             # diagonally opposite so the traversal spirals.
             landing = None
             for prev_tile in used.get(idx, set()):
-                if level.tiles[prev_tile[1]][prev_tile[0]].feature == (
+                if level.tile_at(prev_tile[0], prev_tile[1]).feature == (
                     "stairs_down"
                 ):
                     landing = prev_tile
@@ -314,7 +321,8 @@ def build_floors_with_stairs(
                 avoid_tile=landing,
             )
             fx, fy = tile
-            level.tiles[fy][fx].feature = "stairs_up"
+            t = level.tile_at(fx, fy)
+            t.feature = "stairs_up"
             used.setdefault(idx, set()).add(tile)
             links.append(StairLink(
                 from_floor=idx, to_floor=idx + 1,
@@ -330,7 +338,8 @@ def build_floors_with_stairs(
             floors[0], perimeter, used.get(0, set()), rng,
         )
         fx, fy = tile
-        floors[0].tiles[fy][fx].feature = "stairs_down"
+        t = floors[0].tile_at(fx, fy)
+        t.feature = "stairs_down"
         used.setdefault(0, set()).add(tile)
         links.append(StairLink(
             from_floor=0, to_floor=descent,

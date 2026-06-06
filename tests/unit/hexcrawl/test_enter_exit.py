@@ -258,8 +258,8 @@ async def test_village_routes_through_town_assembler(tmp_path) -> None:
     assert g._active_site is not None
     assert g._active_site.kind == "town"
     street_tiles = sum(
-        1 for row in g.level.tiles
-        for t in row if t.surface_type == SurfaceType.STREET
+        1 for t in g.level.iter_tiles()
+        if t.surface_type == SurfaceType.STREET
     )
     assert street_tiles > 0
 

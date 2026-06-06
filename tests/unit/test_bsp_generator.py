@@ -39,12 +39,11 @@ class TestBSPGenerator:
         gen = BSPGenerator()
         level = gen.generate(GenerationParams(width=60, height=40))
         has_up = has_down = False
-        for row in level.tiles:
-            for tile in row:
-                if tile.feature == "stairs_up":
-                    has_up = True
-                if tile.feature == "stairs_down":
-                    has_down = True
+        for tile in level.iter_tiles():
+            if tile.feature == "stairs_up":
+                has_up = True
+            if tile.feature == "stairs_down":
+                has_down = True
         assert has_up, "Missing stairs up"
         assert has_down, "Missing stairs down"
 
@@ -62,10 +61,9 @@ class TestBSPGenerator:
         gen = BSPGenerator()
         level = gen.generate(GenerationParams(width=60, height=40))
         doors = 0
-        for row in level.tiles:
-            for tile in row:
-                if tile.feature in ("door_closed", "door_secret"):
-                    doors += 1
+        for tile in level.iter_tiles():
+            if tile.feature in ("door_closed", "door_secret"):
+                doors += 1
         assert doors >= 1
 
     def test_border_no_floor(self):
@@ -74,11 +72,11 @@ class TestBSPGenerator:
         gen = BSPGenerator()
         level = gen.generate(GenerationParams(width=60, height=40))
         for x in range(level.width):
-            assert level.tiles[0][x].terrain != Terrain.FLOOR
-            assert level.tiles[level.height - 1][x].terrain != Terrain.FLOOR
+            assert level.tile_at(x, 0).terrain != Terrain.FLOOR
+            assert level.tile_at(x, level.height - 1).terrain != Terrain.FLOOR
         for y in range(level.height):
-            assert level.tiles[y][0].terrain != Terrain.FLOOR
-            assert level.tiles[y][level.width - 1].terrain != Terrain.FLOOR
+            assert level.tile_at(0, y).terrain != Terrain.FLOOR
+            assert level.tile_at(level.width - 1, y).terrain != Terrain.FLOOR
 
     def test_deterministic(self):
         set_seed(123)
@@ -106,13 +104,12 @@ class TestBSPGenerator:
             level = gen.generate(GenerationParams(
                 width=80, height=50))
             up_pos = down_pos = None
-            for y in range(level.height):
-                for x in range(level.width):
-                    f = level.tiles[y][x].feature
-                    if f == "stairs_up":
-                        up_pos = (x, y)
-                    elif f == "stairs_down" and down_pos is None:
-                        down_pos = (x, y)
+            for x, y, tile in level.iter_world():
+                f = tile.feature
+                if f == "stairs_up":
+                    up_pos = (x, y)
+                elif f == "stairs_down" and down_pos is None:
+                    down_pos = (x, y)
             assert up_pos is not None, f"no stairs_up seed={seed}"
             assert down_pos is not None, (
                 f"no stairs_down seed={seed}")
@@ -140,15 +137,13 @@ class TestBSPGenerator:
                 width=80, height=50))
             for room in level.rooms:
                 ft = room.floor_tiles()
-                for y in range(level.height):
-                    for x in range(level.width):
-                        if level.tiles[y][x].feature == "stairs_up":
-                            if (x, y) in ft:
-                                up_rooms.add(room.id)
-                        elif (level.tiles[y][x].feature
-                              == "stairs_down"):
-                            if (x, y) in ft:
-                                down_rooms.add(room.id)
+                for x, y, tile in level.iter_world():
+                    if tile.feature == "stairs_up":
+                        if (x, y) in ft:
+                            up_rooms.add(room.id)
+                    elif tile.feature == "stairs_down":
+                        if (x, y) in ft:
+                            down_rooms.add(room.id)
         assert len(up_rooms) > 1, (
             "stairs_up always in same room across seeds")
         assert len(down_rooms) > 1, (
@@ -163,7 +158,7 @@ class TestBSPGenerator:
             level = gen.generate(GenerationParams(
                 width=80, height=50))
             count = sum(
-                1 for row in level.tiles for t in row
+                1 for t in level.iter_tiles()
                 if t.feature == "stairs_down"
             )
             if count >= 2:
@@ -181,7 +176,7 @@ class TestBSPGenerator:
             level = gen.generate(GenerationParams(width=80, height=50))
             for y in range(level.height):
                 for x in range(level.width):
-                    tile = level.tiles[y][x]
+                    tile = level.tile_at(x, y)
                     if tile.feature not in door_feats:
                         continue
                     # Door must have floor on at least 2 cardinal sides
@@ -206,7 +201,7 @@ class TestBSPGenerator:
             level = gen.generate(GenerationParams(width=120, height=40))
             for y in range(level.height):
                 for x in range(level.width):
-                    tile = level.tiles[y][x]
+                    tile = level.tile_at(x, y)
                     if tile.feature not in door_feats:
                         continue
                     for dx, dy in [(1, 0), (0, 1)]:
@@ -285,7 +280,7 @@ class TestTerrain:
         rng = get_rng()
         apply_terrain(level, rng)
         water_count = sum(
-            1 for row in level.tiles for tile in row
+            1 for tile in level.iter_tiles()
             if tile.terrain == Terrain.WATER
         )
         # Sewer theme should generate some water
@@ -309,7 +304,7 @@ class TestWallRendering:
         door_feats = {"door_closed", "door_open", "door_locked", "door_secret"}
         for y in range(level.height):
             for x in range(level.width):
-                t = level.tiles[y][x]
+                t = level.tile_at(x, y)
                 if t.terrain != Terrain.WALL:
                     continue
                 n = level.tile_at(x, y - 1)

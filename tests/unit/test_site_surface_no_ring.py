@@ -38,7 +38,7 @@ def _walkable_neighbour_count(surface, x, y) -> int:
         nx, ny = x + dx, y + dy
         if not surface.in_bounds(nx, ny):
             continue
-        if surface.tiles[ny][nx].terrain in _SURFACE_WALKABLE:
+        if surface.tile_at(nx, ny).terrain in _SURFACE_WALKABLE:
             count += 1
     return count
 
@@ -55,7 +55,7 @@ def test_every_surface_door_has_walkable_approach(kind: str) -> None:
         ):
             if not site.surface.in_bounds(sx, sy):
                 continue
-            tile = site.surface.tiles[sy][sx]
+            tile = site.surface.tile_at(sx, sy)
             assert tile.terrain in _SURFACE_WALKABLE, (
                 f"{kind}/seed {seed}: door of {bid} at "
                 f"({sx},{sy}) is not walkable"
@@ -104,7 +104,7 @@ def test_no_void_ring_flanks_rect_buildings(kind: str) -> None:
                         continue
                     if not site.surface.in_bounds(nx, ny):
                         continue
-                    tile = site.surface.tiles[ny][nx]
+                    tile = site.surface.tile_at(nx, ny)
                     assert tile.terrain in _SURFACE_WALKABLE, (
                         f"{kind}/seed {seed}: footprint at "
                         f"({x},{y}) has VOID neighbour "

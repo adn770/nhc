@@ -39,13 +39,13 @@ def _make_octagon_floor() -> tuple[Building, Level]:
     floor_tiles = shape.floor_tiles(rect)
     level = Level.create_empty("b0_f0", "b0", 0, 16, 16)
     for x, y in floor_tiles:
-        level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     # Walls form the building perimeter.
     for y in range(rect.y, rect.y2):
         for x in range(rect.x, rect.x2):
             if (x, y) in floor_tiles:
                 continue
-            level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+            level.set_tile(x, y, Tile(terrain=Terrain.WALL))
     level.rooms = [Room(id="r0", rect=rect, shape=RectShape())]
     building = Building(
         id="b0", base_shape=shape, base_rect=rect, floors=[level],
@@ -161,15 +161,14 @@ class TestDoorPlacementOnDiagonal:
                 ):
                     continue
                 ground = building.ground
-                for y, row in enumerate(ground.tiles):
-                    for x, tile in enumerate(row):
-                        if tile.feature not in (
-                            "door_closed", "door_open", "door_locked",
-                        ):
-                            continue
-                        # Found a stamped door; assert it isn't
-                        # on a clipped corner tile.
-                        assert not is_clipped_corner_tile(
+                for x, y, tile in ground.iter_world():
+                    if tile.feature not in (
+                        "door_closed", "door_open", "door_locked",
+                    ):
+                        continue
+                    # Found a stamped door; assert it isn't
+                    # on a clipped corner tile.
+                    assert not is_clipped_corner_tile(
                             building, x, y,
                         ), (
                             f"seed={seed} {building.id}: door at "
@@ -191,15 +190,14 @@ class TestDoorPlacementOnDiagonal:
                 ):
                     continue
                 ground = building.ground
-                for y, row in enumerate(ground.tiles):
-                    for x, tile in enumerate(row):
-                        if tile.feature not in (
-                            "door_closed", "door_open", "door_locked",
-                        ):
-                            continue
-                        assert not is_clipped_corner_tile(
-                            building, x, y,
-                        ), (
+                for x, y, tile in ground.iter_world():
+                    if tile.feature not in (
+                        "door_closed", "door_open", "door_locked",
+                    ):
+                        continue
+                    assert not is_clipped_corner_tile(
+                        building, x, y,
+                    ), (
                             f"seed={seed} {building.id}: door at "
                             f"({x},{y}) sits on a clipped corner"
                         )

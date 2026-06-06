@@ -23,7 +23,7 @@ def _make_level() -> Level:
         for t in row:
             t.visible = True
     return Level(id="t", name="T", depth=2, width=10, height=10,
-                 tiles=tiles, rooms=[], corridors=[], entities=[])
+                 _tiles=tiles, rooms=[], corridors=[], entities=[])
 
 
 def _make_world_with_trap(

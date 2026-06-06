@@ -24,7 +24,7 @@ def _make_level(
             tiles[y][x] = Tile(terrain=Terrain.FLOOR)
     level = Level(
         id="test", name="Test", depth=depth,
-        width=width, height=height, tiles=tiles,
+        width=width, height=height, _tiles=tiles,
         rooms=[Room(id="r1", rect=Rect(1, 1, width - 2, height - 2),
                     tags=["entry"])],
     )
@@ -34,7 +34,7 @@ def _make_level(
 
 def _count_terrain(level: Level, terrain: Terrain) -> int:
     return sum(
-        1 for row in level.tiles for t in row
+        1 for t in level.iter_tiles()
         if t.terrain == terrain
     )
 
@@ -179,8 +179,8 @@ class TestGrassNotOnCorridors:
         level = _make_level(depth=1, theme="forest")
         # Mark some tiles as corridors
         for x in range(1, 10):
-            level.tiles[5][x].surface_type = SurfaceType.CORRIDOR
+            level.tile_at(x, 5).surface_type = SurfaceType.CORRIDOR
         rng = random.Random(42)
         apply_terrain(level, rng)
         for x in range(1, 10):
-            assert level.tiles[5][x].terrain != Terrain.GRASS
+            assert level.tile_at(x, 5).terrain != Terrain.GRASS

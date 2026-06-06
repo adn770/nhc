@@ -39,7 +39,7 @@ def _make_test_level(width=12, height=12):
         tiles[y][width - 1].terrain = Terrain.WALL
     level = Level(
         id="test", name="Test", depth=1,
-        width=width, height=height, tiles=tiles,
+        width=width, height=height, _tiles=tiles,
     )
     level.rooms = [Room(
         id="r1",

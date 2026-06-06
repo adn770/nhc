@@ -73,15 +73,15 @@ def _carve_line(
     def _carve_tile(cx: int, cy: int) -> None:
         if not level.in_bounds(cx, cy):
             return
-        t = level.tiles[cy][cx]
+        t = level.tile_at(cx, cy)
         if t.terrain == Terrain.VOID:
-            level.tiles[cy][cx] = Tile(
+            level.set_tile(cx, cy, Tile(
                 terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
-            )
+            ))
         elif force and t.terrain == Terrain.WALL:
-            level.tiles[cy][cx] = Tile(
+            level.set_tile(cx, cy, Tile(
                 terrain=Terrain.FLOOR, feature="door_closed",
-            )
+            ))
 
     if y1 == y2:
         for x in range(min(x1, x2), max(x1, x2) + 1):
@@ -132,10 +132,10 @@ def _carve_corridor(
                 if nb and nb.feature in door_feats:
                     adj_feat = nb.feature
                     break
-            level.tiles[wy][wx] = Tile(
+            level.set_tile(wx, wy, Tile(
                 terrain=Terrain.FLOOR,
                 feature=adj_feat if adj_feat else feat,
-            )
+            ))
 
     sx, sy = _outward(a, wa_x, wa_y)
     ex, ey = _outward(b, wb_x, wb_y)
@@ -167,9 +167,9 @@ def _carve_corridor_force(
     for wx, wy in [(wa_x, wa_y), (wb_x, wb_y)]:
         t = level.tile_at(wx, wy)
         if t and t.terrain == Terrain.WALL:
-            level.tiles[wy][wx] = Tile(
+            level.set_tile(wx, wy, Tile(
                 terrain=Terrain.FLOOR, feature="door_closed",
-            )
+            ))
 
     sx, sy = _outward(a, wa_x, wa_y)
     ex, ey = _outward(b, wb_x, wb_y)

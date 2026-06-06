@@ -214,13 +214,12 @@ async def test_town_entry_pre_reveals_non_void_tiles(tmp_path) -> None:
     assert level is not None and level.metadata.prerevealed is True
     total = 0
     explored = 0
-    for row in level.tiles:
-        for t in row:
-            if t.terrain == Terrain.VOID:
-                continue
-            total += 1
-            if t.explored:
-                explored += 1
+    for t in level.iter_tiles():
+        if t.terrain == Terrain.VOID:
+            continue
+        total += 1
+        if t.explored:
+            explored += 1
     assert total > 0, "expected some walkable tiles on town surface"
     assert explored == total, (
         f"every non-VOID tile should be explored, got {explored}/{total}"
@@ -239,11 +238,11 @@ async def test_town_entry_does_not_over_mark_visible(tmp_path) -> None:
     level = g.level
     assert level is not None
     visible_count = sum(
-        1 for row in level.tiles for t in row
+        1 for t in level.iter_tiles()
         if t.visible and t.terrain != Terrain.VOID
     )
     non_void_count = sum(
-        1 for row in level.tiles for t in row
+        1 for t in level.iter_tiles()
         if t.terrain != Terrain.VOID
     )
     # A tight FOV on a big street grid never lights up the full
@@ -265,13 +264,12 @@ async def test_keep_entry_pre_reveals_non_void_tiles(tmp_path) -> None:
     level = g.level
     assert level is not None and level.metadata.prerevealed is True
     total = explored = 0
-    for row in level.tiles:
-        for t in row:
-            if t.terrain == Terrain.VOID:
-                continue
-            total += 1
-            if t.explored:
-                explored += 1
+    for t in level.iter_tiles():
+        if t.terrain == Terrain.VOID:
+            continue
+        total += 1
+        if t.explored:
+            explored += 1
     assert total > 0
     assert explored == total
 
@@ -298,12 +296,9 @@ async def test_building_interior_renders_its_own_level(tmp_path) -> None:
     assert g._active_site is not None
     building = g._active_site.buildings[0]
     bx = by = 1
-    for y, row in enumerate(building.ground.tiles):
-        for x, tile in enumerate(row):
-            if tile.terrain == Terrain.FLOOR:
-                bx, by = x, y
-                break
-        if (bx, by) != (1, 1):
+    for x, y, tile in building.ground.iter_world():
+        if tile.terrain == Terrain.FLOOR:
+            bx, by = x, y
             break
     g._swap_to_building(building, bx, by)
     # After swap, the recorder should NOT have served the cached

@@ -63,9 +63,9 @@ class TestApplyStampsEdges:
         apply_plan(level, plan)
         from nhc.dungeon.model import SurfaceType
         assert (3, 3, "north") in level.interior_edges
-        assert level.tiles[5][5].surface_type is SurfaceType.CORRIDOR
-        assert level.tiles[6][5].feature == "door_closed"
-        assert level.tiles[6][5].door_side == "north"
+        assert level.tile_at(5, 5).surface_type is SurfaceType.CORRIDOR
+        assert level.tile_at(5, 6).feature == "door_closed"
+        assert level.tile_at(5, 6).door_side == "north"
 
 
 class TestEdgeInvariants:

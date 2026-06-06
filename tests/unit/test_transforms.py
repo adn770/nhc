@@ -23,10 +23,10 @@ def _stamp_corridor_run(
     level: Level, points: list[tuple[int, int]],
 ) -> None:
     for x, y in points:
-        level.tiles[y][x] = Tile(
+        level.set_tile(x, y, Tile(
             terrain=Terrain.FLOOR,
             surface_type=SurfaceType.CORRIDOR,
-        )
+        ))
 
 
 def _make_level(seed: int = 42) -> Level:
@@ -51,7 +51,7 @@ class TestAddCartTracks:
         rng = random.Random(42)
         add_cart_tracks(level, rng)
         track_tiles = sum(
-            1 for row in level.tiles for t in row
+            1 for t in level.iter_tiles()
             if t.surface_type == SurfaceType.TRACK
         )
         assert track_tiles > 0
@@ -65,17 +65,15 @@ class TestAddCartTracks:
         # track tiles originated from corridor tiles.
         pre_corridors = {
             (x, y)
-            for y, row in enumerate(level.tiles)
-            for x, t in enumerate(row)
+            for x, y, t in level.iter_world()
             if t.surface_type == SurfaceType.CORRIDOR
         }
         add_cart_tracks(level, rng)
-        for y, row in enumerate(level.tiles):
-            for x, t in enumerate(row):
-                if t.surface_type == SurfaceType.TRACK:
-                    assert (x, y) in pre_corridors, (
-                        "Track tile must originate from a corridor"
-                    )
+        for x, y, t in level.iter_world():
+            if t.surface_type == SurfaceType.TRACK:
+                assert (x, y) in pre_corridors, (
+                    "Track tile must originate from a corridor"
+                )
 
 
 class TestCartTrackStubFilter:
@@ -95,7 +93,7 @@ class TestCartTrackStubFilter:
         _stamp_corridor_run(level, [(2, 2)])
         add_cart_tracks(level, random.Random(0))
         assert (
-            level.tiles[2][2].surface_type
+            level.tile_at(2, 2).surface_type
             is SurfaceType.CORRIDOR
         )
 
@@ -105,7 +103,7 @@ class TestCartTrackStubFilter:
         add_cart_tracks(level, random.Random(0))
         for x in (2, 3):
             assert (
-                level.tiles[2][x].surface_type
+                level.tile_at(x, 2).surface_type
                 is SurfaceType.CORRIDOR
             )
 
@@ -115,7 +113,7 @@ class TestCartTrackStubFilter:
         add_cart_tracks(level, random.Random(0))
         for x in (2, 3, 4):
             assert (
-                level.tiles[2][x].surface_type
+                level.tile_at(x, 2).surface_type
                 is SurfaceType.TRACK
             )
 
@@ -126,7 +124,7 @@ class TestCartTrackStubFilter:
         add_cart_tracks(level, random.Random(0))
         for x, y in [(2, 1), (2, 2), (3, 2)]:
             assert (
-                level.tiles[y][x].surface_type
+                level.tile_at(x, y).surface_type
                 is SurfaceType.TRACK
             )
 
@@ -140,7 +138,7 @@ class TestCartTrackStubFilter:
         add_cart_tracks(level, random.Random(0))
         for x in (1, 2, 7, 8):
             assert (
-                level.tiles[2][x].surface_type
+                level.tile_at(x, 2).surface_type
                 is SurfaceType.CORRIDOR
             )
 
@@ -153,11 +151,11 @@ class TestCartTrackStubFilter:
         )
         # Door at (3, 2) splits the 5-tile run into two 2-tile
         # halves -- both halves stay CORRIDOR.
-        level.tiles[2][3].feature = "door_closed"
+        level.tile_at(3, 2).feature = "door_closed"
         add_cart_tracks(level, random.Random(0))
         for x in (1, 2, 4, 5):
             assert (
-                level.tiles[2][x].surface_type
+                level.tile_at(x, 2).surface_type
                 is SurfaceType.CORRIDOR
             )
 
@@ -168,7 +166,7 @@ class TestAddOreDeposits:
         rng = random.Random(42)
         add_ore_deposits(level, rng)
         ore_count = sum(
-            1 for row in level.tiles for t in row
+            1 for t in level.iter_tiles()
             if t.feature == "ore_deposit"
         )
         assert ore_count > 0
@@ -177,24 +175,23 @@ class TestAddOreDeposits:
         level = _make_level()
         rng = random.Random(42)
         add_ore_deposits(level, rng)
-        for row in level.tiles:
-            for t in row:
-                if t.feature == "ore_deposit":
-                    assert t.terrain == Terrain.WALL
+        for t in level.iter_tiles():
+            if t.feature == "ore_deposit":
+                assert t.terrain == Terrain.WALL
 
 
 class TestNarrowCorridors:
     def test_reduces_corridor_width(self):
         level = _make_level()
         corridors_before = sum(
-            1 for row in level.tiles for t in row
+            1 for t in level.iter_tiles()
             if t.surface_type == SurfaceType.CORRIDOR
             and t.terrain == Terrain.FLOOR
         )
         rng = random.Random(42)
         narrow_corridors(level, rng)
         corridors_after = sum(
-            1 for row in level.tiles for t in row
+            1 for t in level.iter_tiles()
             if t.surface_type == SurfaceType.CORRIDOR
             and t.terrain == Terrain.FLOOR
         )

@@ -25,8 +25,7 @@ def _street_tiles(site) -> set[tuple[int, int]]:
     walkable = {SurfaceType.STREET}
     return {
         (x, y)
-        for y, row in enumerate(site.surface.tiles)
-        for x, t in enumerate(row)
+        for x, y, t in site.surface.iter_world()
         if t.surface_type in walkable
     }
 
@@ -34,8 +33,7 @@ def _street_tiles(site) -> set[tuple[int, int]]:
 def _walkable_floor_tiles(site) -> set[tuple[int, int]]:
     return {
         (x, y)
-        for y, row in enumerate(site.surface.tiles)
-        for x, t in enumerate(row)
+        for x, y, t in site.surface.iter_world()
         if t.terrain == Terrain.FLOOR
     }
 
@@ -133,13 +131,12 @@ class TestBigPlazaReachability:
 
 
 def _find_fountain(site) -> tuple[int, int] | None:
-    for y, row in enumerate(site.surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.feature in (
-                "fountain", "fountain_square",
-                "fountain_large", "fountain_large_square", "fountain_cross",
-            ):
-                return (x, y)
+    for x, y, tile in site.surface.iter_world():
+        if tile.feature in (
+            "fountain", "fountain_square",
+            "fountain_large", "fountain_large_square", "fountain_cross",
+        ):
+            return (x, y)
     return None
 
 
@@ -153,10 +150,9 @@ def _any_centerpiece(site):
         "fountain_large", "fountain_large_square",
         "fountain_cross",
     ):
-        for y, row in enumerate(site.surface.tiles):
-            for x, tile in enumerate(row):
-                if tile.feature == feature:
-                    return (feature, (x, y))
+        for x, y, tile in site.surface.iter_world():
+            if tile.feature == feature:
+                return (feature, (x, y))
     return None
 
 
@@ -247,15 +243,14 @@ class TestSurfaceClassification:
             site = assemble_town(
                 "t1", random.Random(seed), size_class=size_class,
             )
-            for y, row in enumerate(site.surface.tiles):
-                for x, tile in enumerate(row):
-                    if tile.terrain != Terrain.FLOOR:
-                        continue
-                    assert tile.surface_type in allowed, (
-                        f"seed={seed} {size_class}: walkable tile "
-                        f"({x},{y}) has surface_type "
-                        f"{tile.surface_type!r}"
-                    )
+            for x, y, tile in site.surface.iter_world():
+                if tile.terrain != Terrain.FLOOR:
+                    continue
+                assert tile.surface_type in allowed, (
+                    f"seed={seed} {size_class}: walkable tile "
+                    f"({x},{y}) has surface_type "
+                    f"{tile.surface_type!r}"
+                )
 
     @pytest.mark.parametrize("size_class", [
         "village", "town",
@@ -273,12 +268,9 @@ class TestSurfaceClassification:
             site = assemble_town(
                 "t1", random.Random(seed), size_class=size_class,
             )
-            for row in site.surface.tiles:
-                for tile in row:
-                    if tile.surface_type == SurfaceType.FIELD:
-                        seen_field = True
-                        break
-                if seen_field:
+            for tile in site.surface.iter_tiles():
+                if tile.surface_type == SurfaceType.FIELD:
+                    seen_field = True
                     break
             if seen_field:
                 break
@@ -306,8 +298,7 @@ class TestSurfaceClassification:
             # (Chebyshev radius 2 of a well) are the allowed exception.
             wells = [
                 (x, y)
-                for y, row in enumerate(site.surface.tiles)
-                for x, t in enumerate(row)
+                for x, y, t in site.surface.iter_world()
                 if t.feature in ("well", "well_square")
             ]
 
@@ -319,7 +310,7 @@ class TestSurfaceClassification:
 
             for y in range(pal.y, pal.y2):
                 for x in range(pal.x, pal.x2):
-                    tile = site.surface.tiles[y][x]
+                    tile = site.surface.tile_at(x, y)
                     if _in_apron(x, y):
                         continue
                     assert tile.surface_type not in (

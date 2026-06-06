@@ -31,10 +31,9 @@ _V5_BIT_LAVA_CRACKS = 1 << 4
 
 def _level_with_one_tile(terrain: Terrain) -> Level:
     level = Level.create_empty("L", "L", 1, 6, 6)
-    for y in range(6):
-        for x in range(6):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-    level.tiles[3][3] = Tile(terrain=terrain)
+    for x, y, _tile in level.iter_world():
+        level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
+    level.set_tile(3, 3, Tile(terrain=terrain))
     level.rooms = [Room(id="r1", rect=Rect(0, 0, 6, 6))]
     return level
 
@@ -215,11 +214,10 @@ class TestTerrainPaintOpTranslator:
         """Two non-adjacent water tiles produce two regions.
         Mirrors the cave-system per-cluster pattern."""
         level = Level.create_empty("L", "L", 1, 10, 10)
-        for y in range(10):
-            for x in range(10):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-        level.tiles[2][2] = Tile(terrain=Terrain.WATER)
-        level.tiles[7][7] = Tile(terrain=Terrain.WATER)
+        for x, y, _tile in level.iter_world():
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
+        level.set_tile(2, 2, Tile(terrain=Terrain.WATER))
+        level.set_tile(7, 7, Tile(terrain=Terrain.WATER))
         level.rooms = [Room(id="r1", rect=Rect(0, 0, 10, 10))]
         ids = _region_ids(level)
         assert "water.0" in ids and "water.1" in ids, (
@@ -247,9 +245,8 @@ def _emit_thematic_with_macabre(
     # Pcg64Mcg gate to land at least one bone / skull when
     # macabre=True.
     level = Level.create_empty("L", "L", 1, 30, 30)
-    for y in range(30):
-        for x in range(30):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+    for x, y, _tile in level.iter_world():
+        level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     level.rooms = [Room(id="r1", rect=Rect(0, 0, 30, 30))]
     ctx = build_render_context(
         level,
@@ -312,9 +309,8 @@ class TestMacabreDetailFlag:
         from nhc.rendering.emit.thematic_detail import emit_loose_stones
 
         level = Level.create_empty("L", "L", 1, 30, 30)
-        for y in range(30):
-            for x in range(30):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        for x, y, _tile in level.iter_world():
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         level.rooms = [Room(id="r1", rect=Rect(0, 0, 30, 30))]
         ctx = build_render_context(
             level, seed=42,

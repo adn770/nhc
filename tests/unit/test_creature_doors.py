@@ -22,7 +22,7 @@ def _make_level_with_door():
     tiles[5][6] = Tile(terrain=Terrain.FLOOR, feature="door_closed",
                        door_side="east")
     return Level(id="t", name="T", depth=1, width=10, height=10,
-                 tiles=tiles, rooms=[], corridors=[], entities=[])
+                 _tiles=tiles, rooms=[], corridors=[], entities=[])
 
 
 def _make_world():

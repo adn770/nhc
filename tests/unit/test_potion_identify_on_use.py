@@ -29,7 +29,7 @@ def _make_level(w=10, h=10):
         for tile in row:
             tile.visible = True
     return Level(id="t", name="T", depth=1, width=w, height=h,
-                 tiles=tiles, rooms=[], corridors=[], entities=[])
+                 _tiles=tiles, rooms=[], corridors=[], entities=[])
 
 
 def _make_world_with_player():

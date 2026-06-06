@@ -27,8 +27,8 @@ TOWN_BUILDING_COUNT_RANGE = (
 
 def _surface_count(site: Site, surface: SurfaceType) -> int:
     return sum(
-        1 for row in site.surface.tiles
-        for t in row if t.surface_type == surface
+        1 for t in site.surface.iter_tiles()
+        if t.surface_type == surface
     )
 
 
@@ -126,7 +126,7 @@ class TestTownSurface:
         for b in site.buildings:
             for (x, y) in b.base_shape.floor_tiles(b.base_rect):
                 if site.surface.in_bounds(x, y):
-                    t = site.surface.tiles[y][x]
+                    t = site.surface.tile_at(x, y)
                     assert t.surface_type != SurfaceType.STREET
 
     def test_surface_svg_has_no_walled_island_strokes(self):
@@ -157,7 +157,7 @@ class TestTownSurface:
         ):
             total_segments += d.count("M")
         n_floor = sum(
-            1 for row in site.surface.tiles for t in row
+            1 for t in site.surface.iter_tiles()
             if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
         )
         # Right + bottom edge per tile => 2 segments; each grid
@@ -193,22 +193,21 @@ class TestTownSurface:
         ys = [p[1] for p in site.enclosure.polygon]
         min_x, max_x = min(xs), max(xs)
         min_y, max_y = min(ys), max(ys)
-        for y, row in enumerate(site.surface.tiles):
-            for x, t in enumerate(row):
-                if t.surface_type != SurfaceType.STREET:
-                    continue
-                # A tile at (tx, ty) spans pixels [tx, tx+1] in
-                # tile units. The palisade polygon spans
-                # [min_x, max_x] x [min_y, max_y]. Tile must fit
-                # strictly inside: x+1 <= max_x and y+1 <= max_y.
-                assert min_x <= x and x + 1 <= max_x, (
-                    f"STREET tile x={x} outside palisade "
-                    f"x-range [{min_x}, {max_x})"
-                )
-                assert min_y <= y and y + 1 <= max_y, (
-                    f"STREET tile y={y} outside palisade "
-                    f"y-range [{min_y}, {max_y})"
-                )
+        for x, y, t in site.surface.iter_world():
+            if t.surface_type != SurfaceType.STREET:
+                continue
+            # A tile at (tx, ty) spans pixels [tx, tx+1] in
+            # tile units. The palisade polygon spans
+            # [min_x, max_x] x [min_y, max_y]. Tile must fit
+            # strictly inside: x+1 <= max_x and y+1 <= max_y.
+            assert min_x <= x and x + 1 <= max_x, (
+                f"STREET tile x={x} outside palisade "
+                f"x-range [{min_x}, {max_x})"
+            )
+            assert min_y <= y and y + 1 <= max_y, (
+                f"STREET tile y={y} outside palisade "
+                f"y-range [{min_y}, {max_y})"
+            )
 
 
 class TestTownEnclosure:
@@ -244,7 +243,7 @@ class TestTownSurfaceReachability:
             nx, ny = x + dx, y + dy
             if not site.surface.in_bounds(nx, ny):
                 continue
-            t = site.surface.tiles[ny][nx]
+            t = site.surface.tile_at(nx, ny)
             if t.terrain in (Terrain.FLOOR, Terrain.GRASS):
                 count += 1
         return count
@@ -259,7 +258,7 @@ class TestTownSurfaceReachability:
             ):
                 if not site.surface.in_bounds(sx, sy):
                     continue
-                tile = site.surface.tiles[sy][sx]
+                tile = site.surface.tile_at(sx, sy)
                 assert tile.terrain in (Terrain.FLOOR, Terrain.GRASS), (
                     f"seed {seed}: surface door of {bid} at "
                     f"({sx},{sy}) is not walkable"
@@ -309,7 +308,7 @@ class TestTownSurfaceReachability:
                         continue
                     if not site.surface.in_bounds(nx, ny):
                         continue
-                    tile = site.surface.tiles[ny][nx]
+                    tile = site.surface.tile_at(nx, ny)
                     assert tile.terrain in (
                         Terrain.FLOOR, Terrain.GRASS,
                     ), (

@@ -65,17 +65,17 @@ def _place_vaults(
         # Carve the vault interior as plain FLOOR.
         for dy in range(vh):
             for dx in range(vw):
-                level.tiles[vy + dy][vx + dx] = Tile(
+                level.set_tile(vx + dx, vy + dy, Tile(
                     terrain=Terrain.FLOOR,
-                )
+                ))
         # Wrap it in a solid wall ring (the border was VOID).
         for dy in range(-1, vh + 1):
             for dx in range(-1, vw + 1):
                 if 0 <= dx < vw and 0 <= dy < vh:
                     continue
-                level.tiles[vy + dy][vx + dx] = Tile(
+                level.set_tile(vx + dx, vy + dy, Tile(
                     terrain=Terrain.WALL,
-                )
+                ))
 
         rect = Rect(vx, vy, vw, vh)
         placed.append(rect)

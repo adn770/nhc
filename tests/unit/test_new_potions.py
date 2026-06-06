@@ -34,7 +34,7 @@ def _make_level():
         for t in row:
             t.visible = True
     return Level(id="t", name="T", depth=1, width=10, height=10,
-                 tiles=tiles, rooms=[], corridors=[], entities=[])
+                 _tiles=tiles, rooms=[], corridors=[], entities=[])
 
 
 def _make_player(world, x=5, y=5):

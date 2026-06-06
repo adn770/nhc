@@ -31,8 +31,7 @@ _FOUNTAIN_LARGE = (
 def _feature_tiles(site, feature: str) -> list[tuple[int, int]]:
     return [
         (x, y)
-        for y, row in enumerate(site.surface.tiles)
-        for x, tile in enumerate(row)
+        for x, y, tile in site.surface.iter_world()
         if tile.feature == feature
     ]
 
@@ -121,7 +120,7 @@ class TestPlazaSurface:
                 )
                 for f in fam:
                     for cx, cy in _feature_tiles(site, f):
-                        tile = site.surface.tiles[cy][cx]
+                        tile = site.surface.tile_at(cx, cy)
                         assert tile.surface_type is SurfaceType.STREET
 
     @pytest.mark.parametrize("size_class", [

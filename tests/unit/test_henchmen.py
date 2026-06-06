@@ -54,7 +54,7 @@ def _make_test_level(width=12, height=12):
 
     level = Level(
         id="test", name="Test", depth=1,
-        width=width, height=height, tiles=tiles,
+        width=width, height=height, _tiles=tiles,
     )
     # Add a room covering the interior
     level.rooms = [Room(
@@ -833,7 +833,7 @@ class TestHenchmanAI:
         world = World()
         level = _make_test_level()
         # Mark the east neighbour as stairs_down
-        level.tiles[5][6].feature = "stairs_down"
+        level.tile_at(6, 5).feature = "stairs_down"
         pid = _make_player(world, x=1, y=1)
         aid = _make_adventurer(world, x=5, y=5, hired=False)
 
@@ -934,7 +934,7 @@ class TestUnhiredApproachPlayer:
 
         level = Level(
             id="test", name="Test", depth=1,
-            width=20, height=10, tiles=tiles,
+            width=20, height=10, _tiles=tiles,
         )
         level.rooms = [
             Room(id="left", rect=Rect(1, 1, 9, 8), tags=[]),

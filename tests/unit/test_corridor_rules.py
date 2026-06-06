@@ -44,7 +44,7 @@ class TestCorridorNoWalledTunnels:
             level = _generate(seed)
             for y in range(level.height):
                 for x in range(level.width):
-                    tile = level.tiles[y][x]
+                    tile = level.tile_at(x, y)
                     if not (tile.terrain == Terrain.FLOOR
                             and tile.surface_type
                             == SurfaceType.CORRIDOR):
@@ -77,7 +77,7 @@ class TestCorridorRoomDoors:
             level = _generate(seed)
             for y in range(level.height):
                 for x in range(level.width):
-                    tile = level.tiles[y][x]
+                    tile = level.tile_at(x, y)
                     if not (tile.terrain == Terrain.FLOOR
                             and tile.surface_type
                             == SurfaceType.CORRIDOR):
@@ -133,7 +133,7 @@ class TestCorridorRoomDoors:
             width=70, height=35, depth=2, shape_variety=0.0,
         ))
         doors = sum(
-            1 for row in level.tiles for t in row
+            1 for t in level.iter_tiles()
             if t.feature and "door" in t.feature
         )
         assert doors > 0, "rect-only map should have doors"
@@ -147,7 +147,7 @@ class TestCorridorRoomDoors:
             width=70, height=35, depth=2, shape_variety=1.0,
         ))
         doors_shapes = sum(
-            1 for row in level_shapes.tiles for t in row
+            1 for t in level_shapes.iter_tiles()
             if t.feature and "door" in t.feature
         )
         # Generate rect-only for comparison
@@ -156,7 +156,7 @@ class TestCorridorRoomDoors:
             width=70, height=35, depth=2, shape_variety=0.0,
         ))
         doors_rect = sum(
-            1 for row in level_rect.tiles for t in row
+            1 for t in level_rect.iter_tiles()
             if t.feature and "door" in t.feature
         )
         # Shaped map should have fewer doors (some removed)

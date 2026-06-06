@@ -26,7 +26,7 @@ def _make_level_with_wall() -> Level:
         for t in row:
             t.visible = True
     return Level(id="t", name="T", depth=1, width=10, height=10,
-                 tiles=tiles, rooms=[], corridors=[], entities=[])
+                 _tiles=tiles, rooms=[], corridors=[], entities=[])
 
 
 def _make_world(
@@ -117,7 +117,7 @@ class TestDigActionValidation:
         """Autodig: digging into VOID is allowed."""
         world, pid, level, _ = _make_world()
         # Replace the wall at (6, 5) with VOID.
-        level.tiles[5][6] = Tile(terrain=Terrain.VOID)
+        level.set_tile(6, 5, Tile(terrain=Terrain.VOID))
         action = DigAction(actor=pid, dx=1, dy=0)
         assert await action.validate(world, level)
 
@@ -134,7 +134,7 @@ class TestDigActionVoidExecution:
     async def test_success_converts_void_to_floor(self):
         """Autodig: a successful STR check converts VOID to FLOOR."""
         world, pid, level, _ = _make_world(strength=6, tool_bonus=5)
-        level.tiles[5][6] = Tile(terrain=Terrain.VOID)
+        level.set_tile(6, 5, Tile(terrain=Terrain.VOID))
 
         action = DigAction(actor=pid, dx=1, dy=0)
         assert await action.validate(world, level)

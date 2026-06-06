@@ -234,14 +234,12 @@ def _stamp_mage_teleporters(
     """
     for floor in building.floors:
         candidates: list[tuple[int, int]] = []
-        for y in range(floor.height):
-            for x in range(floor.width):
-                tile = floor.tiles[y][x]
-                if tile.terrain is not Terrain.FLOOR:
-                    continue
-                if tile.feature is not None:
-                    continue
-                candidates.append((x, y))
+        for x, y, tile in floor.iter_world():
+            if tile.terrain is not Terrain.FLOOR:
+                continue
+            if tile.feature is not None:
+                continue
+            candidates.append((x, y))
         if len(candidates) < 2:
             continue
         best: tuple[int, int, int, int] | None = None
@@ -255,8 +253,8 @@ def _stamp_mage_teleporters(
         if best is None:
             continue
         ax, ay, bx, by = best
-        floor.tiles[ay][ax].feature = "teleporter_pad"
-        floor.tiles[by][bx].feature = "teleporter_pad"
+        floor.tile_at(ax, ay).feature = "teleporter_pad"
+        floor.tile_at(bx, by).feature = "teleporter_pad"
         floor.teleporter_pairs[(ax, ay)] = (bx, by)
         floor.teleporter_pairs[(bx, by)] = (ax, ay)
 
@@ -343,7 +341,7 @@ def _place_entry_door(
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
     for (px, py) in perim:
-        tile = ground.tiles[py][px]
+        tile = ground.tile_at(px, py)
         if tile.feature is not None:
             continue
         has_wall = False
@@ -351,7 +349,7 @@ def _place_entry_door(
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
-            if ground.tiles[ny][nx].terrain == Terrain.WALL:
+            if ground.tile_at(nx, ny).terrain == Terrain.WALL:
                 has_wall = True
                 break
         if not has_wall:
@@ -446,10 +444,10 @@ def _build_mansion_surface(
         for x in range(1, surface.width - 1):
             if (x, y) in blocked:
                 continue
-            surface.tiles[y][x] = Tile(
+            surface.set_tile(x, y, Tile(
                 terrain=Terrain.GRASS,
                 surface_type=SurfaceType.GARDEN,
-            )
+            ))
     return surface
 
 
@@ -462,11 +460,9 @@ def _stamp_brick_floor(level: Level) -> None:
     (CORRIDOR / TRACK / etc.) so the brick pattern only paints
     plain interior FLOOR tiles.
     """
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.terrain is not Terrain.FLOOR:
-                continue
-            if tile.surface_type is not SurfaceType.NONE:
-                continue
-            tile.surface_type = SurfaceType.BRICK
+    for x, y, tile in level.iter_world():
+        if tile.terrain is not Terrain.FLOOR:
+            continue
+        if tile.surface_type is not SurfaceType.NONE:
+            continue
+        tile.surface_type = SurfaceType.BRICK

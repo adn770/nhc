@@ -119,7 +119,7 @@ async def test_non_arena_level_never_auto_exits(tmp_path) -> None:
     ]
     g.level = Level(
         id="dummy", name="dummy", depth=1,
-        width=5, height=5, tiles=tiles,
+        width=5, height=5, _tiles=tiles,
     )
     assert g._maybe_exit_cleared_arena() is False
     assert g.level is not None

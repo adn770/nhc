@@ -77,19 +77,18 @@ def _mk_floor(
     level.metadata = LevelMetadata(theme="dungeon")
     level.building_id = "b0"
     level.floor_index = floor_index
-    for y in range(level.height):
-        for x in range(level.width):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+    for x, y, _tile in level.iter_world():
+        level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     if up_tile is not None:
         ux, uy = up_tile
-        level.tiles[uy][ux] = Tile(
+        level.set_tile(ux, uy, Tile(
             terrain=Terrain.FLOOR, feature="stairs_up",
-        )
+        ))
     if down_tile is not None:
         dx, dy = down_tile
-        level.tiles[dy][dx] = Tile(
+        level.set_tile(dx, dy, Tile(
             terrain=Terrain.FLOOR, feature="stairs_down",
-        )
+        ))
     return level
 
 

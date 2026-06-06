@@ -28,7 +28,7 @@ def safe_floor_near(
     def usable(x: int, y: int) -> bool:
         if not level.in_bounds(x, y):
             return False
-        tile = level.tiles[y][x]
+        tile = level.tile_at(x, y)
         return (
             tile.terrain is Terrain.FLOOR and tile.feature is None
         )
@@ -85,13 +85,12 @@ def smallest_leaf_door(
         return None
     perim = building.shared_perimeter()
     door_candidates: list[tuple[int, int]] = []
-    for y, row in enumerate(ground.tiles):
-        for x, tile in enumerate(row):
-            if tile.feature != "door_closed":
-                continue
-            if (x, y) in perim:
-                continue
-            door_candidates.append((x, y))
+    for x, y, tile in ground.iter_world():
+        if tile.feature != "door_closed":
+            continue
+        if (x, y) in perim:
+            continue
+        door_candidates.append((x, y))
     if not door_candidates:
         return None
     smallest = min(

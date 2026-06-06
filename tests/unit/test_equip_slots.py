@@ -16,7 +16,7 @@ def _world():
     tiles = [[Tile(terrain=Terrain.FLOOR) for _ in range(10)]
              for _ in range(10)]
     level = Level(id="t", name="T", depth=1, width=10, height=10,
-                  tiles=tiles, rooms=[], corridors=[], entities=[])
+                  _tiles=tiles, rooms=[], corridors=[], entities=[])
     pid = world.create_entity({
         "Position": Position(x=5, y=5),
         "Stats": Stats(strength=2),

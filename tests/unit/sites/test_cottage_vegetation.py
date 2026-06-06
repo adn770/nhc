@@ -23,19 +23,17 @@ from nhc.sites.cottage import (
 
 def _tree_positions(site) -> set[tuple[int, int]]:
     out: set[tuple[int, int]] = set()
-    for y, row in enumerate(site.surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.feature == "tree":
-                out.add((x, y))
+    for x, y, tile in site.surface.iter_world():
+        if tile.feature == "tree":
+            out.add((x, y))
     return out
 
 
 def _bush_positions(site) -> set[tuple[int, int]]:
     out: set[tuple[int, int]] = set()
-    for y, row in enumerate(site.surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.feature == "bush":
-                out.add((x, y))
+    for x, y, tile in site.surface.iter_world():
+        if tile.feature == "bush":
+            out.add((x, y))
     return out
 
 
@@ -48,10 +46,9 @@ def _building_footprints(site) -> set[tuple[int, int]]:
 
 def _garden_tiles(site) -> set[tuple[int, int]]:
     out: set[tuple[int, int]] = set()
-    for y, row in enumerate(site.surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.surface_type == SurfaceType.GARDEN:
-                out.add((x, y))
+    for x, y, tile in site.surface.iter_world():
+        if tile.surface_type == SurfaceType.GARDEN:
+            out.add((x, y))
     return out
 
 
@@ -65,7 +62,7 @@ class TestCottageTrees:
                 "c1", random.Random(seed),
             )
             for x, y in _tree_positions(site):
-                tile = site.surface.tiles[y][x]
+                tile = site.surface.tile_at(x, y)
                 assert tile.surface_type == SurfaceType.FIELD, (
                     f"seed={seed}: tree at ({x},{y}) on "
                     f"{tile.surface_type!r}, expected FIELD"
@@ -106,22 +103,21 @@ class TestCottageTrees:
                 "c1", random.Random(seed),
             )
             footprints = _building_footprints(site)
-            for y, row in enumerate(site.surface.tiles):
-                for x, tile in enumerate(row):
-                    if tile.surface_type != SurfaceType.FIELD:
-                        continue
-                    blocked = False
-                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                        if (x + dx, y + dy) in footprints:
-                            blocked = True
-                            break
-                    if blocked:
-                        continue
-                    if tile.feature is not None and tile.feature != "tree":
-                        continue
-                    total_field += 1
-                    if tile.feature == "tree":
-                        total_trees += 1
+            for x, y, tile in site.surface.iter_world():
+                if tile.surface_type != SurfaceType.FIELD:
+                    continue
+                blocked = False
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    if (x + dx, y + dy) in footprints:
+                        blocked = True
+                        break
+                if blocked:
+                    continue
+                if tile.feature is not None and tile.feature != "tree":
+                    continue
+                total_field += 1
+                if tile.feature == "tree":
+                    total_trees += 1
         if total_field == 0:
             pytest.skip("no eligible FIELD tiles in 60 seeds")
         rate = total_trees / total_field
@@ -151,7 +147,7 @@ class TestCottageBushes:
                 "c1", random.Random(seed),
             )
             for x, y in _bush_positions(site):
-                tile = site.surface.tiles[y][x]
+                tile = site.surface.tile_at(x, y)
                 assert tile.surface_type == SurfaceType.FIELD, (
                     f"seed={seed}: bush at ({x},{y}) on "
                     f"{tile.surface_type!r}, expected FIELD"
@@ -177,15 +173,14 @@ class TestCottageBushes:
             site = assemble_cottage(
                 "c1", random.Random(seed),
             )
-            for y, row in enumerate(site.surface.tiles):
-                for x, tile in enumerate(row):
-                    if tile.surface_type != SurfaceType.FIELD:
-                        continue
-                    if tile.feature is not None and tile.feature != "bush":
-                        continue
-                    total_field += 1
-                    if tile.feature == "bush":
-                        total_bushes += 1
+            for _x, _y, tile in site.surface.iter_world():
+                if tile.surface_type != SurfaceType.FIELD:
+                    continue
+                if tile.feature is not None and tile.feature != "bush":
+                    continue
+                total_field += 1
+                if tile.feature == "bush":
+                    total_bushes += 1
         if total_field == 0:
             pytest.skip("no eligible FIELD tiles in 60 seeds")
         rate = total_bushes / total_field

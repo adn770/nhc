@@ -87,7 +87,7 @@ def _collect_corridor_tiles(
         for x in range(level.width):
             if (x, y) in cave_tiles:
                 continue
-            tile = level.tiles[y][x]
+            tile = level.tile_at(x, y)
             if tile.terrain not in (
                 Terrain.FLOOR, Terrain.WATER,
                 Terrain.GRASS, Terrain.LAVA,
@@ -202,7 +202,7 @@ def _collect_terrain_systems(
     """
     return _collect_predicate_components(
         level,
-        lambda lv, x, y: lv.tiles[y][x].terrain == terrain,
+        lambda lv, x, y: lv.tile_at(x, y).terrain == terrain,
         exclude=exclude,
     )
 
@@ -257,7 +257,7 @@ def _floor_detail_candidates(
     candidates: list[tuple[int, int, bool]] = []
     for y in range(level.height):
         for x in range(level.width):
-            tile = level.tiles[y][x]
+            tile = level.tile_at(x, y)
             if tile.terrain != Terrain.FLOOR:
                 continue
             if tile.feature in ("stairs_up", "stairs_down"):

@@ -65,19 +65,17 @@ def _build_orchard_surface(
     )
     surface.metadata.theme = "settlement"
     surface.metadata.prerevealed = True
-    for y in range(height):
-        for x in range(width):
-            tile = surface.tiles[y][x]
-            on_border = (
-                x == 0 or y == 0
-                or x == width - 1 or y == height - 1
-            )
-            if on_border:
-                tile.terrain = Terrain.WALL
-            else:
-                # FIELD -> GRASS terrain (Phase 3b).
-                tile.terrain = Terrain.GRASS
-                tile.surface_type = SurfaceType.FIELD
+    for x, y, tile in surface.iter_world():
+        on_border = (
+            x == 0 or y == 0
+            or x == width - 1 or y == height - 1
+        )
+        if on_border:
+            tile.terrain = Terrain.WALL
+        else:
+            # FIELD -> GRASS terrain (Phase 3b).
+            tile.terrain = Terrain.GRASS
+            tile.surface_type = SurfaceType.FIELD
     return surface
 
 

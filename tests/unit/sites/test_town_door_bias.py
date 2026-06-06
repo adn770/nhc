@@ -38,7 +38,7 @@ def _door_surface_type(site, bid: str) -> SurfaceType | None:
     sx, sy = doors[bid]
     if not site.surface.in_bounds(sx, sy):
         return None
-    return site.surface.tiles[sy][sx].surface_type
+    return site.surface.tile_at(sx, sy).surface_type
 
 
 def _building_by_index(site, member_index: int) -> str | None:
@@ -227,7 +227,7 @@ class TestDoorPlacementSafety:
                     f"seed={seed} {size_class}: door of {bid} at "
                     f"({sx},{sy}) outside surface bounds"
                 )
-                tile = site.surface.tiles[sy][sx]
+                tile = site.surface.tile_at(sx, sy)
                 # Phase 3a/3b: GARDEN / FIELD doors render on
                 # Terrain.GRASS so the surface picks up the theme
                 # grass tint. Either FLOOR or GRASS counts as

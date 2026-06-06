@@ -83,8 +83,7 @@ class TestBuildingGroundFloorStairGlyphs:
                 if len(b.floors) < 2:
                     continue
                 features = [
-                    t.feature for row in b.ground.tiles
-                    for t in row
+                    t.feature for t in b.ground.iter_tiles()
                     if t.feature in ("stairs_up", "stairs_down")
                 ]
                 assert "stairs_up" in features
@@ -101,8 +100,7 @@ class TestBuildingGroundFloorStairGlyphs:
                 if len(b.floors) < 2:
                     continue
                 features = [
-                    t.feature for row in b.ground.tiles
-                    for t in row
+                    t.feature for t in b.ground.iter_tiles()
                     if t.feature in ("stairs_up", "stairs_down")
                 ]
                 assert "stairs_up" in features
@@ -119,8 +117,7 @@ class TestBuildingGroundFloorStairGlyphs:
                 if len(b.floors) < 2:
                     continue
                 features = [
-                    t.feature for row in b.ground.tiles
-                    for t in row
+                    t.feature for t in b.ground.iter_tiles()
                     if t.feature in ("stairs_up", "stairs_down")
                 ]
                 assert "stairs_up" in features
@@ -146,7 +143,7 @@ async def test_mansion_sibling_activates_on_swap(tmp_path) -> None:
     source = next(b for b in site.buildings if b.id == fid)
     target = next(b for b in site.buildings if b.id == tid)
     g.level = source.ground
-    g.level.tiles[fy][fx].feature = "door_open"
+    g.level.tile_at(fx, fy).feature = "door_open"
     pos = g.world.get_component(g.player_id, "Position")
     pos.x, pos.y = fx, fy
     pos.level_id = g.level.id
@@ -156,7 +153,7 @@ async def test_mansion_sibling_activates_on_swap(tmp_path) -> None:
         "north": (0, -1), "south": (0, 1),
         "east": (1, 0), "west": (-1, 0),
     }
-    cross_dx, cross_dy = _side_to_dir[g.level.tiles[fy][fx].door_side]
+    cross_dx, cross_dy = _side_to_dir[g.level.tile_at(fx, fy).door_side]
     g._maybe_traverse_building_door(cross_dx, cross_dy)
     # Now self.level is target.ground.
     assert g.level is target.ground

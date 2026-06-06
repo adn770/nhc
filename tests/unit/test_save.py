@@ -32,7 +32,7 @@ def _make_level():
 
     return Level(
         id="test", name="Test Dungeon", depth=1,
-        width=10, height=10, tiles=tiles,
+        width=10, height=10, _tiles=tiles,
         rooms=[Room(id="room_1", rect=Rect(1, 1, 5, 5))],
     )
 
@@ -109,9 +109,9 @@ class TestSaveLoad:
 
         assert l2.name == "Test Dungeon"
         assert l2.width == 10
-        assert l2.tiles[0][0].terrain == Terrain.WALL
-        assert l2.tiles[5][5].feature == "stairs_down"
-        assert l2.tiles[3][3].explored is True
+        assert l2.tile_at(0, 0).terrain == Terrain.WALL
+        assert l2.tile_at(5, 5).feature == "stairs_down"
+        assert l2.tile_at(3, 3).explored is True
 
     def test_level_rooms_preserved(self, tmp_path):
         world, pid, _ = _make_world()

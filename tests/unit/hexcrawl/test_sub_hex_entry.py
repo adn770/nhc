@@ -1143,13 +1143,11 @@ def _hand_built_sub_hex_site(level_id: str = "test_subhex"):
     level = Level.create_empty(
         id=level_id, name=level_id, depth=1, width=10, height=10,
     )
-    for y in range(10):
-        for x in range(10):
-            tile = level.tiles[y][x]
-            if x in (0, 9) or y in (0, 9):
-                tile.terrain = Terrain.WALL
-            else:
-                tile.terrain = Terrain.FLOOR
+    for x, y, tile in level.iter_world():
+        if x in (0, 9) or y in (0, 9):
+            tile.terrain = Terrain.WALL
+        else:
+            tile.terrain = Terrain.FLOOR
     return SubHexSite(
         level=level,
         entry_tile=(5, 8),
@@ -2248,10 +2246,9 @@ def test_dig_action_emits_terrain_changed(tmp_path) -> None:
     level = Level.create_empty(
         id="t", name="t", depth=1, width=5, height=5,
     )
-    for y in range(5):
-        for x in range(5):
-            level.tiles[y][x].terrain = Terrain.FLOOR
-    level.tiles[2][3].terrain = Terrain.WALL
+    for x, y, tile in level.iter_world():
+        tile.terrain = Terrain.FLOOR
+    level.tile_at(3, 2).terrain = Terrain.WALL
 
     from nhc.core.ecs import World
     from nhc.entities.components import (

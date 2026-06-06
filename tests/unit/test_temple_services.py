@@ -46,7 +46,7 @@ def _make_level(depth=2, width=10, height=10):
     ]
     return Level(
         id="t", name="T", depth=depth,
-        width=width, height=height, tiles=tiles,
+        width=width, height=height, _tiles=tiles,
     )
 
 

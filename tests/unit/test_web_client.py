@@ -876,7 +876,7 @@ class TestWebClientFloorMessage:
         level.metadata = LevelMetadata(theme=theme, feeling=feeling)
         for y in range(1, 4):
             for x in range(1, 4):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         world = MagicMock()
         world._entities = []
         world.get_component = MagicMock(return_value=None)
@@ -903,10 +903,10 @@ class TestWallMaskComputation:
         level = Level.create_empty("t", "T", depth=1, width=5, height=5)
         for y in range(5):
             for x in range(5):
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
         for y in range(1, 4):
             for x in range(1, 4):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         return level
 
     def test_interior_floor_has_no_wall_edges(self):
@@ -935,8 +935,8 @@ class TestWallMaskComputation:
         from nhc.dungeon.model import Tile, Terrain
         from nhc.rendering.web_client import _is_walkable
         level = self._rect_room()
-        level.tiles[1][2] = Tile(
-            terrain=Terrain.FLOOR, feature="door_closed")
+        level.set_tile(2, 1, Tile(
+            terrain=Terrain.FLOOR, feature="door_closed"))
         assert _is_walkable(level, 2, 1) is True
 
     def test_floor_tile_next_to_door_has_door_side_wall_bit(self):
@@ -951,11 +951,11 @@ class TestWallMaskComputation:
         # Place a closed door on the north edge of the room at
         # (2, 1). The FLOOR interior tile (2, 2) sits directly
         # south of it.
-        level.tiles[1][2] = Tile(
+        level.set_tile(2, 1, Tile(
             terrain=Terrain.FLOOR,
             feature="door_closed",
             door_side="north",
-        )
+        ))
         # Without the door the bare interior tile has mask 0;
         # with a door neighbour to the north, the N bit must be
         # set so the polygon edge at that boundary is traced as
@@ -973,11 +973,11 @@ class TestWallMaskComputation:
         from nhc.dungeon.model import Tile, Terrain
         from nhc.rendering.web_client import _wall_mask
         level = self._rect_room()
-        level.tiles[1][2] = Tile(
+        level.set_tile(2, 1, Tile(
             terrain=Terrain.FLOOR,
             feature="door_secret",
             door_side="north",
-        )
+        ))
         mask = _wall_mask(level, 2, 2)
         assert mask & 1, "north bit set for secret-door neighbour"
 
@@ -985,8 +985,8 @@ class TestWallMaskComputation:
         from nhc.dungeon.model import Tile, Terrain
         from nhc.rendering.web_client import _is_walkable
         level = self._rect_room()
-        level.tiles[1][2] = Tile(
-            terrain=Terrain.FLOOR, feature="door_secret")
+        level.set_tile(2, 1, Tile(
+            terrain=Terrain.FLOOR, feature="door_secret"))
         assert _is_walkable(level, 2, 1) is False
 
     def test_corridor_has_parallel_wall_edges(self):
@@ -997,12 +997,12 @@ class TestWallMaskComputation:
         level = Level.create_empty("t", "T", depth=1, width=5, height=5)
         for y in range(5):
             for x in range(5):
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
         for x in range(1, 4):
-            level.tiles[2][x] = Tile(
+            level.set_tile(x, 2, Tile(
                 terrain=Terrain.FLOOR,
                 surface_type=SurfaceType.CORRIDOR,
-            )
+            ))
         # Middle of corridor (2,2): walls N and S, no E/W.
         mask = _wall_mask(level, 2, 2)
         assert mask & 1, "north bit set"
@@ -1020,7 +1020,7 @@ class TestWallMaskComputation:
         # Mark the whole floor rect as visible.
         for y in range(1, 4):
             for x in range(1, 4):
-                level.tiles[y][x].visible = True
+                level.tile_at(x, y).visible = True
         entries = wc._gather_walk(level)
         assert len(entries) == 9
         for entry in entries:
@@ -1044,22 +1044,22 @@ class TestDoorWallMask:
         level = Level.create_empty("t", "T", depth=1, width=5, height=5)
         for y in range(5):
             for x in range(5):
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
         # West corridor at x=1
         for y in range(1, 4):
-            level.tiles[y][1] = Tile(
+            level.set_tile(1, y, Tile(
                 terrain=Terrain.FLOOR,
                 surface_type=SurfaceType.CORRIDOR,
-            )
+            ))
         # East room at x=3
         for y in range(1, 4):
-            level.tiles[y][3] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(3, y, Tile(terrain=Terrain.FLOOR))
         # Secret door at (2, 2) on the east edge of the tile
-        level.tiles[2][2] = Tile(
+        level.set_tile(2, 2, Tile(
             terrain=Terrain.FLOOR,
             feature="door_secret",
             door_side="east",
-        )
+        ))
         return level
 
     def test_east_door_walls_north_east_south(self):
@@ -1078,11 +1078,11 @@ class TestDoorWallMask:
         from nhc.dungeon.model import Tile, Terrain
         from nhc.rendering.web_client import _wall_mask
         level = self._wall_column_with_secret_door()
-        level.tiles[2][2] = Tile(
+        level.set_tile(2, 2, Tile(
             terrain=Terrain.FLOOR,
             feature="door_open",
             door_side="east",
-        )
+        ))
         assert _wall_mask(level, 2, 2) == 1 | 2 | 4
 
     def test_horizontal_door_walls_north_east_west(self):
@@ -1091,13 +1091,13 @@ class TestDoorWallMask:
         level = Level.create_empty("t", "T", depth=1, width=5, height=5)
         for y in range(5):
             for x in range(5):
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
         # Horizontal wall row at y=2 with a closed door at (2, 2)
-        level.tiles[2][2] = Tile(
+        level.set_tile(2, 2, Tile(
             terrain=Terrain.FLOOR,
             feature="door_closed",
             door_side="north",
-        )
+        ))
         mask = _wall_mask(level, 2, 2)
         # door_side=north → walls on W (orthogonal), N (door
         # edge), E (orthogonal). S (approach) is clear.
@@ -1113,8 +1113,8 @@ class TestDoorWallMask:
         wc = WebClient(lang="en")
         level = self._wall_column_with_secret_door()
         # door_side=east → approach side is west (corridor)
-        level.tiles[2][2].visible = True
-        level.tiles[2][1].visible = True  # west neighbour = corridor
+        level.tile_at(2, 2).visible = True
+        level.tile_at(1, 2).visible = True  # west neighbour = corridor
         entries = wc._gather_walk(level)
         coords = {(e[0], e[1]): e[2] for e in entries}
         assert (2, 2) in coords, (
@@ -1132,9 +1132,9 @@ class TestDoorWallMask:
         level = self._wall_column_with_secret_door()
         # door_side=east → approach is west; make the east
         # (room) side visible but leave the west side hidden.
-        level.tiles[2][2].visible = True
-        level.tiles[2][3].visible = True  # east neighbour = room
-        level.tiles[2][1].visible = False
+        level.tile_at(2, 2).visible = True
+        level.tile_at(3, 2).visible = True  # east neighbour = room
+        level.tile_at(1, 2).visible = False
         entries = wc._gather_walk(level)
         coords = {(e[0], e[1]) for e in entries}
         assert (2, 2) not in coords, (
@@ -1147,7 +1147,7 @@ class TestDoorWallMask:
         from nhc.rendering.web_client import WebClient
         wc = WebClient(lang="en")
         level = self._wall_column_with_secret_door()
-        level.tiles[2][2].explored = True
+        level.tile_at(2, 2).explored = True
         # Approach side not explored → door entry has mask=-1
         # so it only contributes to drawFog's memory set.
         entries = wc._gather_explored(level)
@@ -1155,7 +1155,7 @@ class TestDoorWallMask:
         assert entry[2] == -1
         # Now mark the approach side explored → door joins the
         # polygon with the three-bit mask.
-        level.tiles[2][1].explored = True
+        level.tile_at(1, 2).explored = True
         entries = wc._gather_explored(level)
         entry = next(e for e in entries if e[0] == 2 and e[1] == 2)
         assert entry[2] == 1 | 2 | 4
@@ -1179,15 +1179,15 @@ class TestPolygonRectExpansion:
                                    width=7, height=7)
         for y in range(7):
             for x in range(7):
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
         rect = Rect(1, 1, 5, 5)
         shape = CircleShape()
         room = Room(id="r1", rect=rect, shape=shape)
         level.rooms.append(room)
         for (x, y) in shape.floor_tiles(rect):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-            level.tiles[y][x].visible = True
-            level.tiles[y][x].explored = True
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
+            level.tile_at(x, y).visible = True
+            level.tile_at(x, y).explored = True
         return level, rect
 
     def test_circle_room_expands_to_bounding_rect(self):
@@ -1226,14 +1226,14 @@ class TestPolygonRectExpansion:
                                    width=9, height=9)
         for y in range(9):
             for x in range(9):
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
         rect = Rect(1, 1, 7, 7)
         shape = OctagonShape()
         room = Room(id="r1", rect=rect, shape=shape)
         level.rooms.append(room)
         for (x, y) in shape.floor_tiles(rect):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-            level.tiles[y][x].visible = True
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
+            level.tile_at(x, y).visible = True
         wc = WebClient(lang="en")
         entries = wc._gather_walk(level)
         coords = {(e[0], e[1]) for e in entries}
@@ -1257,7 +1257,7 @@ class TestPolygonRectExpansion:
                                    width=12, height=8)
         for y in range(8):
             for x in range(12):
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
         # Hybrid rect = (1,1,10,5). Vertical split → circle on
         # the left half (1..5, height 5), rect on the right half
         # (6..10, height 5).
@@ -1269,8 +1269,8 @@ class TestPolygonRectExpansion:
         room = Room(id="r1", rect=rect, shape=shape)
         level.rooms.append(room)
         for (x, y) in shape.floor_tiles(rect):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-            level.tiles[y][x].visible = True
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
+            level.tile_at(x, y).visible = True
         wc = WebClient(lang="en")
         entries = wc._gather_walk(level)
         coords = {(e[0], e[1]) for e in entries}
@@ -1290,14 +1290,14 @@ class TestPolygonRectExpansion:
                                    width=7, height=7)
         for y in range(7):
             for x in range(7):
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
         rect = Rect(2, 2, 3, 3)
         room = Room(id="r1", rect=rect, shape=RectShape())
         level.rooms.append(room)
         for y in range(rect.y, rect.y2):
             for x in range(rect.x, rect.x2):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-                level.tiles[y][x].visible = True
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
+                level.tile_at(x, y).visible = True
         wc = WebClient(lang="en")
         entries = wc._gather_walk(level)
         coords = {(e[0], e[1]) for e in entries}
@@ -1313,9 +1313,8 @@ class TestPolygonRectExpansion:
         from nhc.rendering.web_client import WebClient
         level, rect = self._circle_level()
         # Reset visibility: nothing visible.
-        for y in range(level.height):
-            for x in range(level.width):
-                level.tiles[y][x].visible = False
+        for _x, _y, tile in level.iter_world():
+            tile.visible = False
         wc = WebClient(lang="en")
         entries = wc._gather_walk(level)
         coords = {(e[0], e[1]) for e in entries}
@@ -1335,15 +1334,15 @@ class TestPolygonRectExpansion:
                                    width=11, height=7)
         for y in range(7):
             for x in range(11):
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
         rect = Rect(1, 1, 9, 5)
         shape = PillShape()
         room = Room(id="r1", rect=rect, shape=shape)
         level.rooms.append(room)
         for (x, y) in shape.floor_tiles(rect):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-            level.tiles[y][x].visible = True
-            level.tiles[y][x].explored = True
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
+            level.tile_at(x, y).visible = True
+            level.tile_at(x, y).explored = True
         return level, rect
 
     def test_pill_room_expands_to_bounding_rect(self):
@@ -1375,9 +1374,8 @@ class TestPolygonRectExpansion:
         at least one visible floor tile."""
         from nhc.rendering.web_client import WebClient
         level, _ = self._pill_level()
-        for y in range(level.height):
-            for x in range(level.width):
-                level.tiles[y][x].visible = False
+        for _x, _y, tile in level.iter_world():
+            tile.visible = False
         wc = WebClient(lang="en")
         entries = wc._gather_walk(level)
         coords = {(e[0], e[1]) for e in entries}
@@ -1395,15 +1393,15 @@ class TestPolygonRectExpansion:
                                    width=11, height=11)
         for y in range(11):
             for x in range(11):
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
         rect = Rect(1, 1, 9, 9)
         shape = TempleShape(flat_side="south")
         room = Room(id="r1", rect=rect, shape=shape)
         level.rooms.append(room)
         for (x, y) in shape.floor_tiles(rect):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-            level.tiles[y][x].visible = True
-            level.tiles[y][x].explored = True
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
+            level.tile_at(x, y).visible = True
+            level.tile_at(x, y).explored = True
         return level, rect
 
     def test_temple_room_expands_to_bounding_rect(self):
@@ -1430,9 +1428,8 @@ class TestPolygonRectExpansion:
     def test_temple_expansion_gated_by_visibility(self):
         from nhc.rendering.web_client import WebClient
         level, _ = self._temple_level()
-        for y in range(level.height):
-            for x in range(level.width):
-                level.tiles[y][x].visible = False
+        for _x, _y, tile in level.iter_world():
+            tile.visible = False
         wc = WebClient(lang="en")
         entries = wc._gather_walk(level)
         coords = {(e[0], e[1]) for e in entries}

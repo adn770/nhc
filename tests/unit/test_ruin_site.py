@@ -81,7 +81,7 @@ class TestRuinStructure:
                     perimeter.add((nx, ny))
         void_count = sum(
             1 for (x, y) in perimeter
-            if ground.tiles[y][x].terrain is Terrain.VOID
+            if ground.tile_at(x, y).terrain is Terrain.VOID
         )
         assert 2 <= void_count <= 4
 
@@ -101,9 +101,8 @@ class TestRuinDescent:
         b = site.buildings[0]
         ground = b.ground
         found = any(
-            ground.tiles[y][x].feature == "stairs_down"
-            for y in range(ground.height)
-            for x in range(ground.width)
+            tile.feature == "stairs_down"
+            for x, y, tile in ground.iter_world()
         )
         assert found
 
@@ -153,14 +152,12 @@ def test_ruin_surface_has_biome_appropriate_floor_tiles(
     # Phase 3a routed GARDEN tiles to Terrain.GRASS for the theme
     # grass tint; both FLOOR and GRASS count as walkable surface.
     walkable = sum(
-        1 for row in site.surface.tiles
-        for t in row
+        1 for t in site.surface.iter_tiles()
         if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
     )
     assert walkable > 0
     surface_types = {
-        t.surface_type for row in site.surface.tiles
-        for t in row
+        t.surface_type for t in site.surface.iter_tiles()
         if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
     }
     if biome is Biome.FOREST:

@@ -178,10 +178,10 @@ def _build_mage_garden_surface(
         for x in range(1, surface.width - 1):
             if (x, y) in blocked:
                 continue
-            surface.tiles[y][x] = Tile(
+            surface.set_tile(x, y, Tile(
                 terrain=Terrain.GRASS,
                 surface_type=SurfaceType.GARDEN,
-            )
+            ))
     return surface
 
 
@@ -233,7 +233,7 @@ def _plant_mage_garden(site: Site) -> None:
     def _plantable(x: int, y: int) -> bool:
         if not (1 <= x <= w - 2 and 1 <= y <= h - 2):
             return False
-        tile = surface.tiles[y][x]
+        tile = surface.tile_at(x, y)
         if tile.terrain is not Terrain.GRASS:
             return False
         if tile.feature is not None:
@@ -247,7 +247,7 @@ def _plant_mage_garden(site: Site) -> None:
         for x in range(1, w - 1):
             on_border = x in (1, w - 2) or y in (1, h - 2)
             if on_border and _plantable(x, y):
-                surface.tiles[y][x].feature = "bush"
+                surface.tile_at(x, y).feature = "bush"
 
     # Tree lattice, centred so it is mirror-symmetric; the border
     # ring is left to the hedge.
@@ -260,7 +260,7 @@ def _plant_mage_garden(site: Site) -> None:
             if (x, y) in halo:
                 continue
             if _plantable(x, y):
-                surface.tiles[y][x].feature = "tree"
+                surface.tile_at(x, y).feature = "tree"
 
 
 def _place_entry_door(
@@ -271,7 +271,7 @@ def _place_entry_door(
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
     for (px, py) in perim:
-        tile = ground.tiles[py][px]
+        tile = ground.tile_at(px, py)
         if tile.feature is not None:
             continue
         # Reject chamfer steps -- octagon and circle residences
@@ -284,7 +284,7 @@ def _place_entry_door(
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
-            if ground.tiles[ny][nx].terrain == Terrain.WALL:
+            if ground.tile_at(nx, ny).terrain == Terrain.WALL:
                 candidates.append((px, py))
                 break
     if not candidates:

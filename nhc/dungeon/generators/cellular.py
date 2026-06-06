@@ -85,9 +85,9 @@ class CellularGenerator(DungeonGenerator):
             cx, cy = params.width // 2, params.height // 2
             for dy in range(-2, 3):
                 for dx in range(-2, 3):
-                    level.tiles[cy + dy][cx + dx] = Tile(
+                    level.set_tile(cx + dx, cy + dy, Tile(
                         terrain=Terrain.FLOOR,
-                    )
+                    ))
             regions = [
                 {(cx + dx, cy + dy)
                  for dy in range(-2, 3) for dx in range(-2, 3)}
@@ -101,7 +101,7 @@ class CellularGenerator(DungeonGenerator):
             if len(region) < MIN_REGION_SIZE:
                 # Fill back to VOID
                 for x, y in region:
-                    level.tiles[y][x] = Tile(terrain=Terrain.VOID)
+                    level.set_tile(x, y, Tile(terrain=Terrain.VOID))
             else:
                 self._connect_regions(level, main_region, region, rng)
                 main_region = main_region | region
@@ -130,10 +130,9 @@ class CellularGenerator(DungeonGenerator):
         total_eroded = 0
         for _pass in range(10):  # bounded iterations
             all_floor: set[tuple[int, int]] = set()
-            for y in range(level.height):
-                for x in range(level.width):
-                    if level.tiles[y][x].terrain == Terrain.FLOOR:
-                        all_floor.add((x, y))
+            for x, y, tile in level.iter_world():
+                if tile.terrain == Terrain.FLOOR:
+                    all_floor.add((x, y))
             eroded = _erode_wall_peninsulas(level, all_floor)
             if not eroded:
                 break
@@ -180,7 +179,7 @@ class CellularGenerator(DungeonGenerator):
             )
 
         floors = sum(
-            1 for row in level.tiles for t in row
+            1 for t in level.iter_tiles()
             if t.terrain == Terrain.FLOOR
         )
         logger.info(
@@ -205,7 +204,7 @@ class CellularGenerator(DungeonGenerator):
         for y in range(2, level.height - 2):
             for x in range(2, level.width - 2):
                 if rng.random() < density:
-                    level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                    level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
     @staticmethod
     def _automata_step(level: Level) -> None:
@@ -220,10 +219,11 @@ class CellularGenerator(DungeonGenerator):
                     for dx in range(-1, 2):
                         if dx == 0 and dy == 0:
                             continue
-                        if level.tiles[y + dy][x + dx].terrain != Terrain.VOID:
+                        nb = level.tile_at(x + dx, y + dy)
+                        if nb.terrain != Terrain.VOID:
                             count += 1
 
-                is_floor = level.tiles[y][x].terrain != Terrain.VOID
+                is_floor = level.tile_at(x, y).terrain != Terrain.VOID
                 if is_floor:
                     new_t = (Terrain.FLOOR if count >= SURVIVE_THRESHOLD
                              else Terrain.VOID)
@@ -233,7 +233,7 @@ class CellularGenerator(DungeonGenerator):
                 new_states.append((x, y, new_t))
 
         for x, y, t in new_states:
-            level.tiles[y][x] = Tile(terrain=t)
+            level.set_tile(x, y, Tile(terrain=t))
 
     @staticmethod
     def _flood_fill(level: Level) -> list[set[tuple[int, int]]]:
@@ -245,7 +245,7 @@ class CellularGenerator(DungeonGenerator):
             for x in range(1, level.width - 1):
                 if (x, y) in visited:
                     continue
-                if level.tiles[y][x].terrain == Terrain.VOID:
+                if level.tile_at(x, y).terrain == Terrain.VOID:
                     continue
 
                 # BFS flood fill
@@ -257,7 +257,7 @@ class CellularGenerator(DungeonGenerator):
                         continue
                     if not level.in_bounds(cx, cy):
                         continue
-                    if level.tiles[cy][cx].terrain == Terrain.VOID:
+                    if level.tile_at(cx, cy).terrain == Terrain.VOID:
                         continue
                     visited.add((cx, cy))
                     region.add((cx, cy))
@@ -349,23 +349,23 @@ class CellularGenerator(DungeonGenerator):
             if not level.in_bounds(x, y):
                 return False
             return (
-                level.tiles[y][x].surface_type == SurfaceType.CORRIDOR
+                level.tile_at(x, y).surface_type == SurfaceType.CORRIDOR
             )
 
         def _is_carvable(x: int, y: int) -> bool:
             if not level.in_bounds(x, y):
                 return False
-            return level.tiles[y][x].terrain in (
+            return level.tile_at(x, y).terrain in (
                 Terrain.VOID, Terrain.WALL,
             )
 
         def _carve(x: int, y: int) -> None:
-            level.tiles[y][x] = Tile(
+            level.set_tile(x, y, Tile(
                 terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
-            )
+            ))
 
         def _void(x: int, y: int) -> None:
-            level.tiles[y][x] = Tile(terrain=Terrain.VOID)
+            level.set_tile(x, y, Tile(terrain=Terrain.VOID))
 
         def _try_break_horizontal(
             y: int, start: int, end: int,
@@ -509,7 +509,7 @@ class CellularGenerator(DungeonGenerator):
 
         for y in range(level.height):
             for x in range(level.width):
-                tile = level.tiles[y][x]
+                tile = level.tile_at(x, y)
                 if tile.terrain not in walkable:
                     continue
                 for dy in range(-1, 2):
@@ -517,23 +517,21 @@ class CellularGenerator(DungeonGenerator):
                         if dx == 0 and dy == 0:
                             continue
                         nx, ny = x + dx, y + dy
-                        if (level.in_bounds(nx, ny)
-                                and level.tiles[ny][nx].terrain
-                                == Terrain.VOID):
+                        nb = level.tile_at(nx, ny)
+                        if nb and nb.terrain == Terrain.VOID:
                             to_wall.add((nx, ny))
 
         for wx, wy in to_wall:
-            level.tiles[wy][wx] = Tile(terrain=Terrain.WALL)
+            level.set_tile(wx, wy, Tile(terrain=Terrain.WALL))
 
     @staticmethod
     def _place_stairs(level: Level, rng: random.Random) -> None:
         """Place stairs with maximum separation using BFS."""
         # Collect all non-corridor floor tiles
         floors = [
-            (x, y) for y in range(level.height)
-            for x in range(level.width)
-            if level.tiles[y][x].terrain == Terrain.FLOOR
-            and level.tiles[y][x].surface_type != SurfaceType.CORRIDOR
+            (x, y) for x, y, tile in level.iter_world()
+            if tile.terrain == Terrain.FLOOR
+            and tile.surface_type != SurfaceType.CORRIDOR
         ]
 
         if len(floors) < 2:
@@ -546,8 +544,10 @@ class CellularGenerator(DungeonGenerator):
 
         sx, sy = farthest_a
         ex, ey = farthest_b
-        level.tiles[sy][sx].feature = "stairs_up"
-        level.tiles[ey][ex].feature = "stairs_down"
+        t = level.tile_at(sx, sy)
+        t.feature = "stairs_up"
+        t = level.tile_at(ex, ey)
+        t.feature = "stairs_down"
 
         # Tag rooms
         for room in level.rooms:
@@ -563,11 +563,12 @@ class CellularGenerator(DungeonGenerator):
                 (x, y) for x, y in floors
                 if (abs(x - sx) + abs(y - sy) > 10
                     and abs(x - ex) + abs(y - ey) > 10
-                    and not level.tiles[y][x].feature)
+                    and not level.tile_at(x, y).feature)
             ]
             if candidates:
                 x2, y2 = rng.choice(candidates)
-                level.tiles[y2][x2].feature = "stairs_down"
+                t = level.tile_at(x2, y2)
+                t.feature = "stairs_down"
                 for room in level.rooms:
                     if (x2, y2) in room.floor_tiles():
                         if "exit" not in room.tags:
@@ -583,12 +584,12 @@ class CellularGenerator(DungeonGenerator):
         """
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
-                tile = level.tiles[y][x]
+                tile = level.tile_at(x, y)
                 if (tile.surface_type != SurfaceType.CORRIDOR
                         or tile.feature):
                     continue
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    nb = level.tiles[y + dy][x + dx]
+                    nb = level.tile_at(x + dx, y + dy)
                     if (nb.terrain == Terrain.FLOOR
                             and nb.surface_type != SurfaceType.CORRIDOR
                             and not nb.feature):
@@ -621,7 +622,7 @@ def _absorb_corridors_into_caves(level: Level) -> int:
             continue
         for tx, ty in room.shape._tiles:
             cave_tiles[(tx, ty)] = room
-            tile = level.tiles[ty][tx]
+            tile = level.tile_at(tx, ty)
             if tile.surface_type == SurfaceType.CORRIDOR:
                 tile.surface_type = SurfaceType.NONE
 
@@ -633,7 +634,7 @@ def _absorb_corridors_into_caves(level: Level) -> int:
             for x in range(1, level.width - 1):
                 if (x, y) in cave_tiles:
                     continue
-                t = level.tiles[y][x]
+                t = level.tile_at(x, y)
                 if t.terrain != Terrain.FLOOR:
                     continue
                 # Find an adjacent cave room
@@ -676,7 +677,7 @@ def _erode_wall_peninsulas(
         changed = False
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
-                t = level.tiles[y][x]
+                t = level.tile_at(x, y)
                 if t.terrain != Terrain.WALL:
                     continue
                 n = (x, y - 1) in floor_tiles
@@ -691,9 +692,9 @@ def _erode_wall_peninsulas(
                     # Floor on opposite sides — thin wall
                     erode = True
                 if erode:
-                    level.tiles[y][x] = Tile(
+                    level.set_tile(x, y, Tile(
                         terrain=Terrain.FLOOR,
-                    )
+                    ))
                     floor_tiles.add((x, y))
                     total += 1
                     changed = True
@@ -719,20 +720,20 @@ def _carve_line(
         for x in range(min(x1, x2), max(x1, x2) + 1):
             if not level.in_bounds(x, y1):
                 continue
-            t = level.tiles[y1][x]
+            t = level.tile_at(x, y1)
             if t.terrain in (Terrain.VOID, Terrain.WALL):
-                level.tiles[y1][x] = Tile(
+                level.set_tile(x, y1, Tile(
                     terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
-                )
+                ))
     else:
         for y in range(min(y1, y2), max(y1, y2) + 1):
             if not level.in_bounds(x1, y):
                 continue
-            t = level.tiles[y][x1]
+            t = level.tile_at(x1, y)
             if t.terrain in (Terrain.VOID, Terrain.WALL):
-                level.tiles[y][x1] = Tile(
+                level.set_tile(x1, y, Tile(
                     terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
-                )
+                ))
 
 
 def _carve_l(
@@ -835,7 +836,7 @@ def _bfs_farthest(
                 continue
             if not level.in_bounds(nx, ny):
                 continue
-            tile = level.tiles[ny][nx]
+            tile = level.tile_at(nx, ny)
             if tile.terrain in (
                 Terrain.FLOOR, Terrain.WATER, Terrain.GRASS,
             ):

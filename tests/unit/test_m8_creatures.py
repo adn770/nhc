@@ -35,7 +35,7 @@ from nhc.utils.rng import set_seed
 def _make_level():
     tiles = [[Tile(terrain=Terrain.FLOOR, visible=True) for _ in range(10)]
              for _ in range(10)]
-    return Level(id="t", name="T", depth=1, width=10, height=10, tiles=tiles)
+    return Level(id="t", name="T", depth=1, width=10, height=10, _tiles=tiles)
 
 
 def _make_player(world, x=5, y=5, hp=20):

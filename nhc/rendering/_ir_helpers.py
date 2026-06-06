@@ -33,7 +33,7 @@ def _is_floor(level: Level, x: int, y: int) -> bool:
 
     if not level.in_bounds(x, y):
         return False
-    t = level.tiles[y][x]
+    t = level.tile_at(x, y)
     return t.terrain in (Terrain.FLOOR, Terrain.WATER, Terrain.GRASS)
 
 
@@ -41,7 +41,7 @@ def _is_door(level: Level, x: int, y: int) -> bool:
     """True for visible doors (not secret — those look like walls)."""
     if not level.in_bounds(x, y):
         return False
-    f = level.tiles[y][x].feature
+    f = level.tile_at(x, y).feature
     return f in ("door_closed", "door_open", "door_locked")
 
 

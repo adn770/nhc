@@ -22,20 +22,20 @@ def _make_level(width=10, height=8):
     # Carve a room (2,2)-(6,5)
     for y in range(2, 5):
         for x in range(2, 6):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     level.rooms.append(Room(id="r1", rect=Rect(2, 2, 4, 3)))
 
     # Carve a corridor from (6,3) to (8,3)
     for x in range(6, 9):
-        level.tiles[3][x] = Tile(
+        level.set_tile(x, 3, Tile(
             terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
-        )
+        ))
 
     # Add a closed door at (6,3)
-    level.tiles[3][6].feature = "door_closed"
+    level.tile_at(6, 3).feature = "door_closed"
 
     # Add stairs down at (3,3)
-    level.tiles[3][3].feature = "stairs_down"
+    level.tile_at(3, 3).feature = "stairs_down"
 
     return level
 
@@ -91,8 +91,8 @@ class TestSVGOutput:
 
     def test_stairs_up_a_shape(self):
         level = _make_level()
-        level.tiles[4][4] = Tile(terrain=Terrain.FLOOR)
-        level.tiles[4][4].feature = "stairs_up"
+        level.set_tile(4, 4, Tile(terrain=Terrain.FLOOR))
+        level.tile_at(4, 4).feature = "stairs_up"
         svg = render_floor_svg_from_ir(level)
         assert svg.count("stroke-linecap=\"round\"") > 10
 
@@ -111,7 +111,7 @@ class TestSVGOutput:
     def test_locked_door_treated_as_floor(self):
         """Locked doors are also just floor in SVG."""
         level = _make_level()
-        level.tiles[3][6].feature = "door_locked"
+        level.tile_at(6, 3).feature = "door_locked"
         svg = render_floor_svg_from_ir(level)
         assert "door" not in svg.lower()
 
@@ -120,9 +120,9 @@ class TestSVGOutput:
         level = Level.create_empty("t", "T", depth=1, width=5, height=5)
         for y in range(1, 4):
             for x in range(1, 4):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-        level.tiles[2][3] = Tile(terrain=Terrain.FLOOR,
-                                 feature="door_open")
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
+        level.set_tile(3, 2, Tile(terrain=Terrain.FLOOR,
+                                  feature="door_open"))
         level.rooms.append(Room(id="r", rect=Rect(1, 1, 3, 3)))
         svg = render_floor_svg_from_ir(level)
         assert "door" not in svg.lower()
@@ -150,7 +150,7 @@ class TestSVGOutput:
                                    width=20, height=20)
         for y in range(1, 19):
             for x in range(1, 19):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         level.rooms.append(Room(id="r", rect=Rect(1, 1, 18, 18)))
         # Try several seeds until we get a stone
         for seed in range(50):
@@ -165,7 +165,7 @@ class TestSVGOutput:
                                    width=20, height=20)
         for y in range(1, 19):
             for x in range(1, 19):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         level.rooms.append(Room(id="r", rect=Rect(1, 1, 18, 18)))
         for seed in range(50):
             svg = render_floor_svg_from_ir(level, seed=seed)
@@ -184,7 +184,7 @@ class TestSVGOutput:
                                    width=30, height=30)
         for y in range(1, 29):
             for x in range(1, 29):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         level.rooms.append(Room(id="r", rect=Rect(1, 1, 28, 28)))
         # With ~784 floor tiles and ~3% cluster chance, we should
         # reliably get at least one cluster across a few seeds
@@ -265,9 +265,9 @@ class TestGridAndDetailOnWallTiles:
             for x in range(r.x, r.x2):
                 on_edge = (x == r.x or x == r.x2 - 1
                            or y == r.y or y == r.y2 - 1)
-                level.tiles[y][x] = Tile(
+                level.set_tile(x, y, Tile(
                     terrain=Terrain.WALL if on_edge
-                    else Terrain.FLOOR)
+                    else Terrain.FLOOR))
         return level
 
     def test_grid_processes_all_tiles(self):
@@ -310,13 +310,13 @@ class TestSecretDoorGridRouting:
         level.rooms.append(room)
         for y in range(r.y, r.y2):
             for x in range(r.x, r.x2):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         # Secret door on the room's north edge at (4, 4).
-        level.tiles[4][4] = Tile(
+        level.set_tile(4, 4, Tile(
             terrain=Terrain.FLOOR,
             feature="door_secret",
             door_side="north",
-        )
+        ))
         return level
 
     def test_secret_door_emits_unclipped_grid_bucket(self):

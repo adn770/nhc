@@ -232,7 +232,7 @@ def _drop_perimeter_walls(
                     continue
                 if not ground.in_bounds(nx, ny):
                     continue
-                if ground.tiles[ny][nx].terrain is Terrain.WALL:
+                if ground.tile_at(nx, ny).terrain is Terrain.WALL:
                     perimeter.append((nx, ny))
     perimeter = sorted(set(perimeter))
     if not perimeter:
@@ -240,7 +240,7 @@ def _drop_perimeter_walls(
     lo, hi = TEMPLE_MYSTERIOUS_DROP_RANGE
     drop_count = rng.randint(lo, min(hi, len(perimeter)))
     for (x, y) in rng.sample(perimeter, drop_count):
-        ground.tiles[y][x] = Tile(terrain=Terrain.VOID)
+        ground.set_tile(x, y, Tile(terrain=Terrain.VOID))
 
 
 def _place_entry_door(
@@ -256,14 +256,14 @@ def _place_entry_door(
     ground = building.ground
     candidates: list[tuple[int, int]] = []
     for (px, py) in building.shared_perimeter():
-        tile = ground.tiles[py][px]
+        tile = ground.tile_at(px, py)
         if tile.feature is not None:
             continue
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
-            if ground.tiles[ny][nx].terrain is Terrain.WALL:
+            if ground.tile_at(nx, ny).terrain is Terrain.WALL:
                 candidates.append((px, py))
                 break
     if not candidates:
@@ -412,7 +412,7 @@ def _build_temple_surface(
                     terrain=Terrain.FLOOR,
                     surface_type=default_surface,
                 )
-            surface.tiles[y][x] = tile
+            surface.set_tile(x, y, tile)
     return surface
 
 
@@ -431,7 +431,7 @@ def _scatter_temple_grass(
     """
     for y in range(1, surface.height - 1):
         for x in range(1, surface.width - 1):
-            tile = surface.tiles[y][x]
+            tile = surface.tile_at(x, y)
             if tile.terrain is not Terrain.GRASS:
                 continue
             if tile.surface_type is not SurfaceType.GARDEN:
@@ -459,11 +459,9 @@ def _stamp_flagstone_floor(level: Level) -> None:
     pattern. Skips tiles that already carry a non-NONE surface_type
     so the pattern only paints on plain interior FLOOR tiles.
     """
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.terrain is not Terrain.FLOOR:
-                continue
-            if tile.surface_type is not SurfaceType.NONE:
-                continue
-            tile.surface_type = SurfaceType.FLAGSTONE
+    for x, y, tile in level.iter_world():
+        if tile.terrain is not Terrain.FLOOR:
+            continue
+        if tile.surface_type is not SurfaceType.NONE:
+            continue
+        tile.surface_type = SurfaceType.FLAGSTONE

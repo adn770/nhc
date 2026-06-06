@@ -358,16 +358,14 @@ def _stamp_paved_floor(level: Level) -> None:
     a cobblestone overlay on top via the unified TileDecorator
     pipeline (see ``rendering_refactor_plan.md`` Phase 2).
     """
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.terrain is not Terrain.FLOOR:
-                continue
-            # Don't overwrite CORRIDOR / TRACK / etc.; PAVED only
-            # applies to plain interior FLOOR tiles.
-            if tile.surface_type is not SurfaceType.NONE:
-                continue
-            tile.surface_type = SurfaceType.PAVED
+    for x, y, tile in level.iter_world():
+        if tile.terrain is not Terrain.FLOOR:
+            continue
+        # Don't overwrite CORRIDOR / TRACK / etc.; PAVED only
+        # applies to plain interior FLOOR tiles.
+        if tile.surface_type is not SurfaceType.NONE:
+            continue
+        tile.surface_type = SurfaceType.PAVED
 
 
 def _place_entry_door(
@@ -385,7 +383,7 @@ def _place_entry_door(
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
     for (px, py) in perim:
-        tile = ground.tiles[py][px]
+        tile = ground.tile_at(px, py)
         if tile.feature is not None:
             continue
         # Reject chamfer steps -- octagon and circle keeps put
@@ -398,7 +396,7 @@ def _place_entry_door(
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
-            if ground.tiles[ny][nx].terrain == Terrain.WALL:
+            if ground.tile_at(nx, ny).terrain == Terrain.WALL:
                 has_wall = True
                 break
         if not has_wall:
@@ -493,5 +491,5 @@ def _build_keep_surface(
                 terrain=Terrain.FLOOR,
                 surface_type=SurfaceType.STREET,
             )
-            surface.tiles[y][x] = tile
+            surface.set_tile(x, y, tile)
     return surface

@@ -32,7 +32,7 @@ from nhc.sites.town import assemble_town
 def _street_tile(site, x: int, y: int) -> bool:
     if not site.surface.in_bounds(x, y):
         return False
-    return site.surface.tiles[y][x].surface_type is SurfaceType.STREET
+    return site.surface.tile_at(x, y).surface_type is SurfaceType.STREET
 
 
 def _gate_anchor_inside(

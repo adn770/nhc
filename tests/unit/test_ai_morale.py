@@ -43,7 +43,7 @@ def _make_level(w: int = 12, h: int = 12) -> Level:
         tiles[y][w - 1].terrain = Terrain.WALL
     return Level(
         id="t", name="T", depth=1, width=w, height=h,
-        tiles=tiles, rooms=[], corridors=[], entities=[],
+        _tiles=tiles, rooms=[], corridors=[], entities=[],
     )
 
 

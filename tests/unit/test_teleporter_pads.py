@@ -29,7 +29,7 @@ def _level_with_pads() -> Level:
     level = Level(
         id="lvl", name="L", depth=1,
         width=10, height=10,
-        tiles=tiles, rooms=[], corridors=[], entities=[],
+        _tiles=tiles, rooms=[], corridors=[], entities=[],
     )
     level.teleporter_pairs = {(2, 2): (8, 8), (8, 8): (2, 2)}
     return level
@@ -111,8 +111,8 @@ class TestTeleportOnStep:
         # more importantly, assert we don't re-teleport when we
         # land on a pad at the destination.
         level.teleporter_pairs = {(2, 2): (8, 8), (8, 8): (5, 5)}
-        level.tiles[5][5] = Tile(terrain=Terrain.FLOOR,
-                                 feature="teleporter_pad")
+        level.set_tile(5, 5, Tile(terrain=Terrain.FLOOR,
+                                  feature="teleporter_pad"))
         pid = _make_player(world, 2, 2)
 
         maybe_teleport_player(world, level, pid)

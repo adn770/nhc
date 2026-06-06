@@ -36,7 +36,7 @@ def _flood_reachable(level, start_x, start_y):
             continue
         if not level.in_bounds(x, y):
             continue
-        if level.tiles[y][x].terrain not in walkable:
+        if level.tile_at(x, y).terrain not in walkable:
             continue
         visited.add((x, y))
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
@@ -60,18 +60,16 @@ class TestCellularGenerator:
     def test_has_stairs_up(self):
         level = _generate()
         found = any(
-            level.tiles[y][x].feature == "stairs_up"
-            for y in range(level.height)
-            for x in range(level.width)
+            t.feature == "stairs_up"
+            for t in level.iter_tiles()
         )
         assert found
 
     def test_has_stairs_down(self):
         level = _generate()
         found = any(
-            level.tiles[y][x].feature == "stairs_down"
-            for y in range(level.height)
-            for x in range(level.width)
+            t.feature == "stairs_down"
+            for t in level.iter_tiles()
         )
         assert found
 
@@ -88,7 +86,7 @@ class TestCellularGenerator:
     def test_has_floor_tiles(self):
         level = _generate()
         floor_count = sum(
-            1 for row in level.tiles for t in row
+            1 for t in level.iter_tiles()
             if t.terrain == Terrain.FLOOR
         )
         # Should have a substantial number of floor tiles
@@ -97,19 +95,19 @@ class TestCellularGenerator:
     def test_border_no_floor(self):
         level = _generate()
         for x in range(level.width):
-            assert level.tiles[0][x].terrain != Terrain.FLOOR
-            assert level.tiles[level.height - 1][x].terrain != Terrain.FLOOR
+            assert level.tile_at(x, 0).terrain != Terrain.FLOOR
+            assert level.tile_at(x, level.height - 1).terrain != Terrain.FLOOR
         for y in range(level.height):
-            assert level.tiles[y][0].terrain != Terrain.FLOOR
-            assert level.tiles[y][level.width - 1].terrain != Terrain.FLOOR
+            assert level.tile_at(0, y).terrain != Terrain.FLOOR
+            assert level.tile_at(level.width - 1, y).terrain != Terrain.FLOOR
 
     def test_deterministic(self):
         level1 = _generate(seed=99999)
         level2 = _generate(seed=99999)
         for y in range(level1.height):
             for x in range(level1.width):
-                assert (level1.tiles[y][x].terrain
-                        == level2.tiles[y][x].terrain)
+                assert (level1.tile_at(x, y).terrain
+                        == level2.tile_at(x, y).terrain)
 
     def test_all_floor_reachable_from_stairs_up(self):
         level = _generate()
@@ -117,7 +115,7 @@ class TestCellularGenerator:
         start = None
         for y in range(level.height):
             for x in range(level.width):
-                if level.tiles[y][x].feature == "stairs_up":
+                if level.tile_at(x, y).feature == "stairs_up":
                     start = (x, y)
                     break
             if start:
@@ -127,18 +125,16 @@ class TestCellularGenerator:
         reachable = _flood_reachable(level, *start)
 
         # All non-corridor floor tiles should be reachable
-        for y in range(level.height):
-            for x in range(level.width):
-                tile = level.tiles[y][x]
-                if tile.terrain == Terrain.FLOOR:
-                    assert (x, y) in reachable, (
-                        f"Floor tile ({x},{y}) not reachable from stairs"
-                    )
+        for x, y, tile in level.iter_world():
+            if tile.terrain == Terrain.FLOOR:
+                assert (x, y) in reachable, (
+                    f"Floor tile ({x},{y}) not reachable from stairs"
+                )
 
     def test_has_walls(self):
         level = _generate()
         wall_count = sum(
-            1 for row in level.tiles for t in row
+            1 for t in level.iter_tiles()
             if t.terrain == Terrain.WALL
         )
         assert wall_count > 0
@@ -152,9 +148,9 @@ class TestCellularGenerator:
         level2 = _generate(seed=2)
         rooms1 = len(level1.rooms)
         rooms2 = len(level2.rooms)
-        tiles1 = sum(1 for row in level1.tiles for t in row
+        tiles1 = sum(1 for t in level1.iter_tiles()
                      if t.terrain == Terrain.FLOOR)
-        tiles2 = sum(1 for row in level2.tiles for t in row
+        tiles2 = sum(1 for t in level2.iter_tiles()
                      if t.terrain == Terrain.FLOOR)
         # At least one of rooms or floor count should differ
         assert rooms1 != rooms2 or tiles1 != tiles2
@@ -183,7 +179,7 @@ class TestCellularCorridorShape:
         for y in range(h):
             run = 0
             for x in range(w):
-                if (level.tiles[y][x].surface_type
+                if (level.tile_at(x, y).surface_type
                         == SurfaceType.CORRIDOR):
                     run += 1
                     best = max(best, run)
@@ -193,7 +189,7 @@ class TestCellularCorridorShape:
         for x in range(w):
             run = 0
             for y in range(h):
-                if (level.tiles[y][x].surface_type
+                if (level.tile_at(x, y).surface_type
                         == SurfaceType.CORRIDOR):
                     run += 1
                     best = max(best, run)
@@ -263,10 +259,10 @@ class TestErodeWallPeninsulas:
         floor_tiles: set[tuple[int, int]] = set()
         for y in range(1, 7):
             for x in range(1, 9):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
                 floor_tiles.add((x, y))
         # Insert single-tile wall peninsula
-        level.tiles[3][4] = Tile(terrain=Terrain.WALL)
+        level.set_tile(4, 3, Tile(terrain=Terrain.WALL))
         floor_tiles.discard((4, 3))
         return level, floor_tiles
 
@@ -277,7 +273,7 @@ class TestErodeWallPeninsulas:
         converted = _erode_wall_peninsulas(level, floor_tiles)
         assert converted > 0, "Should convert some wall tiles"
         # The peninsula tile should now be floor
-        assert level.tiles[3][4].terrain == Terrain.FLOOR, (
+        assert level.tile_at(4, 3).terrain == Terrain.FLOOR, (
             "Peninsula tile (4,3) should be floor"
         )
 
@@ -287,7 +283,7 @@ class TestErodeWallPeninsulas:
         _erode_wall_peninsulas(level, floor_tiles)
         # Top row should still be VOID (border)
         for x in range(10):
-            assert level.tiles[0][x].terrain != Terrain.FLOOR
+            assert level.tile_at(x, 0).terrain != Terrain.FLOOR
 
     def test_solid_walls_preserved(self):
         """A wall with only 1-2 floor neighbors (part of a solid
@@ -299,11 +295,11 @@ class TestErodeWallPeninsulas:
         # Floor only on bottom half
         for y in range(5, 9):
             for x in range(1, 9):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
                 floor_tiles.add((x, y))
         # Wall row at y=4 borders floor only on south side
         for x in range(1, 9):
-            level.tiles[4][x] = Tile(terrain=Terrain.WALL)
+            level.set_tile(x, 4, Tile(terrain=Terrain.WALL))
         converted = _erode_wall_peninsulas(level, floor_tiles)
         # These wall tiles have floor on only 1 side — keep them
         assert converted == 0, (
@@ -317,13 +313,13 @@ class TestErodeWallPeninsulas:
         level = _generate(seed=42)
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
-                t = level.tiles[y][x]
+                t = level.tile_at(x, y)
                 if t.terrain != Terrain.WALL:
                     continue
-                n = level.tiles[y-1][x].terrain == Terrain.FLOOR
-                s = level.tiles[y+1][x].terrain == Terrain.FLOOR
-                e = level.tiles[y][x+1].terrain == Terrain.FLOOR
-                w = level.tiles[y][x-1].terrain == Terrain.FLOOR
+                n = level.tile_at(x, y-1).terrain == Terrain.FLOOR
+                s = level.tile_at(x, y+1).terrain == Terrain.FLOOR
+                e = level.tile_at(x+1, y).terrain == Terrain.FLOOR
+                w = level.tile_at(x-1, y).terrain == Terrain.FLOOR
                 card = n + s + e + w
                 assert card < 3, (
                     f"Wall peninsula at ({x},{y}) has "
@@ -350,7 +346,7 @@ class TestAbsorbCorridorsIntoCaves:
                 cave_floor |= room.floor_tiles()
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
-                t = level.tiles[y][x]
+                t = level.tile_at(x, y)
                 if t.surface_type != SurfaceType.CORRIDOR:
                     continue
                 # Check if adjacent to a cave room tile

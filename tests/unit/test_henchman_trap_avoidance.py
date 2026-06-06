@@ -26,7 +26,7 @@ def _make_level(width: int = 10, height: int = 10) -> Level:
     room = Room(id="r0", rect=Rect(0, 0, width, height))
     return Level(
         id="t", name="T", depth=1, width=width, height=height,
-        tiles=tiles, rooms=[room], corridors=[], entities=[],
+        _tiles=tiles, rooms=[room], corridors=[], entities=[],
     )
 
 

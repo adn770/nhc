@@ -27,8 +27,7 @@ from nhc.sites.farm import (
 
 def _count_surface(site: Site, kind: SurfaceType) -> int:
     return sum(
-        1 for row in site.surface.tiles
-        for t in row if t.surface_type == kind
+        1 for t in site.surface.iter_tiles() if t.surface_type == kind
     )
 
 
@@ -83,7 +82,7 @@ class TestTinyFarm:
         )
         # Phase 3a/3b: walkable tiles ride on FLOOR or GRASS.
         total_walkable = sum(
-            1 for row in site.surface.tiles for t in row
+            1 for t in site.surface.iter_tiles()
             if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
         )
         field = _count_surface(site, SurfaceType.FIELD)
@@ -127,7 +126,7 @@ class TestTinyFarmFarmhouse:
         )
         ground = site.buildings[0].ground
         wall_count = sum(
-            1 for row in ground.tiles for t in row
+            1 for t in ground.iter_tiles()
             if t.terrain == Terrain.WALL
         )
         assert wall_count > 0
@@ -142,8 +141,7 @@ class TestTinyFarmFarmhouse:
         ground = farmhouse.ground
         perim = farmhouse.shared_perimeter()
         perim_doors = [
-            (x, y) for y, row in enumerate(ground.tiles)
-            for x, t in enumerate(row)
+            (x, y) for x, y, t in ground.iter_world()
             if t.feature == "door_closed" and (x, y) in perim
         ]
         assert len(perim_doors) == 1
@@ -156,8 +154,7 @@ class TestTinyFarmFarmhouse:
         )
         ground = site.buildings[0].ground
         doors = [
-            (x, y) for y, row in enumerate(ground.tiles)
-            for x, t in enumerate(row)
+            (x, y) for x, y, t in ground.iter_world()
             if t.feature == "door_closed"
         ]
         assert doors
@@ -183,8 +180,8 @@ class TestTinyFarmSurfaceDoor:
             "f1", random.Random(1), tier=SiteTier.TINY,
         )
         doors = [
-            (x, y) for y, row in enumerate(site.surface.tiles)
-            for x, t in enumerate(row) if t.feature == "door_closed"
+            (x, y) for x, y, t in site.surface.iter_world()
+            if t.feature == "door_closed"
         ]
         assert doors, "surface must carry the building door"
 
@@ -193,8 +190,8 @@ class TestTinyFarmSurfaceDoor:
             "f1", random.Random(1), tier=SiteTier.TINY,
         )
         doors = [
-            (x, y) for y, row in enumerate(site.surface.tiles)
-            for x, t in enumerate(row) if t.feature == "door_closed"
+            (x, y) for x, y, t in site.surface.iter_world()
+            if t.feature == "door_closed"
         ]
         assert doors[0] in site.building_doors
 

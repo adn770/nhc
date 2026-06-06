@@ -45,8 +45,8 @@ class TestTempleShape:
         assert b.wall_material == "stone"
         # Forest temples get a GARDEN ring on the surface.
         garden_count = sum(
-            1 for row in site.surface.tiles
-            for t in row if t.surface_type == SurfaceType.GARDEN
+            1 for t in site.surface.iter_tiles()
+            if t.surface_type == SurfaceType.GARDEN
         )
         assert garden_count > 0
 
@@ -82,7 +82,7 @@ class TestMysteriousTemple:
                     perimeter.add((nx, ny))
         void_count = sum(
             1 for (x, y) in perimeter
-            if ground.tiles[y][x].terrain is Terrain.VOID
+            if ground.tile_at(x, y).terrain is Terrain.VOID
         )
         assert 2 <= void_count <= 4, (
             f"expected 2-4 dropped wall tiles, got {void_count}"
@@ -181,8 +181,7 @@ class TestTempleGroundRings:
         fp = _footprint(site)
         paved = [
             (x, y)
-            for y, row in enumerate(s.tiles)
-            for x, t in enumerate(row)
+            for x, y, t in s.iter_world()
             if t.surface_type == SurfaceType.FLAGSTONE
         ]
         assert paved, f"{biome}: no flagstone ring"
@@ -202,8 +201,7 @@ class TestTempleGroundRings:
         fp = _footprint(site)
         flowers = [
             (x, y)
-            for y, row in enumerate(s.tiles)
-            for x, t in enumerate(row)
+            for x, y, t in s.iter_world()
             if t.feature == "flower"
         ]
         assert flowers, f"{biome}: no flower ring"
@@ -217,17 +215,17 @@ class TestTempleGroundRings:
         ]
         assert len(ring) >= 8, (biome, len(ring))
         for xy in ring:
-            assert s.tiles[xy[1]][xy[0]].surface_type is SurfaceType.GARDEN
+            assert s.tile_at(xy[0], xy[1]).surface_type is SurfaceType.GARDEN
 
     def test_void_margin_preserved(self):
         site = assemble_temple("t_v", random.Random(4), biome=Biome.FOREST)
         s = site.surface
         for x in range(s.width):
-            assert s.tiles[0][x].terrain is Terrain.VOID
-            assert s.tiles[s.height - 1][x].terrain is Terrain.VOID
+            assert s.tile_at(x, 0).terrain is Terrain.VOID
+            assert s.tile_at(x, s.height - 1).terrain is Terrain.VOID
         for y in range(s.height):
-            assert s.tiles[y][0].terrain is Terrain.VOID
-            assert s.tiles[y][s.width - 1].terrain is Terrain.VOID
+            assert s.tile_at(0, y).terrain is Terrain.VOID
+            assert s.tile_at(s.width - 1, y).terrain is Terrain.VOID
 
 
 class TestTempleGrassScatter:
@@ -242,16 +240,15 @@ class TestTempleGrassScatter:
             s = site.surface
             scattered = 0
             grass = 0
-            for row in s.tiles:
-                for t in row:
-                    if (t.terrain is Terrain.GRASS
-                            and t.surface_type is SurfaceType.GARDEN):
-                        grass += 1
-                        if t.feature in ("tree", "bush"):
-                            scattered += 1
-                            seen.add(t.feature)
-                        elif t.feature == "flower":
-                            seen.add("flower")
+            for t in s.iter_tiles():
+                if (t.terrain is Terrain.GRASS
+                        and t.surface_type is SurfaceType.GARDEN):
+                    grass += 1
+                    if t.feature in ("tree", "bush"):
+                        scattered += 1
+                        seen.add(t.feature)
+                    elif t.feature == "flower":
+                        seen.add("flower")
             assert grass > 0
             # Low density — far under a fifth of the open grass.
             assert scattered < grass * 0.2, (seed, scattered, grass)
@@ -262,11 +259,10 @@ class TestTempleGrassScatter:
             "t_sg", random.Random(3), biome=Biome.FOREST,
         )
         s = site.surface
-        for row in s.tiles:
-            for t in row:
-                if t.feature in ("tree", "bush"):
-                    assert t.terrain is Terrain.GRASS
-                    assert t.surface_type is SurfaceType.GARDEN
+        for t in s.iter_tiles():
+            if t.feature in ("tree", "bush"):
+                assert t.terrain is Terrain.GRASS
+                assert t.surface_type is SurfaceType.GARDEN
 
     def test_non_forest_temple_has_no_scattered_trees(self):
         # Mountain temple ground is bare FLOOR, not grass — only
@@ -276,7 +272,7 @@ class TestTempleGrassScatter:
         )
         s = site.surface
         kinds = {
-            t.feature for row in s.tiles for t in row
+            t.feature for t in s.iter_tiles()
             if t.feature is not None
         }
         assert "tree" not in kinds
@@ -288,12 +284,10 @@ class TestTempleGrassScatter:
         b = assemble_temple("t_d", random.Random(9), biome=Biome.FOREST)
         fa = {
             (x, y): t.feature
-            for y, row in enumerate(a.surface.tiles)
-            for x, t in enumerate(row) if t.feature
+            for x, y, t in a.surface.iter_world() if t.feature
         }
         fb = {
             (x, y): t.feature
-            for y, row in enumerate(b.surface.tiles)
-            for x, t in enumerate(row) if t.feature
+            for x, y, t in b.surface.iter_world() if t.feature
         }
         assert fa == fb

@@ -124,7 +124,7 @@ def emit_thematic_details(builder: Any) -> list[OpEntryT]:
     level = ctx.level
     if getattr(ctx, "interior_finish", "") == "wood":
         return []
-    if getattr(level, "tiles", None) is None:
+    if getattr(level, "_tiles", None) is None:
         return []
 
     thematic_payload, _ = _candidates_with_wall_corners(level)
@@ -172,7 +172,7 @@ def emit_loose_stones(builder: Any) -> list[OpEntryT]:
     level = ctx.level
     if getattr(ctx, "interior_finish", "") == "wood":
         return []
-    if getattr(level, "tiles", None) is None:
+    if getattr(level, "_tiles", None) is None:
         return []
 
     _, detail_payload = _candidates_with_wall_corners(level)

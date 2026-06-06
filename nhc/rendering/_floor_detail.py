@@ -86,7 +86,7 @@ def _render_floor_grid(
 
     for y in range(level.height):
         for x in range(level.width):
-            tile = level.tiles[y][x]
+            tile = level.tile_at(x, y)
             # Skip VOID tiles: they're truly empty space, never
             # rendered on surface levels (no dungeon_poly to clip
             # against) and on dungeon levels their grid edges
@@ -160,25 +160,25 @@ _COBBLESTONE_SURFACES = (SurfaceType.STREET, SurfaceType.PAVED)
 
 
 def _is_cobble_tile(level: "Level", x: int, y: int) -> bool:
-    return level.tiles[y][x].surface_type in _COBBLESTONE_SURFACES
+    return level.tile_at(x, y).surface_type in _COBBLESTONE_SURFACES
 
 
 # ── Cobblestone variants ─────────────────────────────────────
 
 
 def _is_brick_tile(level: "Level", x: int, y: int) -> bool:
-    return level.tiles[y][x].surface_type is SurfaceType.BRICK
+    return level.tile_at(x, y).surface_type is SurfaceType.BRICK
 
 
 def _is_flagstone_tile(level: "Level", x: int, y: int) -> bool:
-    return level.tiles[y][x].surface_type is SurfaceType.FLAGSTONE
+    return level.tile_at(x, y).surface_type is SurfaceType.FLAGSTONE
 
 
 def _is_opus_romano_tile(
     level: "Level", x: int, y: int,
 ) -> bool:
     return (
-        level.tiles[y][x].surface_type
+        level.tile_at(x, y).surface_type
         is SurfaceType.OPUS_ROMANO
     )
 
@@ -191,7 +191,7 @@ def _is_pavement_tile(level: "Level", x: int, y: int) -> bool:
     renders as Ashlar StaggeredJoint dressed stone (distinct from
     the FlemishBond brick streets).
     """
-    return level.tiles[y][x].surface_type is SurfaceType.PAVEMENT
+    return level.tile_at(x, y).surface_type is SurfaceType.PAVEMENT
 
 
 # ── Field and garden surfaces (tunable constants) ─────────────
@@ -213,7 +213,7 @@ def _is_field_overlay_tile(level: "Level", x: int, y: int) -> bool:
     grass tint + blade strokes paint the base look; the decorator
     only adds the scattered-stone overlay.
     """
-    tile = level.tiles[y][x]
+    tile = level.tile_at(x, y)
     return (
         tile.terrain is Terrain.GRASS
         and tile.surface_type is SurfaceType.FIELD
@@ -384,7 +384,7 @@ def _wood_pattern_for_room(region_ref: str | bytes | None) -> str:
 
 
 def _is_track_tile(level: "Level", x: int, y: int) -> bool:
-    return level.tiles[y][x].surface_type is SurfaceType.TRACK
+    return level.tile_at(x, y).surface_type is SurfaceType.TRACK
 
 
 _OPEN_N = 1 << 0
@@ -422,4 +422,4 @@ def _track_open_sides(level: "Level", x: int, y: int) -> int:
 
 
 def _is_ore_tile(level: "Level", x: int, y: int) -> bool:
-    return level.tiles[y][x].feature == "ore_deposit"
+    return level.tile_at(x, y).feature == "ore_deposit"

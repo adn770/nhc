@@ -25,8 +25,8 @@ from nhc.sites.farm import (
 
 def _surface_count(site: Site, surface: SurfaceType) -> int:
     return sum(
-        1 for row in site.surface.tiles
-        for t in row if t.surface_type == surface
+        1 for t in site.surface.iter_tiles()
+        if t.surface_type == surface
     )
 
 
@@ -78,8 +78,7 @@ class TestFarmBuildings:
         ground = farmhouse.ground
         perim = farmhouse.shared_perimeter()
         perim_doors = [
-            (x, y) for y, row in enumerate(ground.tiles)
-            for x, t in enumerate(row)
+            (x, y) for x, y, t in ground.iter_world()
             if t.feature == "door_closed" and (x, y) in perim
         ]
         assert len(perim_doors) >= 1
@@ -96,7 +95,7 @@ class TestFarmSurface:
         site = assemble_farm("f1", random.Random(1))
         # Phase 3a/3b: GARDEN + FIELD tiles ride on Terrain.GRASS.
         total_walkable = sum(
-            1 for row in site.surface.tiles for t in row
+            1 for t in site.surface.iter_tiles()
             if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
         )
         field = _surface_count(site, SurfaceType.FIELD)
@@ -131,7 +130,7 @@ class TestFarmSurface:
             footprint = b.base_shape.floor_tiles(b.base_rect)
             for (x, y) in footprint:
                 if site.surface.in_bounds(x, y):
-                    t = site.surface.tiles[y][x]
+                    t = site.surface.tile_at(x, y)
                     assert t.surface_type != SurfaceType.FIELD
                     assert t.surface_type != SurfaceType.GARDEN
 

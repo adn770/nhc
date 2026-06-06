@@ -22,7 +22,7 @@ def _stamp_footprint_as_floor(
     level: Level, footprint: set[tuple[int, int]],
 ) -> None:
     for (x, y) in footprint:
-        level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
 
 def _expected_wall_tiles(
@@ -38,7 +38,7 @@ def _expected_wall_tiles(
                     continue
                 if not level.in_bounds(nx, ny):
                     continue
-                if level.tiles[ny][nx].terrain == Terrain.VOID:
+                if level.tile_at(nx, ny).terrain == Terrain.VOID:
                     out.add((nx, ny))
     return out
 
@@ -57,9 +57,8 @@ class TestComposeShellPerimeter:
 
         walls = {
             (x, y)
-            for y in range(level.height)
-            for x in range(level.width)
-            if level.tiles[y][x].terrain is Terrain.WALL
+            for x, y, tile in level.iter_world()
+            if tile.terrain is Terrain.WALL
         }
         assert walls == expected
 
@@ -72,7 +71,7 @@ class TestComposeShellPerimeter:
 
         compose_shell(level, {"b0": footprint})
         for (x, y) in footprint:
-            assert level.tiles[y][x].terrain is Terrain.FLOOR
+            assert level.tile_at(x, y).terrain is Terrain.FLOOR
 
     def test_non_void_tiles_are_preserved(self):
         """Shell must not overwrite a non-VOID tile (future: shared
@@ -85,10 +84,10 @@ class TestComposeShellPerimeter:
 
         # Pre-stamp one 8-neighbour as FLOOR; compose_shell must leave it.
         px, py = rect.x - 1, rect.y
-        level.tiles[py][px] = Tile(terrain=Terrain.FLOOR)
+        level.set_tile(px, py, Tile(terrain=Terrain.FLOOR))
 
         compose_shell(level, {"b0": footprint})
-        assert level.tiles[py][px].terrain is Terrain.FLOOR
+        assert level.tile_at(px, py).terrain is Terrain.FLOOR
 
     def test_out_of_bounds_neighbours_skipped(self):
         # Footprint butts up against the level boundary.
@@ -101,9 +100,8 @@ class TestComposeShellPerimeter:
         # No crash; walls stamped only in-bounds.
         walls = {
             (x, y)
-            for y in range(level.height)
-            for x in range(level.width)
-            if level.tiles[y][x].terrain is Terrain.WALL
+            for x, y, tile in level.iter_world()
+            if tile.terrain is Terrain.WALL
         }
         for (x, y) in walls:
             assert 0 <= x < level.width
@@ -120,9 +118,8 @@ class TestComposeShellPerimeter:
         compose_shell(level, {"b0": footprint})
         walls = {
             (x, y)
-            for y in range(level.height)
-            for x in range(level.width)
-            if level.tiles[y][x].terrain is Terrain.WALL
+            for x, y, tile in level.iter_world()
+            if tile.terrain is Terrain.WALL
         }
         assert walls == expected
 
@@ -137,8 +134,7 @@ class TestComposeShellPerimeter:
         compose_shell(level, {"b0": footprint})
         walls = {
             (x, y)
-            for y in range(level.height)
-            for x in range(level.width)
-            if level.tiles[y][x].terrain is Terrain.WALL
+            for x, y, tile in level.iter_world()
+            if tile.terrain is Terrain.WALL
         }
         assert walls == expected

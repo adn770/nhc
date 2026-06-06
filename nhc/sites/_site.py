@@ -244,7 +244,7 @@ def stamp_building_door_on_floor(
     multi-floor town pairs where the link must land on each shared
     floor.
     """
-    tile = building.floors[floor_idx].tiles[by][bx]
+    tile = building.floors[floor_idx].tile_at(bx, by)
     tile.feature = feature
     nb = outside_neighbour(building, bx, by)
     if nb is None:
@@ -274,7 +274,7 @@ def paint_surface_doors(
     for (sx, sy), (_bid, bx, by) in site.building_doors.items():
         if not surface.in_bounds(sx, sy):
             continue
-        existing = surface.tiles[sy][sx]
+        existing = surface.tile_at(sx, sy)
         # Phase 3a/3b: GARDEN / FIELD tiles render on Terrain.GRASS
         # so the theme grass tint paints under the overlay. Treat
         # FLOOR or GRASS as "this tile is already part of the
@@ -292,12 +292,12 @@ def paint_surface_doors(
                 )
                 else Terrain.FLOOR
             )
-        surface.tiles[sy][sx] = Tile(
+        surface.set_tile(sx, sy, Tile(
             terrain=terrain,
             feature="door_closed",
             surface_type=surface_type,
             door_side=_compass(bx - sx, by - sy),
-        )
+        ))
 
 
 # ── Assembler dispatcher ─────────────────────────────────────
@@ -338,10 +338,12 @@ def sync_linked_door_state(
             0 <= link.floor < len(other_b.floors)
         ):
             continue
-        src_tile = src_b.floors[link.floor].tiles[tile_xy[1]][tile_xy[0]]
-        dst_tile = other_b.floors[link.floor].tiles[
-            other_tile[1]
-        ][other_tile[0]]
+        src_tile = src_b.floors[link.floor].tile_at(
+            tile_xy[0], tile_xy[1],
+        )
+        dst_tile = other_b.floors[link.floor].tile_at(
+            other_tile[0], other_tile[1],
+        )
         dst_tile.feature = src_tile.feature
         dst_tile.opened_at_turn = src_tile.opened_at_turn
 
@@ -451,19 +453,17 @@ def paint_outer_grass_ring(level: "Level", ring_width: int) -> None:
     """
     h = level.height
     w = level.width
-    for y in range(h):
-        for x in range(w):
-            if (
-                x >= ring_width and x < w - ring_width
-                and y >= ring_width and y < h - ring_width
-            ):
-                continue
-            tile = level.tiles[y][x]
-            if tile.terrain is Terrain.VOID:
-                level.tiles[y][x] = Tile(
-                    terrain=Terrain.GRASS,
-                    surface_type=SurfaceType.FIELD,
-                )
+    for x, y, tile in level.iter_world():
+        if (
+            x >= ring_width and x < w - ring_width
+            and y >= ring_width and y < h - ring_width
+        ):
+            continue
+        if tile.terrain is Terrain.VOID:
+            level.set_tile(x, y, Tile(
+                terrain=Terrain.GRASS,
+                surface_type=SurfaceType.FIELD,
+            ))
 
 
 def plant_formal_garden(
@@ -520,7 +520,7 @@ def plant_formal_garden(
     def _plantable(x: int, y: int) -> bool:
         if not (1 <= x <= w - 2 and 1 <= y <= h - 2):
             return False
-        tile = surface.tiles[y][x]
+        tile = surface.tile_at(x, y)
         if tile.terrain is not Terrain.GRASS:
             return False
         if tile.feature is not None:
@@ -533,7 +533,7 @@ def plant_formal_garden(
     for y in range(1, h - 1):
         for x in range(1, w - 1):
             if (x in (1, w - 2) or y in (1, h - 2)) and _plantable(x, y):
-                surface.tiles[y][x].feature = "bush"
+                surface.tile_at(x, y).feature = "bush"
 
     # Flower parterre: the ring one tile inside the hedge.
     if flower:
@@ -541,7 +541,7 @@ def plant_formal_garden(
             for x in range(2, w - 2):
                 on_inner = x in (2, w - 3) or y in (2, h - 3)
                 if on_inner and _plantable(x, y):
-                    surface.tiles[y][x].feature = "flower"
+                    surface.tile_at(x, y).feature = "flower"
 
     # Tree lattice, centred so it is mirror-symmetric; the two
     # border rings are left to the hedge and the flower parterre.
@@ -554,4 +554,4 @@ def plant_formal_garden(
             if (x, y) in halo:
                 continue
             if _plantable(x, y):
-                surface.tiles[y][x].feature = "tree"
+                surface.tile_at(x, y).feature = "tree"

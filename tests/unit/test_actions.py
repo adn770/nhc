@@ -55,7 +55,7 @@ def _make_test_level(width=10, height=10):
 
     return Level(
         id="test", name="Test", depth=1,
-        width=width, height=height, tiles=tiles,
+        width=width, height=height, _tiles=tiles,
     )
 
 
@@ -125,7 +125,7 @@ class TestMoveAction:
     async def test_open_door_on_bump(self):
         world = World()
         level = _make_test_level()
-        level.tiles[5][6].feature = "door_closed"
+        level.tile_at(6, 5).feature = "door_closed"
         pid = _make_player(world, x=5, y=5)
 
         action = MoveAction(actor=pid, dx=1, dy=0)
@@ -133,7 +133,7 @@ class TestMoveAction:
         events = await action.execute(world, level)
 
         # Door should be open, player stays put (opening costs the move)
-        assert level.tiles[5][6].feature == "door_open"
+        assert level.tile_at(6, 5).feature == "door_open"
         pos = world.get_component(pid, "Position")
         assert pos.x == 5
 
@@ -311,8 +311,8 @@ class TestMeleeAttackAction:
         world = World()
         level = _make_test_level()
         # Player stands on door tile at (5,5), door is on the west edge
-        level.tiles[5][5].feature = "door_closed"
-        level.tiles[5][5].door_side = "west"
+        level.tile_at(5, 5).feature = "door_closed"
+        level.tile_at(5, 5).door_side = "west"
         pid = _make_player(world, x=5, y=5)
         # Creature is to the west at (4,5) — on the other side of the door
         cid = _make_creature(world, x=4, y=5)
@@ -334,8 +334,8 @@ class TestMeleeAttackAction:
         ]:
             world = World()
             level = _make_test_level()
-            level.tiles[5][5].feature = "door_closed"
-            level.tiles[5][5].door_side = door_side
+            level.tile_at(5, 5).feature = "door_closed"
+            level.tile_at(5, 5).door_side = door_side
             pid = _make_player(world, x=5, y=5)
             cid = _make_creature(world, x=5 + creature_dx, y=5 + creature_dy)
 
@@ -348,8 +348,8 @@ class TestMeleeAttackAction:
         """Open doors do not block melee attacks."""
         world = World()
         level = _make_test_level()
-        level.tiles[5][5].feature = "door_open"
-        level.tiles[5][5].door_side = "west"
+        level.tile_at(5, 5).feature = "door_open"
+        level.tile_at(5, 5).door_side = "west"
         pid = _make_player(world, x=5, y=5)
         cid = _make_creature(world, x=4, y=5)
 
@@ -362,8 +362,8 @@ class TestMeleeAttackAction:
         world = World()
         level = _make_test_level()
         # Door on west edge — east side is the "room" side
-        level.tiles[5][5].feature = "door_closed"
-        level.tiles[5][5].door_side = "west"
+        level.tile_at(5, 5).feature = "door_closed"
+        level.tile_at(5, 5).door_side = "west"
         pid = _make_player(world, x=5, y=5)
         # Creature to the east — same side as player (not blocked)
         cid = _make_creature(world, x=6, y=5)
@@ -376,8 +376,8 @@ class TestMeleeAttackAction:
         """Locked doors also block melee attacks."""
         world = World()
         level = _make_test_level()
-        level.tiles[5][5].feature = "door_locked"
-        level.tiles[5][5].door_side = "west"
+        level.tile_at(5, 5).feature = "door_locked"
+        level.tile_at(5, 5).door_side = "west"
         pid = _make_player(world, x=5, y=5)
         cid = _make_creature(world, x=4, y=5)
 
@@ -499,7 +499,7 @@ class TestDescendStairs:
     async def test_descend_on_stairs(self):
         world = World()
         level = _make_test_level()
-        level.tiles[5][5].feature = "stairs_down"
+        level.tile_at(5, 5).feature = "stairs_down"
         pid = _make_player(world, x=5, y=5)
 
         action = DescendStairsAction(actor=pid)
@@ -550,7 +550,7 @@ class TestLookAction:
     async def test_look_sees_stairs(self):
         world = World()
         level = _make_test_level()
-        level.tiles[5][5].feature = "stairs_down"
+        level.tile_at(5, 5).feature = "stairs_down"
         pid = _make_player(world, x=5, y=5)
 
         action = LookAction(actor=pid)
@@ -583,9 +583,8 @@ class TestLookAction:
         world = World()
         level = _make_test_level()
         # Mark tiles visible
-        for row in level.tiles:
-            for tile in row:
-                tile.visible = True
+        for tile in level.iter_tiles():
+            tile.visible = True
         pid = _make_player(world, x=5, y=5)
         world.create_entity({
             "Position": Position(x=6, y=5),
@@ -611,7 +610,7 @@ class TestDescribeTile:
         world = World()
         level = _make_test_level()
         pid = _make_player(world, x=5, y=5)
-        level.tiles[5][5].visible = True
+        level.tile_at(5, 5).visible = True
         parts = describe_tile(world, level, pid, 5, 5)
         assert len(parts) >= 1
 
@@ -619,9 +618,8 @@ class TestDescribeTile:
         from nhc.core.actions._interaction import describe_tile
         world = World()
         level = _make_test_level()
-        for row in level.tiles:
-            for tile in row:
-                tile.visible = True
+        for tile in level.iter_tiles():
+            tile.visible = True
         pid = _make_player(world, x=5, y=5)
         world.create_entity({
             "Position": Position(x=6, y=5),
@@ -637,7 +635,7 @@ class TestDescribeTile:
         from nhc.core.actions._interaction import describe_tile
         world = World()
         level = _make_test_level()
-        level.tiles[5][5].visible = True
+        level.tile_at(5, 5).visible = True
         pid = _make_player(world, x=5, y=5)
         world.create_entity({
             "Position": Position(x=5, y=5),
@@ -653,7 +651,7 @@ class TestDescribeTile:
         world = World()
         level = _make_test_level()
         pid = _make_player(world, x=5, y=5)
-        level.tiles[5][5].visible = False
+        level.tile_at(5, 5).visible = False
         parts = describe_tile(world, level, pid, 5, 5)
         assert parts == []
 
@@ -661,8 +659,8 @@ class TestDescribeTile:
         from nhc.core.actions._interaction import describe_tile
         world = World()
         level = _make_test_level()
-        level.tiles[5][5].visible = True
-        level.tiles[5][5].feature = "stairs_down"
+        level.tile_at(5, 5).visible = True
+        level.tile_at(5, 5).feature = "stairs_down"
         pid = _make_player(world, x=5, y=5)
         parts = describe_tile(world, level, pid, 5, 5)
         assert any("stair" in p.lower() for p in parts)
@@ -962,16 +960,16 @@ class TestCloseDoorAction:
         init("en")
         world = World()
         level = _make_test_level()
-        level.tiles[5][6].feature = "door_open"
-        level.tiles[5][6].opened_at_turn = 3
+        level.tile_at(6, 5).feature = "door_open"
+        level.tile_at(6, 5).opened_at_turn = 3
         pid = _make_player(world, x=5, y=5)
 
         action = CloseDoorAction(actor=pid, dx=1, dy=0)
         assert await action.validate(world, level)
         events = await action.execute(world, level)
 
-        assert level.tiles[5][6].feature == "door_closed"
-        assert level.tiles[5][6].opened_at_turn is None
+        assert level.tile_at(6, 5).feature == "door_closed"
+        assert level.tile_at(6, 5).opened_at_turn is None
         msgs = [e.text for e in events if isinstance(e, MessageEvent)]
         assert any("close" in m.lower() for m in msgs)
 
@@ -979,7 +977,7 @@ class TestCloseDoorAction:
     async def test_validate_rejects_closed_door(self):
         world = World()
         level = _make_test_level()
-        level.tiles[5][6].feature = "door_closed"
+        level.tile_at(6, 5).feature = "door_closed"
         pid = _make_player(world, x=5, y=5)
 
         action = CloseDoorAction(actor=pid, dx=1, dy=0)
@@ -1008,7 +1006,7 @@ class TestCloseDoorAction:
         """Can't close a door while another creature stands on it."""
         world = World()
         level = _make_test_level()
-        level.tiles[5][6].feature = "door_open"
+        level.tile_at(6, 5).feature = "door_open"
         pid = _make_player(world, x=5, y=5)
         _make_creature(world, x=6, y=5)
 
@@ -1021,15 +1019,15 @@ class TestCloseDoorAction:
         init("en")
         world = World()
         level = _make_test_level()
-        level.tiles[5][5].feature = "door_open"
-        level.tiles[5][5].opened_at_turn = 1
+        level.tile_at(5, 5).feature = "door_open"
+        level.tile_at(5, 5).opened_at_turn = 1
         pid = _make_player(world, x=5, y=5)
 
         action = CloseDoorAction(actor=pid, dx=0, dy=0)
         assert await action.validate(world, level)
         await action.execute(world, level)
 
-        assert level.tiles[5][5].feature == "door_closed"
+        assert level.tile_at(5, 5).feature == "door_closed"
 
     @pytest.mark.asyncio
     async def test_find_close_door_action_finds_adjacent(self):
@@ -1039,7 +1037,7 @@ class TestCloseDoorAction:
 
         world = World()
         level = _make_test_level()
-        level.tiles[5][6].feature = "door_open"
+        level.tile_at(6, 5).feature = "door_open"
         pid = _make_player(world, x=5, y=5)
 
         class _FakeRenderer:
@@ -1097,7 +1095,7 @@ class TestCloseDoorAction:
 
         world = World()
         level = _make_test_level()
-        level.tiles[5][6] = Tile(terrain=target_terrain)
+        level.set_tile(6, 5, Tile(terrain=target_terrain))
         pid = _make_player(world, x=5, y=5)
         # Equip a digging tool
         tool = world.create_entity({

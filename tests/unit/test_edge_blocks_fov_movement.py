@@ -23,7 +23,7 @@ def _floor_level(width: int = 6, height: int = 6) -> Level:
     level = Level.create_empty("t", "t", 1, width, height)
     for y in range(height):
         for x in range(width):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     return level
 
 
@@ -43,8 +43,8 @@ class TestEdgeBlocksSight:
         level.interior_edges.add((3, 3, "north"))
         # Door on the tile south of the edge, door_side pointing
         # north at the edge.
-        level.tiles[3][3].feature = "door_open"
-        level.tiles[3][3].door_side = "north"
+        level.tile_at(3, 3).feature = "door_open"
+        level.tile_at(3, 3).door_side = "north"
         assert not edge_blocks_sight(level, (3, 2), (3, 3))
         assert not edge_blocks_sight(level, (3, 3), (3, 2))
 
@@ -55,8 +55,8 @@ class TestEdgeBlocksSight:
         correct either way."""
         level = _floor_level()
         level.interior_edges.add((3, 3, "north"))
-        level.tiles[3][3].feature = "door_closed"
-        level.tiles[3][3].door_side = "north"
+        level.tile_at(3, 3).feature = "door_closed"
+        level.tile_at(3, 3).door_side = "north"
         assert edge_blocks_sight(level, (3, 2), (3, 3))
 
     def test_door_on_other_side_of_edge(self) -> None:
@@ -64,8 +64,8 @@ class TestEdgeBlocksSight:
         south at the edge — same suppression semantics."""
         level = _floor_level()
         level.interior_edges.add((3, 3, "north"))
-        level.tiles[2][3].feature = "door_open"
-        level.tiles[2][3].door_side = "south"
+        level.tile_at(3, 2).feature = "door_open"
+        level.tile_at(3, 2).door_side = "south"
         assert not edge_blocks_sight(level, (3, 2), (3, 3))
 
 
@@ -78,8 +78,8 @@ class TestEdgeBlocksMovement:
     def test_open_door_suppresses_movement(self) -> None:
         level = _floor_level()
         level.interior_edges.add((3, 3, "north"))
-        level.tiles[3][3].feature = "door_open"
-        level.tiles[3][3].door_side = "north"
+        level.tile_at(3, 3).feature = "door_open"
+        level.tile_at(3, 3).door_side = "north"
         assert not edge_blocks_movement(level, (3, 2), (3, 3))
 
     def test_diagonal_blocked_when_either_leg_walled(self) -> None:
@@ -126,9 +126,9 @@ class TestEdgeShadowTiles:
         for y in range(7):
             for x in range(7):
                 if x in (0, 6) or y in (0, 6):
-                    level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                    level.set_tile(x, y, Tile(terrain=Terrain.WALL))
                 else:
-                    level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                    level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
         for x in range(1, 6):
             level.interior_edges.add((x, 3, "north"))
         return level
@@ -168,7 +168,7 @@ class TestEdgeShadowTiles:
         must still see their own tile, and BFS must still reach
         adjacent passable tiles."""
         level = self._two_chamber_level()
-        level.tiles[4][3].feature = "door_closed"
+        level.tile_at(3, 4).feature = "door_closed"
         shadow = edge_shadow_tiles(level, (3, 4), radius=8)
         assert (3, 4) not in shadow
         for x in range(1, 6):
@@ -183,13 +183,13 @@ class TestEdgeHasOpenDoor:
     def test_open_door_south_side(self) -> None:
         level = _floor_level()
         # Canonical edge (3, 3, "north"). Door on (3, 3) opens north.
-        level.tiles[3][3].feature = "door_open"
-        level.tiles[3][3].door_side = "north"
+        level.tile_at(3, 3).feature = "door_open"
+        level.tile_at(3, 3).door_side = "north"
         assert edge_has_open_door(level, 3, 3, "north")
 
     def test_open_door_north_side(self) -> None:
         level = _floor_level()
         # Door on (3, 2) with door_side = south — same edge.
-        level.tiles[2][3].feature = "door_open"
-        level.tiles[2][3].door_side = "south"
+        level.tile_at(3, 2).feature = "door_open"
+        level.tile_at(3, 2).door_side = "south"
         assert edge_has_open_door(level, 3, 3, "north")

@@ -8,7 +8,7 @@ content and the canvas edge — see
 
 The renderable bbox is the union of:
 
-1. Non-VOID tiles in ``level.tiles``.
+1. Non-VOID tiles in the level's tile grid.
 2. The enclosure polygon's tile span (``site.enclosure``), when
    present. Polygon vertices are edge coordinates: a vertex at
    ``x`` sits on the left edge of tile column ``x``, so the
@@ -53,7 +53,7 @@ def compute_renderable_bbox(
 ) -> RenderableBBox:
     """Return the inclusive bbox of every renderable element.
 
-    Walks ``level.tiles`` for non-VOID terrain, the enclosure
+    Walks the level's tile grid for non-VOID terrain, the enclosure
     polygon (treated as edge coordinates: tile span shrinks by 1
     at each max edge), and every building's ``base_rect`` grown
     by 1 tile on every side to capture decoration overhang.
@@ -67,19 +67,17 @@ def compute_renderable_bbox(
     max_x = -(1 << 30)
     max_y = -(1 << 30)
 
-    for y in range(level.height):
-        row = level.tiles[y]
-        for x in range(level.width):
-            if row[x].terrain is Terrain.VOID:
-                continue
-            if x < min_x:
-                min_x = x
-            if x > max_x:
-                max_x = x
-            if y < min_y:
-                min_y = y
-            if y > max_y:
-                max_y = y
+    for x, y, tile in level.iter_world():
+        if tile.terrain is Terrain.VOID:
+            continue
+        if x < min_x:
+            min_x = x
+        if x > max_x:
+            max_x = x
+        if y < min_y:
+            min_y = y
+        if y > max_y:
+            max_y = y
 
     if site is not None:
         if site.enclosure is not None and site.enclosure.polygon:

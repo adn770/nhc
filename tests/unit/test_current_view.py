@@ -46,7 +46,7 @@ def _floor_level(
     level = Level.create_empty(level_id, level_id, depth, 3, 3)
     for y in range(3):
         for x in range(3):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     level.building_id = building_id
     return level
 

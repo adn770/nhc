@@ -122,7 +122,7 @@ def _flat_level(width: int = 10, height: int = 10):
     ]
     return Level(
         id="town", name="town", depth=1,
-        width=width, height=height, tiles=tiles,
+        width=width, height=height, _tiles=tiles,
     )
 
 

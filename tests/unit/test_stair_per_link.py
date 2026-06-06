@@ -101,8 +101,8 @@ class TestBuildFloorsWithStairs:
             ux, uy = link.to_tile
             lo = floors[link.from_floor]
             hi = floors[link.to_floor]
-            assert lo.tiles[fy][fx].terrain is Terrain.FLOOR
-            assert hi.tiles[uy][ux].terrain is Terrain.FLOOR
+            assert lo.tile_at(fx, fy).terrain is Terrain.FLOOR
+            assert hi.tile_at(ux, uy).terrain is Terrain.FLOOR
 
     def test_lower_stairs_up_upper_stairs_down(self):
         rect = Rect(1, 1, 6, 6)
@@ -122,8 +122,8 @@ class TestBuildFloorsWithStairs:
             ux, uy = link.to_tile
             lo = floors[link.from_floor]
             hi = floors[link.to_floor]
-            assert lo.tiles[fy][fx].feature == "stairs_up"
-            assert hi.tiles[uy][ux].feature == "stairs_down"
+            assert lo.tile_at(fx, fy).feature == "stairs_up"
+            assert hi.tile_at(ux, uy).feature == "stairs_down"
 
     def test_required_walkable_threaded_to_upper_floor(self):
         """The lower floor's picked tile must appear as a walkable
@@ -142,9 +142,9 @@ class TestBuildFloorsWithStairs:
         (link,) = [l for l in links if isinstance(l.to_floor, int)]
         tile = link.from_tile
         upper = floors[link.to_floor]
-        assert upper.tiles[tile[1]][tile[0]].terrain is Terrain.FLOOR
+        assert upper.tile_at(tile[0], tile[1]).terrain is Terrain.FLOOR
         # stairs_down is a feature, not a blocker.
-        assert upper.tiles[tile[1]][tile[0]].walkable
+        assert upper.tile_at(tile[0], tile[1]).walkable
 
     def test_descent_adds_ground_floor_stairs_down(self):
         from nhc.hexcrawl.model import DungeonRef
@@ -166,7 +166,7 @@ class TestBuildFloorsWithStairs:
         dlink = descent_links[0]
         assert dlink.from_floor == 0
         dx, dy = dlink.from_tile
-        assert floors[0].tiles[dy][dx].feature == "stairs_down"
+        assert floors[0].tile_at(dx, dy).feature == "stairs_down"
 
     def test_single_floor_no_internal_links(self):
         rect = Rect(1, 1, 6, 6)

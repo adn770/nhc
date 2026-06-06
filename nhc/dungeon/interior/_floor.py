@@ -77,7 +77,7 @@ def build_building_floor(
 
     footprint = base_shape.floor_tiles(base_rect)
     for (x, y) in footprint:
-        level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
     if partitioner is None:
         spec = ARCHETYPE_CONFIG[archetype]

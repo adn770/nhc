@@ -87,8 +87,8 @@ class TestSaveRoundTrip:
         level = Level.create_empty("l", "L", 1, 4, 4)
         # Make a couple of tiles FLOOR so the level isn't trivially
         # empty.
-        level.tiles[1][1] = Tile(terrain=Terrain.FLOOR)
-        level.tiles[1][2] = Tile(terrain=Terrain.FLOOR)
+        level.set_tile(1, 1, Tile(terrain=Terrain.FLOOR))
+        level.set_tile(2, 1, Tile(terrain=Terrain.FLOOR))
         level.interior_edges.update({
             (1, 2, "north"),
             (2, 1, "west"),

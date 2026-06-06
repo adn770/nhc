@@ -387,17 +387,16 @@ def connect_doors_to_street_network(
         )
 
     streets: set[tuple[int, int]] = set()
-    for y, row in enumerate(surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.surface_type is SurfaceType.STREET:
-                streets.add((x, y))
-                walkable.add((x, y))
+    for x, y, tile in surface.iter_world():
+        if tile.surface_type is SurfaceType.STREET:
+            streets.add((x, y))
+            walkable.add((x, y))
     for sxy in site.building_doors:
         walkable.add(sxy)
 
     def _stamp_street(x: int, y: int) -> None:
-        existing = surface.tiles[y][x]
-        surface.tiles[y][x] = Tile(
+        existing = surface.tile_at(x, y)
+        surface.set_tile(x, y, Tile(
             terrain=existing.terrain,
             feature=existing.feature,
             door_side=existing.door_side,
@@ -406,7 +405,7 @@ def connect_doors_to_street_network(
             dug_floor=existing.dug_floor,
             dug_wall=existing.dug_wall,
             surface_type=SurfaceType.STREET,
-        )
+        ))
 
     def _has_street_neighbour(sx: int, sy: int) -> bool:
         for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
@@ -817,6 +816,6 @@ def paint_surface(
         terrain = (
             Terrain.GRASS if kind in grass_kinds else Terrain.FLOOR
         )
-        surface.tiles[y][x] = Tile(
+        surface.set_tile(x, y, Tile(
             terrain=terrain, surface_type=kind,
-        )
+        ))

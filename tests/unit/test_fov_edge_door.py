@@ -49,22 +49,22 @@ def _build_level() -> Level:
     # Fill everything as WALL first
     for y in range(HEIGHT):
         for x in range(WIDTH):
-            level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+            level.set_tile(x, y, Tile(terrain=Terrain.WALL))
 
     # Corridor at (3,1)
-    level.tiles[1][3] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
+    level.set_tile(3, 1, Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR))
 
     # Door at (3,2) — closed, south-facing
-    level.tiles[2][3] = Tile(
+    level.set_tile(3, 2, Tile(
         terrain=Terrain.FLOOR,
         feature="door_closed",
         door_side="south",
-    )
+    ))
 
     # Room: cols 1-5, rows 3-5
     for y in range(3, 6):
         for x in range(1, 6):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
     return level
 
@@ -142,24 +142,24 @@ def _build_east_door_level() -> Level:
                                width=7, height=5)
     for y in range(5):
         for x in range(7):
-            level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+            level.set_tile(x, y, Tile(terrain=Terrain.WALL))
 
     # Corridor column at x=1, rows 1-3
     for y in range(1, 4):
-        level.tiles[y][1] = Tile(terrain=Terrain.FLOOR,
-                                 surface_type=SurfaceType.CORRIDOR)
+        level.set_tile(1, y, Tile(terrain=Terrain.FLOOR,
+                                  surface_type=SurfaceType.CORRIDOR))
 
     # Door at (2,2) — east-facing
-    level.tiles[2][2] = Tile(
+    level.set_tile(2, 2, Tile(
         terrain=Terrain.FLOOR,
         feature="door_closed",
         door_side="east",
-    )
+    ))
 
     # Room: cols 3-5, rows 1-3
     for y in range(1, 4):
         for x in range(3, 6):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
     return level
 
@@ -264,16 +264,16 @@ def _build_isolated_room_west_door() -> Level:
 
     # Room walls (x=3 and x=6, y=1-6; y=1 and y=6, x=3-6)
     for y in range(1, 7):
-        level.tiles[y][3] = Tile(terrain=Terrain.WALL)
-        level.tiles[y][6] = Tile(terrain=Terrain.WALL)
+        level.set_tile(3, y, Tile(terrain=Terrain.WALL))
+        level.set_tile(6, y, Tile(terrain=Terrain.WALL))
     for x in range(3, 7):
-        level.tiles[1][x] = Tile(terrain=Terrain.WALL)
-        level.tiles[6][x] = Tile(terrain=Terrain.WALL)
+        level.set_tile(x, 1, Tile(terrain=Terrain.WALL))
+        level.set_tile(x, 6, Tile(terrain=Terrain.WALL))
 
     # Room interior
     for y in range(2, 6):
         for x in range(4, 6):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
     # Door at (4,4) — west edge
     # The wall column is at x=3; the door replaces (3,4) but
@@ -285,15 +285,15 @@ def _build_isolated_room_west_door() -> Level:
     # Let me place the door correctly.
     #
     # Door replaces the wall tile at x=3, y=4:
-    level.tiles[4][3] = Tile(
+    level.set_tile(3, 4, Tile(
         terrain=Terrain.FLOOR,
         feature="door_closed",
         door_side="west",
-    )
+    ))
 
     # Corridor: (2,4) and (1,4) — the player approaches from west
-    level.tiles[4][2] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
-    level.tiles[4][1] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
+    level.set_tile(2, 4, Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR))
+    level.set_tile(1, 4, Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR))
 
     return level
 
@@ -356,25 +356,25 @@ def _build_corridor_along_room_wall() -> Level:
                                width=7, height=5)
     for y in range(5):
         for x in range(7):
-            level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+            level.set_tile(x, y, Tile(terrain=Terrain.WALL))
 
     # Corridor
-    level.tiles[2][1] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
-    level.tiles[1][2] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
-    level.tiles[2][2] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
-    level.tiles[3][2] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
+    level.set_tile(1, 2, Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR))
+    level.set_tile(2, 1, Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR))
+    level.set_tile(2, 2, Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR))
+    level.set_tile(2, 3, Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR))
 
     # Door
-    level.tiles[2][3] = Tile(
+    level.set_tile(3, 2, Tile(
         terrain=Terrain.FLOOR,
         feature="door_locked",
         door_side="west",
-    )
+    ))
 
     # Room
     for y in range(1, 4):
         for x in range(4, 6):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
     return level
 
@@ -442,32 +442,32 @@ def _build_long_wall_run() -> Level:
 
     # Outer walls
     for x in range(10):
-        level.tiles[0][x] = Tile(terrain=Terrain.WALL)
-        level.tiles[6][x] = Tile(terrain=Terrain.WALL)
+        level.set_tile(x, 0, Tile(terrain=Terrain.WALL))
+        level.set_tile(x, 6, Tile(terrain=Terrain.WALL))
 
     # Room wall column at x=6, y=1-5
     for y in range(1, 6):
-        level.tiles[y][6] = Tile(terrain=Terrain.WALL)
+        level.set_tile(6, y, Tile(terrain=Terrain.WALL))
     # East wall at x=9, y=1-5
     for y in range(1, 6):
-        level.tiles[y][9] = Tile(terrain=Terrain.WALL)
+        level.set_tile(9, y, Tile(terrain=Terrain.WALL))
 
     # Room interior: (7-8, 1-5)
     for y in range(1, 6):
         for x in range(7, 9):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
     # Door at (6,3) — west edge
-    level.tiles[3][6] = Tile(
+    level.set_tile(6, 3, Tile(
         terrain=Terrain.FLOOR,
         feature="door_closed",
         door_side="west",
-    )
+    ))
 
     # Corridor west of door: (5,3), (4,3), (3,3)
     for x in range(3, 6):
-        level.tiles[3][x] = Tile(terrain=Terrain.FLOOR,
-                                 surface_type=SurfaceType.CORRIDOR)
+        level.set_tile(x, 3, Tile(terrain=Terrain.FLOOR,
+                                  surface_type=SurfaceType.CORRIDOR))
 
     return level
 
@@ -508,8 +508,8 @@ class TestWallRunPlayerAdjacentToWall:
         level = _build_long_wall_run()
         # Player at (5,2): one tile north of corridor center,
         # adjacent to wall (6,2)
-        level.tiles[2][5] = Tile(terrain=Terrain.FLOOR,
-                                 surface_type=SurfaceType.CORRIDOR)
+        level.set_tile(5, 2, Tile(terrain=Terrain.FLOOR,
+                                  surface_type=SurfaceType.CORRIDOR))
         return _fov_with_wall_run_hiding(level, 5, 2)
 
     def test_adjacent_wall_visible(self, fov):
@@ -552,35 +552,35 @@ def _build_room_with_two_south_doors() -> Level:
 
     # Room walls
     for x in range(3, 10):
-        level.tiles[1][x] = Tile(terrain=Terrain.WALL)
-        level.tiles[5][x] = Tile(terrain=Terrain.WALL)
+        level.set_tile(x, 1, Tile(terrain=Terrain.WALL))
+        level.set_tile(x, 5, Tile(terrain=Terrain.WALL))
     for y in range(1, 6):
-        level.tiles[y][3] = Tile(terrain=Terrain.WALL)
-        level.tiles[y][9] = Tile(terrain=Terrain.WALL)
+        level.set_tile(3, y, Tile(terrain=Terrain.WALL))
+        level.set_tile(9, y, Tile(terrain=Terrain.WALL))
 
     # Room interior: (4-8, 2-4)
     for y in range(2, 5):
         for x in range(4, 9):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
     # Doors at (4,5) and (6,5) — door_side="north" because
     # room floor is north (y=4).  Corridor is south (y=6).
-    level.tiles[5][4] = Tile(
+    level.set_tile(4, 5, Tile(
         terrain=Terrain.FLOOR,
         feature="door_closed",
         door_side="north",
-    )
-    level.tiles[5][6] = Tile(
+    ))
+    level.set_tile(6, 5, Tile(
         terrain=Terrain.FLOOR,
         feature="door_closed",
         door_side="north",
-    )
+    ))
 
     # Corridors behind doors
-    level.tiles[6][4] = Tile(terrain=Terrain.FLOOR,
-                             surface_type=SurfaceType.CORRIDOR)
-    level.tiles[6][6] = Tile(terrain=Terrain.FLOOR,
-                             surface_type=SurfaceType.CORRIDOR)
+    level.set_tile(4, 6, Tile(terrain=Terrain.FLOOR,
+                              surface_type=SurfaceType.CORRIDOR))
+    level.set_tile(6, 6, Tile(terrain=Terrain.FLOOR,
+                              surface_type=SurfaceType.CORRIDOR))
 
     return level
 

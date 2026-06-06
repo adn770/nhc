@@ -17,7 +17,7 @@ def _build_walls(level: Level) -> None:
 
     for y in range(level.height):
         for x in range(level.width):
-            tile = level.tiles[y][x]
+            tile = level.tile_at(x, y)
             # Only build walls around room tiles, not corridors
             if (tile.terrain not in walkable
                     or tile.surface_type == SurfaceType.CORRIDOR):
@@ -27,13 +27,12 @@ def _build_walls(level: Level) -> None:
                     if dx == 0 and dy == 0:
                         continue
                     nx, ny = x + dx, y + dy
-                    if (level.in_bounds(nx, ny)
-                            and level.tiles[ny][nx].terrain
-                            == Terrain.VOID):
+                    nb = level.tile_at(nx, ny)
+                    if nb and nb.terrain == Terrain.VOID:
                         to_wall.add((nx, ny))
 
     for wx, wy in to_wall:
-        level.tiles[wy][wx] = Tile(terrain=Terrain.WALL)
+        level.set_tile(wx, wy, Tile(terrain=Terrain.WALL))
 
 
 def _fix_walled_corridors(level: Level) -> None:
@@ -55,7 +54,7 @@ def _fix_walled_corridors(level: Level) -> None:
 
     for y in range(level.height):
         for x in range(level.width):
-            tile = level.tiles[y][x]
+            tile = level.tile_at(x, y)
             if not (tile.terrain == Terrain.FLOOR
                     and tile.surface_type == SurfaceType.CORRIDOR):
                 continue
@@ -73,9 +72,9 @@ def _fix_walled_corridors(level: Level) -> None:
                 a_room = _is_room_neighbor(ax, ay)
                 b_room = _is_room_neighbor(bx, by)
                 if a_room and not b_room:
-                    level.tiles[by][bx] = Tile(terrain=Terrain.VOID)
+                    level.set_tile(bx, by, Tile(terrain=Terrain.VOID))
                 elif b_room and not a_room:
-                    level.tiles[ay][ax] = Tile(terrain=Terrain.VOID)
+                    level.set_tile(ax, ay, Tile(terrain=Terrain.VOID))
                 elif not a_room and not b_room:
-                    level.tiles[ay][ax] = Tile(terrain=Terrain.VOID)
-                    level.tiles[by][bx] = Tile(terrain=Terrain.VOID)
+                    level.set_tile(ax, ay, Tile(terrain=Terrain.VOID))
+                    level.set_tile(bx, by, Tile(terrain=Terrain.VOID))

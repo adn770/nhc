@@ -31,18 +31,16 @@ def add_cart_tracks(level: Level, rng: random.Random) -> None:
     that read as track debris rather than rail.
     """
     visited: set[tuple[int, int]] = set()
-    for y in range(level.height):
-        for x in range(level.width):
-            if (x, y) in visited:
-                continue
-            tile = level.tiles[y][x]
-            if not _is_track_eligible(tile):
-                continue
-            run = _flood_fill_corridor(level, x, y, visited)
-            if len(run) < MIN_TRACK_RUN_LENGTH:
-                continue
-            for rx, ry in run:
-                level.tiles[ry][rx].surface_type = SurfaceType.TRACK
+    for x, y, tile in level.iter_world():
+        if (x, y) in visited:
+            continue
+        if not _is_track_eligible(tile):
+            continue
+        run = _flood_fill_corridor(level, x, y, visited)
+        if len(run) < MIN_TRACK_RUN_LENGTH:
+            continue
+        for rx, ry in run:
+            level.tile_at(rx, ry).surface_type = SurfaceType.TRACK
 
 
 def _is_track_eligible(tile) -> bool:
@@ -67,7 +65,7 @@ def _flood_fill_corridor(
             continue
         if not (0 <= x < level.width and 0 <= y < level.height):
             continue
-        if not _is_track_eligible(level.tiles[y][x]):
+        if not _is_track_eligible(level.tile_at(x, y)):
             continue
         visited.add((x, y))
         run.append((x, y))
@@ -86,44 +84,43 @@ def narrow_corridors(level: Level, rng: random.Random) -> None:
     don't break connectivity.
     """
     to_remove: list[tuple[int, int]] = []
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if not (tile.terrain == Terrain.FLOOR
-                    and tile.surface_type == SurfaceType.CORRIDOR):
-                continue
-            # Check if this tile has a corridor neighbor on both
-            # perpendicular sides — sign of a wide corridor
-            n = level.tile_at(x, y - 1)
-            s = level.tile_at(x, y + 1)
-            e = level.tile_at(x + 1, y)
-            w = level.tile_at(x - 1, y)
+    for x, y, tile in level.iter_world():
+        if not (tile.terrain == Terrain.FLOOR
+                and tile.surface_type == SurfaceType.CORRIDOR):
+            continue
+        # Check if this tile has a corridor neighbor on both
+        # perpendicular sides — sign of a wide corridor
+        n = level.tile_at(x, y - 1)
+        s = level.tile_at(x, y + 1)
+        e = level.tile_at(x + 1, y)
+        w = level.tile_at(x - 1, y)
 
-            def _is_corr(nb) -> bool:
-                return (
-                    nb is not None
-                    and nb.surface_type == SurfaceType.CORRIDOR
-                    and nb.terrain == Terrain.FLOOR
-                )
+        def _is_corr(nb) -> bool:
+            return (
+                nb is not None
+                and nb.surface_type == SurfaceType.CORRIDOR
+                and nb.terrain == Terrain.FLOOR
+            )
 
-            ns_corr = _is_corr(n) and _is_corr(s)
-            ew_corr = _is_corr(e) and _is_corr(w)
+        ns_corr = _is_corr(n) and _is_corr(s)
+        ew_corr = _is_corr(e) and _is_corr(w)
 
-            if ns_corr and ew_corr:
-                # Junction — skip
-                continue
-            if not ns_corr and not ew_corr:
-                # Dead end or single-width — check for wideness
-                # Count corridor neighbors
-                corr_neighbors = sum(
-                    1 for nb in (n, s, e, w) if _is_corr(nb)
-                )
-                if corr_neighbors >= 3 and rng.random() < 0.3:
-                    to_remove.append((x, y))
+        if ns_corr and ew_corr:
+            # Junction — skip
+            continue
+        if not ns_corr and not ew_corr:
+            # Dead end or single-width — check for wideness
+            # Count corridor neighbors
+            corr_neighbors = sum(
+                1 for nb in (n, s, e, w) if _is_corr(nb)
+            )
+            if corr_neighbors >= 3 and rng.random() < 0.3:
+                to_remove.append((x, y))
 
     for x, y in to_remove:
-        level.tiles[y][x].terrain = Terrain.VOID
-        level.tiles[y][x].surface_type = SurfaceType.NONE
+        t = level.tile_at(x, y)
+        t.terrain = Terrain.VOID
+        t.surface_type = SurfaceType.NONE
 
 
 def add_ore_deposits(level: Level, rng: random.Random) -> None:
@@ -137,22 +134,20 @@ def add_ore_deposits(level: Level, rng: random.Random) -> None:
     """
     corridor_surfaces = (SurfaceType.CORRIDOR, SurfaceType.TRACK)
     candidates: list[tuple[int, int]] = []
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.terrain != Terrain.WALL:
-                continue
-            # Must be adjacent to a corridor floor
-            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                nb = level.tile_at(x + dx, y + dy)
-                if (nb and nb.terrain == Terrain.FLOOR
-                        and nb.surface_type in corridor_surfaces):
-                    candidates.append((x, y))
-                    break
+    for x, y, tile in level.iter_world():
+        if tile.terrain != Terrain.WALL:
+            continue
+        # Must be adjacent to a corridor floor
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nb = level.tile_at(x + dx, y + dy)
+            if (nb and nb.terrain == Terrain.FLOOR
+                    and nb.surface_type in corridor_surfaces):
+                candidates.append((x, y))
+                break
 
     for x, y in candidates:
         if rng.random() < 0.2:
-            level.tiles[y][x].feature = "ore_deposit"
+            level.tile_at(x, y).feature = "ore_deposit"
 
 
 TRANSFORM_REGISTRY: dict[str, callable] = {

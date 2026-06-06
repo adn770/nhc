@@ -46,7 +46,7 @@ class TestVillagerPlacement:
             for placement in site.surface.entities:
                 if placement.entity_id != "villager":
                     continue
-                tile = site.surface.tiles[placement.y][placement.x]
+                tile = site.surface.tile_at(placement.x, placement.y)
                 assert tile.walkable, (
                     f"villager on non-walkable tile seed={seed}"
                 )

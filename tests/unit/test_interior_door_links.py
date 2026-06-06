@@ -28,7 +28,7 @@ def _tiny_building(building_id: str, x0: int) -> Building:
     )
     for y in range(rect.y, rect.y2):
         for x in range(rect.x, rect.x2):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     level.building_id = building_id
     level.floor_index = 0
     return Building(
@@ -101,8 +101,8 @@ class TestSyncLinkedDoorState:
             surface=Level.create_empty("surf", "surf", 0, 10, 8),
         )
         # Stamp a door tile on each side.
-        a.floors[0].tiles[2][3].feature = "door_closed"
-        b.floors[0].tiles[2][5].feature = "door_closed"
+        a.floors[0].tile_at(3, 2).feature = "door_closed"
+        b.floors[0].tile_at(5, 2).feature = "door_closed"
         site.interior_door_links.append(InteriorDoorLink(
             from_building="a", to_building="b",
             floor=0, from_tile=(3, 2), to_tile=(5, 2),
@@ -112,10 +112,10 @@ class TestSyncLinkedDoorState:
     def test_open_on_one_side_propagates(self):
         site = self._site_with_link()
         # Open A side.
-        site.buildings[0].floors[0].tiles[2][3].feature = "door_open"
-        site.buildings[0].floors[0].tiles[2][3].opened_at_turn = 7
+        site.buildings[0].floors[0].tile_at(3, 2).feature = "door_open"
+        site.buildings[0].floors[0].tile_at(3, 2).opened_at_turn = 7
         sync_linked_door_state(site, "a", (3, 2))
-        b_tile = site.buildings[1].floors[0].tiles[2][5]
+        b_tile = site.buildings[1].floors[0].tile_at(5, 2)
         assert b_tile.feature == "door_open"
         assert b_tile.opened_at_turn == 7
 
@@ -123,15 +123,15 @@ class TestSyncLinkedDoorState:
         site = self._site_with_link()
         # Start both open, then close A.
         for tile in (
-            site.buildings[0].floors[0].tiles[2][3],
-            site.buildings[1].floors[0].tiles[2][5],
+            site.buildings[0].floors[0].tile_at(3, 2),
+            site.buildings[1].floors[0].tile_at(5, 2),
         ):
             tile.feature = "door_open"
             tile.opened_at_turn = 5
-        site.buildings[0].floors[0].tiles[2][3].feature = "door_closed"
-        site.buildings[0].floors[0].tiles[2][3].opened_at_turn = None
+        site.buildings[0].floors[0].tile_at(3, 2).feature = "door_closed"
+        site.buildings[0].floors[0].tile_at(3, 2).opened_at_turn = None
         sync_linked_door_state(site, "a", (3, 2))
-        b_tile = site.buildings[1].floors[0].tiles[2][5]
+        b_tile = site.buildings[1].floors[0].tile_at(5, 2)
         assert b_tile.feature == "door_closed"
         assert b_tile.opened_at_turn is None
 
@@ -139,10 +139,10 @@ class TestSyncLinkedDoorState:
         """Syncing from ``to_building`` side propagates back to
         ``from_building`` side."""
         site = self._site_with_link()
-        site.buildings[1].floors[0].tiles[2][5].feature = "door_open"
-        site.buildings[1].floors[0].tiles[2][5].opened_at_turn = 9
+        site.buildings[1].floors[0].tile_at(5, 2).feature = "door_open"
+        site.buildings[1].floors[0].tile_at(5, 2).opened_at_turn = 9
         sync_linked_door_state(site, "b", (5, 2))
-        a_tile = site.buildings[0].floors[0].tiles[2][3]
+        a_tile = site.buildings[0].floors[0].tile_at(3, 2)
         assert a_tile.feature == "door_open"
         assert a_tile.opened_at_turn == 9
 

@@ -20,8 +20,7 @@ from nhc.sites.clearing import assemble_clearing
 def _feature_tiles(surface, tag: str) -> list[tuple[int, int]]:
     return [
         (x, y)
-        for y, row in enumerate(surface.tiles)
-        for x, t in enumerate(row) if t.feature == tag
+        for x, y, t in surface.iter_world() if t.feature == tag
     ]
 
 
@@ -125,7 +124,7 @@ class TestClearingSurface:
             tier=SiteTier.SMALL,
         )
         field_tiles = sum(
-            1 for row in site.surface.tiles for t in row
+            1 for t in site.surface.iter_tiles()
             if t.surface_type == SurfaceType.FIELD
         )
         assert field_tiles > 0
@@ -142,7 +141,7 @@ class TestClearingSurface:
             for x in range(surface.width)
             if (x in (0, surface.width - 1)
                 or y in (0, surface.height - 1))
-            and surface.tiles[y][x].terrain == Terrain.WALL
+            and surface.tile_at(x, y).terrain == Terrain.WALL
         )
         assert wall_count > 0
 

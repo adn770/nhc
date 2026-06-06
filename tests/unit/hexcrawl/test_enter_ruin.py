@@ -88,9 +88,8 @@ def test_enter_ruin_hex_lands_on_surface_with_stairs_down(
         ground = b.ground
         stairs = [
             (x, y)
-            for y in range(ground.height)
-            for x in range(ground.width)
-            if ground.tiles[y][x].feature == "stairs_down"
+            for x, y, tile in ground.iter_world()
+            if tile.feature == "stairs_down"
         ]
         assert len(stairs) == 1
 

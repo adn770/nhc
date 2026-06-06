@@ -73,11 +73,11 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
     """Walk level features to produce V5FixtureOp entries.
 
     Defensive on synthetic fixture builders: returns an empty list
-    when ``level.tiles`` is missing.
+    when the grid (``level._tiles``) is missing.
     """
     ctx = builder.ctx
     level = ctx.level
-    tiles_grid = getattr(level, "tiles", None)
+    tiles_grid = getattr(level, "_tiles", None)
     if tiles_grid is None:
         return []
 
@@ -89,7 +89,7 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
     stair_anchors: list[AnchorT] = []
     for y in range(level.height):
         for x in range(level.width):
-            feat = level.tiles[y][x].feature
+            feat = level.tile_at(x, y).feature
             # StairDirection enum: Up=0, Down=1 (per floor_ir.fbs).
             if feat == "stairs_up":
                 stair_anchors.append(_make_anchor(
@@ -112,7 +112,7 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
     well_square: list[tuple[int, int]] = []
     for y in range(level.height):
         for x in range(level.width):
-            f = level.tiles[y][x].feature
+            f = level.tile_at(x, y).feature
             if f == "well":
                 well_round.append((x, y))
             elif f == "well_square":
@@ -150,7 +150,7 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
     for y in range(level.height):
         for x in range(level.width):
             idx = fountain_feature_to_idx.get(
-                level.tiles[y][x].feature
+                level.tile_at(x, y).feature
             )
             if idx is None:
                 continue
@@ -212,7 +212,7 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
     bush_anchors: list[AnchorT] = []
     for y in range(level.height):
         for x in range(level.width):
-            if level.tiles[y][x].feature == "bush":
+            if level.tile_at(x, y).feature == "bush":
                 bush_anchors.append(_make_anchor(x, y))
     if bush_anchors:
         result.append(_wrap(_make_fixture_op(
@@ -226,7 +226,7 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
     flower_anchors: list[AnchorT] = []
     for y in range(level.height):
         for x in range(level.width):
-            if level.tiles[y][x].feature == "flower":
+            if level.tile_at(x, y).feature == "flower":
                 flower_anchors.append(_make_anchor(x, y))
     if flower_anchors:
         result.append(_wrap(_make_fixture_op(

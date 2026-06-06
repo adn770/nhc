@@ -690,9 +690,8 @@ def _use_reveal_map(
     events: list[Event] = []
     events.append(MessageEvent(text=t("item.reveal_map_cast")))
 
-    for row in level.tiles:
-        for tile in row:
-            tile.explored = True
+    for tile in level.iter_tiles():
+        tile.explored = True
 
     events.append(MessageEvent(text=t("item.reveal_map_reveal")))
     events.append(ItemUsed(entity=actor, item=item, effect="reveal_map"))

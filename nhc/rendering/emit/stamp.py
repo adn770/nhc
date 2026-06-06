@@ -98,7 +98,7 @@ def emit_stamps(builder: Any) -> list[OpEntryT]:
 
     ctx = builder.ctx
     level = ctx.level
-    tiles_grid = getattr(level, "tiles", None)
+    tiles_grid = getattr(level, "_tiles", None)
     if tiles_grid is None:
         return []
 
@@ -115,7 +115,7 @@ def emit_stamps(builder: Any) -> list[OpEntryT]:
     has_grid_tile = False
     for y in range(level.height):
         for x in range(level.width):
-            if level.tiles[y][x].terrain != Terrain.VOID:
+            if level.tile_at(x, y).terrain != Terrain.VOID:
                 has_grid_tile = True
                 break
         if has_grid_tile:
@@ -145,7 +145,7 @@ def emit_stamps(builder: Any) -> list[OpEntryT]:
         if building_polygon is None:
             for y in range(level.height):
                 for x in range(level.width):
-                    if level.tiles[y][x].terrain is Terrain.FLOOR:
+                    if level.tile_at(x, y).terrain is Terrain.FLOOR:
                         wood_floor_tiles_present = True
                         break
                 if wood_floor_tiles_present:

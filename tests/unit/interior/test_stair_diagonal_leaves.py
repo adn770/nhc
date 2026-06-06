@@ -24,10 +24,9 @@ def _stair_tiles_per_floor(
     out: list[dict[str, tuple[int, int]]] = []
     for floor in building.floors:
         features: dict[str, tuple[int, int]] = {}
-        for y, row in enumerate(floor.tiles):
-            for x, tile in enumerate(row):
-                if tile.feature in ("stairs_up", "stairs_down"):
-                    features[tile.feature] = (x, y)
+        for x, y, tile in floor.iter_world():
+            if tile.feature in ("stairs_up", "stairs_down"):
+                features[tile.feature] = (x, y)
         out.append(features)
     return out
 

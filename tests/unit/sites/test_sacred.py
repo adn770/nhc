@@ -22,8 +22,7 @@ from nhc.sites.sacred import assemble_sacred
 def _feature_tiles(surface, tag: str) -> list[tuple[int, int]]:
     return [
         (x, y)
-        for y, row in enumerate(surface.tiles)
-        for x, t in enumerate(row) if t.feature == tag
+        for x, y, t in surface.iter_world() if t.feature == tag
     ]
 
 
@@ -149,7 +148,7 @@ class TestSacredSurface:
             tier=SiteTier.MEDIUM,
         )
         field_tiles = sum(
-            1 for row in site.surface.tiles for t in row
+            1 for t in site.surface.iter_tiles()
             if t.surface_type == SurfaceType.FIELD
         )
         assert field_tiles > 0
@@ -166,7 +165,7 @@ class TestSacredSurface:
             for x in range(surface.width)
             if (x in (0, surface.width - 1)
                 or y in (0, surface.height - 1))
-            and surface.tiles[y][x].terrain == Terrain.WALL
+            and surface.tile_at(x, y).terrain == Terrain.WALL
         )
         assert wall_count > 0
 
@@ -196,8 +195,7 @@ class TestSacredOpusRomanoPlaza:
     def _opus_tiles(self, surface) -> list[tuple[int, int]]:
         return [
             (x, y)
-            for y, row in enumerate(surface.tiles)
-            for x, t in enumerate(row)
+            for x, y, t in surface.iter_world()
             if t.surface_type == SurfaceType.OPUS_ROMANO
         ]
 
@@ -211,7 +209,7 @@ class TestSacredOpusRomanoPlaza:
             shrine = _feature_tiles(site.surface, "shrine")
             assert len(shrine) == 1
             tx, ty = shrine[0]
-            tile = site.surface.tiles[ty][tx]
+            tile = site.surface.tile_at(tx, ty)
             assert tile.surface_type == SurfaceType.OPUS_ROMANO
 
     def test_plaza_is_5x5_around_centrepiece(self):
@@ -232,7 +230,7 @@ class TestSacredOpusRomanoPlaza:
                     tx, ty = cx + dx, cy + dy
                     if not site.surface.in_bounds(tx, ty):
                         continue
-                    tile = site.surface.tiles[ty][tx]
+                    tile = site.surface.tile_at(tx, ty)
                     if tile.terrain == Terrain.WALL:
                         continue
                     assert (tx, ty) in opus, (
@@ -251,13 +249,13 @@ class TestSacredOpusRomanoPlaza:
             for x in range(site.surface.width):
                 for y in (0, site.surface.height - 1):
                     assert (
-                        site.surface.tiles[y][x].terrain
+                        site.surface.tile_at(x, y).terrain
                         == Terrain.WALL
                     )
             for y in range(site.surface.height):
                 for x in (0, site.surface.width - 1):
                     assert (
-                        site.surface.tiles[y][x].terrain
+                        site.surface.tile_at(x, y).terrain
                         == Terrain.WALL
                     )
 
@@ -271,7 +269,7 @@ class TestSacredOpusRomanoPlaza:
         )
         opus_count = len(self._opus_tiles(site.surface))
         field_count = sum(
-            1 for row in site.surface.tiles for t in row
+            1 for t in site.surface.iter_tiles()
             if t.surface_type == SurfaceType.FIELD
         )
         # Plaza is at most 5*5 = 25 tiles; FIELD must dominate.

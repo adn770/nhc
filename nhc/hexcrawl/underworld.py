@@ -108,19 +108,17 @@ def assign_sector_map(
 
     items = list(stairs_by_member.items())
     sector_map: dict[tuple[int, int], HexCoord] = {}
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.terrain is not Terrain.FLOOR:
-                continue
-            best_member = items[0][0]
-            best_dist = abs(x - items[0][1][0]) + abs(y - items[0][1][1])
-            for member, (sx, sy) in items[1:]:
-                d = abs(x - sx) + abs(y - sy)
-                if d < best_dist:
-                    best_dist = d
-                    best_member = member
-            sector_map[(x, y)] = best_member
+    for x, y, tile in level.iter_world():
+        if tile.terrain is not Terrain.FLOOR:
+            continue
+        best_member = items[0][0]
+        best_dist = abs(x - items[0][1][0]) + abs(y - items[0][1][1])
+        for member, (sx, sy) in items[1:]:
+            d = abs(x - sx) + abs(y - sy)
+            if d < best_dist:
+                best_dist = d
+                best_member = member
+        sector_map[(x, y)] = best_member
     return sector_map
 
 

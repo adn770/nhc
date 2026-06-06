@@ -22,7 +22,7 @@ def _setup():
         for t in row:
             t.visible = True
     level = Level(id="t", name="T", depth=1, width=10, height=10,
-                  tiles=tiles, rooms=[], corridors=[], entities=[])
+                  _tiles=tiles, rooms=[], corridors=[], entities=[])
     pid = w.create_entity({
         "Position": Position(x=5, y=5),
         "Stats": Stats(strength=2),

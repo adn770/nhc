@@ -26,11 +26,9 @@ VALID_SIDES = {"north", "south", "east", "west"}
 def _ground_doors(building) -> list:
     ground = building.ground
     out = []
-    for y in range(ground.height):
-        for x in range(ground.width):
-            t = ground.tiles[y][x]
-            if (t.feature or "").startswith("door_"):
-                out.append((x, y, t))
+    for x, y, t in ground.iter_world():
+        if (t.feature or "").startswith("door_"):
+            out.append((x, y, t))
     return out
 
 

@@ -32,7 +32,7 @@ from nhc.utils.rng import set_seed
 def _make_level():
     tiles = [[Tile(terrain=Terrain.FLOOR, visible=True) for _ in range(10)]
              for _ in range(10)]
-    return Level(id="t", name="T", depth=1, width=10, height=10, tiles=tiles)
+    return Level(id="t", name="T", depth=1, width=10, height=10, _tiles=tiles)
 
 
 def _make_player(world, x=5, y=5, hp=20):
@@ -334,7 +334,7 @@ class TestScrollTeleportation:
         for i in range(5):
             tiles[0][i].terrain = Terrain.WALL
         level = Level(id="t", name="T", depth=1, width=10, height=10,
-                      tiles=tiles)
+                      _tiles=tiles)
         pid = _make_player(world, x=5, y=5)
         item_id = _add_scroll(world, pid, "teleport")
 
@@ -468,7 +468,7 @@ class TestWandOpening:
         tiles[5][6].feature = "door_locked"
         tiles[5][6].door_side = "east"
         level = Level(id="t", name="T", depth=1, width=10, height=10,
-                      tiles=tiles)
+                      _tiles=tiles)
         pid = _make_player(world, x=5, y=5)
         wand_id = _add_wand(world, pid, "opening")
         # Target is the door tile — use a dummy entity at door position
@@ -493,7 +493,7 @@ class TestWandLocking:
         tiles[5][6].feature = "door_closed"
         tiles[5][6].door_side = "east"
         level = Level(id="t", name="T", depth=1, width=10, height=10,
-                      tiles=tiles)
+                      _tiles=tiles)
         pid = _make_player(world, x=5, y=5)
         wand_id = _add_wand(world, pid, "locking")
         dummy = _make_creature(world, x=6, y=5)
@@ -518,7 +518,7 @@ class TestWandDigging:
         tiles[5][7] = Tile(terrain=Terrain.WALL)
         tiles[5][7].visible = True
         level = Level(id="t", name="T", depth=1, width=10, height=10,
-                      tiles=tiles)
+                      _tiles=tiles)
         pid = _make_player(world, x=5, y=5)
         wand_id = _add_wand(world, pid, "digging")
         # Target creature is beyond the wall

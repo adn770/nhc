@@ -259,7 +259,7 @@ def _drop_perimeter_walls(
                     continue
                 if not ground.in_bounds(nx, ny):
                     continue
-                if ground.tiles[ny][nx].terrain is Terrain.WALL:
+                if ground.tile_at(nx, ny).terrain is Terrain.WALL:
                     perimeter.append((nx, ny))
     perimeter = sorted(set(perimeter))
     if not perimeter:
@@ -267,7 +267,7 @@ def _drop_perimeter_walls(
     lo, hi = RUIN_PARTIAL_WALL_DROP_RANGE
     drop_count = rng.randint(lo, min(hi, len(perimeter)))
     for (x, y) in rng.sample(perimeter, drop_count):
-        ground.tiles[y][x] = Tile(terrain=Terrain.VOID)
+        ground.set_tile(x, y, Tile(terrain=Terrain.VOID))
 
 
 def _place_entry_door(
@@ -286,7 +286,7 @@ def _place_entry_door(
     ground = building.ground
     candidates: list[tuple[int, int]] = []
     for (px, py) in building.shared_perimeter():
-        tile = ground.tiles[py][px]
+        tile = ground.tile_at(px, py)
         if tile.feature is not None:
             continue
         has_wall = False
@@ -294,7 +294,7 @@ def _place_entry_door(
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
-            if ground.tiles[ny][nx].terrain is Terrain.WALL:
+            if ground.tile_at(nx, ny).terrain is Terrain.WALL:
                 has_wall = True
                 break
         if not has_wall:
@@ -386,7 +386,7 @@ def _build_ruin_surface(
                 terrain=base_terrain,
                 surface_type=default_surface,
             )
-            surface.tiles[y][x] = tile
+            surface.set_tile(x, y, tile)
             filled.append((x, y))
 
     # Model the enclosed outdoor area as a single Room so the

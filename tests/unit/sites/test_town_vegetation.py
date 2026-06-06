@@ -29,19 +29,17 @@ from nhc.sites.town import (
 
 def _tree_positions(site) -> set[tuple[int, int]]:
     out: set[tuple[int, int]] = set()
-    for y, row in enumerate(site.surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.feature == "tree":
-                out.add((x, y))
+    for x, y, tile in site.surface.iter_world():
+        if tile.feature == "tree":
+            out.add((x, y))
     return out
 
 
 def _bush_positions(site) -> set[tuple[int, int]]:
     out: set[tuple[int, int]] = set()
-    for y, row in enumerate(site.surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.feature == "bush":
-                out.add((x, y))
+    for x, y, tile in site.surface.iter_world():
+        if tile.feature == "bush":
+            out.add((x, y))
     return out
 
 
@@ -68,7 +66,7 @@ class TestTreeSurface:
                 "t1", random.Random(seed), size_class=size_class,
             )
             for x, y in _tree_positions(site):
-                tile = site.surface.tiles[y][x]
+                tile = site.surface.tile_at(x, y)
                 assert tile.surface_type in (
                     SurfaceType.FIELD, SurfaceType.GARDEN,
                 ), (
@@ -150,27 +148,26 @@ class TestTreeDensity:
             for sx, sy in site.building_doors:
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     door_ring.add((sx + dx, sy + dy))
-            for y, row in enumerate(site.surface.tiles):
-                for x, tile in enumerate(row):
-                    if tile.surface_type != SurfaceType.FIELD:
-                        continue
-                    # Count only tiles that are eligible scatter
-                    # candidates (so the density check matches the
-                    # actual scatter pool).
-                    blocked_neighbour = False
-                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                        if (x + dx, y + dy) in footprints:
-                            blocked_neighbour = True
-                            break
-                    if blocked_neighbour:
-                        continue
-                    if (x, y) in door_ring:
-                        continue
-                    if tile.feature is not None and tile.feature != "tree":
-                        continue
-                    total_field += 1
-                    if tile.feature == "tree":
-                        total_trees += 1
+            for x, y, tile in site.surface.iter_world():
+                if tile.surface_type != SurfaceType.FIELD:
+                    continue
+                # Count only tiles that are eligible scatter
+                # candidates (so the density check matches the
+                # actual scatter pool).
+                blocked_neighbour = False
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    if (x + dx, y + dy) in footprints:
+                        blocked_neighbour = True
+                        break
+                if blocked_neighbour:
+                    continue
+                if (x, y) in door_ring:
+                    continue
+                if tile.feature is not None and tile.feature != "tree":
+                    continue
+                total_field += 1
+                if tile.feature == "tree":
+                    total_trees += 1
         if total_field == 0:
             pytest.skip(
                 f"{size_class}: no eligible FIELD tiles in 20 seeds"
@@ -240,7 +237,7 @@ class TestBushSurface:
                 "t1", random.Random(seed), size_class=size_class,
             )
             for x, y in _bush_positions(site):
-                tile = site.surface.tiles[y][x]
+                tile = site.surface.tile_at(x, y)
                 assert tile.surface_type == SurfaceType.FIELD, (
                     f"seed={seed} {size_class}: bush at ({x},{y}) "
                     f"on {tile.surface_type!r}, expected FIELD"
@@ -317,28 +314,27 @@ class TestBushDensity:
             for sx, sy in site.building_doors:
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     door_ring.add((sx + dx, sy + dy))
-            for y, row in enumerate(site.surface.tiles):
-                for x, tile in enumerate(row):
-                    if tile.surface_type != SurfaceType.FIELD:
-                        continue
-                    if tile.terrain is not Terrain.GRASS:
-                        continue
-                    # Bushes are allowed 4-adjacent to footprints,
-                    # so footprint adjacency does NOT block the
-                    # eligibility pool here (unlike trees).
-                    if (x, y) in door_ring:
-                        continue
-                    if (x, y) in footprints:
-                        # On-footprint tiles are excluded from
-                        # both pools; FIELD doesn't overlap a
-                        # building footprint by convention but
-                        # belt + braces.
-                        continue
-                    if tile.feature is not None and tile.feature != "bush":
-                        continue
-                    total_field += 1
-                    if tile.feature == "bush":
-                        total_bushes += 1
+            for x, y, tile in site.surface.iter_world():
+                if tile.surface_type != SurfaceType.FIELD:
+                    continue
+                if tile.terrain is not Terrain.GRASS:
+                    continue
+                # Bushes are allowed 4-adjacent to footprints,
+                # so footprint adjacency does NOT block the
+                # eligibility pool here (unlike trees).
+                if (x, y) in door_ring:
+                    continue
+                if (x, y) in footprints:
+                    # On-footprint tiles are excluded from
+                    # both pools; FIELD doesn't overlap a
+                    # building footprint by convention but
+                    # belt + braces.
+                    continue
+                if tile.feature is not None and tile.feature != "bush":
+                    continue
+                total_field += 1
+                if tile.feature == "bush":
+                    total_bushes += 1
         if total_field == 0:
             pytest.skip(
                 f"{size_class}: no eligible FIELD tiles in 20 seeds"
@@ -376,27 +372,26 @@ class TestBushNeighbourBias:
                 "t1", random.Random(seed), size_class="town",
             )
             bushes = _bush_positions(site)
-            for y, row in enumerate(site.surface.tiles):
-                for x, tile in enumerate(row):
-                    if tile.surface_type != SurfaceType.FIELD:
-                        continue
-                    if tile.terrain is not Terrain.GRASS:
-                        continue
-                    if tile.feature not in (None, "bush"):
-                        continue
-                    has_nb = False
-                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                        if (x + dx, y + dy) in bushes:
-                            has_nb = True
-                            break
-                    if has_nb:
-                        with_neighbour += 1
-                        if tile.feature == "bush":
-                            with_neighbour_bushes += 1
-                    else:
-                        no_neighbour += 1
-                        if tile.feature == "bush":
-                            no_neighbour_bushes += 1
+            for x, y, tile in site.surface.iter_world():
+                if tile.surface_type != SurfaceType.FIELD:
+                    continue
+                if tile.terrain is not Terrain.GRASS:
+                    continue
+                if tile.feature not in (None, "bush"):
+                    continue
+                has_nb = False
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    if (x + dx, y + dy) in bushes:
+                        has_nb = True
+                        break
+                if has_nb:
+                    with_neighbour += 1
+                    if tile.feature == "bush":
+                        with_neighbour_bushes += 1
+                else:
+                    no_neighbour += 1
+                    if tile.feature == "bush":
+                        no_neighbour_bushes += 1
         if no_neighbour == 0 or with_neighbour == 0:
             pytest.skip("insufficient samples to compare rates")
         rate_with = with_neighbour_bushes / with_neighbour

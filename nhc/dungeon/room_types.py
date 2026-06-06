@@ -379,11 +379,11 @@ def _paint_shrine(level: Level, room: Room, rng: random.Random) -> None:
         for dx in range(-1, 2):
             wx, wy = cx + dx, cy + dy
             if (wx, wy) in floor and level.in_bounds(wx, wy):
-                tile = level.tiles[wy][wx]
+                tile = level.tile_at(wx, wy)
                 if tile.terrain == Terrain.FLOOR and not tile.feature:
-                    level.tiles[wy][wx] = Tile(terrain=Terrain.WATER)
+                    level.set_tile(wx, wy, Tile(terrain=Terrain.WATER))
     # Healing potion on center (floor, not water)
-    level.tiles[cy][cx] = Tile(terrain=Terrain.FLOOR)
+    level.set_tile(cx, cy, Tile(terrain=Terrain.FLOOR))
     level.entities.append(EntityPlacement(
         entity_type="item", entity_id="potion_healing", x=cx, y=cy,
     ))
@@ -448,11 +448,11 @@ def _paint_temple(level: Level, room: Room, rng: random.Random) -> None:
     # Small holy water puddle in front of the priest (south tile).
     for (wx, wy) in [(cx, cy + 1), (cx - 1, cy + 1), (cx + 1, cy + 1)]:
         if (wx, wy) in floor and level.in_bounds(wx, wy):
-            tile = level.tiles[wy][wx]
+            tile = level.tile_at(wx, wy)
             if tile.terrain == Terrain.FLOOR and not tile.feature:
-                level.tiles[wy][wx] = Tile(terrain=Terrain.WATER)
+                level.set_tile(wx, wy, Tile(terrain=Terrain.WATER))
     # Make sure the priest stands on solid ground.
-    level.tiles[cy][cx] = Tile(terrain=Terrain.FLOOR)
+    level.set_tile(cx, cy, Tile(terrain=Terrain.FLOOR))
     level.entities.append(EntityPlacement(
         entity_type="creature", entity_id="priest",
         x=cx, y=cy,

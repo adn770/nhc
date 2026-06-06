@@ -86,7 +86,7 @@ def emit_strokes(builder: Any) -> list[OpEntryT]:
     level = ctx.level
     result: list[OpEntryT] = []
 
-    if getattr(level, "tiles", None) is not None:
+    if getattr(level, "_tiles", None) is not None:
         cave_tiles: set[tuple[int, int]] = (
             set(ctx.cave_tiles)
             if getattr(ctx, "cave_tiles", None) else set()

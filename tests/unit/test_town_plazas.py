@@ -21,8 +21,7 @@ def _surface(width: int = 40, height: int = 40) -> Level:
 def _features(surface: Level) -> list[str]:
     return [
         tile.feature
-        for row in surface.tiles
-        for tile in row
+        for tile in surface.iter_tiles()
         if tile.feature is not None
     ]
 
@@ -32,7 +31,7 @@ def test_big_plaza_full_cobblestone_with_fountain():
     stamp_plazas(surface, [Plaza(Rect(5, 5, 7, 7), "big")], "town", None)
     for x in range(5, 12):
         for y in range(5, 12):
-            assert surface.tiles[y][x].surface_type is SurfaceType.STREET
+            assert surface.tile_at(x, y).surface_type is SurfaceType.STREET
     assert _features(surface) == ["fountain"]
 
 
@@ -57,7 +56,7 @@ def test_auto_shrunk_big_plaza_keeps_fountain():
     assert feats == ["fountain"]
     for x in range(5, 10):
         for y in range(5, 10):
-            assert surface.tiles[y][x].surface_type is SurfaceType.STREET
+            assert surface.tile_at(x, y).surface_type is SurfaceType.STREET
 
 
 def test_small_plaza_well_collar_apron_and_tree():
@@ -65,11 +64,11 @@ def test_small_plaza_well_collar_apron_and_tree():
     stamp_plazas(surface, [Plaza(Rect(10, 10, 5, 5), "small")], "city", None)
     cx, cy = 12, 12
     # Well at centre on a paved collar.
-    assert surface.tiles[cy][cx].feature == "well"
-    assert surface.tiles[cy][cx].surface_type is SurfaceType.STREET
+    assert surface.tile_at(cx, cy).feature == "well"
+    assert surface.tile_at(cx, cy).surface_type is SurfaceType.STREET
     # Apron corner is grass garden, not cobblestone.
-    assert surface.tiles[10][10].surface_type is SurfaceType.GARDEN
-    assert surface.tiles[10][10].terrain is Terrain.GRASS
+    assert surface.tile_at(10, 10).surface_type is SurfaceType.GARDEN
+    assert surface.tile_at(10, 10).terrain is Terrain.GRASS
     feats = set(_features(surface))
     assert "well" in feats and "tree" in feats
 

@@ -39,7 +39,7 @@ def _town_surface(width: int = 12, height: int = 12) -> Level:
     level = Level(
         id="town_surface", name="Town", depth=0,
         width=width, height=height,
-        tiles=tiles, rooms=[], corridors=[], entities=[],
+        _tiles=tiles, rooms=[], corridors=[], entities=[],
     )
     level.metadata.theme = "town"
     return level
@@ -53,7 +53,7 @@ def _dungeon_level(width: int = 12, height: int = 12) -> Level:
     return Level(
         id="dungeon", name="Dungeon", depth=1,
         width=width, height=height,
-        tiles=tiles, rooms=[], corridors=[], entities=[],
+        _tiles=tiles, rooms=[], corridors=[], entities=[],
     )
 
 

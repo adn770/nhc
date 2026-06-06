@@ -43,7 +43,7 @@ def _render_corridor_shadows(svg: list[str], level: Level) -> None:
     """Per-tile offset shadow for corridor and door tiles."""
     for y in range(level.height):
         for x in range(level.width):
-            tile = level.tiles[y][x]
+            tile = level.tile_at(x, y)
             if not (tile.surface_type == SurfaceType.CORRIDOR
                     or _is_door(level, x, y)):
                 continue

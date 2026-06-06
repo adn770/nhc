@@ -18,7 +18,7 @@ def _make_world_and_level():
     # Carve floor around (5,5)
     for y in range(3, 9):
         for x in range(3, 9):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
     # Player at (5,5)
     pid = world.create_entity()

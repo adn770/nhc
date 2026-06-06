@@ -104,4 +104,4 @@ def _carve_room(
     tiles = (shape or RectShape()).floor_tiles(rect)
     for x, y in tiles:
         if level.in_bounds(x, y):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))

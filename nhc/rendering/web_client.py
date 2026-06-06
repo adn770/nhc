@@ -200,7 +200,7 @@ logger = logging.getLogger(__name__)
 def _is_floor(level, x: int, y: int) -> bool:
     if not level.in_bounds(x, y):
         return False
-    t = level.tiles[y][x]
+    t = level.tile_at(x, y)
     return t.terrain in (Terrain.FLOOR, Terrain.WATER, Terrain.GRASS)
 
 
@@ -224,7 +224,7 @@ def _is_walkable(level, x: int, y: int) -> bool:
     """
     if not level.in_bounds(x, y):
         return False
-    t = level.tiles[y][x]
+    t = level.tile_at(x, y)
     if t.terrain not in _POLYGON_TERRAINS:
         return False
     if t.feature in _VISIBLE_DOOR_FEATURES:
@@ -241,7 +241,7 @@ def _in_polygon(level, x: int, y: int) -> bool:
     """
     if not level.in_bounds(x, y):
         return False
-    t = level.tiles[y][x]
+    t = level.tile_at(x, y)
     return t.terrain in _POLYGON_TERRAINS
 
 
@@ -1208,11 +1208,10 @@ class WebClient(GameClient):
 
         # Corridors — flood-fill connected corridor tiles
         corridor_tiles: set[tuple[int, int]] = set()
-        for y, row in enumerate(level.tiles):
-            for x, tile in enumerate(row):
-                if (tile.terrain == Terrain.FLOOR
-                        and tile.surface_type == SurfaceType.CORRIDOR):
-                    corridor_tiles.add((x, y))
+        for x, y, tile in level.iter_world():
+            if (tile.terrain == Terrain.FLOOR
+                    and tile.surface_type == SurfaceType.CORRIDOR):
+                corridor_tiles.add((x, y))
 
         corridors = []
         visited: set[tuple[int, int]] = set()
@@ -1246,26 +1245,24 @@ class WebClient(GameClient):
             "door_secret": "S", "door_locked": "L",
         }
         doors = []
-        for y, row in enumerate(level.tiles):
-            for x, tile in enumerate(row):
-                if tile.feature in abbrev:
-                    doors.append({
-                        "index": len(doors), "x": x, "y": y,
-                        "kind": abbrev[tile.feature],
-                        "side": tile.door_side,
-                    })
+        for x, y, tile in level.iter_world():
+            if tile.feature in abbrev:
+                doors.append({
+                    "index": len(doors), "x": x, "y": y,
+                    "kind": abbrev[tile.feature],
+                    "side": tile.door_side,
+                })
 
         # Secrets — hidden elements for the debug overlay
         secret_doors = []
         buried = []
-        for y, row in enumerate(level.tiles):
-            for x, tile in enumerate(row):
-                if tile.feature == "door_secret":
-                    secret_doors.append({"x": x, "y": y})
-                if tile.buried:
-                    buried.append({
-                        "x": x, "y": y, "count": len(tile.buried),
-                    })
+        for x, y, tile in level.iter_world():
+            if tile.feature == "door_secret":
+                secret_doors.append({"x": x, "y": y})
+            if tile.buried:
+                buried.append({
+                    "x": x, "y": y, "count": len(tile.buried),
+                })
 
         hidden_traps: list[dict] = []
         if world:

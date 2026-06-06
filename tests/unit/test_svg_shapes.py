@@ -29,7 +29,7 @@ from nhc.rendering.svg import render_floor_svg_from_ir
 def _carve_room(level: Level, room: Room) -> None:
     """Carve floor tiles matching the room shape and add walls."""
     for x, y in room.floor_tiles():
-        level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     # Walls around floor
     floor = room.floor_tiles()
     for fx, fy in floor:
@@ -37,8 +37,8 @@ def _carve_room(level: Level, room: Room) -> None:
             nx, ny = fx + dx, fy + dy
             if ((nx, ny) not in floor
                     and level.in_bounds(nx, ny)
-                    and level.tiles[ny][nx].terrain == Terrain.VOID):
-                level.tiles[ny][nx] = Tile(terrain=Terrain.WALL)
+                    and level.tile_at(nx, ny).terrain == Terrain.VOID):
+                level.set_tile(nx, ny, Tile(terrain=Terrain.WALL))
 
 
 def _add_corridor(
@@ -55,22 +55,22 @@ def _add_corridor(
     """
     # Convert entry wall tile to door or corridor
     if door:
-        level.tiles[entry_y][entry_x] = Tile(
+        level.set_tile(entry_x, entry_y, Tile(
             terrain=Terrain.FLOOR, feature="door_closed",
-        )
+        ))
     else:
-        level.tiles[entry_y][entry_x] = Tile(
+        level.set_tile(entry_x, entry_y, Tile(
             terrain=Terrain.FLOOR,
             surface_type=SurfaceType.CORRIDOR,
-        )
+        ))
     # Carve corridor tiles outward
     cx, cy = entry_x + dx, entry_y + dy
     for _ in range(length):
         if level.in_bounds(cx, cy):
-            level.tiles[cy][cx] = Tile(
+            level.set_tile(cx, cy, Tile(
                 terrain=Terrain.FLOOR,
                 surface_type=SurfaceType.CORRIDOR,
-            )
+            ))
         cx += dx
         cy += dy
 
@@ -743,9 +743,9 @@ class TestFloorDetailIndependentOfShape:
             ex = room.rect.x2 + 1
             for x in range(ex, ex + 10):
                 if level.in_bounds(x, cy):
-                    level.tiles[cy][x] = Tile(
+                    level.set_tile(x, cy, Tile(
                         terrain=Terrain.FLOOR,
-                        surface_type=SurfaceType.CORRIDOR)
+                        surface_type=SurfaceType.CORRIDOR))
             svg = render_floor_svg_from_ir(level, seed=seed)
             if FLOOR_STONE_FILL in svg:
                 return
@@ -761,9 +761,9 @@ class TestFloorDetailIndependentOfShape:
             ex = room.rect.x2 + 1
             for x in range(ex, ex + 10):
                 if level.in_bounds(x, cy):
-                    level.tiles[cy][x] = Tile(
+                    level.set_tile(x, cy, Tile(
                         terrain=Terrain.FLOOR,
-                        surface_type=SurfaceType.CORRIDOR)
+                        surface_type=SurfaceType.CORRIDOR))
             svg = render_floor_svg_from_ir(level, seed=seed)
             if "y-scratch" in svg or 'opacity="0.45"' in svg:
                 return

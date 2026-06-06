@@ -70,8 +70,9 @@ class TestLevelOrigin:
 
     def test_origin_zero_tile_at_unchanged(self):
         lvl = Level.create_empty("l", "L", 1, 4, 3)
-        assert lvl.tile_at(0, 0) is lvl.tiles[0][0]
-        assert lvl.tile_at(3, 2) is lvl.tiles[2][3]
+        rows = list(lvl.iter_rows())
+        assert lvl.tile_at(0, 0) is rows[0][0]
+        assert lvl.tile_at(3, 2) is rows[2][3]
         assert lvl.tile_at(4, 0) is None  # out of bounds
 
     def test_offset_grid_indexes_by_world_coord(self):
@@ -80,8 +81,9 @@ class TestLevelOrigin:
         lvl = Level.create_empty(
             "f", "F", 1, 4, 3, origin_x=10, origin_y=20,
         )
-        assert lvl.tile_at(10, 20) is lvl.tiles[0][0]
-        assert lvl.tile_at(13, 22) is lvl.tiles[2][3]
+        rows = list(lvl.iter_rows())
+        assert lvl.tile_at(10, 20) is rows[0][0]
+        assert lvl.tile_at(13, 22) is rows[2][3]
 
     def test_offset_grid_bounds(self):
         lvl = Level.create_empty(
@@ -103,7 +105,7 @@ class TestLevelOrigin:
         )
         marker = Tile(terrain=Terrain.FLOOR)
         lvl.set_tile(13, 22, marker)
-        assert lvl.tiles[2][3] is marker
+        assert list(lvl.iter_rows())[2][3] is marker
         assert lvl.tile_at(13, 22) is marker
 
     def test_iter_world_yields_world_coords(self):
@@ -114,6 +116,38 @@ class TestLevelOrigin:
         assert coords == {(10, 20), (11, 20), (10, 21), (11, 21)}
         for wx, wy, tile in lvl.iter_world():
             assert lvl.tile_at(wx, wy) is tile
+
+    def test_iter_local_yields_physical_indices(self):
+        lvl = Level.create_empty(
+            "f", "F", 1, 2, 2, origin_x=10, origin_y=20,
+        )
+        coords = {(lx, ly) for lx, ly, _ in lvl.iter_local()}
+        assert coords == {(0, 0), (1, 0), (0, 1), (1, 1)}
+        for lx, ly, tile in lvl.iter_local():
+            # local (lx, ly) maps to world (lx + origin, ly + origin)
+            assert lvl.tile_at(lx + 10, ly + 20) is tile
+
+    def test_iter_tiles_covers_every_cell(self):
+        lvl = Level.create_empty("l", "L", 1, 3, 2)
+        assert sum(1 for _ in lvl.iter_tiles()) == 6
+        marker = Tile(terrain=Terrain.FLOOR)
+        lvl.set_tile(1, 1, marker)
+        assert marker in list(lvl.iter_tiles())
+
+    def test_iter_rows_yields_physical_rows(self):
+        lvl = Level.create_empty(
+            "f", "F", 1, 2, 3, origin_x=5, origin_y=7,
+        )
+        rows = list(lvl.iter_rows())
+        assert len(rows) == 3 and all(len(r) == 2 for r in rows)
+        assert rows[0][0] is lvl.tile_at(5, 7)
+        assert rows[2][1] is lvl.tile_at(6, 9)
+
+    def test_tiles_field_is_private(self):
+        # The raw grid is ``_tiles``; ``.tiles`` must not exist so a
+        # stray world-coord index can't silently read the offset array.
+        lvl = Level.create_empty("l", "L", 1, 2, 2)
+        assert not hasattr(lvl, "tiles")
 
 
 class TestDungeonRefExtensions:

@@ -39,7 +39,7 @@ def _make_level(visible=False):
     tiles = [[Tile(terrain=Terrain.FLOOR, visible=visible)
               for _ in range(10)] for _ in range(10)]
     return Level(id="t", name="T", depth=1, width=10, height=10,
-                 tiles=tiles, rooms=[], corridors=[], entities=[])
+                 _tiles=tiles, rooms=[], corridors=[], entities=[])
 
 
 def _make_world(turn=10):
@@ -534,7 +534,7 @@ class TestRevealMap:
         pid = _make_player(world)
 
         # Sanity: nothing explored yet
-        assert not any(t.explored for row in level.tiles for t in row)
+        assert not any(t.explored for t in level.iter_tiles())
 
         scroll = world.create_entity({
             "Renderable": Renderable(glyph="?", color="bright_white"),
@@ -546,7 +546,7 @@ class TestRevealMap:
 
         await UseItemAction(actor=pid, item=scroll).execute(world, level)
 
-        assert all(t.explored for row in level.tiles for t in row)
+        assert all(t.explored for t in level.iter_tiles())
 
     @pytest.mark.asyncio
     async def test_does_not_make_tiles_visible(self):
@@ -565,7 +565,7 @@ class TestRevealMap:
 
         await UseItemAction(actor=pid, item=scroll).execute(world, level)
 
-        assert not any(t.visible for row in level.tiles for t in row)
+        assert not any(t.visible for t in level.iter_tiles())
 
 
 # ── Scroll factories ─────────────────────────────────────────────────

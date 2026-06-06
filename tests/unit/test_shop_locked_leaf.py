@@ -56,7 +56,7 @@ def _make_shop_fixture() -> tuple[Level, Building]:
 
     level = Level(
         id="shop_f0", name="shop_f0", depth=1,
-        width=10, height=8, tiles=tiles,
+        width=10, height=8, _tiles=tiles,
         building_id="shop",
     )
     level.rooms = [
@@ -99,10 +99,9 @@ class TestSmallestLeafDoor:
 
     def test_returns_none_when_no_interior_doors(self) -> None:
         level, building = _make_shop_fixture()
-        for row in level.tiles:
-            for t in row:
-                if t.feature == "door_closed":
-                    t.feature = None
+        for t in level.iter_tiles():
+            if t.feature == "door_closed":
+                t.feature = None
         assert smallest_leaf_door(level, building) is None
 
 
@@ -122,8 +121,7 @@ class TestLockedDoorOnSmallestLeaf:
                     continue
                 locked = [
                     (x, y)
-                    for y, row in enumerate(b.ground.tiles)
-                    for x, t in enumerate(row)
+                    for x, y, t in b.ground.iter_world()
                     if t.feature == "door_locked"
                 ]
                 if not locked:

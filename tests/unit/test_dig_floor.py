@@ -27,7 +27,7 @@ def _make_level(buried=None, dug=False) -> Level:
         for t in row:
             t.visible = True
     return Level(id="t", name="T", depth=1, width=10, height=10,
-                 tiles=tiles, rooms=[], corridors=[], entities=[])
+                 _tiles=tiles, rooms=[], corridors=[], entities=[])
 
 
 def _make_world(
@@ -449,13 +449,12 @@ class TestBuriedItemPopulation:
         )]
         level = Level(
             id="t", name="T", depth=3, width=20, height=20,
-            tiles=tiles, rooms=rooms, corridors=[], entities=[],
+            _tiles=tiles, rooms=rooms, corridors=[], entities=[],
         )
         populate_level(level, rng=random.Random(42))
 
         buried_count = sum(
-            1 for row in level.tiles
-            for t in row if t.buried
+            1 for t in level.iter_tiles() if t.buried
         )
         assert buried_count > 0
 
@@ -487,11 +486,11 @@ class TestBuriedItemPopulation:
             level = Level(
                 id="t", name="T", depth=depth,
                 width=width, height=10,
-                tiles=tiles, rooms=rooms, corridors=[], entities=[],
+                _tiles=tiles, rooms=rooms, corridors=[], entities=[],
             )
             _bury_items(level, rng=random.Random(0))
             return sum(
-                len(t.buried) for row in level.tiles for t in row
+                len(t.buried) for t in level.iter_tiles()
             )
 
         n_rooms = 4

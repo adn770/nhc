@@ -58,7 +58,7 @@ def _build_level(door_feature: str = "door_secret") -> Level:
     # Main room floor: cols 2-7, rows 3-5
     for y in range(3, 6):
         for x in range(2, 8):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
 
     # Walls around main room (already VOID from create_empty,
     # set explicit WALLs on the border)
@@ -70,19 +70,19 @@ def _build_level(door_feature: str = "door_secret") -> Level:
     #  Col 8: wall except (8,4) = door, Col 9: wall
     for y in range(HEIGHT):
         for x in range(WIDTH):
-            if level.tiles[y][x].terrain == Terrain.VOID:
-                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+            if level.tile_at(x, y).terrain == Terrain.VOID:
+                level.set_tile(x, y, Tile(terrain=Terrain.WALL))
 
     # Secret doors
     for dx, dy in ALL_DOORS:
-        level.tiles[dy][dx] = Tile(
+        level.set_tile(dx, dy, Tile(
             terrain=Terrain.FLOOR, feature=door_feature,
-        )
+        ))
 
     # Corridor tiles behind each door
     for cx, cy in [CORRIDOR_N, CORRIDOR_S, CORRIDOR_W, CORRIDOR_E]:
-        level.tiles[cy][cx] = Tile(terrain=Terrain.FLOOR,
-                                   surface_type=SurfaceType.CORRIDOR)
+        level.set_tile(cx, cy, Tile(terrain=Terrain.FLOOR,
+                                    surface_type=SurfaceType.CORRIDOR))
 
     return level
 

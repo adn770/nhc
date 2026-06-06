@@ -916,7 +916,7 @@ def _place_entry_door(
         ) // len(plan.members)
         centroid = (cx, cy)
     for (px, py) in perim:
-        tile = ground.tiles[py][px]
+        tile = ground.tile_at(px, py)
         if tile.feature is not None:
             continue
         has_wall = False
@@ -924,7 +924,7 @@ def _place_entry_door(
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
-            if ground.tiles[ny][nx].terrain == Terrain.WALL:
+            if ground.tile_at(nx, ny).terrain == Terrain.WALL:
                 has_wall = True
                 break
         if not has_wall:
@@ -933,7 +933,7 @@ def _place_entry_door(
         if nb is None or nb in blocked:
             continue
         if surface is not None and surface.in_bounds(*nb):
-            nb_tile = surface.tiles[nb[1]][nb[0]]
+            nb_tile = surface.tile_at(nb[0], nb[1])
             nb_st = nb_tile.surface_type
             # Doors must face a walkable surface tile -- FLOOR for
             # STREET / FIELD, GRASS for the Phase 3a GARDEN flip.
@@ -1007,33 +1007,32 @@ def _scatter_town_vegetation(
                 return True
         return False
 
-    for y, row in enumerate(surface.tiles):
-        for x, tile in enumerate(row):
-            # Phase 3b: FIELD tiles render on Terrain.GRASS so the
-            # theme grass tint paints under the scattered-stone
-            # overlay. Restrict tree scatter to the GRASS-tagged
-            # FIELD pool to make the "trees grow on grass" intent
-            # explicit (matches today's behavior since every
-            # FIELD tile now carries GRASS terrain).
-            if tile.terrain is not Terrain.GRASS:
-                continue
-            if tile.surface_type != SurfaceType.FIELD:
-                continue
-            if tile.feature is not None:
-                continue
-            if (x, y) in door_ring:
-                continue
-            if _inside_courtyard(x, y):
-                continue
-            blocked = False
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                if (x + dx, y + dy) in footprints:
-                    blocked = True
-                    break
-            if blocked:
-                continue
-            if rng.random() < density:
-                tile.feature = "tree"
+    for x, y, tile in surface.iter_world():
+        # Phase 3b: FIELD tiles render on Terrain.GRASS so the
+        # theme grass tint paints under the scattered-stone
+        # overlay. Restrict tree scatter to the GRASS-tagged
+        # FIELD pool to make the "trees grow on grass" intent
+        # explicit (matches today's behavior since every
+        # FIELD tile now carries GRASS terrain).
+        if tile.terrain is not Terrain.GRASS:
+            continue
+        if tile.surface_type != SurfaceType.FIELD:
+            continue
+        if tile.feature is not None:
+            continue
+        if (x, y) in door_ring:
+            continue
+        if _inside_courtyard(x, y):
+            continue
+        blocked = False
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            if (x + dx, y + dy) in footprints:
+                blocked = True
+                break
+        if blocked:
+            continue
+        if rng.random() < density:
+            tile.feature = "tree"
 
 
 def _scatter_town_bushes(
@@ -1078,30 +1077,29 @@ def _scatter_town_bushes(
         return False
 
     bush_set: set[tuple[int, int]] = set()
-    for y, row in enumerate(surface.tiles):
-        for x, tile in enumerate(row):
-            if tile.terrain is not Terrain.GRASS:
-                continue
-            if tile.surface_type != SurfaceType.FIELD:
-                continue
-            if tile.feature is not None:
-                continue
-            if (x, y) in door_ring:
-                continue
-            if _inside_courtyard(x, y):
-                continue
-            has_bush_nb = (
-                (x - 1, y) in bush_set
-                or (x, y - 1) in bush_set
-            )
-            prob = (
-                density * BUSH_NEIGHBOUR_BIAS_MULT
-                if has_bush_nb
-                else density
-            )
-            if rng.random() < prob:
-                tile.feature = "bush"
-                bush_set.add((x, y))
+    for x, y, tile in surface.iter_world():
+        if tile.terrain is not Terrain.GRASS:
+            continue
+        if tile.surface_type != SurfaceType.FIELD:
+            continue
+        if tile.feature is not None:
+            continue
+        if (x, y) in door_ring:
+            continue
+        if _inside_courtyard(x, y):
+            continue
+        has_bush_nb = (
+            (x - 1, y) in bush_set
+            or (x, y - 1) in bush_set
+        )
+        prob = (
+            density * BUSH_NEIGHBOUR_BIAS_MULT
+            if has_bush_nb
+            else density
+        )
+        if rng.random() < prob:
+            tile.feature = "bush"
+            bush_set.add((x, y))
 
 
 def _build_palisade(
@@ -1212,15 +1210,15 @@ def _stamp_centerpiece(
             tx, ty = ox + dx, oy + dy
             if not surface.in_bounds(tx, ty):
                 continue
-            surface.tiles[ty][tx] = Tile(
+            surface.set_tile(tx, ty, Tile(
                 terrain=Terrain.FLOOR,
                 surface_type=SurfaceType.STREET,
-            )
+            ))
     feature_offset = (spec.patch_dim - spec.feature_dim) // 2
     fx = ox + feature_offset
     fy = oy + feature_offset
     if surface.in_bounds(fx, fy):
-        surface.tiles[fy][fx].feature = feature_tag
+        surface.tile_at(fx, fy).feature = feature_tag
 
 
 # ── Two-tier plaza stamping (BSP-neighbourhood redesign, D7) ──
@@ -1283,14 +1281,14 @@ def _stamp_big_plaza(
             tx, ty = rect.x + dx, rect.y + dy
             if not surface.in_bounds(tx, ty):
                 continue
-            surface.tiles[ty][tx] = Tile(
+            surface.set_tile(tx, ty, Tile(
                 terrain=Terrain.FLOOR,
                 surface_type=SurfaceType.STREET,
-            )
+            ))
     fx = rect.x + (rect.width - spec.feature_dim) // 2
     fy = rect.y + (rect.height - spec.feature_dim) // 2
     if surface.in_bounds(fx, fy):
-        surface.tiles[fy][fx].feature = feature_tag
+        surface.tile_at(fx, fy).feature = feature_tag
 
 
 def _stamp_small_plaza(
@@ -1306,10 +1304,10 @@ def _stamp_small_plaza(
             tx, ty = rect.x + dx, rect.y + dy
             if not surface.in_bounds(tx, ty):
                 continue
-            surface.tiles[ty][tx] = Tile(
+            surface.set_tile(tx, ty, Tile(
                 terrain=Terrain.GRASS,
                 surface_type=SurfaceType.GARDEN,
-            )
+            ))
     cx = rect.x + rect.width // 2
     cy = rect.y + rect.height // 2
     for dx in (-1, 0, 1):
@@ -1317,16 +1315,16 @@ def _stamp_small_plaza(
             tx, ty = cx + dx, cy + dy
             if not surface.in_bounds(tx, ty):
                 continue
-            surface.tiles[ty][tx] = Tile(
+            surface.set_tile(tx, ty, Tile(
                 terrain=Terrain.FLOOR,
                 surface_type=SurfaceType.STREET,
-            )
+            ))
     if surface.in_bounds(cx, cy):
-        surface.tiles[cy][cx].feature = feature_tag
+        surface.tile_at(cx, cy).feature = feature_tag
     # A single tree in a corner of the grass apron (a plaza tree, not a
     # scattered-FIELD tree — see test_town_vegetation).
     if surface.in_bounds(rect.x, rect.y):
-        surface.tiles[rect.y][rect.x].feature = "tree"
+        surface.tile_at(rect.x, rect.y).feature = "tree"
 
 
 def _build_town_surface(
@@ -1430,7 +1428,7 @@ def _pave_courtyard_post_pass(
             # S5: keep small-plaza grass aprons green — don't pave them.
             if _is_protected(x, y):
                 continue
-            tile = surface.tiles[y][x]
+            tile = surface.tile_at(x, y)
             if tile.surface_type in (
                 SurfaceType.GARDEN, SurfaceType.FIELD,
             ):
@@ -1584,7 +1582,6 @@ def _nearest_street_tile_near(
     for y in range(
         max(0, cy - 3), min(surface.height, cy + 4),
     ):
-        row = surface.tiles[y]
         for x in range(
             max(0, cx - 3), min(surface.width, cx + 4),
         ):
@@ -1592,7 +1589,7 @@ def _nearest_street_tile_near(
                 continue
             if (x, y) in occupied:
                 continue
-            tile = row[x]
+            tile = surface.tile_at(x, y)
             if tile.surface_type not in _OUTDOOR_SURFACE_TYPES:
                 continue
             if not tile.walkable:
@@ -1639,7 +1636,7 @@ def _lock_shop_doors(
         if door_tile is None:
             continue
         x, y = door_tile
-        ground.tiles[y][x].feature = "door_locked"
+        ground.tile_at(x, y).feature = "door_locked"
 
 
 def _connect_cross_building_doors(
@@ -1734,8 +1731,8 @@ def _link_pair_per_floor_vertical(
 
     shared_floor_count = min(len(top.floors), len(bottom.floors))
     for floor_idx in range(shared_floor_count):
-        t_tile = top.floors[floor_idx].tiles[ty][x]
-        b_tile = bottom.floors[floor_idx].tiles[by][x]
+        t_tile = top.floors[floor_idx].tile_at(x, ty)
+        b_tile = bottom.floors[floor_idx].tile_at(x, by)
         if (t_tile.terrain is not Terrain.FLOOR
                 or b_tile.terrain is not Terrain.FLOOR):
             continue
@@ -1780,8 +1777,8 @@ def _link_pair_per_floor(
 
     shared_floor_count = min(len(left.floors), len(right.floors))
     for floor_idx in range(shared_floor_count):
-        l_tile = left.floors[floor_idx].tiles[y][lx]
-        r_tile = right.floors[floor_idx].tiles[y][rx]
+        l_tile = left.floors[floor_idx].tile_at(lx, y)
+        r_tile = right.floors[floor_idx].tile_at(rx, y)
         # Only stamp if both tiles are interior floor tiles on
         # their respective Levels; a mismatched shape can leave a
         # wall where we expect floor.
@@ -1853,17 +1850,14 @@ def _place_surface_villagers(
 
     surface = site.surface
     candidates: list[tuple[int, int]] = []
-    for y in range(surface.height):
-        row = surface.tiles[y]
-        for x in range(surface.width):
-            tile = row[x]
-            if tile.surface_type != SurfaceType.STREET:
-                continue
-            if not tile.walkable:
-                continue
-            if tile.feature is not None:
-                continue
-            candidates.append((x, y))
+    for x, y, tile in surface.iter_world():
+        if tile.surface_type != SurfaceType.STREET:
+            continue
+        if not tile.walkable:
+            continue
+        if tile.feature is not None:
+            continue
+        candidates.append((x, y))
     if not candidates:
         return
 

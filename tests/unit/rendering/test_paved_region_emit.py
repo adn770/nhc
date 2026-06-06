@@ -36,11 +36,10 @@ def _build_level_with_paved_tiles(
     fixture.
     """
     level = Level.create_empty("L", "L", 1, 12, 12)
-    for y in range(12):
-        for x in range(12):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+    for x, y, _tile in level.iter_world():
+        level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
     for x, y in coords:
-        level.tiles[y][x] = Tile(terrain=terrain, surface_type=surface_type)
+        level.set_tile(x, y, Tile(terrain=terrain, surface_type=surface_type))
     level.rooms = [
         Room(id="r1", rect=Rect(0, 0, 12, 12), shape=RectShape()),
     ]
