@@ -232,15 +232,19 @@ class TestBushSurface:
         "village", "town", "city",
     ])
     def test_every_bush_on_field_tile(self, size_class):
+        # Scattered bushes land on FIELD; courtyard-garden bushes sit
+        # on GARDEN patches. A bush on STREET / PAVEMENT is the bug.
         for seed in range(15):
             site = assemble_town(
                 "t1", random.Random(seed), size_class=size_class,
             )
             for x, y in _bush_positions(site):
                 tile = site.surface.tile_at(x, y)
-                assert tile.surface_type == SurfaceType.FIELD, (
+                assert tile.surface_type in (
+                    SurfaceType.FIELD, SurfaceType.GARDEN,
+                ), (
                     f"seed={seed} {size_class}: bush at ({x},{y}) "
-                    f"on {tile.surface_type!r}, expected FIELD"
+                    f"on {tile.surface_type!r}, expected FIELD/GARDEN"
                 )
 
 

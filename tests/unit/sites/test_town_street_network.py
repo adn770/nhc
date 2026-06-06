@@ -280,12 +280,12 @@ class TestSurfaceClassification:
         )
 
     def test_city_paves_palisade_interior(self) -> None:
-        """City tier converts every walkable FIELD / GARDEN tile
-        **inside the palisade rect** to PAVEMENT so the fortified
-        courtyard renders as one paved surface (Ashlar Staggered
-        via ``pavement_material``). FIELD tiles in the outer
-        2-tile grass ring (where trees / bushes scatter outside
-        the wall) survive the post-pass."""
+        """City tier paves the courtyard: the pave post-pass converts
+        every walkable FIELD tile **inside the palisade rect** to
+        PAVEMENT, so no FIELD survives there. (The courtyard-garden
+        pass then dapples some pavement back to GARDEN patches — those
+        are allowed; FIELD is not.) FIELD tiles in the outer 2-tile
+        grass ring, outside the wall, survive the post-pass."""
         from nhc.sites.town import _SIZE_CLASSES, _palisade_outer_rect
         config = _SIZE_CLASSES["city"]
         pal = _palisade_outer_rect(config)
@@ -313,12 +313,11 @@ class TestSurfaceClassification:
                     tile = site.surface.tile_at(x, y)
                     if _in_apron(x, y):
                         continue
-                    assert tile.surface_type not in (
-                        SurfaceType.FIELD, SurfaceType.GARDEN,
-                    ), (
+                    assert tile.surface_type is not SurfaceType.FIELD, (
                         f"city seed={seed}: palisade-interior tile "
-                        f"({x},{y}) carries {tile.surface_type!r}; "
-                        f"cities pave the courtyard with PAVEMENT"
+                        f"({x},{y}) carries FIELD; cities pave the "
+                        f"courtyard (garden patches are GARDEN, not "
+                        f"FIELD)"
                     )
 
 

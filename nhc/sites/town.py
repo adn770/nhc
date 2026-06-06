@@ -111,6 +111,21 @@ TOWN_BUSH_DENSITY: dict[str, float] = {
     "city": 0.07,
 }
 
+# Courtyard gardens (cities). After the pave-courtyard post-pass the
+# whole city interior is PAVEMENT; this pass dapples a fraction of it
+# back to GARDEN patches so the open plaza reads as greened, not a
+# stone desert. The pavement is complemented, not replaced.
+#   COVERAGE   — target fraction of open pavement turned to garden
+#   PATCH_MIN/MAX — garden patch side length (tiles)
+#   FORMAL_CHANCE — chance a (>=3x3) patch is a formal flower bed
+#   TREE/BUSH_CHANCE — per informal-patch-tile vegetation odds
+GARDEN_COURTYARD_COVERAGE: float = 0.18
+GARDEN_PATCH_MIN: int = 2
+GARDEN_PATCH_MAX: int = 4
+GARDEN_FORMAL_CHANCE: float = 0.25
+GARDEN_PATCH_TREE_CHANCE: float = 0.16
+GARDEN_PATCH_BUSH_CHANCE: float = 0.24
+
 BUSH_NEIGHBOUR_BIAS_MULT = 2.5
 """Probability multiplier when an already-iterated 4-neighbour
 (N, W in row-major scan) carries a bush. The bias makes bushes
@@ -645,6 +660,34 @@ def assemble_town(
         _pave_courtyard_post_pass(
             surface, _palisade_outer_rect(config),
             protected_rects=small_plaza_rects,
+        )
+        # Complement the open pavement with garden patches so the
+        # plaza between buildings reads as greened, not a stone
+        # desert. Keep building doors (+ approach ring) and the
+        # protected plazas clear; trees avoid building-adjacent tiles.
+        footprints: set[tuple[int, int]] = set()
+        for b in buildings:
+            footprints |= b.base_shape.floor_tiles(b.base_rect)
+        garden_blocked: set[tuple[int, int]] = set()
+        for sx, sy in site.building_doors:
+            garden_blocked.add((sx, sy))
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                garden_blocked.add((sx + dx, sy + dy))
+        for r in small_plaza_rects:
+            for px in range(r.x, r.x2):
+                for py in range(r.y, r.y2):
+                    garden_blocked.add((px, py))
+        # Courtyard clusters keep their shared yard paved (Q7 working
+        # yards stay shrub-free), so gardens skip those bboxes too.
+        for plan in cluster_plans:
+            if plan.kind == "courtyard":
+                bb = plan.bbox
+                for px in range(bb.x, bb.x2):
+                    for py in range(bb.y, bb.y2):
+                        garden_blocked.add((px, py))
+        _scatter_courtyard_gardens(
+            surface, _palisade_outer_rect(config),
+            garden_blocked, footprints, rng,
         )
     # Vegetation scatter walks every FIELD tile. After the
     # ``_paint_outer_grass_ring`` step, the outer grass apron is
@@ -1433,6 +1476,109 @@ def _pave_courtyard_post_pass(
                 SurfaceType.GARDEN, SurfaceType.FIELD,
             ):
                 tile.surface_type = SurfaceType.PAVEMENT
+
+
+def _stamp_garden_patch(
+    surface: Level, x0: int, y0: int, w: int, h: int,
+    formal: bool, footprints: set[tuple[int, int]],
+    rng: random.Random,
+) -> None:
+    """Turn the ``w`` x ``h`` rect at ``(x0, y0)`` into a garden patch.
+
+    Tiles become GARDEN grass. A *formal* patch borders the rect with
+    a bush hedge, fills the interior with flowers and drops a tree at
+    the centre. An *informal* patch sprinkles trees / bushes per the
+    density tunables. Trees are skipped on tiles 4-adjacent to a
+    building footprint so the canopy never overlaps a roof (mirrors
+    the FIELD scatter rule).
+    """
+    def _tree_ok(x: int, y: int) -> bool:
+        return not any(
+            (x + dx, y + dy) in footprints
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1))
+        )
+
+    for dx in range(w):
+        for dy in range(h):
+            surface.set_tile(x0 + dx, y0 + dy, Tile(
+                terrain=Terrain.GRASS,
+                surface_type=SurfaceType.GARDEN,
+            ))
+    if formal:
+        cx, cy = x0 + w // 2, y0 + h // 2
+        for dx in range(w):
+            for dy in range(h):
+                x, y = x0 + dx, y0 + dy
+                tile = surface.tile_at(x, y)
+                if dx in (0, w - 1) or dy in (0, h - 1):
+                    tile.feature = "bush"
+                elif (x, y) == (cx, cy) and _tree_ok(x, y):
+                    tile.feature = "tree"
+                else:
+                    tile.feature = "flower"
+        return
+    for dx in range(w):
+        for dy in range(h):
+            x, y = x0 + dx, y0 + dy
+            roll = rng.random()
+            if roll < GARDEN_PATCH_TREE_CHANCE and _tree_ok(x, y):
+                surface.tile_at(x, y).feature = "tree"
+            elif roll < (GARDEN_PATCH_TREE_CHANCE
+                         + GARDEN_PATCH_BUSH_CHANCE):
+                surface.tile_at(x, y).feature = "bush"
+
+
+def _scatter_courtyard_gardens(
+    surface: Level, palisade_rect: Rect,
+    blocked: set[tuple[int, int]],
+    footprints: set[tuple[int, int]],
+    rng: random.Random,
+) -> None:
+    """Dapple a city's open paved courtyard with garden patches.
+
+    Walks the open PAVEMENT tiles inside ``palisade_rect`` and greens
+    a :data:`GARDEN_COURTYARD_COVERAGE` fraction of them as
+    non-overlapping garden patches (mostly informal, the occasional
+    formal flower bed). ``blocked`` tiles (building doors + their
+    approach ring, protected plazas) and STREET tiles are never
+    touched, so the routed network and door access stay clear. The
+    pavement is complemented, not replaced.
+    """
+    paved: list[tuple[int, int]] = []
+    for x, y, tile in surface.iter_world():
+        if (palisade_rect.x <= x < palisade_rect.x2
+                and palisade_rect.y <= y < palisade_rect.y2
+                and tile.surface_type is SurfaceType.PAVEMENT
+                and (x, y) not in blocked):
+            paved.append((x, y))
+    if not paved:
+        return
+    open_paved = set(paved)
+    target = int(len(paved) * GARDEN_COURTYARD_COVERAGE)
+    if target < 1:
+        return
+
+    anchors = list(paved)
+    rng.shuffle(anchors)
+    gardened: set[tuple[int, int]] = set()
+    for (ax, ay) in anchors:
+        if len(gardened) >= target:
+            break
+        w = rng.randint(GARDEN_PATCH_MIN, GARDEN_PATCH_MAX)
+        h = rng.randint(GARDEN_PATCH_MIN, GARDEN_PATCH_MAX)
+        rect_tiles = [
+            (ax + dx, ay + dy)
+            for dx in range(w) for dy in range(h)
+        ]
+        # Every tile must be open pavement and not already gardened
+        # (keeps patches disjoint and off streets / doors / buildings).
+        if any(c not in open_paved or c in gardened for c in rect_tiles):
+            continue
+        formal = (w >= 3 and h >= 3
+                  and rng.random() < GARDEN_FORMAL_CHANCE)
+        _stamp_garden_patch(surface, ax, ay, w, h, formal,
+                            footprints, rng)
+        gardened.update(rect_tiles)
 
 
 def _place_service_npcs(

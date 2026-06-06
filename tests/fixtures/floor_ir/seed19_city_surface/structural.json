@@ -1,12 +1,12 @@
 {
   "op_counts": {
-    "FixtureOp": 5,
-    "PaintOp": 56,
+    "FixtureOp": 6,
+    "PaintOp": 70,
     "RoofOp": 40,
     "ShadowOp": 1,
     "StrokeOp": 1
   },
-  "region_count": 99,
+  "region_count": 113,
   "region_polygon_rings": 0,
-  "region_polygon_vertices": 4178
+  "region_polygon_vertices": 4540
 }
