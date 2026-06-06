@@ -459,6 +459,50 @@ def cuts_for_room_doors(
 # ── Enclosure gate cut resolution ─────────────────────────────
 
 
+def project_site_gate_cut(
+    gate: tuple[int, int, int],
+    polygon_px: list[tuple[float, float]],
+) -> tuple[int, float, float]:
+    """Project a real-site gate ``(gx, gy, length)`` to the gate-cut
+    triple ``(edge_idx, t_center, half_px)`` for
+    :func:`cuts_for_enclosure_gates`.
+
+    A gate spans ``length`` tiles in +y from ``(gx, gy)`` (see
+    ``_gate_apron_tiles``). The cut is symmetric about its centre, so
+    the projected point must be the gate's *midpoint*
+    (``gy + length / 2``), not its top-left corner — otherwise the
+    opening lands half a gate (one tile) too far north and reads as
+    "one tile off" from the street that routes to it.
+    """
+    from nhc.rendering._ir_helpers import CELL, PADDING
+
+    gx, gy, length_tiles = gate
+    gx_px = PADDING + gx * CELL
+    gy_px = PADDING + gy * CELL + (length_tiles * CELL) / 2.0
+    n = len(polygon_px)
+    best_idx = 0
+    best_d = float("inf")
+    best_t = 0.5
+    for i in range(n):
+        ax, ay = polygon_px[i]
+        bx, by = polygon_px[(i + 1) % n]
+        dx, dy = bx - ax, by - ay
+        seg_len_sq = dx * dx + dy * dy
+        if seg_len_sq == 0:
+            continue
+        t = max(0.0, min(1.0, (
+            (gx_px - ax) * dx + (gy_px - ay) * dy
+        ) / seg_len_sq))
+        ix = ax + dx * t
+        iy = ay + dy * t
+        d = (ix - gx_px) ** 2 + (iy - gy_px) ** 2
+        if d < best_d:
+            best_d = d
+            best_idx = i
+            best_t = t
+    return (best_idx, best_t, float(length_tiles) * CELL / 2.0)
+
+
 def cuts_for_enclosure_gates(
     polygon_px: list[tuple[float, float]],
     gates: list[tuple[int, float, float]],

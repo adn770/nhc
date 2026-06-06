@@ -195,7 +195,9 @@ def _emit_site_enclosure_strokes(
       half_px)`` triples (detected via float in slots 1 / 2);
       passed through unchanged.
     """
-    from nhc.rendering._outline_helpers import cuts_for_enclosure_gates
+    from nhc.rendering._outline_helpers import (
+        cuts_for_enclosure_gates, project_site_gate_cut,
+    )
     from nhc.rendering._ir_helpers import CELL, PADDING
 
     enclosure = getattr(site, "enclosure", None)
@@ -215,7 +217,6 @@ def _emit_site_enclosure_strokes(
         (PADDING + x * CELL, PADDING + y * CELL)
         for (x, y) in enclosure.polygon
     ]
-    n = len(poly_px)
 
     raw_gates = list(enclosure.gates or [])
     gates_param: list[tuple[int, float, float]] = []
@@ -229,34 +230,10 @@ def _emit_site_enclosure_strokes(
                 (int(gate[0]), float(gate[1]), float(gate[2]))
             )
             continue
-        # Real Site format: (x, y, length_tiles) — closest-edge
-        # projection (mirrors emit_site_overlays).
-        gx, gy, length_tiles = gate
-        gx_px = PADDING + gx * CELL
-        gy_px = PADDING + gy * CELL
-        best_idx = 0
-        best_d = float("inf")
-        best_t = 0.5
-        for i in range(n):
-            ax, ay = poly_px[i]
-            bx, by = poly_px[(i + 1) % n]
-            dx, dy = bx - ax, by - ay
-            seg_len_sq = dx * dx + dy * dy
-            if seg_len_sq == 0:
-                continue
-            t = max(0.0, min(1.0, (
-                (gx_px - ax) * dx + (gy_px - ay) * dy
-            ) / seg_len_sq))
-            ix = ax + dx * t
-            iy = ay + dy * t
-            d = (ix - gx_px) ** 2 + (iy - gy_px) ** 2
-            if d < best_d:
-                best_d = d
-                best_idx = i
-                best_t = t
-        gates_param.append(
-            (best_idx, best_t, float(length_tiles) * CELL / 2.0),
-        )
+        # Real Site format: (x, y, length_tiles) — project the gate's
+        # centre onto the nearest wall edge so the opening covers the
+        # gate's full tile span (not half a gate too far north).
+        gates_param.append(project_site_gate_cut(gate, poly_px))
     cuts = cuts_for_enclosure_gates(
         coords_px, gates_param, CutStyle.WoodGate,
     )
