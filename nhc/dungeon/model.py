@@ -684,6 +684,18 @@ class Tile:
     dug_wall: bool = False  # True when a wall was dug into a passage
     surface_type: SurfaceType = SurfaceType.NONE
 
+    @classmethod
+    def empty(cls) -> Tile:
+        """Construct a VOID tile via the positional fast path.
+
+        ``create_empty`` builds ~190k of these per city, so the slotted
+        ``__init__`` is called positionally (~1.5x faster than the
+        keyword form). The single positional argument pins to the first
+        slot — ``terrain`` — guarded by ``TestTileEmpty`` so a field
+        insertion ahead of ``terrain`` can't silently corrupt it.
+        """
+        return cls(Terrain.VOID)
+
     @property
     def walkable(self) -> bool:
         if self.feature == "door_secret":
@@ -857,8 +869,9 @@ class Level:
     def create_empty(cls, id: str, name: str, depth: int,
                      width: int, height: int) -> Level:
         """Create a level filled with void."""
+        empty = Tile.empty
         tiles = [
-            [Tile(terrain=Terrain.VOID) for _ in range(width)]
+            [empty() for _ in range(width)]
             for _ in range(height)
         ]
         return cls(

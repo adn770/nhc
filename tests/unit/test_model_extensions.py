@@ -30,6 +30,33 @@ class TestTileSlots:
         assert back.buried == ["gold"]
 
 
+class TestTileEmpty:
+    """``Tile.empty()`` is the positional fast-path constructor used by
+    ``create_empty`` for bulk VOID allocation. It must stay equivalent
+    to the keyword form, and the slot order it relies on must not drift.
+    """
+
+    def test_empty_equals_keyword_void(self):
+        assert Tile.empty() == Tile(terrain=Terrain.VOID)
+
+    def test_empty_is_distinct_instance(self):
+        # Each call must yield a fresh object — no shared flyweight, or
+        # in-place mutation (buried.append, visible sweeps) would alias.
+        a = Tile.empty()
+        b = Tile.empty()
+        assert a is not b
+        assert a.buried is not b.buried
+
+    def test_slot_order_pins_positional_constructor(self):
+        # ``empty()`` constructs positionally, so a field insertion ahead
+        # of ``terrain`` would silently corrupt it. Pin the expected order.
+        assert Tile.__slots__ == (
+            "terrain", "feature", "explored", "visible", "door_side",
+            "opened_at_turn", "buried", "dug_floor", "dug_wall",
+            "surface_type",
+        )
+
+
 class TestDungeonRefExtensions:
     def test_size_class_default(self):
         ref = DungeonRef(template="procedural:cave")
