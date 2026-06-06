@@ -501,6 +501,45 @@ class _BboxGrid:
         return False
 
 
+def _scan_first_free(
+    placed_bboxes: list[Rect],
+    forbidden_rects: list[Rect],
+    w: int, h: int,
+    ox_lo: int, ox_hi: int, oy_lo: int, oy_hi: int,
+) -> tuple[int, int] | None:
+    """First free top-left origin (column-major: smallest ``ox`` with a
+    free ``oy``, smallest ``oy`` within it) for a ``w``x``h`` cluster
+    that keeps ``CLUSTER_BBOX_GAP`` from every placed / forbidden rect.
+
+    Returns exactly what the unshuffled cell scan +
+    :func:`_bboxes_overlap_with_gap` would, but computes each column's
+    answer from the occupied y-spans: an x-active rect ``r`` (one whose
+    x-strip overlaps the column) forbids ``oy`` in
+    ``[r.y - h - gap, r.y2 + gap]``; the smallest ``oy`` in
+    ``[oy_lo, oy_hi]`` outside every such interval is the column's hit.
+    This skips occupied spans instead of testing every cell."""
+    gap = CLUSTER_BBOX_GAP
+    cols = [(r.x, r.x2, r.y, r.y2) for r in placed_bboxes]
+    cols += [(r.x, r.x2, r.y, r.y2) for r in forbidden_rects]
+    for ox in range(ox_lo, ox_hi + 1):
+        x_lo = ox - 1 - gap
+        x_hi = ox + w + 1 + gap
+        forbidden = sorted(
+            (ry - h - gap, ry2 + gap)
+            for (rx, rx2, ry, ry2) in cols
+            if rx2 > x_lo and rx < x_hi
+        )
+        cand = oy_lo
+        for start, end in forbidden:
+            if cand < start:
+                break
+            if end >= cand:
+                cand = end + 1
+        if cand <= oy_hi:
+            return (ox, cand)
+    return None
+
+
 def _try_place_plan(
     plan: _ClusterPlan,
     placed_bboxes: list[Rect],
@@ -527,45 +566,51 @@ def _try_place_plan(
     if ox_hi < ox_lo or oy_hi < oy_lo:
         return False
 
-    # Spatial index over everything the candidate must avoid. Built
-    # once per placement (O(rects)) then queried per attempt /
-    # scan-cell (O(nearby)), replacing the old O(attempts × rects)
-    # linear scans. placed_bboxes already includes forbidden_rects
-    # (see _place_clusters), but adding both is harmless (a dup is
-    # just tested twice) and keeps this independent of that invariant.
-    index = _BboxGrid(CLUSTER_BBOX_GAP)
-    for p in placed_bboxes:
-        index.add(p)
-    for fr in forbidden_rects:
-        index.add(fr)
+    valid_origin: tuple[int, int] | None
+    if random_attempts == 0 and not scan_shuffle:
+        # Per-plot fill: a column-interval sweep that returns the SAME
+        # first-free top-left origin as the unshuffled cell scan, but
+        # skips occupied y-spans instead of testing every cell — no
+        # spatial index needed. This is the packing hot path.
+        valid_origin = _scan_first_free(
+            placed_bboxes, forbidden_rects,
+            cluster_w, cluster_h, ox_lo, ox_hi, oy_lo, oy_hi,
+        )
+    else:
+        # Global packer: spatial index + random sampling, then a
+        # shuffled deterministic scan. placed_bboxes already includes
+        # forbidden_rects (see _place_clusters), but adding both is
+        # harmless (a dup is just tested twice).
+        index = _BboxGrid(CLUSTER_BBOX_GAP)
+        for p in placed_bboxes:
+            index.add(p)
+        for fr in forbidden_rects:
+            index.add(fr)
 
-    def _check(ox: int, oy: int) -> bool:
-        bbox = _bbox_for((ox, oy), (cluster_w, cluster_h))
-        return not index.overlaps_any(bbox)
+        def _check(ox: int, oy: int) -> bool:
+            bbox = _bbox_for((ox, oy), (cluster_w, cluster_h))
+            return not index.overlaps_any(bbox)
 
-    valid_origin: tuple[int, int] | None = None
-    for _ in range(random_attempts):
-        ox = rng.randint(ox_lo, ox_hi)
-        oy = rng.randint(oy_lo, oy_hi)
-        if _check(ox, oy):
-            valid_origin = (ox, oy)
-            break
-    if valid_origin is None:
-        # Deterministic scan. Shuffled (global packer) keeps placement
-        # seed-dependent and unbiased; unshuffled (per-plot fill) packs
-        # top-left and keeps the free space contiguous.
-        ox_range = list(range(ox_lo, ox_hi + 1))
-        oy_range = list(range(oy_lo, oy_hi + 1))
-        if scan_shuffle:
-            rng.shuffle(ox_range)
-            rng.shuffle(oy_range)
-        for ox in ox_range:
-            for oy in oy_range:
-                if _check(ox, oy):
-                    valid_origin = (ox, oy)
-                    break
-            if valid_origin is not None:
+        valid_origin = None
+        for _ in range(random_attempts):
+            ox = rng.randint(ox_lo, ox_hi)
+            oy = rng.randint(oy_lo, oy_hi)
+            if _check(ox, oy):
+                valid_origin = (ox, oy)
                 break
+        if valid_origin is None:
+            ox_range = list(range(ox_lo, ox_hi + 1))
+            oy_range = list(range(oy_lo, oy_hi + 1))
+            if scan_shuffle:
+                rng.shuffle(ox_range)
+                rng.shuffle(oy_range)
+            for ox in ox_range:
+                for oy in oy_range:
+                    if _check(ox, oy):
+                        valid_origin = (ox, oy)
+                        break
+                if valid_origin is not None:
+                    break
     if valid_origin is None:
         return False
 
