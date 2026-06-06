@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.generators._stairs import (
@@ -60,6 +61,9 @@ from nhc.sites._town_streets import (
     compute_town_street_network, connect_doors_to_street_network,
     gates_y_for_cluster_set, paint_surface,
 )
+
+if TYPE_CHECKING:
+    from nhc.sites._town_bsp import Plaza
 from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import Biome, DungeonRef
 
@@ -1229,6 +1233,110 @@ def _stamp_centerpiece(
     fy = oy + feature_offset
     if surface.in_bounds(fx, fy):
         surface.tiles[fy][fx].feature = feature_tag
+
+
+# ── Two-tier plaza stamping (BSP-neighbourhood redesign, D7) ──
+#
+# Reuses the centerpiece machinery (``_CenterpieceSpec`` +
+# ``_centerpiece_feature_tag``) but stamps the BSP-reserved plaza rects
+# directly, with distinct tiers: a big plaza is a full cobblestone
+# square with a fountain (village/town 7x7, city 11x11 large), a small
+# plaza a modest well on a paved collar with a grass apron + a tree
+# (design/town_generator.md §3.2, Q1). Wired into ``assemble_town`` in
+# Phase 4, which retires ``_compute_centerpiece_origin`` /
+# ``_CENTERPIECE_PER_SIZE``.
+
+_SMALL_PLAZA_SPEC = _CenterpieceSpec(
+    feature_dim=1, patch_dim=5,
+    feature_circle="well", feature_square="well_square",
+)
+
+_BIG_PLAZA_SPEC: dict[str, _CenterpieceSpec] = {
+    "village": _CenterpieceSpec(2, 7, "fountain", "fountain_square"),
+    "town": _CenterpieceSpec(2, 7, "fountain", "fountain_square"),
+    "city": _CenterpieceSpec(
+        3, 11, "fountain_large", "fountain_large_square",
+        feature_cross="fountain_cross",
+    ),
+}
+
+
+def _plaza_spec(tier: str, size_class: str) -> _CenterpieceSpec:
+    if tier == "big":
+        return _BIG_PLAZA_SPEC.get(size_class, _BIG_PLAZA_SPEC["town"])
+    return _SMALL_PLAZA_SPEC
+
+
+def stamp_plazas(
+    surface: Level,
+    plazas: list[Plaza],
+    size_class: str,
+    biome: Biome | None,
+) -> None:
+    """Stamp each BSP-reserved plaza onto the surface by tier (D7)."""
+    for plaza in plazas:
+        spec = _plaza_spec(plaza.tier, size_class)
+        if plaza.tier == "big":
+            _stamp_big_plaza(surface, plaza.rect, spec, biome)
+        else:
+            _stamp_small_plaza(surface, plaza.rect, spec, biome)
+
+
+def _stamp_big_plaza(
+    surface: Level, rect: Rect, spec: _CenterpieceSpec,
+    biome: Biome | None,
+) -> None:
+    """Full cobblestone square (``SurfaceType.STREET``) with a central
+    fountain. Paves ``rect`` itself (which may be the auto-shrunk dim),
+    not ``spec.patch_dim``."""
+    feature_tag = _centerpiece_feature_tag(spec, biome)
+    for dx in range(rect.width):
+        for dy in range(rect.height):
+            tx, ty = rect.x + dx, rect.y + dy
+            if not surface.in_bounds(tx, ty):
+                continue
+            surface.tiles[ty][tx] = Tile(
+                terrain=Terrain.FLOOR,
+                surface_type=SurfaceType.STREET,
+            )
+    fx = rect.x + (rect.width - spec.feature_dim) // 2
+    fy = rect.y + (rect.height - spec.feature_dim) // 2
+    if surface.in_bounds(fx, fy):
+        surface.tiles[fy][fx].feature = feature_tag
+
+
+def _stamp_small_plaza(
+    surface: Level, rect: Rect, spec: _CenterpieceSpec,
+    biome: Biome | None,
+) -> None:
+    """A neighbourhood well-square (Q1): grass/earth apron over the
+    patch, a 3x3 paved collar around the well, and a single tree in a
+    corner — visually quieter than the big fountain square."""
+    feature_tag = _centerpiece_feature_tag(spec, biome)
+    for dx in range(rect.width):
+        for dy in range(rect.height):
+            tx, ty = rect.x + dx, rect.y + dy
+            if not surface.in_bounds(tx, ty):
+                continue
+            surface.tiles[ty][tx] = Tile(
+                terrain=Terrain.GRASS,
+                surface_type=SurfaceType.GARDEN,
+            )
+    cx = rect.x + rect.width // 2
+    cy = rect.y + rect.height // 2
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            tx, ty = cx + dx, cy + dy
+            if not surface.in_bounds(tx, ty):
+                continue
+            surface.tiles[ty][tx] = Tile(
+                terrain=Terrain.FLOOR,
+                surface_type=SurfaceType.STREET,
+            )
+    if surface.in_bounds(cx, cy):
+        surface.tiles[cy][cx].feature = feature_tag
+    if surface.in_bounds(rect.x, rect.y):
+        surface.tiles[rect.y][rect.x].feature = "tree"
 
 
 def _build_town_surface(
