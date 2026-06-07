@@ -18,6 +18,10 @@ class World:
         self._components: dict[str, dict[EntityId, Any]] = {}
         self._entities: set[EntityId] = set()
         self.turn: int = 0  # current game turn (synced by Game)
+        # Current town time-of-day segment while the player is on a
+        # site / structure, else None. Synced by Game's slow-drift
+        # site clock so AI schedules can read it (design/town_life.md).
+        self.time_of_day = None
 
     def create_entity(self, components: dict[str, Any] | None = None) -> EntityId:
         """Create a new entity, optionally with initial components."""

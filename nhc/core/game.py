@@ -114,6 +114,14 @@ FOV_RADIUS = 5
 # disc. Flagged by ``LevelMetadata.prerevealed``.
 FOV_RADIUS_SURFACE = 12
 
+# Town life: slow-drift site clock. While the player is on a site
+# surface or inside a structure on it, each turn nudges the world
+# clock forward a sliver so a long visit can cross a time-of-day
+# segment while a short errand stays put (design/town_life.md). One
+# segment is six hours; SITE_TURNS_PER_SEGMENT turns span one.
+SITE_TURNS_PER_SEGMENT = 60
+SITE_HOURS_PER_TURN = 6.0 / SITE_TURNS_PER_SEGMENT
+
 # Canonical macro-tier per site kind. Kept as a flat ``str → SiteTier``
 # map so macro entry methods (``_enter_walled_site`` /
 # ``_enter_multi_building_site`` / ``_enter_tower_site``) can pick the
@@ -545,6 +553,23 @@ class Game:
         if site is not None and self.level is site.surface:
             return "site"
         return "dungeon"
+
+    def _advance_site_clock(self) -> None:
+        """Nudge the world clock forward one turn's worth of drift
+        while the player is on a site surface or inside a structure
+        on it, and publish the resulting time-of-day segment on the
+        ECS world for AI schedules to read.
+
+        A no-op overland, in standalone dungeons, and on descents
+        under a town (the ``dungeon`` view) so only town visits feel
+        time pass. See ``design/town_life.md``.
+        """
+        if self.hex_world is None or self._active_site is None:
+            return
+        if self.current_view() not in ("site", "structure"):
+            return
+        self.hex_world.advance_clock_hours(SITE_HOURS_PER_TURN)
+        self.world.time_of_day = self.hex_world.time
 
     def set_god_mode(self, enabled: bool) -> None:
         """Toggle god mode live.
@@ -3801,6 +3826,10 @@ class Game:
             # Advance turn
             self.turn += 1
             self.world.turn = self.turn
+
+            # Town life: drift the clock while visiting a site so a
+            # long visit crosses a time-of-day segment.
+            self._advance_site_clock()
 
             # Process creature turns (visible creatures + henchmen)
             creature_actions = await self._collect_creature_actions()
