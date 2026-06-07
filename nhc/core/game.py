@@ -601,6 +601,20 @@ class Game:
             self.renderer.add_message(t(key))
         if result.placements:
             self._spawn_level_entities(result.placements)
+        if result.incident is not None:
+            self._divert_watch_to(result.incident.x, result.incident.y)
+
+    def _divert_watch_to(self, x: int, y: int) -> None:
+        """Break every patroller on the current level off its route to
+        converge on ``(x, y)`` — the watch reacting to an incident.
+        See ``design/town_life.md``."""
+        from nhc.ai.behavior import divert_patrol
+
+        level_id = self.level.id if self.level else None
+        for eid, _ in list(self.world.query("PatrolRoute")):
+            pos = self.world.get_component(eid, "Position")
+            if pos is None or pos.level_id == level_id:
+                divert_patrol(self.world, eid, x, y)
 
     def _clear_event_spawns(self) -> None:
         """Destroy transient event entities on the current level."""
@@ -3522,6 +3536,11 @@ class Game:
                     if placement.extra.get("event_spawn"):
                         from nhc.entities.components import EventSpawn
                         components["EventSpawn"] = EventSpawn()
+                    flee_to = placement.extra.get("flee_to")
+                    if flee_to is not None and "Thief" in components:
+                        thief = components["Thief"]
+                        thief.fleeing = True
+                        thief.flee_target_x, thief.flee_target_y = flee_to
                 elif placement.entity_type == "item":
                     components = EntityRegistry.get_item(placement.entity_id)
                     # Roll gold dice if present

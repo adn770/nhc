@@ -41,17 +41,37 @@ PROCESSION_CHANCE: dict[str, float] = {
     "city": 0.12,
 }
 PROCESSION_LENGTH_RANGE = (3, 6)
+# Minor incidents the watch reacts to (daytime only); they need a
+# watch to converge, so hamlets are excluded.
+INCIDENT_CHANCE: dict[str, float] = {
+    "village": 0.08,
+    "town": 0.15,
+    "city": 0.20,
+}
+BRAWL_DRUNKS = 2
 
 _DAY_SEGMENTS = (TimeOfDay.MORNING, TimeOfDay.MIDDAY, TimeOfDay.EVENING)
 _MARKET_SEGMENTS = (TimeOfDay.MORNING, TimeOfDay.MIDDAY)
 
 
 @dataclass
+class Incident:
+    """A minor incident the watch converges on: a tile to rush to and
+    the log line that announces it. Offenders (if any) are in the
+    result's placements."""
+    x: int
+    y: int
+    message_key: str
+
+
+@dataclass
 class TownEventResult:
-    """What the director staged this visit: log-line keys plus live
-    entity placements (already tagged ``event_spawn``)."""
+    """What the director staged this visit: log-line keys, live entity
+    placements (already tagged ``event_spawn``), and an optional
+    incident the watch reacts to."""
     messages: list[str] = field(default_factory=list)
     placements: list[EntityPlacement] = field(default_factory=list)
+    incident: "Incident | None" = None
 
 
 def _open_street_tiles(level: Level) -> list[tuple[int, int]]:
@@ -137,6 +157,54 @@ def _procession(
     ]
 
 
+def _farthest_tile(
+    cands: list[tuple[int, int]], frm: tuple[int, int],
+) -> tuple[int, int]:
+    """The candidate tile farthest (chebyshev) from ``frm`` — roughly
+    a town edge, used as a fleeing offender's bolt target."""
+    return max(
+        cands,
+        key=lambda s: max(abs(s[0] - frm[0]), abs(s[1] - frm[1])),
+    )
+
+
+def _stage_incident(
+    level: Level, rng: random.Random,
+) -> tuple[Incident, list[EntityPlacement]] | None:
+    """Pick an incident kind, location and offenders. Returns the
+    incident plus offender placements, or ``None`` if the surface has
+    no room."""
+    cands = _open_street_tiles(level)
+    if len(cands) < 2:
+        return None
+    spot = rng.choice(cands)
+    kind = rng.choice(("pickpocket", "brawl"))
+    placements: list[EntityPlacement] = []
+
+    if kind == "pickpocket":
+        edge = _farthest_tile(cands, spot)
+        offender = _event_creature("pickpocket", spot[0], spot[1], None, 0.0)
+        offender.extra["flee_to"] = [edge[0], edge[1]]
+        placements.append(offender)
+        return Incident(spot[0], spot[1], "town.incident.pickpocket"), placements
+
+    # brawl: a knot of drunks scuffling
+    near = [
+        s for s in cands
+        if max(abs(s[0] - spot[0]), abs(s[1] - spot[1])) <= 2
+    ]
+    rng.shuffle(near)
+    used: set[tuple[int, int]] = set()
+    for _ in range(BRAWL_DRUNKS):
+        for s in near:
+            if s in used:
+                continue
+            used.add(s)
+            placements.append(_event_creature("drunk", s[0], s[1], spot, 0.9))
+            break
+    return Incident(spot[0], spot[1], "town.incident.brawl"), placements
+
+
 def roll_town_events(
     level: Level,
     size_class: str,
@@ -161,5 +229,13 @@ def roll_town_events(
         if spawns:
             result.messages.append("town.event.procession")
             result.placements.extend(spawns)
+
+    if rng.random() < INCIDENT_CHANCE.get(size_class, 0.0):
+        staged = _stage_incident(level, rng)
+        if staged is not None:
+            incident, offenders = staged
+            result.incident = incident
+            result.messages.append(incident.message_key)
+            result.placements.extend(offenders)
 
     return result

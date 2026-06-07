@@ -1710,6 +1710,9 @@ town:
   event:
     market_day: "És dia de mercat — la plaça bull de parades i compradors."
     procession: "Una processó serpenteja pels carrers."
+  incident:
+    pickpocket: "S'alça un crit — un pispa fuig entre la gentada i els guàrdies l'empaiten."
+    brawl: "Esclaten els crits quan una baralla vessa al carrer; la guàrdia hi acudeix."
 
 
 action:

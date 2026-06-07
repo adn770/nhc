@@ -1567,6 +1567,9 @@ town:
   event:
     market_day: "It is market day — the plaza bustles with stalls and shoppers."
     procession: "A procession winds through the streets."
+  incident:
+    pickpocket: "A cry goes up — a cutpurse bolts through the crowd, guards giving chase."
+    brawl: "Shouting erupts as a brawl spills into the street; the watch moves in."
 
 
 action:

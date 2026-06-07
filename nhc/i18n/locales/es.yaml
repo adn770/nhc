@@ -1641,6 +1641,9 @@ town:
   event:
     market_day: "Es día de mercado — la plaza bulle de puestos y compradores."
     procession: "Una procesión serpentea por las calles."
+  incident:
+    pickpocket: "Se alza un grito — un ratero huye entre la multitud y los guardias lo persiguen."
+    brawl: "Estallan los gritos cuando una reyerta se derrama en la calle; la guardia acude."
 
 
 action:
