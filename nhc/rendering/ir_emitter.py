@@ -1050,7 +1050,9 @@ def emit_regions(builder: FloorIRBuilder) -> None:
         _is_flagstone_tile, _is_opus_romano_tile,
         _is_pavement_tile,
     )
-    from nhc.rendering._floor_layers import _collect_predicate_components
+    from nhc.rendering._floor_layers import (
+        _collect_predicate_components, _terrain_cluster_geom,
+    )
     for predicate, region_prefix in (
         (_is_cobble_tile, "paved"),
         (_is_brick_tile, "brick"),
@@ -1062,12 +1064,18 @@ def emit_regions(builder: FloorIRBuilder) -> None:
             ctx.level, predicate, exclude=cave_tiles,
         )
         for i, cluster in enumerate(components):
-            coords = _terrain_cluster_coords(cluster)
-            if not coords or len(coords) < 4:
+            # Pack the full Shapely geometry (exterior + interior
+            # holes) so a stone surface that encloses a GARDEN / FIELD
+            # island carves it out instead of painting solid over the
+            # grass. Without the holes the courtyard pavement buried
+            # every embedded garden patch (and the trees / bushes /
+            # flowers planted on it) under stone.
+            geom = _terrain_cluster_geom(cluster)
+            if geom is None or len(geom.exterior.coords) < 4:
                 continue
             builder.add_region(
                 id=f"{region_prefix}.{i}",
-                polygon=_coords_to_polygon(coords),
+                polygon=_shapely_to_polygon(geom),
                 shape_tag=region_prefix,
             )
 

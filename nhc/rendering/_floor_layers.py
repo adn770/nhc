@@ -226,21 +226,23 @@ def _collect_terrain_systems(
     )
 
 
-def _terrain_cluster_coords(
-    cluster: set[tuple[int, int]],
-) -> list[tuple[float, float]]:
-    """Return the exterior pixel-coord ring of a terrain tile cluster.
+def _terrain_cluster_geom(cluster: set[tuple[int, int]]):
+    """Return the unioned Shapely polygon of a terrain tile cluster.
 
-    Builds a 32-pixel tile box per ``(tx, ty)``, unions them via
-    Shapely, and returns the exterior ring of the resulting polygon
-    in CCW order (Shapely's ``Polygon.exterior``). Multi-component
-    clusters (which shouldn't reach this helper — :func:`_collect_terrain_systems`
-    already partitions by component) fall back to the bounding box.
+    Builds a 32-pixel tile box per ``(tx, ty)`` and unions them via
+    Shapely. The result preserves interior holes (e.g. a paved
+    courtyard wrapping a GARDEN island) on ``Polygon.interiors`` —
+    callers that need holes carved out (stone surface regions) pack
+    the whole geometry, while exterior-only callers read
+    ``.exterior``. Returns ``None`` for empty / degenerate input.
+    Multi-component clusters (which shouldn't reach this helper —
+    :func:`_collect_terrain_systems` already partitions by component)
+    collapse to the largest polygon.
     """
     if not cluster:
-        return []
-    from shapely.geometry import Polygon as _ShapelyPolygon
+        return None
     from shapely.ops import unary_union as _unary_union
+    from shapely.geometry import Polygon as _ShapelyPolygon
     from nhc.rendering._ir_helpers import CELL
 
     tile_boxes = [
@@ -253,10 +255,26 @@ def _terrain_cluster_coords(
         for tx, ty in cluster
     ]
     merged = _unary_union(tile_boxes)
+    if merged.is_empty:
+        return None
     if hasattr(merged, "geoms"):
         # Multi-polygon — pick the largest. Shouldn't happen if the
         # caller partitioned via _collect_terrain_systems.
         merged = max(merged.geoms, key=lambda p: p.area)
+    return merged
+
+
+def _terrain_cluster_coords(
+    cluster: set[tuple[int, int]],
+) -> list[tuple[float, float]]:
+    """Return the exterior pixel-coord ring of a terrain tile cluster.
+
+    Thin exterior-only wrapper over :func:`_terrain_cluster_geom` for
+    callers (room / terrain regions) that don't carve interior holes.
+    """
+    merged = _terrain_cluster_geom(cluster)
+    if merged is None:
+        return []
     coords = list(merged.exterior.coords)
     return [(float(x), float(y)) for x, y in coords]
 
