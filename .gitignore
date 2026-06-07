@@ -29,6 +29,11 @@ debug/*
 .server.pid
 .env
 
+# Admin token for deploy/trigger-deploy.sh (never commit secrets;
+# the script's default lives at ~/.config/nhc/admin-token)
+.admin-token
+deploy/.admin-token
+
 # IDE
 .vscode/
 .idea/

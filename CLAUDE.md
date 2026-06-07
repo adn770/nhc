@@ -39,6 +39,32 @@ BSP dungeon generation, LLM-driven typed gameplay, multilingual
 add or modify terminal-specific features. All new work
 targets the web frontend.
 
+## Deployment (SSH-free for code changes)
+
+Ordinary deploys (app / code / dependency changes) no longer
+need SSH. Push to `origin/main`, then trigger a remote rebuild
+via the admin Update endpoint:
+
+```bash
+git push origin main
+bash deploy/trigger-deploy.sh    # POSTs /api/admin/update, polls
+```
+
+The endpoint drops a marker that the host-side `nhc-deploy.path`
+systemd unit picks up to run `deploy/update.sh` (git pull +
+rebuild + restart). The trigger reads the admin token from
+`NHC_ADMIN_TOKEN` or `~/.config/nhc/admin-token` (never committed).
+The admin panel's **Update** button does the same thing from a
+browser.
+
+**Still needs SSH + sudo:** infra changes (CSP/Caddy, systemd
+units, anything in `setup.sh`) — the endpoint only runs
+`update.sh`, it cannot install host units:
+
+```bash
+ssh -t <host> "cd ~/src/nhc && sudo bash deploy/setup.sh --update"
+```
+
 ## Development Rules
 
 - **Strict TDD**: Write tests first. No functional change

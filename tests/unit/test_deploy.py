@@ -404,3 +404,49 @@ class TestRemoteDeployAgent:
         """install_deploy_agent must run on both fresh setup and
         --update so existing deployments pick the agent up."""
         assert setup.count("install_deploy_agent") >= 3  # def + 2 calls
+
+
+class TestTriggerDeploy:
+    """Client-side trigger that replaces the SSH deploy for ordinary
+    code changes: POSTs the admin Update endpoint and polls status."""
+
+    @pytest.fixture()
+    def script(self):
+        return (DEPLOY_DIR / "trigger-deploy.sh").read_text()
+
+    def test_file_exists_and_executable(self):
+        path = DEPLOY_DIR / "trigger-deploy.sh"
+        assert path.is_file()
+        assert path.stat().st_mode & 0o111, "trigger-deploy.sh must be executable"
+
+    def test_has_shebang(self, script):
+        assert script.startswith("#!/")
+
+    def test_set_euo_pipefail(self, script):
+        assert "set -euo pipefail" in script
+
+    def test_token_from_env_or_file_not_hardcoded(self, script):
+        """The admin token must come from the environment or an
+        external file — never be committed in the script."""
+        assert "NHC_ADMIN_TOKEN" in script
+        assert "NHC_ADMIN_TOKEN_FILE" in script
+
+    def test_token_sent_as_header_not_url(self, script):
+        """Send the token in an Authorization header so it never
+        lands in proxy/access logs as a query string."""
+        assert "Authorization: Bearer" in script
+
+    def test_targets_update_endpoint(self, script):
+        assert "/api/admin/update" in script
+
+    def test_posts_then_polls(self, script):
+        assert "-X POST" in script
+        assert '"state"' in script  # parses status while polling
+
+    def test_handles_terminal_states(self, script):
+        assert "success" in script
+        assert "failed" in script
+
+    def test_has_default_url(self, script):
+        assert "NHC_DEPLOY_URL" in script
+        assert "duckdns.org" in script
