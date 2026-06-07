@@ -1356,6 +1356,48 @@ creature:
       Un explorador experimentado que busca compañeros para las
       profundidades de la mazmorra. Ofrece su espada — por el
       precio justo.
+  blacksmith:
+    name: "Herrero"
+    gender: "m"
+    short: "un herrero tiznado de hollín"
+    long: >-
+      Un herrero de pecho ancho, con mandil de cuero chamuscado y
+      manos encallecidas, nunca lejos del repique de la fragua.
+  market_vendor:
+    name: "Vendedor"
+    gender: "m"
+    short: "un vendedor atareado"
+    long: >-
+      Un puestero de lengua viva que pregona su mercancía por la
+      plaza, recolocando sin cesar el género y cantando los precios.
+  baker:
+    name: "Panadero"
+    gender: "m"
+    short: "un panadero enharinado"
+    long: >-
+      Un panadero de mejillas coloradas que huele a pan caliente,
+      yendo del horno al mostrador con bandejas de hogazas recién hechas.
+  water_carrier:
+    name: "Aguador"
+    gender: "m"
+    short: "un aguador encorvado"
+    long: >-
+      Un jornalero enjuto que carga una percha de cubos que se
+      derraman, recorriendo el camino gastado entre el pozo y las casas.
+  washerwoman:
+    name: "Lavandera"
+    gender: "f"
+    short: "una lavandera de manos enrojecidas"
+    long: >-
+      Una lavandera robusta con las mangas remangadas hasta el codo,
+      escurriendo la ropa y cotilleando junto al agua.
+  porter:
+    name: "Mozo de carga"
+    gender: "m"
+    short: "un mozo de carga de espalda ancha"
+    long: >-
+      Un mozo corpulento encorvado bajo cajas y barriles, abriéndose
+      paso por las calles atestadas con un gruñido y un aviso refunfuñado.
   villager:
     name: "Aldeano"
     gender: "m"

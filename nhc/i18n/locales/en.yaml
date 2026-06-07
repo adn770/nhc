@@ -1318,6 +1318,42 @@ creature:
     long: >-
       A seasoned explorer seeking companions for the dungeon depths.
       They offer their sword arm — for the right price.
+  blacksmith:
+    name: "Blacksmith"
+    short: "a soot-streaked blacksmith"
+    long: >-
+      A barrel-chested smith with scorched leather apron and
+      hammer-callused hands, never far from the ring of the forge.
+  market_vendor:
+    name: "Market Vendor"
+    short: "a bustling market vendor"
+    long: >-
+      A quick-tongued stallholder hawking wares across the plaza,
+      forever rearranging the display and calling out prices.
+  baker:
+    name: "Baker"
+    short: "a flour-dusted baker"
+    long: >-
+      A ruddy-cheeked baker smelling of warm bread, ducking between
+      the oven and the counter with trays of fresh loaves.
+  water_carrier:
+    name: "Water Carrier"
+    short: "a stooped water carrier"
+    long: >-
+      A wiry labourer balancing a yoke of slopping pails, trudging
+      the worn path between the well and the houses.
+  washerwoman:
+    name: "Washerwoman"
+    short: "a red-handed washerwoman"
+    long: >-
+      A sturdy washerwoman with sleeves rolled past the elbow,
+      wringing linen and trading gossip by the waterside.
+  porter:
+    name: "Porter"
+    short: "a broad-backed porter"
+    long: >-
+      A heavyset porter bent under crates and barrels, threading the
+      crowded streets with a grunt and a muttered warning.
   villager:
     name: "Villager"
     short: "a local villager"

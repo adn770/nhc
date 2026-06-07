@@ -1428,6 +1428,48 @@ creature:
     long: >-
       Un explorador experimentat que busca companys per les profunditats
       de la masmorra. Ofereix la seva espasa — pel preu just.
+  blacksmith:
+    name: "ferrer"
+    gender: "m"
+    short: "un ferrer tiznat de sutge"
+    long: >-
+      Un ferrer ample d'espatlles, amb davantal de cuir socarrat i
+      mans plenes de durícies, mai lluny del repic de la fornal.
+  market_vendor:
+    name: "marxant"
+    gender: "m"
+    short: "un marxant atrafegat"
+    long: >-
+      Un parador de llengua viva que venta la mercaderia per la
+      plaça, sempre recol·locant el gènere i cantant els preus.
+  baker:
+    name: "forner"
+    gender: "m"
+    short: "un forner enfarinat"
+    long: >-
+      Un forner de galtes vermelles que fa olor de pa calent, anant
+      i venint del forn al taulell amb safates de pans acabats de fer.
+  water_carrier:
+    name: "aiguader"
+    gender: "m"
+    short: "un aiguader encorbat"
+    long: >-
+      Un treballador eixut que carrega un jou de poals que vessen,
+      fent el camí gastat entre el pou i les cases.
+  washerwoman:
+    name: "bugadera"
+    gender: "f"
+    short: "una bugadera de mans vermelles"
+    long: >-
+      Una bugadera robusta amb les mànigues arromangades fins al
+      colze, escorrent la roba i xerrant vora l'aigua.
+  porter:
+    name: "bastaix"
+    gender: "m"
+    short: "un bastaix d'esquena ampla"
+    long: >-
+      Un bastaix corpulent doblegat sota caixes i bótes, obrint-se
+      pas pels carrers atapeïts amb un grunyit i un avís remugat.
   villager:
     name: "vilatà"
     gender: "m"

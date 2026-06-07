@@ -46,6 +46,9 @@ class TestHumanoidLoot:
                 "farmer", "farmhand", "pilgrim", "noble",
                 "campsite_traveller", "orchardist",
                 "villager", "pickpocket",
+                # Working folk: peaceful tradespeople (town life M4).
+                "blacksmith", "market_vendor", "baker",
+                "water_carrier", "washerwoman", "porter",
             ):
                 continue
             loot = comps.get("LootTable")

@@ -710,6 +710,7 @@ def assemble_town(
     _place_surface_adventurers(site, role_assignments, rng)
     _lock_shop_doors(buildings, role_assignments, rng)
     _place_surface_villagers(site, size_class, rng)
+    _place_working_folk(site, size_class, rng)
     _connect_cross_building_doors(site, cluster_plans)
     return site
 
@@ -1983,6 +1984,19 @@ TOWN_VILLAGER_COUNT: dict[str, int] = {
     "town": 6,
     "city": 8,
 }
+# Working folk add purposeful, workplace-anchored bustle on top of the
+# baseline villager wander. Count ranges scale across size classes
+# (design/town_life.md).
+WORKER_IDS: tuple[str, ...] = (
+    "blacksmith", "market_vendor", "baker",
+    "water_carrier", "washerwoman", "porter",
+)
+TOWN_WORKER_COUNT: dict[str, tuple[int, int]] = {
+    "hamlet": (1, 2),
+    "village": (2, 4),
+    "town": (4, 7),
+    "city": (8, 14),
+}
 TOWN_PICKPOCKET_COUNT: dict[str, int] = {
     "hamlet": 0,
     "village": 0,
@@ -2053,4 +2067,65 @@ def _place_surface_villagers(
         surface.entities.append(EntityPlacement(
             entity_type="creature", entity_id="pickpocket",
             x=spot[0], y=spot[1],
+        ))
+
+
+def _place_working_folk(
+    site: Site, size_class: str, rng: random.Random,
+) -> None:
+    """Place workplace-anchored tradespeople on the town streets.
+
+    Each worker spawns on an open street tile and carries a
+    ``daily_routine`` spec: a workplace tile (a street cell beside a
+    building door, so they visibly cluster at shops through the day)
+    and a home tile they retire to and despawn at night. The spawner
+    in :mod:`nhc.core.game` turns the spec into a ``DailyRoutine``.
+    Count scales by size class. See ``design/town_life.md``.
+    """
+    lo, hi = TOWN_WORKER_COUNT.get(size_class, (0, 0))
+    count = rng.randint(lo, hi) if hi > 0 else 0
+    if count <= 0:
+        return
+
+    surface = site.surface
+    open_streets: list[tuple[int, int]] = []
+    door_adjacent: list[tuple[int, int]] = []
+    for x, y, tile in surface.iter_world():
+        if tile.surface_type != SurfaceType.STREET:
+            continue
+        if not tile.walkable or tile.feature is not None:
+            continue
+        open_streets.append((x, y))
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = x + dx, y + dy
+            if not (0 <= nx < surface.width and 0 <= ny < surface.height):
+                continue
+            feat = surface.tile_at(nx, ny).feature
+            if feat is not None and feat.startswith("door_"):
+                door_adjacent.append((x, y))
+                break
+    if not open_streets:
+        return
+
+    # Workplaces and homes anchor near building doors when available,
+    # otherwise fall back to any street tile.
+    anchor_pool = door_adjacent or open_streets
+    rng.shuffle(open_streets)
+    used: set[tuple[int, int]] = set()
+
+    for spot in open_streets:
+        if count <= 0:
+            break
+        if spot in used:
+            continue
+        used.add(spot)
+        count -= 1
+        surface.entities.append(EntityPlacement(
+            entity_type="creature",
+            entity_id=rng.choice(WORKER_IDS),
+            x=spot[0], y=spot[1],
+            extra={"daily_routine": {
+                "workplace": rng.choice(anchor_pool),
+                "home": rng.choice(anchor_pool),
+            }},
         ))

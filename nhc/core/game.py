@@ -3446,6 +3446,13 @@ class Game:
                         errand.anchor_weight = placement.extra.get(
                             "errand_weight", 0.5,
                         )
+                    routine_spec = placement.extra.get("daily_routine")
+                    if routine_spec is not None:
+                        from nhc.ai.schedules import build_worker_routine
+                        components["DailyRoutine"] = build_worker_routine(
+                            tuple(routine_spec["workplace"]),
+                            tuple(routine_spec["home"]),
+                        )
                 elif placement.entity_type == "item":
                     components = EntityRegistry.get_item(placement.entity_id)
                     # Roll gold dice if present
