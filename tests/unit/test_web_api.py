@@ -74,7 +74,6 @@ class TestAdminListPlayersStripsTokenHash:
     def test_list_players_omits_token_hash(self, tmp_path):
         config = WebConfig(
             max_sessions=2, data_dir=tmp_path, auth_required=True,
-            admin_lan_cidrs=["192.168.18.0/24"],
             trust_proxy=True,
         )
         app = create_app(config, auth_token=self._TOKEN)
@@ -108,7 +107,6 @@ class TestTokenStripRedirect:
     def _auth_app(self, tmp_path):
         config = WebConfig(
             max_sessions=2, data_dir=tmp_path, auth_required=True,
-            admin_lan_cidrs=["192.168.18.0/24"],
             trust_proxy=True,
         )
         app = create_app(config, auth_token=self._TOKEN)
@@ -165,7 +163,6 @@ class TestTTSAuth:
         whether TTS is even compiled in, no resources consumed."""
         config = WebConfig(
             max_sessions=2, data_dir=tmp_path, auth_required=True,
-            admin_lan_cidrs=["192.168.18.0/24"],
         )
         app = create_app(config, auth_token="admin")
         app.config["TESTING"] = True
@@ -176,7 +173,6 @@ class TestTTSAuth:
     def test_tts_synthesize_rejected_without_token(self, tmp_path):
         config = WebConfig(
             max_sessions=2, data_dir=tmp_path, auth_required=True,
-            admin_lan_cidrs=["192.168.18.0/24"],
         )
         app = create_app(config, auth_token="admin")
         app.config["TESTING"] = True
@@ -192,7 +188,6 @@ class TestTTSAuth:
         isn't installed in the test env)."""
         config = WebConfig(
             max_sessions=2, data_dir=tmp_path, auth_required=True,
-            admin_lan_cidrs=["192.168.18.0/24"],
         )
         app = create_app(config, auth_token="admin")
         app.config["TESTING"] = True
@@ -212,7 +207,6 @@ class TestTTSAuth:
         """Authenticated calls still hit the global rate limit."""
         config = WebConfig(
             max_sessions=20, data_dir=tmp_path, auth_required=True,
-            admin_lan_cidrs=["192.168.18.0/24"],
         )
         app = create_app(config, auth_token="admin")
         app.config["TESTING"] = True
@@ -233,65 +227,65 @@ class TestTTSAuth:
             assert resp.status_code == 429
 
 
-class TestAdminLanAllowlist:
-    """End-to-end verification that ``create_app`` wires ProxyFix
-    and the LAN allowlist together so the vulnerable "is_private()"
-    LAN check is truly gone.
+class TestAdminTokenOnly:
+    """The admin panel is gated by the admin token alone — the LAN
+    allowlist was removed, so a valid token grants access from any
+    client IP (including a public one forwarded by Caddy).
     """
 
     _TOKEN = "admin-secret"
 
-    def _build(self, tmp_path, cidrs):
+    def _build(self, tmp_path):
         config = WebConfig(
             max_sessions=2,
             data_dir=tmp_path,
             auth_required=True,
-            admin_lan_cidrs=cidrs,
             trust_proxy=True,
         )
         app = create_app(config, auth_token=self._TOKEN)
         app.config["TESTING"] = True
         return app
 
-    def test_reject_loopback_with_no_forwarded_header(self, tmp_path):
-        """C1 regression: Caddy arriving on loopback without a real
-        client IP must not be admin-eligible."""
-        app = self._build(tmp_path, ["192.168.18.0/24"])
+    def test_allow_loopback_with_valid_token(self, tmp_path):
+        """Caddy arriving on loopback with a valid token gets admin
+        (after the token-strip redirect)."""
+        app = self._build(tmp_path)
         with app.test_client() as c:
             resp = c.get(f"/admin?token={self._TOKEN}",
-                         environ_base={"REMOTE_ADDR": "127.0.0.1"})
-            assert resp.status_code == 403
+                         environ_base={"REMOTE_ADDR": "127.0.0.1"},
+                         follow_redirects=True)
+            assert resp.status_code == 200
 
-    def test_reject_public_client_via_forwarded_header(self, tmp_path):
-        """C1 regression: Caddy forwarded a public IP — deny admin."""
-        app = self._build(tmp_path, ["192.168.18.0/24"])
+    def test_allow_public_client_via_forwarded_header(self, tmp_path):
+        """A public client forwarded by Caddy now reaches admin with
+        a valid token."""
+        app = self._build(tmp_path)
         with app.test_client() as c:
             resp = c.get(
                 f"/admin?token={self._TOKEN}",
                 environ_base={"REMOTE_ADDR": "127.0.0.1"},
                 headers={"X-Forwarded-For": "8.8.8.8"},
-            )
-            assert resp.status_code == 403
-
-    def test_allow_lan_client_via_forwarded_header(self, tmp_path):
-        """Real LAN client reaching Caddy over HTTP gets admin
-        (after the token-strip redirect)."""
-        app = self._build(tmp_path, ["192.168.18.0/24"])
-        with app.test_client() as c:
-            resp = c.get(
-                f"/admin?token={self._TOKEN}",
-                environ_base={"REMOTE_ADDR": "127.0.0.1"},
-                headers={"X-Forwarded-For": "192.168.18.50"},
                 follow_redirects=True,
             )
             assert resp.status_code == 200
 
-    def test_empty_cidrs_blocks_admin_even_from_lan(self, tmp_path):
-        """Fail-closed default: no configured CIDRs → admin dark."""
-        app = self._build(tmp_path, [])
+    def test_reject_without_token(self, tmp_path):
+        """No token → still denied, regardless of source IP."""
+        app = self._build(tmp_path)
         with app.test_client() as c:
             resp = c.get(
-                f"/admin?token={self._TOKEN}",
+                "/admin",
+                environ_base={"REMOTE_ADDR": "127.0.0.1"},
+                headers={"X-Forwarded-For": "192.168.18.50"},
+            )
+            assert resp.status_code in (401, 403)
+
+    def test_reject_wrong_token(self, tmp_path):
+        """Wrong token → denied even from the LAN."""
+        app = self._build(tmp_path)
+        with app.test_client() as c:
+            resp = c.get(
+                "/admin?token=nope",
                 environ_base={"REMOTE_ADDR": "127.0.0.1"},
                 headers={"X-Forwarded-For": "192.168.18.50"},
             )
@@ -1904,7 +1898,6 @@ class TestTesterModeAccess:
         so client JS can render the report button."""
         config = WebConfig(
             max_sessions=2, data_dir=tmp_path, auth_required=True,
-            admin_lan_cidrs=["192.168.18.0/24"],
             trust_proxy=True,
         )
         app = create_app(config, auth_token="admin-secret")

@@ -1,11 +1,7 @@
 """Token-based authentication for the web server.
 
 Two auth layers:
-- **Admin**: master token + LAN allowlist, for ``/admin`` routes.
-  The allowlist is an explicit list of :class:`ipaddress` networks,
-  NOT ``ipaddress.is_private()``. ``is_private()`` treats loopback
-  and Docker bridge ranges as "LAN", which silently bypasses the
-  guard when the app sits behind a reverse proxy on localhost.
+- **Admin**: master token, for ``/admin`` routes.
 - **Player**: per-player token validated against a
   :class:`~nhc.web.registry.PlayerRegistry`, for game routes.
 
@@ -19,18 +15,14 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import ipaddress
 import secrets
 from functools import wraps
-from typing import TYPE_CHECKING, Sequence, Union
+from typing import TYPE_CHECKING
 
 from flask import g, jsonify, request
 
 if TYPE_CHECKING:
     from nhc.web.registry import PlayerRegistry
-
-
-IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
 
 
 def generate_token() -> str:
@@ -65,22 +57,6 @@ def _extract_token(cookie_name: str = "nhc_token") -> str | None:
     return None
 
 
-def _ip_in_networks(
-    ip: str | None, networks: Sequence[IPNetwork],
-) -> bool:
-    """Return True if *ip* parses and falls inside any of *networks*.
-
-    Fails closed on any error (invalid IP, empty list, None).
-    """
-    if not ip or not networks:
-        return False
-    try:
-        addr = ipaddress.ip_address(ip)
-    except ValueError:
-        return False
-    return any(addr in n for n in networks)
-
-
 # ── Legacy decorator (kept for existing tests) ─────────────
 
 def require_auth(valid_hashes: set[str]):
@@ -106,27 +82,16 @@ def require_auth(valid_hashes: set[str]):
 
 # ── Admin decorator ─────────────────────────────────────────
 
-def require_admin(
-    admin_hash: str,
-    lan_networks: Sequence[IPNetwork] | None = None,
-):
-    """Decorator: admin token + client-IP-on-allowlist.
+def require_admin(admin_hash: str):
+    """Decorator: admin token required for ``/admin`` routes.
 
-    *lan_networks* is an explicit allowlist. If empty or ``None``,
-    the LAN check fails closed — every admin request is denied.
-    The caller must supply the configured LAN CIDRs; this function
-    does not fall back to ``ipaddress.is_private``, which would
-    re-introduce the loopback / Docker-bridge bypass.
+    Access is gated by the admin token alone; there is no client-IP
+    restriction.
     """
-    networks = tuple(lan_networks or ())
 
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
-            if not _ip_in_networks(request.remote_addr, networks):
-                return jsonify(
-                    {"error": "admin only available from LAN"}
-                ), 403
             token = _extract_token(cookie_name="nhc_admin_token")
             if not token:
                 return jsonify({"error": "authentication required"}), 401

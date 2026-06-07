@@ -12,15 +12,12 @@ RestartSec=10
 # Secrets and tunables live in the override file:
 #   /etc/systemd/system/nhc.service.d/override.conf
 # Required:  NHC_AUTH_TOKEN
-#            NHC_ADMIN_LAN_CIDRS  (CIDRs allowed to reach /admin;
-#                                  empty ⇒ admin unreachable)
 # Optional:  NHC_MAX_SESSIONS (default 8)
 #            NHC_GEN_WORKERS  (default 4 — dungeon generation pool)
 Environment=NHC_DATA_DIR=/var/nhc
 Environment=NHC_MAX_SESSIONS=8
 Environment=NHC_GEN_WORKERS=4
 Environment=NHC_BIND=0.0.0.0
-Environment=NHC_ADMIN_LAN_CIDRS=
 
 ExecStartPre=-/usr/bin/docker rm -f nhc
 # Container hardening:
@@ -56,7 +53,6 @@ ExecStart=/usr/bin/docker run --name nhc \
     --env NHC_AUTH_TOKEN=${NHC_AUTH_TOKEN} \
     --env NHC_MAX_SESSIONS=${NHC_MAX_SESSIONS} \
     --env NHC_GEN_WORKERS=${NHC_GEN_WORKERS} \
-    --env NHC_ADMIN_LAN_CIDRS=${NHC_ADMIN_LAN_CIDRS} \
     --env NHC_EXTERNAL_URL=${NHC_EXTERNAL_URL} \
     nhc-web
 ExecStop=/usr/bin/docker stop -t 15 nhc

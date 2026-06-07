@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import atexit
 import collections
-import ipaddress
 import logging
 import multiprocessing
 import os
@@ -80,29 +79,12 @@ def create_app(
     # Behind Caddy (or any single trusted upstream proxy),
     # ``request.remote_addr`` is the proxy's loopback IP.  ProxyFix
     # rewrites it from the ``X-Forwarded-For`` header set by the
-    # proxy so downstream code can allowlist real client IPs.
-    # Only enable when explicitly configured — a bare-metal dev
-    # server must NOT trust forwarded headers from random clients.
+    # proxy so downstream code (rate limiter, logs) sees the real
+    # client IP.  Only enable when explicitly configured — a
+    # bare-metal dev server must NOT trust forwarded headers from
+    # random clients.
     if config.trust_proxy:
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
-
-    # Empty list is interpreted as "fail closed": admin is reachable
-    # only from CIDRs listed here, so a missing configuration means
-    # no admin at all rather than any-client-accepted.
-    admin_lan_networks: list[ipaddress.IPv4Network
-                              | ipaddress.IPv6Network] = []
-    for cidr in config.admin_lan_cidrs:
-        try:
-            admin_lan_networks.append(ipaddress.ip_network(cidr))
-        except ValueError:
-            logger.error("Ignoring invalid admin_lan_cidrs entry: %s",
-                         cidr)
-    if config.auth_required and not admin_lan_networks:
-        logger.warning(
-            "NHC_ADMIN_LAN_CIDRS is empty — /admin will be "
-            "unreachable. Set NHC_ADMIN_LAN_CIDRS to a CIDR "
-            "like 192.168.18.0/24 to enable admin access.",
-        )
 
     # Cache-busting version for static JS/CSS files
     _static_version = str(int(time.time()))
@@ -231,12 +213,10 @@ def create_app(
         return f
 
     def _admin_auth(f):
-        """Apply admin token + LAN auth when auth is enabled."""
+        """Apply admin token auth when auth is enabled."""
         if config.auth_required and admin_hash:
             from nhc.web.auth import require_admin
-            return require_admin(
-                admin_hash, lan_networks=admin_lan_networks,
-            )(f)
+            return require_admin(admin_hash)(f)
         return f
 
     sock = Sock(app)
@@ -1903,10 +1883,6 @@ def app_factory() -> Flask:
     data_dir_str = os.environ.get("NHC_DATA_DIR")
     data_dir = Path(data_dir_str) if data_dir_str else None
 
-    cidrs_env = os.environ.get("NHC_ADMIN_LAN_CIDRS", "")
-    admin_lan_cidrs = [c.strip() for c in cidrs_env.split(",")
-                       if c.strip()]
-
     config = WebConfig(
         host="0.0.0.0",
         port=int(os.environ.get("NHC_PORT", "8080")),
@@ -1916,10 +1892,9 @@ def app_factory() -> Flask:
         god_mode=False,
         hatch_distance=float(os.environ.get("NHC_HATCH_DISTANCE", "1.0")),
         external_url=os.environ.get("NHC_EXTERNAL_URL", ""),
-        admin_lan_cidrs=admin_lan_cidrs,
         # gunicorn in production always sits behind Caddy on
-        # loopback — trust one forwarded hop so the LAN allowlist
-        # sees the real client IP.
+        # loopback — trust one forwarded hop so the rate limiter
+        # and logs see the real client IP.
         trust_proxy=True,
     )
     auth_token = os.environ.get("NHC_AUTH_TOKEN")
