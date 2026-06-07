@@ -63,7 +63,7 @@ num_field() { grep -o "\"$1\":[0-9]*" "${RESP}" | head -n1 | cut -d: -f2; }
 # flipping it to "running").
 curl -sS -o "${RESP}" "${AUTH[@]}" "${URL}/api/admin/update" \
     >/dev/null 2>&1 || true
-baseline="$(num_field updated_at)"; baseline="${baseline:-0}"
+baseline="$(num_field updated_at || true)"; baseline="${baseline:-0}"
 
 # ── Request the deploy ─────────────────────────────────────
 info "Requesting deploy at ${URL} ..."
@@ -86,25 +86,29 @@ while (( SECONDS < deadline )); do
     # The container restarts mid-deploy; treat unreachable as transient.
     if curl -sS -o "${RESP}" "${AUTH[@]}" "${URL}/api/admin/update" \
         >/dev/null 2>&1; then
-        state="$(state_of)"
+        state="$(state_of || true)"
         if [[ -n "${state}" && "${state}" != "${last}" ]]; then
             info "deploy: ${state}"
             last="${state}"
         fi
         # Accept a terminal result only once this deploy has gone
         # active, or its timestamp is newer than the pre-request one.
-        u="$(num_field updated_at)"; u="${u:-0}"
+        # (Arithmetic lives in `if` conditions so a 0 value can't trip
+        # `set -e`; field extractors are guarded for the same reason.)
+        u="$(num_field updated_at || true)"; u="${u:-0}"
         fresh=0
-        (( seen_active )) && fresh=1
-        (( u > baseline )) && fresh=1
+        if (( seen_active )) || (( u > baseline )); then fresh=1; fi
         case "${state}" in
             requested|running) seen_active=1 ;;
             success)
-                (( fresh )) && {
-                    ok "Deploy complete ($(field_of git_sha))."; exit 0
-                } ;;
+                if (( fresh )); then
+                    ok "Deploy complete ($(field_of git_sha || true))."
+                    exit 0
+                fi ;;
             failed)
-                (( fresh )) && fail "Deploy failed: $(field_of message)" ;;
+                if (( fresh )); then
+                    fail "Deploy failed: $(field_of message || true)"
+                fi ;;
         esac
     fi
     sleep 3
