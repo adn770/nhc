@@ -114,20 +114,24 @@ class TestPickpocketSpawn:
 
 
 class TestVillagerDoesNotDisplaceServiceNPCs:
-    """Villagers live on the surface; merchants/innkeepers/priests
-    live on building ground floors. The two lists must stay
-    disjoint — placing villagers must not append to building
-    entity lists."""
+    """Buildings now get resident villagers in their interiors, but
+    residents must never displace a service NPC: a floor holding a
+    merchant / innkeeper / priest carries no resident villager."""
 
-    def test_building_floors_have_no_villagers(self):
+    def test_residents_never_share_service_floor(self):
+        service_ids = {"merchant", "innkeeper", "priest"}
         for seed in range(10):
             site = assemble_town(
                 "t1", random.Random(seed), size_class="town",
             )
             for b in site.buildings:
                 for floor in b.floors:
-                    for placement in floor.entities:
-                        assert placement.entity_id != "villager", (
-                            f"villager stamped inside building "
+                    ids = [
+                        p.entity_id for p in floor.entities
+                        if p.entity_type == "creature"
+                    ]
+                    if service_ids & set(ids):
+                        assert "villager" not in ids, (
+                            f"resident crowds service floor "
                             f"{b.id} seed={seed}"
                         )

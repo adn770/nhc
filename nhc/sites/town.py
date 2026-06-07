@@ -707,6 +707,7 @@ def assemble_town(
         site, cluster_plans, size_class, rng,
     )
     _place_service_npcs(buildings, role_assignments, rng)
+    _place_building_residents(buildings, role_assignments, rng)
     _place_surface_adventurers(site, role_assignments, rng)
     _lock_shop_doors(buildings, role_assignments, rng)
     _place_surface_villagers(site, size_class, rng)
@@ -1628,6 +1629,62 @@ def _place_service_npcs(
             ground.entities.append(_priest_placement(cx, cy))
         elif role == "inn":
             ground.entities.append(_innkeeper_placement(cx, cy))
+
+
+# Roles whose ground floor already carries a service NPC; residents
+# go on the upper floors of these so the counter stays uncluttered.
+_SERVICE_GROUND_ROLES: frozenset[str] = frozenset({"shop", "inn", "temple"})
+# Reserved special-purpose buildings (future mount / training systems)
+# stay empty — no residents.
+_NO_RESIDENT_ROLES: frozenset[str] = frozenset({"stable", "training"})
+# Residents sprinkled per building floor (capped by available tiles).
+_RESIDENTS_PER_FLOOR = (0, 2)
+
+
+def _usable_floor_tiles(floor) -> list[tuple[int, int]]:
+    """Walkable, feature-free interior tiles of a building floor —
+    excludes doors and stairs (which carry a feature)."""
+    out: list[tuple[int, int]] = []
+    for room in floor.rooms:
+        for (x, y) in room.floor_tiles():
+            tile = floor.tile_at(x, y)
+            if (tile is not None and tile.terrain is Terrain.FLOOR
+                    and tile.feature is None):
+                out.append((x, y))
+    return out
+
+
+def _place_building_residents(
+    buildings: list[Building],
+    role_assignments: dict[str, str],
+    rng: random.Random,
+) -> None:
+    """Sprinkle resident villagers through building interiors so a
+    home or the rooms above a shop feel lived-in rather than empty.
+
+    Skips the ground floor of service buildings (the shopkeeper /
+    innkeeper / priest already stands there) and places each resident
+    on a distinct walkable, feature-free tile. Residents wander their
+    room via the errand AI. See ``design/town_life.md``.
+    """
+    lo, hi = _RESIDENTS_PER_FLOOR
+    for b in buildings:
+        role = role_assignments.get(b.id, "residential")
+        if role in _NO_RESIDENT_ROLES:
+            continue
+        for fi, floor in enumerate(b.floors):
+            if fi == 0 and role in _SERVICE_GROUND_ROLES:
+                continue
+            tiles = _usable_floor_tiles(floor)
+            if not tiles:
+                continue
+            rng.shuffle(tiles)
+            n = min(rng.randint(lo, hi), len(tiles))
+            for (x, y) in tiles[:n]:
+                floor.entities.append(EntityPlacement(
+                    entity_type="creature", entity_id="villager",
+                    x=x, y=y,
+                ))
 
 
 def _merchant_placement(
