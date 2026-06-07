@@ -502,6 +502,7 @@ def create_app(
             )
         resp = make_response(render_template(
             "admin.html", external_url=config.external_url,
+            build_sha=get_build_info()["sha"],
         ))
         if token:
             _set_auth_cookie(resp, "nhc_admin_token", token)

@@ -54,6 +54,11 @@
       align-items: center; margin-bottom: 16px;
     }
     .status-bar span { color: #888; font-size: 12px; }
+    .status-left { display: flex; gap: 10px; align-items: center; }
+    #build-sha {
+      color: #61afef; font-size: 11px; background: #2a2a4a;
+      padding: 2px 8px; border-radius: 3px;
+    }
     .toolbar { display: flex; gap: 8px; align-items: center; }
     #deploy-status {
       font-size: 12px; display: none; margin-right: 4px;
@@ -72,7 +77,10 @@
   <h1>NHC Admin</h1>
 
   <div class="status-bar">
-    <span id="status-text">Loading...</span>
+    <div class="status-left">
+      <span id="status-text">Loading...</span>
+      <span id="build-sha" title="running build (git sha)">build {{ build_sha }}</span>
+    </div>
     <div class="toolbar">
       <span id="deploy-status"></span>
       <button onclick="downloadBundle()">Download Bundle</button>

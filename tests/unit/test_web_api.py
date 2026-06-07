@@ -363,6 +363,26 @@ class TestAdminUpdate:
             assert c.get("/api/admin/update").status_code in (401, 403)
 
 
+class TestAdminBuildSha:
+    """The admin panel shows the running build's git SHA next to the
+    active-sessions counter so the deployer can confirm what's live."""
+
+    _TOKEN = "admin-secret"
+
+    def test_admin_page_shows_build_sha(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("NHC_GIT_SHA", "deadbee")
+        config = WebConfig(
+            data_dir=tmp_path, auth_required=True, trust_proxy=True,
+        )
+        app = create_app(config, auth_token=self._TOKEN)
+        app.config["TESTING"] = True
+        with app.test_client() as c:
+            resp = c.get(f"/admin?token={self._TOKEN}",
+                         follow_redirects=True)
+            assert resp.status_code == 200
+            assert "deadbee" in resp.get_data(as_text=True)
+
+
 class TestAdminTokenOnly:
     """The admin panel is gated by the admin token alone — the LAN
     allowlist was removed, so a valid token grants access from any
