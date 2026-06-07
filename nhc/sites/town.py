@@ -117,14 +117,19 @@ TOWN_BUSH_DENSITY: dict[str, float] = {
 # stone desert. The pavement is complemented, not replaced.
 #   COVERAGE   — target fraction of open pavement turned to garden
 #   PATCH_MIN/MAX — garden patch side length (tiles)
-#   FORMAL_CHANCE — chance a (>=3x3) patch is a formal flower bed
-#   TREE/BUSH_CHANCE — per informal-patch-tile vegetation odds
+#   FORMAL_CHANCE — chance a patch is a formal flower bed
+#   TREE/BUSH_CHANCE — per interior-tile vegetation odds (informal)
+#   WALL_MARGIN — paved tiles kept between any garden and the wall
+# Every patch reserves its outer ring as plain green grass, so the
+# vegetation always reads on a green patch (and canopies stay off the
+# surrounding pavement).
 GARDEN_COURTYARD_COVERAGE: float = 0.18
-GARDEN_PATCH_MIN: int = 2
-GARDEN_PATCH_MAX: int = 4
-GARDEN_FORMAL_CHANCE: float = 0.25
-GARDEN_PATCH_TREE_CHANCE: float = 0.16
-GARDEN_PATCH_BUSH_CHANCE: float = 0.24
+GARDEN_PATCH_MIN: int = 3
+GARDEN_PATCH_MAX: int = 5
+GARDEN_FORMAL_CHANCE: float = 0.50
+GARDEN_PATCH_TREE_CHANCE: float = 0.20
+GARDEN_PATCH_BUSH_CHANCE: float = 0.30
+GARDEN_WALL_MARGIN: int = 2
 
 BUSH_NEIGHBOUR_BIAS_MULT = 2.5
 """Probability multiplier when an already-iterated 4-neighbour
@@ -1485,12 +1490,16 @@ def _stamp_garden_patch(
 ) -> None:
     """Turn the ``w`` x ``h`` rect at ``(x0, y0)`` into a garden patch.
 
-    Tiles become GARDEN grass. A *formal* patch borders the rect with
-    a bush hedge, fills the interior with flowers and drops a tree at
-    the centre. An *informal* patch sprinkles trees / bushes per the
-    density tunables. Trees are skipped on tiles 4-adjacent to a
-    building footprint so the canopy never overlaps a roof (mirrors
-    the FIELD scatter rule).
+    Every tile becomes GARDEN grass and the patch reserves its outer
+    ring as plain green grass, so vegetation only ever sits on the
+    interior — each tree / bush / flower reads on a green patch and no
+    canopy spills onto the surrounding pavement.
+
+    A *formal* patch lays a flower bed on the interior with a centre
+    tree and bushes at the interior corners; an *informal* patch
+    sprinkles trees / bushes per the density tunables. Trees skip
+    tiles 4-adjacent to a building footprint so a canopy never
+    overlaps a roof (mirrors the FIELD scatter rule).
     """
     def _tree_ok(x: int, y: int) -> bool:
         return not any(
@@ -1504,28 +1513,31 @@ def _stamp_garden_patch(
                 terrain=Terrain.GRASS,
                 surface_type=SurfaceType.GARDEN,
             ))
-    if formal:
-        cx, cy = x0 + w // 2, y0 + h // 2
-        for dx in range(w):
-            for dy in range(h):
-                x, y = x0 + dx, y0 + dy
-                tile = surface.tile_at(x, y)
-                if dx in (0, w - 1) or dy in (0, h - 1):
-                    tile.feature = "bush"
-                elif (x, y) == (cx, cy) and _tree_ok(x, y):
+    # Interior = the patch minus its 1-tile green grass border.
+    iw, ih = w - 2, h - 2
+    if iw < 1 or ih < 1:
+        return
+    cx, cy = iw // 2, ih // 2
+    for ix in range(iw):
+        for iy in range(ih):
+            x, y = x0 + 1 + ix, y0 + 1 + iy
+            tile = surface.tile_at(x, y)
+            if formal:
+                corner = (iw >= 3 and ih >= 3
+                          and ix in (0, iw - 1) and iy in (0, ih - 1))
+                if (ix, iy) == (cx, cy) and _tree_ok(x, y):
                     tile.feature = "tree"
+                elif corner:
+                    tile.feature = "bush"
                 else:
                     tile.feature = "flower"
-        return
-    for dx in range(w):
-        for dy in range(h):
-            x, y = x0 + dx, y0 + dy
-            roll = rng.random()
-            if roll < GARDEN_PATCH_TREE_CHANCE and _tree_ok(x, y):
-                surface.tile_at(x, y).feature = "tree"
-            elif roll < (GARDEN_PATCH_TREE_CHANCE
-                         + GARDEN_PATCH_BUSH_CHANCE):
-                surface.tile_at(x, y).feature = "bush"
+            else:
+                roll = rng.random()
+                if roll < GARDEN_PATCH_TREE_CHANCE and _tree_ok(x, y):
+                    tile.feature = "tree"
+                elif roll < (GARDEN_PATCH_TREE_CHANCE
+                             + GARDEN_PATCH_BUSH_CHANCE):
+                    tile.feature = "bush"
 
 
 def _scatter_courtyard_gardens(
@@ -1538,16 +1550,20 @@ def _scatter_courtyard_gardens(
 
     Walks the open PAVEMENT tiles inside ``palisade_rect`` and greens
     a :data:`GARDEN_COURTYARD_COVERAGE` fraction of them as
-    non-overlapping garden patches (mostly informal, the occasional
-    formal flower bed). ``blocked`` tiles (building doors + their
-    approach ring, protected plazas) and STREET tiles are never
-    touched, so the routed network and door access stay clear. The
-    pavement is complemented, not replaced.
+    non-overlapping garden patches (about half informal, half formal
+    flower bed). ``blocked`` tiles (building doors + their approach
+    ring, protected plazas) and STREET tiles are never touched, and
+    the eligible region insets by :data:`GARDEN_WALL_MARGIN` from the
+    palisade so a paved margin always separates gardens from the wall.
+    The pavement is complemented, not replaced.
     """
+    m = GARDEN_WALL_MARGIN
+    inner_x0, inner_x1 = palisade_rect.x + m, palisade_rect.x2 - m
+    inner_y0, inner_y1 = palisade_rect.y + m, palisade_rect.y2 - m
     paved: list[tuple[int, int]] = []
     for x, y, tile in surface.iter_world():
-        if (palisade_rect.x <= x < palisade_rect.x2
-                and palisade_rect.y <= y < palisade_rect.y2
+        if (inner_x0 <= x < inner_x1
+                and inner_y0 <= y < inner_y1
                 and tile.surface_type is SurfaceType.PAVEMENT
                 and (x, y) not in blocked):
             paved.append((x, y))
@@ -1574,8 +1590,7 @@ def _scatter_courtyard_gardens(
         # (keeps patches disjoint and off streets / doors / buildings).
         if any(c not in open_paved or c in gardened for c in rect_tiles):
             continue
-        formal = (w >= 3 and h >= 3
-                  and rng.random() < GARDEN_FORMAL_CHANCE)
+        formal = rng.random() < GARDEN_FORMAL_CHANCE
         _stamp_garden_patch(surface, ax, ay, w, h, formal,
                             footprints, rng)
         gardened.update(rect_tiles)

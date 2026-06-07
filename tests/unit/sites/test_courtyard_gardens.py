@@ -103,3 +103,40 @@ def test_trees_avoid_building_adjacent_tiles():
     for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
         t = surf.tile_at(rect.x + 10 + dx, rect.y + 10 + dy)
         assert t.feature != "tree"
+
+
+def test_every_garden_feature_sits_on_grass():
+    # Each tree / bush / flower must be backed by a green GARDEN grass
+    # tile (no vegetation floating on pavement).
+    surf, rect = _paved_courtyard()
+    _scatter_courtyard_gardens(surf, rect, set(), set(), random.Random(5))
+    for _x, _y, t in surf.iter_world():
+        if t.feature in ("tree", "bush", "flower"):
+            assert t.terrain is Terrain.GRASS
+            assert t.surface_type is SurfaceType.GARDEN
+
+
+def test_garden_patch_has_grass_border():
+    # Vegetation only sits on a patch interior; the outer ring of any
+    # garden patch is plain grass so the greenery is always framed.
+    surf, rect = _paved_courtyard()
+    _scatter_courtyard_gardens(surf, rect, set(), set(), random.Random(6))
+    garden = {(x, y) for x, y, t in surf.iter_world()
+              if t.surface_type is SurfaceType.GARDEN}
+    for x, y, t in surf.iter_world():
+        if t.feature in ("tree", "bush", "flower"):
+            # Every 4-neighbour of a planted tile is also garden grass
+            # (the tile is interior to its patch, not on the edge).
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                assert (x + dx, y + dy) in garden
+
+
+def test_gardens_keep_paved_margin_from_walls():
+    # No garden within GARDEN_WALL_MARGIN of the palisade rect edge.
+    from nhc.sites.town import GARDEN_WALL_MARGIN as m
+    surf, rect = _paved_courtyard()
+    _scatter_courtyard_gardens(surf, rect, set(), set(), random.Random(9))
+    for x, y, t in surf.iter_world():
+        if t.surface_type is SurfaceType.GARDEN:
+            assert rect.x + m <= x < rect.x2 - m
+            assert rect.y + m <= y < rect.y2 - m

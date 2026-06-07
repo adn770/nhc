@@ -392,6 +392,36 @@ first cut — document if/when a non-rect settlement appears.
   `_enter_walled_macro_site` and do **not** call `near_feature` population, so this is
   *latent*, not active — noted so any future town `near_feature` NPC is aware.
 
+### 3.10 Courtyard gardens — cities (post-placement)
+
+The city pave pass (§3.9) leaves a stone expanse between buildings. Immediately after
+it, `_scatter_courtyard_gardens` **complements** that pavement with garden patches so
+the open plaza reads as greened, not a stone desert. Cities only — gated on
+`config.paved_courtyard`; runs after building placement, before the FIELD vegetation
+scatter.
+
+- **Complement, not replace.** Greens a `GARDEN_COURTYARD_COVERAGE` (≈18%) fraction of
+  the open `PAVEMENT` tiles as non-overlapping `GARDEN` patches; most of the courtyard
+  stays paved.
+- **Patch mix.** Patches are `GARDEN_PATCH_MIN..MAX` (3–5) tiles. `GARDEN_FORMAL_CHANCE`
+  (≈half) makes a patch a **formal** flower bed (centre tree, corner bushes, flowers
+  between); the rest are **informal** (trees / bushes scattered per
+  `GARDEN_PATCH_TREE/BUSH_CHANCE`).
+- **Grass framing.** Every patch reserves its 1-tile outer ring as plain green grass —
+  vegetation only lands on the interior, so each tree / bush / flower reads on a green
+  patch and no canopy spills onto the surrounding pavement. (`Terrain.GRASS` +
+  `SurfaceType.GARDEN`, same as the small-plaza apron §3.2.)
+- **Clearances.** `STREET` tiles, building doors + their 4-ring, protected small-plaza
+  aprons, and courtyard-cluster **working yards** (Q7, kept paved) are never gardened.
+  Patches also keep ≥`GARDEN_WALL_MARGIN` paved tiles clear of the palisade wall, and
+  patch trees skip building-adjacent tiles (canopy/roof overlap, mirrors the FIELD
+  scatter Q16 rule).
+
+`GARDEN` is a separate surface region from `PAVEMENT`, so the city renders a dappled
+green-and-stone courtyard rather than one flat plaza. Invariants: no `FIELD` survives
+inside a city palisade (the pave pass converts it; gardens are `GARDEN`, not `FIELD`),
+and city bushes may now sit on `GARDEN` as well as `FIELD`.
+
 ---
 
 ## 4. Determinism, fixtures, invariants
