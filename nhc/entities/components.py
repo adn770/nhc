@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from nhc.hexcrawl.model import TimeOfDay
+
 
 @dataclass
 class Position:
@@ -174,6 +176,39 @@ class Errand:
     anchor_x: int | None = None
     anchor_y: int | None = None
     anchor_weight: float = 0.0
+
+
+@dataclass
+class RoutineAnchor:
+    """A scheduled destination for a town citizen during one
+    time-of-day segment.
+
+    The errand AI biases wandering toward ``(x, y)`` with strength
+    ``weight`` (1.0 = always pull). ``despawn`` marks a "go home and
+    leave" anchor (the night segment): the citizen routes to the
+    exact tile and is removed on arrival, so the streets empty after
+    dark. See ``design/town_life.md``.
+    """
+    x: int = 0
+    y: int = 0
+    weight: float = 1.0
+    despawn: bool = False
+
+
+@dataclass
+class DailyRoutine:
+    """Per-segment anchors for a town citizen, keyed by
+    :class:`TimeOfDay`.
+
+    Schedule-aware ``errand`` resolves the anchor for the current
+    town segment (``World.time_of_day``) and biases its destination
+    choice toward it, so the same NPC drifts to the market at MIDDAY
+    and the tavern at EVENING. A segment with no entry falls back to
+    the NPC's static :class:`Errand` anchor (or free wandering).
+    Ephemeral by design — regenerated on town entry, not persisted to
+    JSON saves. See ``design/town_life.md``.
+    """
+    anchors: dict[TimeOfDay, RoutineAnchor] = field(default_factory=dict)
 
 
 @dataclass

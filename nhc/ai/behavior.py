@@ -173,6 +173,33 @@ def _errand_walkable(
     return True
 
 
+def _effective_anchor(world: "World", entity_id: int):
+    """Resolve the active :class:`RoutineAnchor` for an errand NPC.
+
+    A citizen with a ``DailyRoutine`` uses the anchor scheduled for
+    the current town segment (``World.time_of_day``); when that
+    segment has no entry (or the world has no town time yet) it falls
+    back to the NPC's static ``Errand`` anchor. Returns ``None`` when
+    the NPC has neither, i.e. it wanders freely.
+    """
+    from nhc.entities.components import RoutineAnchor
+
+    routine = world.get_component(entity_id, "DailyRoutine")
+    tod = getattr(world, "time_of_day", None)
+    if routine is not None and tod is not None:
+        scheduled = routine.anchors.get(tod)
+        if scheduled is not None:
+            return scheduled
+    errand = world.get_component(entity_id, "Errand")
+    if errand and errand.anchor_x is not None \
+            and errand.anchor_y is not None:
+        return RoutineAnchor(
+            x=errand.anchor_x, y=errand.anchor_y,
+            weight=errand.anchor_weight, despawn=False,
+        )
+    return None
+
+
 def _pick_errand_destination(
     world: "World",
     level: "Level",
@@ -182,23 +209,29 @@ def _pick_errand_destination(
     """Pick a fresh destination for an errand NPC.
 
     Order of preference:
-      1. Anchor bias (if the Errand has ``anchor_x/y`` and a roll
-         beats ``anchor_weight``) — returns a street tile within 3
-         chebyshev of the anchor.
-      2. Door-adjacent bias (~40%) — tiles next to a building door
+      1. Despawn anchor (night "go home"): route to the exact anchor
+         tile so the NPC leaves town on arrival.
+      2. Anchor bias (if the active routine/Errand anchor's roll
+         beats its ``weight``) — a street tile within 3 chebyshev of
+         the anchor.
+      3. Door-adjacent bias (~40%) — tiles next to a building door
          so villagers visibly gather near shops and homes.
-      3. Any walkable street tile, uniform.
+      4. Any walkable street tile, uniform.
+
+    The active anchor is segment-aware via :func:`_effective_anchor`.
     """
     rng = get_rng()
-    errand = world.get_component(entity_id, "Errand")
+    eff = _effective_anchor(world, entity_id)
+
+    if eff is not None and eff.despawn:
+        # Head straight home; arrival despawns the citizen.
+        return (eff.x, eff.y)
 
     candidates: list[tuple[int, int]] = []
     door_adjacent: list[tuple[int, int]] = []
     anchor_near: list[tuple[int, int]] = []
-    anchor = None
-    if errand and errand.anchor_x is not None \
-            and errand.anchor_y is not None:
-        anchor = (errand.anchor_x, errand.anchor_y)
+    anchor = (eff.x, eff.y) if eff is not None else None
+    anchor_weight = eff.weight if eff is not None else 0.0
 
     for y in range(level.height):
         for x in range(level.width):
@@ -222,8 +255,8 @@ def _pick_errand_destination(
                     break
     if not candidates:
         return None
-    if (errand and errand.anchor_weight > 0.0
-            and anchor_near and rng.random() < errand.anchor_weight):
+    if (anchor_weight > 0.0
+            and anchor_near and rng.random() < anchor_weight):
         return rng.choice(anchor_near)
     if door_adjacent and rng.random() < 0.4:
         return rng.choice(door_adjacent)
@@ -258,6 +291,12 @@ def _decide_errand_action(
 
     target_xy = (errand.target_x, errand.target_y)
     if (pos.x, pos.y) == target_xy:
+        # Reached a night "go home" anchor: leave town.
+        eff = _effective_anchor(world, entity_id)
+        if eff is not None and eff.despawn \
+                and (pos.x, pos.y) == (eff.x, eff.y):
+            world.destroy_entity(entity_id)
+            return None
         lo, hi = _ERRAND_IDLE_TURNS_RANGE
         errand.idle_turns_remaining = get_rng().randint(lo, hi)
         errand.target_x = None

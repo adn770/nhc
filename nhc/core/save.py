@@ -47,6 +47,12 @@ for _name in dir(comp_module):
     if isinstance(_cls, type) and hasattr(_cls, "__dataclass_fields__"):
         _COMPONENT_CLASSES[_name] = _cls
 
+# Components regenerated on town entry rather than persisted (see
+# design/town_life.md). Skipped by the JSON saver: DailyRoutine
+# carries an enum-keyed dict that is not JSON-safe, and town citizen
+# state is deterministic-by-time so it need not survive a save.
+_EPHEMERAL_COMPONENTS: frozenset[str] = frozenset({"DailyRoutine"})
+
 DEFAULT_SAVE_DIR = Path.home() / ".nhc" / "saves"
 
 # JSON save schema version. Bumped from 3 -> 4 when tile_slot
@@ -179,6 +185,8 @@ def _serialize_entities(world: "World") -> dict[str, dict[str, Any]]:
     for eid in world._entities:
         comps: dict[str, Any] = {}
         for comp_type, store in world._components.items():
+            if comp_type in _EPHEMERAL_COMPONENTS:
+                continue
             if eid in store:
                 comp = store[eid]
                 comps[comp_type] = _serialize_component(comp_type, comp)
