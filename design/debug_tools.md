@@ -155,6 +155,42 @@ Output: `debug/exports/map_YYYYMMDD_HHMMSS.svg`
 
 Contents: full floor plan SVG rendering.
 
+## Debug Bundles and Crash Reports
+
+Source: `nhc/web/debug_bundle.py`, `nhc/web/crash_report.py`
+
+A *debug bundle* is a `tar.gz` snapshot of a session built by
+`build_debug_tar(session, *, log_path, extra_entries=())`. It packs
+the game-state and layer-state JSON exports, the hatch debug
+snapshot, the autosave, the server log (`nhc.log`), generation
+params, uploaded layer PNGs and the browser console log. Three
+flows reuse it:
+
+- **Bundle download** — `GET /api/game/{sid}/export/bundle`
+  (god/tester only) streams the bundle to the browser.
+- **Tester bug report** — `POST /api/game/{sid}/report` injects the
+  user's description as `report.txt` and writes the bundle to
+  `<data_dir>/reports/<slug>_<utc_ts>Z.tar.gz`.
+- **Automatic crash report** — `write_crash_report(session, *,
+  data_dir, log_path, kind, exc)` snapshots a *crashed* session to
+  `<data_dir>/crashes/<kind>_<sid>_<utc_ts>Z.tar.gz`, auto-generating
+  `report.txt` from the traceback plus session metadata.
+
+Crash reports fire from two sites:
+
+- `kind="game_loop"` — an unhandled exception in `Game.run()`,
+  caught in the game thread (`nhc/web/ws.py`).
+- `kind="gen"` — a failure during `Game.initialize()` on new-game
+  or restore (`nhc/web/app.py`).
+
+The writer is defensive: if the full bundle cannot be built (a
+generation crash often leaves the game half-initialized, so the
+bundle builder itself raises), it degrades to a *traceback-only*
+tarball rather than losing the report. Reporting is also fully
+guarded so a failure in the reporter can never mask the original
+crash. There is no notification channel — a crash logs a prominent
+`ERROR` line and the bundle lands on disk for offline triage.
+
 ## MCP Debug Server
 
 Source: `nhc/debug_tools/`
