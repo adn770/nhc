@@ -1372,6 +1372,36 @@ creature:
     long: >-
       A reedy figure with a hand-bell and a carrying voice, pausing
       at each corner to bawl out the hour and the day's news.
+  beggar:
+    name: "Beggar"
+    short: "a ragged beggar"
+    long: >-
+      A gaunt figure huddled in cast-off rags, palm outstretched and
+      eyes following every purse that passes.
+  drunk:
+    name: "Drunk"
+    short: "a swaying drunk"
+    long: >-
+      A bleary-eyed soul listing from wall to wall, humming a tune
+      only they can hear and reeking of sour ale.
+  busker:
+    name: "Busker"
+    short: "a busking minstrel"
+    long: >-
+      A nimble performer working a corner with fiddle or patter, an
+      upturned cap at their feet collecting the odd coin.
+  urchin:
+    name: "Urchin"
+    short: "a darting urchin"
+    long: >-
+      A barefoot street child all elbows and quick eyes, weaving
+      through legs and skidding off the moment anyone looks twice.
+  preacher:
+    name: "Preacher"
+    short: "a fervent preacher"
+    long: >-
+      A wild-eyed zealot planted on a crate, exhorting the heedless
+      crowd about doom, deliverance, and the price of sin.
   villager:
     name: "Villager"
     short: "a local villager"

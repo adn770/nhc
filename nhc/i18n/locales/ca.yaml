@@ -1491,6 +1491,41 @@ creature:
     long: >-
       Una figura prima amb una campaneta i una veu que arriba lluny,
       aturant-se a cada cantonada per cridar l'hora i les noves del dia.
+  beggar:
+    name: "captaire"
+    gender: "m"
+    short: "un captaire esparracat"
+    long: >-
+      Una figura xuclada arraulida amb parracs vells, el palmell estès
+      i els ulls seguint cada bossa que passa.
+  drunk:
+    name: "embriac"
+    gender: "m"
+    short: "un embriac que tentineja"
+    long: >-
+      Una ànima d'ulls vidriosos que va de paret a paret, taral·lejant
+      una tonada que només ell sent i pudent de cervesa agra.
+  busker:
+    name: "joglar"
+    gender: "m"
+    short: "un joglar de carrer"
+    long: >-
+      Un artista àgil que treballa una cantonada amb violí o facècies,
+      amb la gorra del revés als peus recollint alguna moneda.
+  urchin:
+    name: "trinxeraire"
+    gender: "m"
+    short: "un trinxeraire espavilat"
+    long: >-
+      Un nen de carrer descalç, tot colzes i ulls vius, esquitllant-se
+      entre les cames i fugint tan bon punt algú el mira dos cops.
+  preacher:
+    name: "predicador"
+    gender: "m"
+    short: "un predicador fervorós"
+    long: >-
+      Un fanàtic d'ulls encesos plantat sobre una caixa, exhortant la
+      gentada distreta sobre la condemna, la salvació i el preu del pecat.
   villager:
     name: "vilatà"
     gender: "m"

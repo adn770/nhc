@@ -1419,6 +1419,41 @@ creature:
     long: >-
       Una figura enjuta con una campanilla y una voz que llega lejos,
       deteniéndose en cada esquina para gritar la hora y las nuevas del día.
+  beggar:
+    name: "Mendigo"
+    gender: "m"
+    short: "un mendigo harapiento"
+    long: >-
+      Una figura demacrada acurrucada entre andrajos viejos, la palma
+      extendida y los ojos siguiendo cada bolsa que pasa.
+  drunk:
+    name: "Borracho"
+    gender: "m"
+    short: "un borracho que se tambalea"
+    long: >-
+      Un alma de ojos vidriosos que va de pared en pared, tarareando
+      una tonada que solo él oye y apestando a cerveza agria.
+  busker:
+    name: "Músico callejero"
+    gender: "m"
+    short: "un músico callejero"
+    long: >-
+      Un artista ágil que trabaja una esquina con violín o labia, con
+      la gorra del revés a sus pies recogiendo alguna moneda.
+  urchin:
+    name: "Golfillo"
+    gender: "m"
+    short: "un golfillo escurridizo"
+    long: >-
+      Un niño de la calle descalzo, todo codos y ojos vivos, colándose
+      entre las piernas y huyendo en cuanto alguien lo mira dos veces.
+  preacher:
+    name: "Predicador"
+    gender: "m"
+    short: "un predicador fervoroso"
+    long: >-
+      Un fanático de ojos encendidos plantado sobre un cajón, exhortando
+      a la multitud distraída sobre la condena, la salvación y el precio del pecado.
   villager:
     name: "Aldeano"
     gender: "m"

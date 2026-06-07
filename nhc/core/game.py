@@ -3466,6 +3466,7 @@ class Game:
                         components["DailyRoutine"] = build_worker_routine(
                             tuple(routine_spec["workplace"]),
                             tuple(routine_spec["home"]),
+                            work_weight=routine_spec.get("weight", 0.85),
                         )
                     waypoints = placement.extra.get("patrol_waypoints")
                     if waypoints is not None:

@@ -51,6 +51,8 @@ class TestHumanoidLoot:
                 "water_carrier", "washerwoman", "porter",
                 # The watch: peaceful patrollers (town life M5).
                 "town_guard", "watch_captain", "town_crier",
+                # Street margins: peaceful loiterers (town life M6).
+                "beggar", "drunk", "busker", "urchin", "preacher",
             ):
                 continue
             loot = comps.get("LootTable")

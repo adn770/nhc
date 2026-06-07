@@ -712,6 +712,7 @@ def assemble_town(
     _place_surface_villagers(site, size_class, rng)
     _place_working_folk(site, size_class, rng)
     _place_watch(site, size_class, rng)
+    _place_street_margins(site, size_class, rng)
     _connect_cross_building_doors(site, cluster_plans)
     return site
 
@@ -2009,6 +2010,23 @@ TOWN_GUARD_COUNT: dict[str, tuple[int, int]] = {
 }
 TOWN_HAS_CRIER: frozenset[str] = frozenset({"town", "city"})
 TOWN_HAS_CAPTAIN: frozenset[str] = frozenset({"city"})
+# Street margins loiter and cluster at a few gathering spots, adding
+# life at the edges (design/town_life.md).
+MARGIN_IDS: tuple[str, ...] = (
+    "beggar", "drunk", "busker", "urchin", "preacher",
+)
+TOWN_MARGIN_COUNT: dict[str, tuple[int, int]] = {
+    "hamlet": (0, 1),
+    "village": (1, 2),
+    "town": (2, 4),
+    "city": (4, 8),
+}
+# How many distinct gathering spots margins cluster around — kept low
+# so they visibly bunch up rather than scatter.
+MARGIN_GATHERING_SPOTS = 3
+# Loiterers anchor more loosely than working folk, so they mill about
+# their gathering spot instead of standing on it.
+MARGIN_ANCHOR_WEIGHT = 0.6
 TOWN_PICKPOCKET_COUNT: dict[str, int] = {
     "hamlet": 0,
     "village": 0,
@@ -2238,3 +2256,66 @@ def _place_watch(
         _place("town_crier")
     if size_class in TOWN_HAS_CAPTAIN:
         _place("watch_captain")
+
+
+def _place_street_margins(
+    site: Site, size_class: str, rng: random.Random,
+) -> None:
+    """Place loitering street margins clustered around a few
+    gathering spots, thinning out at night.
+
+    Each margin spawns on an open street tile and shares one of a
+    small set of social anchors, so beggars, buskers and the like
+    visibly bunch up. They carry a loose-weight ``daily_routine``
+    spec (loiter by day, retreat and despawn at night). See
+    ``design/town_life.md``.
+    """
+    lo, hi = TOWN_MARGIN_COUNT.get(size_class, (0, 0))
+    count = rng.randint(lo, hi) if hi > 0 else 0
+    if count <= 0:
+        return
+
+    surface = site.surface
+    open_streets: list[tuple[int, int]] = []
+    door_adjacent: list[tuple[int, int]] = []
+    for x, y, tile in surface.iter_world():
+        if tile.surface_type != SurfaceType.STREET:
+            continue
+        if not tile.walkable or tile.feature is not None:
+            continue
+        open_streets.append((x, y))
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = x + dx, y + dy
+            if not (0 <= nx < surface.width and 0 <= ny < surface.height):
+                continue
+            feat = surface.tile_at(nx, ny).feature
+            if feat is not None and feat.startswith("door_"):
+                door_adjacent.append((x, y))
+                break
+    if not open_streets:
+        return
+
+    anchor_pool = door_adjacent or open_streets
+    spots = rng.sample(
+        anchor_pool, k=min(MARGIN_GATHERING_SPOTS, len(anchor_pool)),
+    )
+    rng.shuffle(open_streets)
+    used: set[tuple[int, int]] = set()
+
+    for spot in open_streets:
+        if count <= 0:
+            break
+        if spot in used:
+            continue
+        used.add(spot)
+        count -= 1
+        surface.entities.append(EntityPlacement(
+            entity_type="creature",
+            entity_id=rng.choice(MARGIN_IDS),
+            x=spot[0], y=spot[1],
+            extra={"daily_routine": {
+                "workplace": rng.choice(spots),
+                "home": rng.choice(open_streets),
+                "weight": MARGIN_ANCHOR_WEIGHT,
+            }},
+        ))
