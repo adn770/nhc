@@ -55,6 +55,15 @@ trap 'rm -f "${RESP}"' EXIT
 
 state_of() { grep -o '"state":"[^"]*"' "${RESP}" | head -n1 | cut -d'"' -f4; }
 field_of() { grep -o "\"$1\":\"[^\"]*\"" "${RESP}" | head -n1 | cut -d'"' -f4; }
+num_field() { grep -o "\"$1\":[0-9]*" "${RESP}" | head -n1 | cut -d: -f2; }
+
+# Capture the status timestamp BEFORE requesting so a terminal result
+# left by a previous deploy isn't mistaken for this one's (the host
+# briefly serves the old status between consuming the marker and
+# flipping it to "running").
+curl -sS -o "${RESP}" "${AUTH[@]}" "${URL}/api/admin/update" \
+    >/dev/null 2>&1 || true
+baseline="$(num_field updated_at)"; baseline="${baseline:-0}"
 
 # ── Request the deploy ─────────────────────────────────────
 info "Requesting deploy at ${URL} ..."
@@ -72,6 +81,7 @@ esac
 info "Waiting for the build (timeout ${TIMEOUT}s)..."
 deadline=$(( SECONDS + TIMEOUT ))
 last=""
+seen_active=0
 while (( SECONDS < deadline )); do
     # The container restarts mid-deploy; treat unreachable as transient.
     if curl -sS -o "${RESP}" "${AUTH[@]}" "${URL}/api/admin/update" \
@@ -81,9 +91,20 @@ while (( SECONDS < deadline )); do
             info "deploy: ${state}"
             last="${state}"
         fi
+        # Accept a terminal result only once this deploy has gone
+        # active, or its timestamp is newer than the pre-request one.
+        u="$(num_field updated_at)"; u="${u:-0}"
+        fresh=0
+        (( seen_active )) && fresh=1
+        (( u > baseline )) && fresh=1
         case "${state}" in
-            success) ok "Deploy complete ($(field_of git_sha))."; exit 0 ;;
-            failed)  fail "Deploy failed: $(field_of message)" ;;
+            requested|running) seen_active=1 ;;
+            success)
+                (( fresh )) && {
+                    ok "Deploy complete ($(field_of git_sha))."; exit 0
+                } ;;
+            failed)
+                (( fresh )) && fail "Deploy failed: $(field_of message)" ;;
         esac
     fi
     sleep 3

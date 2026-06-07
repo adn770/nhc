@@ -725,7 +725,7 @@ def create_app(
     @app.route("/api/admin/update", methods=["POST"])
     @_admin_auth
     def admin_request_update():
-        req, _ = _deploy_paths()
+        req, status = _deploy_paths()
         if not req:
             return jsonify(
                 {"error": "update unavailable (no data dir)"}
@@ -735,16 +735,25 @@ def create_app(
             return jsonify(
                 {"error": "deploy already in progress", **current}
             ), 409
+        now = int(time.time())
         try:
-            req.write_text(
-                json.dumps({"requested_at": int(time.time())})
-            )
+            req.write_text(json.dumps({"requested_at": now}))
+            # Stamp the status to a fresh non-terminal state so a
+            # poller can't read a stale success/failed from a prior
+            # deploy during the brief window before the host agent
+            # flips it to "running".
+            status.write_text(json.dumps({
+                "state": "requested",
+                "message": "deploy requested",
+                "git_sha": "",
+                "updated_at": now,
+            }))
         except OSError as exc:
             return jsonify(
                 {"error": f"could not request update: {exc}"}
             ), 500
         logger.info("Admin requested remote update (marker written)")
-        return jsonify({"state": "requested"})
+        return jsonify({"state": "requested", "updated_at": now})
 
     # ── Player routes (player token) ────────────────────────
 

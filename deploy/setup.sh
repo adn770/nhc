@@ -111,6 +111,9 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# A real deploy (git pull + docker build + restart) runs for minutes;
+# the default 90s start timeout would kill it mid-build. Disable it.
+TimeoutStartSec=infinity
 User=${deploy_user}
 Environment=HOME=${deploy_home}
 Environment=NHC_DATA_DIR=${DATA_DIR}

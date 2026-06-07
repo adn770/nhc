@@ -400,6 +400,11 @@ class TestRemoteDeployAgent:
         assert "/etc/sudoers.d/nhc-deploy" in setup
         assert "NOPASSWD: /usr/bin/systemctl restart" in setup
 
+    def test_setup_service_disables_start_timeout(self, setup):
+        """A real deploy runs for minutes; the default 90s start
+        timeout would kill it mid-build."""
+        assert "TimeoutStartSec=infinity" in setup
+
     def test_setup_invokes_agent_install_in_both_flows(self, setup):
         """install_deploy_agent must run on both fresh setup and
         --update so existing deployments pick the agent up."""
@@ -450,3 +455,10 @@ class TestTriggerDeploy:
     def test_has_default_url(self, script):
         assert "NHC_DEPLOY_URL" in script
         assert "duckdns.org" in script
+
+    def test_guards_against_stale_terminal_status(self, script):
+        """The poller must not accept a success/failed left by a
+        previous deploy — it captures a baseline timestamp and tracks
+        whether this deploy went active before trusting a result."""
+        assert "baseline" in script
+        assert "seen_active" in script

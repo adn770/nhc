@@ -325,6 +325,37 @@ class TestAdminUpdate:
             assert resp.status_code == 200
             assert (tmp_path / ".deploy-request").exists()
 
+    def test_post_overwrites_stale_terminal_status(self, tmp_path):
+        """POST must clear a prior success/failed so a poller can't
+        read it as this deploy's result (the trigger-script race)."""
+        (tmp_path / ".deploy-status").write_text(json.dumps({
+            "state": "success", "git_sha": "old1234",
+        }))
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            resp = c.post(f"/api/admin/update?token={self._TOKEN}")
+            assert resp.get_json()["state"] == "requested"
+            stamped = json.loads((tmp_path / ".deploy-status").read_text())
+            assert stamped["state"] == "requested"
+            assert stamped["git_sha"] == ""
+
+    def test_consumed_marker_window_never_reports_stale(self, tmp_path):
+        """After POST, if the host consumes the marker before flipping
+        to running, GET must report 'requested' — never the prior
+        terminal status. This is the exact race that made the trigger
+        exit early with a stale sha."""
+        (tmp_path / ".deploy-status").write_text(json.dumps({
+            "state": "success", "git_sha": "old1234",
+        }))
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            c.post(f"/api/admin/update?token={self._TOKEN}")
+            # Simulate the host agent deleting the marker before it has
+            # written the "running" status.
+            (tmp_path / ".deploy-request").unlink()
+            resp = c.get(f"/api/admin/update?token={self._TOKEN}")
+            assert resp.get_json()["state"] == "requested"
+
     def test_requires_admin_token(self, tmp_path):
         app = self._app(tmp_path)
         with app.test_client() as c:
