@@ -144,6 +144,63 @@ const TREE_ATLAS_SIZE: u32 = 80;
 
 const TREE_BUCKET_SALT: i32 = 6101;
 
+// ── Per-tile size tiers (battlemap canopy mix) ────────────────
+//
+// Trees carry no upstream size metadata — every tree tile is just
+// an `(x, y)` marked `feature="tree"`. So size variety is derived
+// here from a hashed per-tile roll (`TREE_SIZE_SALT`), stable per
+// tile and per floor. Three tiers give a believable settlement
+// mix where mature canopies clearly dwarf a well (~1.7 tiles) and
+// overhang their neighbours, while shrubs stay near the legacy
+// size. The scale multiplies every canopy / shadow / trunk /
+// volume-mark dimension uniformly, so proportions are preserved.
+//
+// Effective canopy diameter ≈ 1.25 tiles at `scale = 1.0`:
+//   shrub  scale 0.95 → ~1.2 tiles  (35%, ≈ legacy)
+//   medium scale 1.35 → ~1.7 tiles  (40%, ≈ well)
+//   mature scale 1.90 → ~2.4 tiles  (25%, overhangs)
+const TREE_SIZE_SALT: i32 = 9001;
+
+/// Per-tile size tier id ∈ {0 shrub, 1 medium, 2 mature}, weighted
+/// 35 % / 40 % / 25 % via a uniform hash roll. Used both as the
+/// scale selector and (cast to `u8`) as the sprite-cache
+/// `size_class` discriminator so each `(bucket, tier)` caches its
+/// own template.
+pub(crate) fn size_tier(tx: i32, ty: i32) -> u32 {
+    let u = well::hash_unit(tx, ty, TREE_SIZE_SALT);
+    if u < 0.35 {
+        0
+    } else if u < 0.75 {
+        1
+    } else {
+        2
+    }
+}
+
+/// Uniform scale multiplier applied to all tree dimensions for a
+/// tier. Tier 0 is intentionally just under 1.0 so shrubs read a
+/// touch smaller than the legacy canopy.
+fn tier_scale(tier: u32) -> f64 {
+    match tier {
+        0 => 0.95,
+        1 => 1.35,
+        _ => 1.90,
+    }
+}
+
+/// Per-tier sprite-atlas side. Sized so the scaled canopy / shadow
+/// / trunk / volume-mark geometry (plus centre-offset jitter) fits
+/// with margin — see `tier_atlas_fits_canopy`. Smaller tiers keep
+/// a smaller atlas so the per-render sprite cache stays bounded
+/// instead of blanket-growing all buckets to the mature size.
+fn tier_atlas(tier: u32) -> u32 {
+    match tier {
+        0 => 80,
+        1 => 112,
+        _ => 144,
+    }
+}
+
 const TREE_TRUNK_FILL: &str = "#4A3320";
 const TREE_TRUNK_STROKE_WIDTH: f64 = 0.9;
 const TREE_TRUNK_RADIUS: f64 = 0.16 * CELL;
@@ -169,16 +226,20 @@ fn lobe_count(tx: i32, ty: i32) -> i32 {
     TREE_CANOPY_LOBE_COUNT_CHOICES[idx as usize]
 }
 
-fn cluster_radius(tx: i32, ty: i32) -> f64 {
+fn cluster_radius(tx: i32, ty: i32, scale: f64) -> f64 {
     let j = well::hash_norm(tx, ty, TREE_CLUSTER_RADIUS_SALT);
-    TREE_CANOPY_CLUSTER_RADIUS * (1.0 + j * TREE_CANOPY_CLUSTER_RADIUS_JITTER)
+    TREE_CANOPY_CLUSTER_RADIUS
+        * (1.0 + j * TREE_CANOPY_CLUSTER_RADIUS_JITTER)
+        * scale
 }
 
-fn center_offset(tx: i32, ty: i32) -> (f64, f64) {
+fn center_offset(tx: i32, ty: i32, scale: f64) -> (f64, f64) {
     let dx = well::hash_norm(tx, ty, TREE_CENTER_X_SALT)
-        * TREE_CANOPY_CENTER_OFFSET;
+        * TREE_CANOPY_CENTER_OFFSET
+        * scale;
     let dy = well::hash_norm(tx, ty, TREE_CENTER_Y_SALT)
-        * TREE_CANOPY_CENTER_OFFSET;
+        * TREE_CANOPY_CENTER_OFFSET
+        * scale;
     (dx, dy)
 }
 
@@ -205,23 +266,27 @@ fn lobe_circles(
     out
 }
 
-fn canopy_lobes(cx: f64, cy: f64, tx: i32, ty: i32) -> Vec<(f64, f64, f64)> {
+fn canopy_lobes(
+    cx: f64, cy: f64, tx: i32, ty: i32, scale: f64,
+) -> Vec<(f64, f64, f64)> {
     lobe_circles(
         cx, cy, tx, ty, CANOPY_SHAPE_SALT,
         lobe_count(tx, ty),
-        TREE_CANOPY_LOBE_RADIUS,
-        cluster_radius(tx, ty),
+        TREE_CANOPY_LOBE_RADIUS * scale,
+        cluster_radius(tx, ty, scale),
     )
 }
 
-fn shadow_lobes(cx: f64, cy: f64, tx: i32, ty: i32) -> Vec<(f64, f64, f64)> {
+fn shadow_lobes(
+    cx: f64, cy: f64, tx: i32, ty: i32, scale: f64,
+) -> Vec<(f64, f64, f64)> {
     lobe_circles(
-        cx + TREE_CANOPY_SHADOW_OFFSET,
-        cy + TREE_CANOPY_SHADOW_OFFSET,
+        cx + TREE_CANOPY_SHADOW_OFFSET * scale,
+        cy + TREE_CANOPY_SHADOW_OFFSET * scale,
         tx, ty, SHADOW_SHAPE_SALT,
         lobe_count(tx, ty),
-        TREE_CANOPY_SHADOW_LOBE_RADIUS,
-        cluster_radius(tx, ty),
+        TREE_CANOPY_SHADOW_LOBE_RADIUS * scale,
+        cluster_radius(tx, ty, scale),
     )
 }
 
@@ -265,6 +330,8 @@ pub fn paint_tree(
 
 fn paint_free_tree(painter: &mut dyn Painter, tx: i32, ty: i32) {
     let bucket = bucket_for_tile(tx, ty);
+    let tier = size_tier(tx, ty);
+    let atlas = tier_atlas(tier);
     // Anchor lands at the literal tile centre — per-anchor
     // jitter that used to shift the canopy origin is now baked
     // into the bucket template's local centre offset, so the
@@ -273,19 +340,22 @@ fn paint_free_tree(painter: &mut dyn Painter, tx: i32, ty: i32) {
     let cx = ((f64::from(tx) + 0.5) * CELL) as f32;
     let cy = ((f64::from(ty) + 0.5) * CELL) as f32;
     let filter = anchor_hsl_filter(tx, ty);
+    // `size_class` doubles as the size-tier cache discriminator so
+    // two trees sharing a shape bucket but differing in tier cache
+    // (and render) as distinct templates.
     let key = SpriteCacheKey {
         kind: u32::from(FixtureKind::Tree.0),
         variant: bucket,
-        size_class: TREE_ATLAS_SIZE as u8,
+        size_class: tier as u8,
     };
-    let bbox = Rect::new(0.0, 0.0, TREE_ATLAS_SIZE as f32, TREE_ATLAS_SIZE as f32);
+    let bbox = Rect::new(0.0, 0.0, atlas as f32, atlas as f32);
     painter.push_filter(filter);
     painter.stamp_cached_sprite(
         key,
         bbox,
         cx,
         cy,
-        &mut |sub| paint_tree_template(sub, bucket),
+        &mut |sub| paint_tree_template(sub, bucket, tier),
     );
     painter.pop_filter();
 }
@@ -296,29 +366,30 @@ fn paint_free_tree(painter: &mut dyn Painter, tx: i32, ty: i32) {
 /// bucket's own jitter offset). All geometric inputs are keyed on
 /// `bucket` (via `bucket_pos(bucket) → (i32, i32)`), so two trees
 /// sharing the same bucket render byte-equal silhouettes.
-fn paint_tree_template(painter: &mut dyn Painter, bucket: u32) {
+fn paint_tree_template(painter: &mut dyn Painter, bucket: u32, tier: u32) {
     let (bx, by) = bucket_pos(bucket);
-    let local_centre = f64::from(TREE_ATLAS_SIZE) / 2.0;
-    let (dx, dy) = center_offset(bx, by);
+    let scale = tier_scale(tier);
+    let local_centre = f64::from(tier_atlas(tier)) / 2.0;
+    let (dx, dy) = center_offset(bx, by, scale);
     let cx = local_centre + dx;
     let cy = local_centre + dy;
     let trunk_cx = cx;
-    let trunk_cy = cy + TREE_TRUNK_OFFSET_Y;
+    let trunk_cy = cy + TREE_TRUNK_OFFSET_Y * scale;
 
     // Element order mirrors `tree_fragment_for_tile`: trunk
     // first, then shadow path, then canopy path, then volume
     // marks. Painters composite in document order.
-    paint_trunk(painter, trunk_cx, trunk_cy);
+    paint_trunk(painter, trunk_cx, trunk_cy, scale);
     paint_shadow_canopy(
         painter,
-        &shadow_lobes(cx, cy, bx, by),
+        &shadow_lobes(cx, cy, bx, by, scale),
     );
     paint_canopy(
         painter,
-        &canopy_lobes(cx, cy, bx, by),
+        &canopy_lobes(cx, cy, bx, by, scale),
         TREE_CANOPY_FILL,
     );
-    paint_volume_marks(painter, cx, cy, bx, by);
+    paint_volume_marks(painter, cx, cy, bx, by, scale);
 }
 
 /// `(tx, ty) → bucket id ∈ [0, TREE_SHAPE_BUCKET_COUNT)`. Stable
@@ -364,12 +435,17 @@ fn paint_grove(painter: &mut dyn Painter, grove: &[(i32, i32)]) {
 
     let mut canopy_all: Vec<(f64, f64, f64)> = Vec::new();
     let mut shadow_all: Vec<(f64, f64, f64)> = Vec::new();
+    // Each grove tile keeps its own per-tile size tier, so a fused
+    // grove gets natural internal size variation rather than a
+    // uniform blob. Groves paint directly (no sprite atlas), so
+    // there is no clipping bound on the scaled lobes here.
     for &(tx, ty) in &sorted {
-        let (dx, dy) = center_offset(tx, ty);
+        let scale = tier_scale(size_tier(tx, ty));
+        let (dx, dy) = center_offset(tx, ty, scale);
         let cx = (f64::from(tx) + 0.5) * CELL + dx;
         let cy = (f64::from(ty) + 0.5) * CELL + dy;
-        canopy_all.extend(canopy_lobes(cx, cy, tx, ty));
-        shadow_all.extend(shadow_lobes(cx, cy, tx, ty));
+        canopy_all.extend(canopy_lobes(cx, cy, tx, ty, scale));
+        shadow_all.extend(shadow_lobes(cx, cy, tx, ty, scale));
     }
     paint_shadow_canopy(painter, &shadow_all);
     paint_canopy(
@@ -379,20 +455,22 @@ fn paint_grove(painter: &mut dyn Painter, grove: &[(i32, i32)]) {
     );
     // Volume marks: one set per tile, in sorted order.
     for &(tx, ty) in &sorted {
-        let (dx, dy) = center_offset(tx, ty);
+        let scale = tier_scale(size_tier(tx, ty));
+        let (dx, dy) = center_offset(tx, ty, scale);
         let cx = (f64::from(tx) + 0.5) * CELL + dx;
         let cy = (f64::from(ty) + 0.5) * CELL + dy;
-        paint_volume_marks(painter, cx, cy, tx, ty);
+        paint_volume_marks(painter, cx, cy, tx, ty, scale);
     }
 }
 
-fn paint_trunk(painter: &mut dyn Painter, trunk_cx: f64, trunk_cy: f64) {
+fn paint_trunk(
+    painter: &mut dyn Painter, trunk_cx: f64, trunk_cy: f64, scale: f64,
+) {
     // `<circle ... cx=":.1" cy=":.1" r=":.1" fill stroke
     // stroke-width=":.1"/>`. Mirror the legacy `paint_circle`'s
     // KAPPA-cubic ellipse path at `:.1` precision.
-    let path = ellipse_path_ops_1(
-        trunk_cx, trunk_cy, TREE_TRUNK_RADIUS, TREE_TRUNK_RADIUS,
-    );
+    let trunk_r = TREE_TRUNK_RADIUS * scale;
+    let path = ellipse_path_ops_1(trunk_cx, trunk_cy, trunk_r, trunk_r);
     let trunk_fill = paint_for_hex(TREE_TRUNK_FILL);
     let ink = paint_for_hex(INK);
     let stroke = Stroke {
@@ -455,7 +533,7 @@ fn paint_canopy(
 
 fn paint_volume_marks(
     painter: &mut dyn Painter,
-    cx: f64, cy: f64, tx: i32, ty: i32,
+    cx: f64, cy: f64, tx: i32, ty: i32, scale: f64,
 ) {
     // One stroke_path per arc. `stroke-dasharray` /
     // `stroke-opacity` from the legacy `<path>` are ignored by
@@ -464,9 +542,9 @@ fn paint_volume_marks(
     let arcs = volume_arc_shapes(
         cx, cy, tx, ty, TREE_VOLUME_SALT,
         TREE_VOLUME_MARK_COUNT,
-        TREE_VOLUME_MARK_AREA_RADIUS,
-        TREE_VOLUME_MARK_RADIUS_MIN,
-        TREE_VOLUME_MARK_RADIUS_MAX,
+        TREE_VOLUME_MARK_AREA_RADIUS * scale,
+        TREE_VOLUME_MARK_RADIUS_MIN * scale,
+        TREE_VOLUME_MARK_RADIUS_MAX * scale,
         TREE_VOLUME_MARK_SWEEP_MIN,
         TREE_VOLUME_MARK_SWEEP_MAX,
     );
@@ -755,6 +833,7 @@ mod tests {
         StrokePath(usize, i32, i32),
         BeginGroup(u32),
         EndGroup,
+        Stamp(u32, u8),
     }
 
     fn first_move_to(path: &PPathOps) -> (i32, i32) {
@@ -824,7 +903,10 @@ mod tests {
         fn pop_clip(&mut self) {}
         fn push_transform(&mut self, _: crate::painter::Transform) {}
         fn pop_transform(&mut self) {}
-        fn stamp_cached_sprite(&mut self, _: crate::painter::SpriteCacheKey, _: PRect, _: f32, _: f32, builder: &mut dyn FnMut(&mut dyn PainterTrait)) { builder(self); }
+        fn stamp_cached_sprite(&mut self, key: crate::painter::SpriteCacheKey, _: PRect, _: f32, _: f32, builder: &mut dyn FnMut(&mut dyn PainterTrait)) {
+            self.calls.push(Call::Stamp(key.variant, key.size_class));
+            builder(self);
+        }
     }
 
     impl CaptureCalls {
@@ -1003,13 +1085,131 @@ mod tests {
         }
     }
 
+    // ── Size-tier tests ───────────────────────────────────────
+
+    /// Worst-case painted extent from the canopy centre, covering
+    /// canopy + shadow lobes, the trunk, and the volume-mark area.
+    /// Used to prove the per-tier atlas never clips the silhouette.
+    fn max_extent_from_center(bx: i32, by: i32, scale: f64) -> f64 {
+        let mut e = 0.0_f64;
+        for &(x, y, r) in &canopy_lobes(0.0, 0.0, bx, by, scale) {
+            e = e.max((x * x + y * y).sqrt() + r);
+        }
+        for &(x, y, r) in &shadow_lobes(0.0, 0.0, bx, by, scale) {
+            e = e.max((x * x + y * y).sqrt() + r);
+        }
+        e = e.max((TREE_TRUNK_OFFSET_Y + TREE_TRUNK_RADIUS) * scale);
+        e = e.max(
+            (TREE_VOLUME_MARK_AREA_RADIUS + TREE_VOLUME_MARK_RADIUS_MAX)
+                * scale,
+        );
+        e
+    }
+
+    /// Tier id always lands in {0, 1, 2}.
+    #[test]
+    fn size_tier_stays_in_range() {
+        for tx in -40..40 {
+            for ty in -40..40 {
+                assert!(size_tier(tx, ty) < 3);
+            }
+        }
+    }
+
+    /// Tier is a stable function of the tile — same input, same
+    /// tier across calls (per-floor determinism).
+    #[test]
+    fn size_tier_deterministic() {
+        for &(tx, ty) in &[(0, 0), (5, 7), (99, 12), (-3, 8)] {
+            assert_eq!(size_tier(tx, ty), size_tier(tx, ty));
+        }
+    }
+
+    /// Over a large tile field the tier mix tracks the intended
+    /// 35 % / 40 % / 25 % weighting (loose bounds — the hash is
+    /// uniform but not perfectly balanced on a finite grid).
+    #[test]
+    fn size_tier_distribution_roughly_weighted() {
+        let mut counts = [0usize; 3];
+        let span = 120;
+        for tx in 0..span {
+            for ty in 0..span {
+                counts[size_tier(tx, ty) as usize] += 1;
+            }
+        }
+        let total = (span * span) as f64;
+        let f0 = counts[0] as f64 / total;
+        let f1 = counts[1] as f64 / total;
+        let f2 = counts[2] as f64 / total;
+        assert!((0.30..0.40).contains(&f0), "shrub frac {f0:.3}");
+        assert!((0.35..0.45).contains(&f1), "medium frac {f1:.3}");
+        assert!((0.20..0.30).contains(&f2), "mature frac {f2:.3}");
+    }
+
+    /// A mature canopy clearly dwarfs a shrub on the same tile.
+    #[test]
+    fn mature_canopy_extends_beyond_shrub() {
+        for &(tx, ty) in &[(3, 4), (10, 2), (7, 19), (1, 1)] {
+            let shrub = max_extent_from_center(tx, ty, tier_scale(0));
+            let mature = max_extent_from_center(tx, ty, tier_scale(2));
+            assert!(
+                mature > shrub * 1.5,
+                "mature {mature:.2} should dwarf shrub {shrub:.2}",
+            );
+        }
+    }
+
+    /// Each tier's atlas is big enough that the scaled silhouette
+    /// (plus centre-offset jitter) never clips against the sprite
+    /// boundary, for every shape bucket.
+    #[test]
+    fn tier_atlas_fits_canopy() {
+        for tier in 0..3u32 {
+            let scale = tier_scale(tier);
+            let half = f64::from(tier_atlas(tier)) / 2.0;
+            for bucket in 0..TREE_SHAPE_BUCKET_COUNT {
+                let (bx, by) = bucket_pos(bucket);
+                let (dx, dy) = center_offset(bx, by, scale);
+                let co = (dx * dx + dy * dy).sqrt();
+                let need = co + max_extent_from_center(bx, by, scale);
+                assert!(
+                    need <= half,
+                    "tier {tier} bucket {bucket}: extent {need:.2} \
+                     exceeds atlas half {half:.2}",
+                );
+            }
+        }
+    }
+
+    /// A free tree stamps a sprite keyed on BOTH its shape bucket
+    /// (variant) and size tier (size_class), so tier participates
+    /// in the cache key.
+    #[test]
+    fn free_tree_stamp_encodes_bucket_and_tier() {
+        let (tx, ty) = (5, 7);
+        let mut p = CaptureCalls::default();
+        paint_tree(&mut p, &[(tx, ty)], &[]);
+        let stamp = p
+            .calls
+            .iter()
+            .find_map(|c| match c {
+                Call::Stamp(v, s) => Some((*v, *s)),
+                _ => None,
+            })
+            .expect("free tree must stamp a sprite");
+        assert_eq!(
+            stamp,
+            (bucket_for_tile(tx, ty), size_tier(tx, ty) as u8),
+        );
+    }
+
     /// A bucket template is a pure function of the bucket id.
     #[test]
     fn tree_template_deterministic_per_bucket() {
         let mut a = CaptureCalls::default();
         let mut b = CaptureCalls::default();
-        paint_tree_template(&mut a, 42);
-        paint_tree_template(&mut b, 42);
+        paint_tree_template(&mut a, 42, 1);
+        paint_tree_template(&mut b, 42, 1);
         assert_eq!(a.calls, b.calls);
     }
 
@@ -1018,8 +1218,19 @@ mod tests {
     fn tree_template_differs_across_buckets() {
         let mut a = CaptureCalls::default();
         let mut b = CaptureCalls::default();
-        paint_tree_template(&mut a, 7);
-        paint_tree_template(&mut b, 200);
+        paint_tree_template(&mut a, 7, 1);
+        paint_tree_template(&mut b, 200, 1);
+        assert_ne!(a.calls, b.calls);
+    }
+
+    /// Same bucket, different size tier → distinct silhouettes
+    /// (the canopy / shadow / trunk geometry is scaled).
+    #[test]
+    fn tree_template_differs_across_tiers() {
+        let mut a = CaptureCalls::default();
+        let mut b = CaptureCalls::default();
+        paint_tree_template(&mut a, 42, 0);
+        paint_tree_template(&mut b, 42, 2);
         assert_ne!(a.calls, b.calls);
     }
 
@@ -1030,11 +1241,14 @@ mod tests {
     #[test]
     fn same_bucket_tiles_share_silhouette() {
         use std::collections::HashMap;
-        let mut seen: HashMap<u32, (i32, i32)> = HashMap::new();
+        // Silhouette now depends on BOTH the shape bucket and the
+        // size tier, so a shared silhouette requires a collision on
+        // the `(bucket, tier)` pair.
+        let mut seen: HashMap<(u32, u32), (i32, i32)> = HashMap::new();
         let mut pair: Option<((i32, i32), (i32, i32))> = None;
         'outer: for tx in 0..200 {
             for ty in 0..200 {
-                let bk = bucket_for_tile(tx, ty);
+                let bk = (bucket_for_tile(tx, ty), size_tier(tx, ty));
                 match seen.get(&bk) {
                     Some(&prev) if prev != (tx, ty) => {
                         pair = Some((prev, (tx, ty)));
@@ -1047,8 +1261,8 @@ mod tests {
                 }
             }
         }
-        let ((ax, ay), (bx, by)) =
-            pair.expect("a bucket collision must exist within 200x200 tiles");
+        let ((ax, ay), (bx, by)) = pair
+            .expect("a (bucket, tier) collision must exist in 200x200 tiles");
         let mut a = CaptureCalls::default();
         let mut b = CaptureCalls::default();
         paint_tree(&mut a, &[(ax, ay)], &[]);
