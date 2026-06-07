@@ -1,7 +1,10 @@
-"""Tests for GetWallCoverageTool (Phase 2.4 of nhc_ir_migration_plan.md).
+"""Tests for GetWallCoverageTool against the v5 IR.
 
-Exercises legacy field extraction, new-op summary, and the fixture
-shortcut that all IR tools share.
+The tool reports wall coverage from the v5 ``StrokeOp`` stream:
+per-treatment and per-substance-family counts plus a per-stroke
+detail list (region_ref, treatment, family, style, outline_kind,
+vertices/cuts counts). These tests pin the structural shape and the
+counts the committed NIR5 fixtures produce.
 """
 
 from __future__ import annotations
@@ -10,14 +13,10 @@ from pathlib import Path
 
 import pytest
 
-# NIR4: every test in this module loads NIR3 fixture files; the
-# fixture regeneration is task #10. Skip the whole module until the
-# fixtures land at NIR4.
-pytestmark = pytest.mark.skip(
-    reason="NIR4: committed fixture .nir files still carry the NIR3 "
-    "file_identifier; fixture regeneration is task #10."
+from nhc.debug_tools.tools.ir_query import (
+    _MATERIAL_FAMILY,
+    _WALL_TREATMENT,
 )
-
 
 _FIXTURE_ROOT = (
     Path(__file__).resolve().parents[2]
@@ -31,107 +30,71 @@ _FIXTURE_CAVE = _FIXTURE_ROOT / "seed99_cave_cave_cave" / "floor.nir"
 
 @pytest.mark.asyncio
 async def test_get_wall_coverage_seed42_summary() -> None:
-    """seed42 emits 18 DungeonInk ExteriorWallOps + a 165-tile
-    CorridorWallOp; legacy ``wall_segments`` is empty after Phase 1.19.
-    """
+    """seed42 emits one StrokeOp per walled region (19 total), all
+    Stone-family PlainStroke walls with polygon outlines."""
     from nhc.debug_tools.tools.ir_query import GetWallCoverageTool
     result = await GetWallCoverageTool().execute(path=str(_FIXTURE_RECT))
     assert "error" not in result
 
-    legacy = result["legacy"]
-    # Phase 1.19: every legacy wall counter on the WallsAndFloorsOp
-    # is empty for fresh IR; only `cave_region_present` may stay true
-    # for fixtures with cave content (none here).
-    assert legacy["wall_segments_count"] == 0
-    assert legacy["smooth_walls_count"] == 0
-    assert legacy["wall_extensions_d_chars"] == 0
-    assert legacy["cave_region_present"] is False
+    assert result["stroke_count"] == 19
+    assert result["by_treatment"] == {"PlainStroke": 19}
+    assert result["by_family"] == {"Stone": 19}
 
-    new = result["new"]
-    ext_walls = new["exterior_walls"]
-    assert len(ext_walls) == 18
-    assert all(w["style"] == "DungeonInk" for w in ext_walls)
-    assert all(w["outline_kind"] == "Polygon" for w in ext_walls)
-
-    corridor = new["corridor_wall_op"]
-    assert corridor["tiles_count"] == 165
-    assert corridor["style"] == "DungeonInk"
-
-    assert new["interior_walls"] == []
-
-    by_style = result["by_style"]
-    assert by_style["DungeonInk"] == 18
+    strokes = result["strokes"]
+    assert len(strokes) == 19
+    assert all(s["outline_kind"] == "Polygon" for s in strokes)
+    # Every stroke references a region present in the floor.
+    assert all(s["region_ref"] for s in strokes)
 
 
 @pytest.mark.asyncio
-async def test_get_wall_coverage_seed7_octagon_smooth() -> None:
-    """seed7_octagon emits 18 ExteriorWallOps (10 rect + 8 smooth);
-    legacy ``smooth_walls`` / ``wall_segments`` are empty after 1.19.
-    """
+async def test_get_wall_coverage_seed7_octagon() -> None:
+    """seed7_octagon (10 rect + 8 smooth rooms + corridor) emits 19
+    StrokeOps."""
     from nhc.debug_tools.tools.ir_query import GetWallCoverageTool
     result = await GetWallCoverageTool().execute(
         path=str(_FIXTURE_OCTAGON),
     )
     assert "error" not in result
-
-    legacy = result["legacy"]
-    assert legacy["smooth_walls_count"] == 0
-    assert legacy["wall_segments_count"] == 0
-
-    new = result["new"]
-    assert len(new["exterior_walls"]) == 18
+    assert result["stroke_count"] == 19
+    assert sum(result["by_treatment"].values()) == 19
 
 
 @pytest.mark.asyncio
 async def test_get_wall_coverage_seed99_cave() -> None:
-    """seed99_cave has 1 cave-merged ExteriorWallOp with CaveInk."""
+    """seed99_cave has a single cave-merged StrokeOp."""
     from nhc.debug_tools.tools.ir_query import GetWallCoverageTool
     result = await GetWallCoverageTool().execute(path=str(_FIXTURE_CAVE))
     assert "error" not in result
 
-    legacy = result["legacy"]
-    assert legacy["wall_segments_count"] == 0
-    # Phase 1.19 cleared `caveRegion` along with the other legacy
-    # fields; cave geometry now lives on FloorOp.outline.vertices.
-    assert legacy["cave_region_present"] is False
-
-    new = result["new"]
-    ext_walls = new["exterior_walls"]
-    assert len(ext_walls) == 1
-    assert ext_walls[0]["style"] == "CaveInk"
-    assert ext_walls[0]["outline_kind"] == "Polygon"
-
-    # No corridor in a pure cave
-    assert new["corridor_wall_op"] is None
-
-    by_style = result["by_style"]
-    assert by_style.get("CaveInk", 0) == 1
-    assert by_style.get("DungeonInk", 0) == 0
+    assert result["stroke_count"] == 1
+    stroke = result["strokes"][0]
+    assert stroke["region_ref"] == "cave.0"
+    assert stroke["outline_kind"] == "Polygon"
 
 
 @pytest.mark.asyncio
 async def test_get_wall_coverage_with_fixture_shortcut() -> None:
-    """The tool accepts fixture=<name>; legacy counters all zero
-    after Phase 1.19."""
+    """The tool accepts fixture=<name>, resolving to the same .nir as
+    the path-based call."""
     from nhc.debug_tools.tools.ir_query import GetWallCoverageTool
     result = await GetWallCoverageTool().execute(
         fixture="seed42_rect_dungeon_dungeon",
     )
     assert "error" not in result
-    assert result["legacy"]["wall_segments_count"] == 0
-    # New ops are still populated: the shortcut path resolves to the
-    # same .nir as the path-based call above.
-    assert len(result["new"]["exterior_walls"]) == 18
+    assert result["stroke_count"] == 19
 
 
 @pytest.mark.asyncio
-async def test_get_wall_coverage_outline_kind_string_form() -> None:
-    """outline_kind is reported as 'Polygon' / 'Circle' / 'Pill',
-    not the int enum value."""
+async def test_get_wall_coverage_enum_string_forms() -> None:
+    """treatment / family / outline_kind are reported as enum name
+    strings, not raw int values."""
     from nhc.debug_tools.tools.ir_query import GetWallCoverageTool
     result = await GetWallCoverageTool().execute(path=str(_FIXTURE_RECT))
     assert "error" not in result
-    ext_walls = result["new"]["exterior_walls"]
-    for w in ext_walls:
-        assert isinstance(w["outline_kind"], str)
-        assert w["outline_kind"] in ("Polygon", "Circle", "Pill")
+    treatments = set(_WALL_TREATMENT.values())
+    families = set(_MATERIAL_FAMILY.values())
+    for s in result["strokes"]:
+        assert s["outline_kind"] in ("Polygon", "Circle", "Pill")
+        assert s["treatment"] in treatments
+        assert s["family"] in families

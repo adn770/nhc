@@ -14,15 +14,6 @@ from pathlib import Path
 
 import pytest
 
-# NIR4: every test in this module loads NIR3 fixture files; the
-# fixture regeneration is task #10. Skip the whole module until the
-# fixtures land at NIR4.
-pytestmark = pytest.mark.skip(
-    reason="NIR4: committed fixture .nir files still carry the NIR3 "
-    "file_identifier; fixture regeneration is task #10."
-)
-
-
 _FIXTURE_ROOT = (
     Path(__file__).resolve().parents[2]
     / "fixtures"
@@ -37,21 +28,16 @@ async def test_get_ir_buffer_returns_metadata() -> None:
     from nhc.debug_tools.tools.ir_query import GetIRBufferTool
     result = await GetIRBufferTool().execute(path=str(_FIXTURE_RECT))
     assert "error" not in result
-    assert result["major"] == 3
+    assert result["major"] == 5
     assert result["minor"] >= 0
-    # Phase 1.26d-2 (scope-reduced) added one
-    # ``Region(kind=Corridor, id="corridor")`` per floor when corridor
-    # tiles exist (18 rect rooms + 1 dungeon + 1 corridor = 20).
-    assert result["region_count"] == 20
-    # Phase 1.4 / 1.7 / 1.26d-3 / 1.26f of plans/nhc_pure_ir_plan.md:
-    # one FloorOp per rect room + ONE merged FloorOp(region_ref=
-    # "corridor") + 18 rect-room ExteriorWallOps + 1 CorridorWallOp.
-    # Phase 1.26f retired WallsAndFloorsOp; ops = 27 (legacy minus
-    # WAF) + 18 (rect FloorOps) + 1 (merged corridor FloorOp) + 18
-    # (ExteriorWallOps) + 1 (CorridorWallOp) = 65.
-    assert result["op_count"] == 65
+    # v5 regions for the seed42 fixture: 1 dungeon + 1 corridor +
+    # 17 rooms + 1 vault + 5 water = 25.
+    assert result["region_count"] == 25
+    # v5 op stream for the seed42 fixture: ShadowOp 19, PaintOp 24,
+    # StrokeOp 19, StampOp 9, FixtureOp 5, HatchOp 2 = 78.
+    assert result["op_count"] == 78
     assert result["size_bytes"] > 0
-    assert result["file_identifier"] == "NIR3"
+    assert result["file_identifier"] == "NIR5"
     assert "dump" not in result  # off by default
 
 
@@ -81,14 +67,16 @@ async def test_get_ir_region_lists_all_when_no_id() -> None:
     from nhc.debug_tools.tools.ir_query import GetIRRegionTool
     result = await GetIRRegionTool().execute(path=str(_FIXTURE_RECT))
     assert "regions" in result
-    # 18 rect rooms + 1 dungeon + 1 corridor (Phase 1.26d-2) = 20.
-    assert len(result["regions"]) == 20
+    # 1 dungeon + 1 corridor + 17 rooms + 1 vault + 5 water = 25.
+    assert len(result["regions"]) == 25
     sample = result["regions"][0]
-    assert "id" in sample and "kind" in sample
-    # Polygon detail is suppressed in the listing to keep the
+    # v5 regions carry no `kind`; the listing exposes id +
+    # shape_tag + parent_id (tooling infers role from the id).
+    assert "id" in sample and "shape_tag" in sample
+    # Outline geometry is suppressed in the listing to keep the
     # response under MCP's payload budget; callers ask by id for
     # the full geometry.
-    assert "polygon" not in sample
+    assert "outline" not in sample
 
 
 @pytest.mark.asyncio
@@ -98,8 +86,10 @@ async def test_get_ir_region_returns_specific() -> None:
         path=str(_FIXTURE_RECT), region_id="dungeon",
     )
     assert result["region"]["id"] == "dungeon"
-    assert result["region"]["kind"] == "Dungeon"
-    assert "polygon" in result["region"]
+    # v5 regions have no `kind`; fetching by id returns the full
+    # record including its outline geometry.
+    assert "outline" in result["region"]
+    assert "shapeTag" in result["region"]
 
 
 @pytest.mark.asyncio
@@ -116,16 +106,15 @@ async def test_get_ir_ops_summary() -> None:
     from nhc.debug_tools.tools.ir_query import GetIROpsTool
     result = await GetIROpsTool().execute(path=str(_FIXTURE_RECT))
     assert "summary" in result
-    assert result["total"] == 65
-    assert sum(result["summary"].values()) == 65
+    assert result["total"] == 78
+    assert sum(result["summary"].values()) == 78
     assert "ShadowOp" in result["summary"]
-    # 18 rect-room FloorOps (Phase 1.4) + 1 merged corridor FloorOp
-    # (Phase 1.26d-3) = 19 total FloorOps in the seed42 fixture.
-    assert result["summary"].get("FloorOp") == 19
-    # Phase 1.8: 18 rect-room ExteriorWallOps (one per rect room) —
-    # the fixture is rect-only so this matches the FloorOp rect-room
-    # count exactly.
-    assert result["summary"].get("ExteriorWallOp") == 18
+    # v5 paints surfaces with PaintOp (24 in the seed42 fixture)
+    # rather than the retired v4 FloorOp.
+    assert result["summary"].get("PaintOp") == 24
+    # v5 walls are StrokeOps (19 here) rather than the retired v4
+    # ExteriorWallOp / CorridorWallOp.
+    assert result["summary"].get("StrokeOp") == 19
 
 
 @pytest.mark.asyncio
@@ -168,13 +157,13 @@ async def test_get_ir_diff_detects_changes() -> None:
     result = await GetIRDiffTool().execute(
         before=str(_FIXTURE_RECT), after=str(_FIXTURE_CAVE),
     )
-    # Rect dungeon has 19 regions (room_*); cave has 10 (cave_*).
-    # Diff must surface region churn on both sides and a non-zero
-    # net op delta, otherwise the tool isn't actually comparing.
+    # Rect dungeon has 25 regions (room_*/vault_*/water.*); cave has
+    # 9 (cave_*). Diff must surface region churn on both sides and a
+    # non-zero net op delta, otherwise the tool isn't comparing.
     assert len(result["regions_removed"]) > 0
     assert len(result["regions_added"]) > 0
     assert result["ops_removed"] > 0
-    # ShadowOp drops 19 → 8 between dungeon and cave; surface this
+    # ShadowOp drops 19 → 7 between dungeon and cave; surface this
     # specifically so a future regression in the per-kind breakdown
     # is caught.
     assert result["ops_net_per_kind"].get("ShadowOp", 0) < 0
@@ -194,8 +183,8 @@ async def test_fixture_shortcut_resolves_to_correct_path() -> None:
         fixture="seed42_rect_dungeon_dungeon",
     )
     assert "error" not in result
-    assert result["major"] == 3
-    assert result["op_count"] == 65
+    assert result["major"] == 5
+    assert result["op_count"] == 78
     assert "seed42_rect_dungeon_dungeon" in result["path"]
 
 

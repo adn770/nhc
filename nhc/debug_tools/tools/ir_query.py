@@ -15,11 +15,10 @@ Tools:
 - :class:`GetIRDiffTool` — structural diff between two .nir files
 - :class:`GetWallCoverageTool` — legacy + new-op wall summary
 
-Phase 4.1 of plans/nhc_pure_ir_v5_migration_plan.md: every consumer
-here reads the v5 op stream (``v5Ops`` / ``v5Regions``) instead of
-the v4 stream (``ops`` / ``regions``). The v4 stream still rides
-alongside in fresh IR until the atomic cut at 4.3; Phase 4.1
-retires v4-side reading so the cut is mechanical.
+Post-cut (Phase 4.3 of plans/nhc_pure_ir_v5_migration_plan.md): the
+v4 op/region streams are gone and the v5 stream is the only stream,
+exposed by :mod:`nhc.rendering.ir.dump` under the plain ``ops`` /
+``regions`` keys. Every consumer here reads those.
 """
 
 from __future__ import annotations
@@ -185,11 +184,9 @@ class GetIRBufferTool(BaseTool):
             ),
             "major": d["major"],
             "minor": d["minor"],
-            # v5 op / region counts (Phase 4.1). The v4 streams
-            # still ride alongside in fresh IR until the atomic cut
-            # at 4.3, but every consumer here reports the v5 view.
-            "region_count": len(d.get("v5Regions") or []),
-            "op_count": len(d.get("v5Ops") or []),
+            # v5 op / region counts (the only stream post-cut).
+            "region_count": len(d.get("regions") or []),
+            "op_count": len(d.get("ops") or []),
         }
         if kwargs.get("include_dump"):
             from nhc.rendering.ir.dump import dump
@@ -243,9 +240,9 @@ class GetIRRegionTool(BaseTool):
         if err is not None:
             return err
         d = _load_dump(path.read_bytes())
-        # Phase 4.1: read v5Regions (V5Region — no `kind` field per
-        # design/map_ir_v5.md §3.2; tooling infers role from `id`).
-        regions = d.get("v5Regions") or []
+        # v5 regions carry no `kind` field (design/map_ir_v5.md §3.2);
+        # tooling infers role from the `id`.
+        regions = d.get("regions") or []
         region_id = kwargs.get("region_id")
         if region_id is None:
             return {
@@ -314,11 +311,10 @@ class GetIROpsTool(BaseTool):
         if err is not None:
             return err
         d = _load_dump(path.read_bytes())
-        # Phase 4.1: read v5Ops (the v5 op stream). Op kinds are
-        # named after the v5 union variants — PaintOp, StampOp,
-        # PathOp, FixtureOp, StrokeOp, ShadowOp (carried over),
-        # HatchOp, RoofOp.
-        ops = d.get("v5Ops") or []
+        # v5 op stream. Op kinds are named after the v5 union
+        # variants — PaintOp, StampOp, PathOp, FixtureOp, StrokeOp,
+        # ShadowOp (carried over), HatchOp, RoofOp.
+        ops = d.get("ops") or []
         kind = kwargs.get("kind")
         if kind is None:
             summary: dict[str, int] = {}
@@ -401,14 +397,14 @@ class GetIRDiffTool(BaseTool):
         d1 = _load_dump(before_path.read_bytes())
         d2 = _load_dump(after_path.read_bytes())
         # Phase 4.1: diff over the v5 op + region streams.
-        ids1 = {r["id"] for r in (d1.get("v5Regions") or [])}
-        ids2 = {r["id"] for r in (d2.get("v5Regions") or [])}
+        ids1 = {r["id"] for r in (d1.get("regions") or [])}
+        ids2 = {r["id"] for r in (d2.get("regions") or [])}
         op_counts_1: dict[str, int] = {}
-        for entry in (d1.get("v5Ops") or []):
+        for entry in (d1.get("ops") or []):
             ot = entry.get("opType", "?")
             op_counts_1[ot] = op_counts_1.get(ot, 0) + 1
         op_counts_2: dict[str, int] = {}
-        for entry in (d2.get("v5Ops") or []):
+        for entry in (d2.get("ops") or []):
             ot = entry.get("opType", "?")
             op_counts_2[ot] = op_counts_2.get(ot, 0) + 1
         # Per-kind net changes (positive = added in `after`).
@@ -471,7 +467,7 @@ class GetWallCoverageTool(BaseTool):
         if err is not None:
             return err
         d = _load_dump(path.read_bytes())
-        ops = d.get("v5Ops") or []
+        ops = d.get("ops") or []
 
         strokes: list[dict[str, Any]] = []
 
