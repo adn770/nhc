@@ -54,6 +54,30 @@ def _origin_allowed(origin: str | None, config: WebConfig) -> bool:
     return False
 
 
+def _report_crash(app, session, session_id, *, kind, exc) -> None:
+    """Write a crash report, never letting reporting mask the crash.
+
+    Guarded so a failure inside the reporter (or a missing ``app`` in
+    a test harness) can never raise out of the game thread's
+    exception handler.
+    """
+    if app is None:
+        return
+    try:
+        from nhc.web.crash_report import write_crash_report
+        config = app.config.get("NHC_CONFIG")
+        write_crash_report(
+            session,
+            data_dir=config.data_dir if config else None,
+            log_path=app.config.get("LOG_PATH", ""),
+            kind=kind,
+            exc=exc,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to write crash report for session %s", session_id)
+
+
 def _submit_final_score(session) -> None:
     """Record the run in the leaderboard, if one is configured.
 
@@ -152,6 +176,7 @@ def _send_floor_state(ws, session, client, base_url: str) -> None:
 def _run_ws_session(
     ws, session, sessions: SessionManager, session_id: str,
     start_game_loop: bool = True,
+    app=None,
 ) -> None:
     """Drive the WS message loop, sender thread, and game thread."""
     client = session.game.renderer
@@ -210,9 +235,11 @@ def _run_ws_session(
                             "(game_over=%s, won=%s, turn=%d)",
                             session_id, session.game.game_over,
                             session.game.won, session.game.turn)
-            except Exception:
+            except Exception as exc:
                 logger.exception("Game loop error for session %s",
                                  session_id)
+                _report_crash(app, session, session_id,
+                              kind="game_loop", exc=exc)
             finally:
                 loop.close()
                 stop_event.set()
@@ -328,8 +355,8 @@ def register_ws(app, sock: Sock) -> None:
             logger.info("Resuming suspended session %s", session_id)
             session.game.running = True
             _run_ws_session(ws, session, sessions, session_id,
-                            start_game_loop=True)
+                            start_game_loop=True, app=app)
             return
 
         _run_ws_session(ws, session, sessions, session_id,
-                        start_game_loop=True)
+                        start_game_loop=True, app=app)

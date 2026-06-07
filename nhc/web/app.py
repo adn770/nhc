@@ -799,8 +799,11 @@ def create_app(
 
         try:
             game.initialize(generate=True, executor=gen_pool)
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to restore game for player %s", pid)
+            from nhc.web.ws import _report_crash
+            _report_crash(app, session, session.session_id,
+                          kind="gen", exc=exc)
             sessions.destroy(session.session_id)
             return jsonify({"error": "game restore failed"}), 500
 
@@ -971,8 +974,11 @@ def create_app(
                 game.initialize()
             else:
                 game.initialize(generate=True, executor=gen_pool)
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to initialize game")
+            from nhc.web.ws import _report_crash
+            _report_crash(app, session, session.session_id,
+                          kind="gen", exc=exc)
             sessions.destroy(session.session_id)
             return jsonify({"error": "game initialization failed"}), 500
 
