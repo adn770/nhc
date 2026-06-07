@@ -934,6 +934,32 @@ class TestAdminAPI:
         assert resp.status_code == 200
         assert len(resp.get_json()) == 1
 
+    def test_list_sessions_includes_player_name(
+            self, client_with_data_dir):
+        """Each session entry carries the player's display name
+        alongside the short player_id so the admin panel can show
+        both."""
+        token, pid = _register_player(client_with_data_dir, "Alice")
+        resp = client_with_data_dir.post(
+            "/api/game/new", json={"player_token": token},
+        )
+        assert resp.status_code == 201
+        listing = client_with_data_dir.get(
+            "/api/admin/sessions",
+        ).get_json()
+        entry = next(s for s in listing if s["player_id"] == pid)
+        assert entry["player_name"] == "Alice"
+
+    def test_list_sessions_anonymous_has_empty_name(
+            self, client_with_data_dir):
+        """An anonymous session reports an empty player_name rather
+        than omitting the field."""
+        client_with_data_dir.post("/api/game/new", json={})
+        listing = client_with_data_dir.get(
+            "/api/admin/sessions",
+        ).get_json()
+        assert listing[0]["player_name"] == ""
+
 
 class TestResumeAPI:
     def test_resume_no_save(self, client_with_data_dir):

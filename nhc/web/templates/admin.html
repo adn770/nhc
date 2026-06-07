@@ -220,9 +220,13 @@ async function loadSessions() {
     const badge = s.connected
       ? '<span class="badge online">Yes</span>'
       : '<span class="badge offline">No</span>';
+    const idCode = s.player_id ? `<code>${s.player_id}</code>` : "";
+    const player = s.player_name
+      ? `${esc(s.player_name)} ${idCode}`
+      : (s.player_id ? idCode : "anon");
     tr.innerHTML = `
       <td><code>${s.session_id.substring(0, 12)}...</code></td>
-      <td><code>${s.player_id || "anon"}</code></td>
+      <td>${player}</td>
       <td>${s.lang}</td>
       <td>${badge}</td>
       <td>${fmtDate(s.created_at)}</td>

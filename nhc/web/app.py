@@ -630,7 +630,14 @@ def create_app(
     @app.route("/api/admin/sessions", methods=["GET"])
     @_admin_auth
     def admin_list_sessions():
-        return jsonify(sessions.list_sessions())
+        listing = sessions.list_sessions()
+        # Enrich each entry with the player's display name so the
+        # admin panel can show both name and the short player_id.
+        for entry in listing:
+            pid = entry.get("player_id")
+            pdata = registry.get(pid) if pid else None
+            entry["player_name"] = pdata["name"] if pdata else ""
+        return jsonify(listing)
 
     @app.route("/api/admin/debug-bundle", methods=["GET"])
     @_admin_auth
