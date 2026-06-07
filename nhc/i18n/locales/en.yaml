@@ -1354,6 +1354,24 @@ creature:
     long: >-
       A heavyset porter bent under crates and barrels, threading the
       crowded streets with a grunt and a muttered warning.
+  town_guard:
+    name: "Town Guard"
+    short: "a watchful town guard"
+    long: >-
+      A steady guard in a studded jerkin with a spear at rest,
+      pacing a slow circuit and marking faces as they pass.
+  watch_captain:
+    name: "Watch Captain"
+    short: "a grizzled watch captain"
+    long: >-
+      A scarred veteran in a mail coat who walks the watch's rounds
+      with the unhurried certainty of someone used to being obeyed.
+  town_crier:
+    name: "Town Crier"
+    short: "a brass-lunged town crier"
+    long: >-
+      A reedy figure with a hand-bell and a carrying voice, pausing
+      at each corner to bawl out the hour and the day's news.
   villager:
     name: "Villager"
     short: "a local villager"
@@ -1508,6 +1526,14 @@ leave_site:
   exit_stones: "You leave the stone circle."
   exit_wonder: "You leave the wonder behind."
   exit_portal: "You step away from the portal."
+
+
+town:
+  crier_hour:
+    morning: "A town crier calls out the morning hour."
+    midday: "A town crier calls out the midday hour."
+    evening: "A town crier calls out the evening hour."
+    night: "A town crier calls out the midnight hour."
 
 
 action:

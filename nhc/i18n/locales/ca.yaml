@@ -1470,6 +1470,27 @@ creature:
     long: >-
       Un bastaix corpulent doblegat sota caixes i bótes, obrint-se
       pas pels carrers atapeïts amb un grunyit i un avís remugat.
+  town_guard:
+    name: "guàrdia"
+    gender: "m"
+    short: "un guàrdia amatent"
+    long: >-
+      Un guàrdia ferm amb gipó de tatxes i una llança al braç, fent
+      una ronda lenta i fixant-se en les cares que passen.
+  watch_captain:
+    name: "capità de la guàrdia"
+    gender: "m"
+    short: "un capità de la guàrdia veterà"
+    long: >-
+      Un veterà ple de cicatrius amb cota de malla que fa les rondes
+      amb la calma de qui està acostumat a ser obeït.
+  town_crier:
+    name: "pregoner"
+    gender: "m"
+    short: "un pregoner de veu potent"
+    long: >-
+      Una figura prima amb una campaneta i una veu que arriba lluny,
+      aturant-se a cada cantonada per cridar l'hora i les noves del dia.
   villager:
     name: "vilatà"
     gender: "m"
@@ -1643,6 +1664,14 @@ leave_site:
   exit_stones: "Deixes enrere el cercle de pedres."
   exit_wonder: "Deixes enrere la meravella."
   exit_portal: "T'allunyes del portal."
+
+
+town:
+  crier_hour:
+    morning: "Un pregoner crida l'hora del matí."
+    midday: "Un pregoner crida l'hora del migdia."
+    evening: "Un pregoner crida l'hora del vespre."
+    night: "Un pregoner crida l'hora de la mitjanit."
 
 
 action:

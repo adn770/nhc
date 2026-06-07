@@ -44,7 +44,7 @@ def _site_game(*, level: Level, surface: Level) -> Game:
     g = Game.__new__(Game)
     g.world_type = WorldType.HEXCRAWL
     g.hex_world = HexWorld(pack_id="test", seed=1, width=4, height=4)
-    g.world = SimpleNamespace(time_of_day=None)
+    g.world = SimpleNamespace(time_of_day=None, query=lambda *a: [])
     g.level = level
     g._active_site = _StubSite(surface=surface)
     g._active_site_sub = None
@@ -126,7 +126,7 @@ def test_no_drift_in_overland_hex() -> None:
     g.world_type = WorldType.HEXCRAWL
     g.hex_world = HexWorld(pack_id="test", seed=1, width=4, height=4)
     g.hex_world.exploring_sub_hex = None
-    g.world = SimpleNamespace(time_of_day=None)
+    g.world = SimpleNamespace(time_of_day=None, query=lambda *a: [])
     g.level = None
     g._active_site = None
     g._advance_site_clock()

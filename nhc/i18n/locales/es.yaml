@@ -1398,6 +1398,27 @@ creature:
     long: >-
       Un mozo corpulento encorvado bajo cajas y barriles, abriéndose
       paso por las calles atestadas con un gruñido y un aviso refunfuñado.
+  town_guard:
+    name: "Guardia"
+    gender: "m"
+    short: "un guardia atento"
+    long: >-
+      Un guardia firme con jubón de tachuelas y una lanza al brazo,
+      haciendo una ronda lenta y fijándose en las caras que pasan.
+  watch_captain:
+    name: "Capitán de la guardia"
+    gender: "m"
+    short: "un capitán de la guardia curtido"
+    long: >-
+      Un veterano lleno de cicatrices con cota de malla que hace las
+      rondas con la calma de quien está acostumbrado a ser obedecido.
+  town_crier:
+    name: "Pregonero"
+    gender: "m"
+    short: "un pregonero de voz potente"
+    long: >-
+      Una figura enjuta con una campanilla y una voz que llega lejos,
+      deteniéndose en cada esquina para gritar la hora y las nuevas del día.
   villager:
     name: "Aldeano"
     gender: "m"
@@ -1574,6 +1595,14 @@ leave_site:
   exit_stones: "Dejas atrás el círculo de piedras."
   exit_wonder: "Dejas atrás la maravilla."
   exit_portal: "Te alejas del portal."
+
+
+town:
+  crier_hour:
+    morning: "Un pregonero anuncia la hora de la mañana."
+    midday: "Un pregonero anuncia la hora del mediodía."
+    evening: "Un pregonero anuncia la hora del atardecer."
+    night: "Un pregonero anuncia la hora de la medianoche."
 
 
 action:

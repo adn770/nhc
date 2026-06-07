@@ -568,8 +568,22 @@ class Game:
             return
         if self.current_view() not in ("site", "structure"):
             return
+        before = self.hex_world.time
         self.hex_world.advance_clock_hours(SITE_HOURS_PER_TURN)
-        self.world.time_of_day = self.hex_world.time
+        after = self.hex_world.time
+        self.world.time_of_day = after
+        if after is not before:
+            self._announce_hour(after)
+
+    def _announce_hour(self, segment: "TimeOfDay") -> None:
+        """Emit the crier's hour call when the slow-drift clock
+        crosses into a new segment and a town crier is present on the
+        level. See ``design/town_life.md``."""
+        if not self.world.query("Crier"):
+            return
+        self.renderer.add_message(
+            t(f"town.crier_hour.{segment.name.lower()}"),
+        )
 
     def set_god_mode(self, enabled: bool) -> None:
         """Toggle god mode live.
@@ -3452,6 +3466,14 @@ class Game:
                         components["DailyRoutine"] = build_worker_routine(
                             tuple(routine_spec["workplace"]),
                             tuple(routine_spec["home"]),
+                        )
+                    waypoints = placement.extra.get("patrol_waypoints")
+                    if waypoints is not None:
+                        from nhc.entities.components import PatrolRoute
+                        components["PatrolRoute"] = PatrolRoute(
+                            waypoints=[tuple(p) for p in waypoints],
+                            cursor=placement.extra.get("patrol_cursor", 0),
+                            loop=placement.extra.get("patrol_loop", True),
                         )
                 elif placement.entity_type == "item":
                     components = EntityRegistry.get_item(placement.entity_id)

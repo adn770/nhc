@@ -212,6 +212,13 @@ class DailyRoutine:
 
 
 @dataclass
+class Crier:
+    """Marker: a town crier who calls out each time-of-day segment as
+    the slow-drift site clock crosses it. See ``design/town_life.md``.
+    """
+
+
+@dataclass
 class PatrolRoute:
     """Per-NPC state for the `patrol` behavior.
 

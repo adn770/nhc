@@ -711,6 +711,7 @@ def assemble_town(
     _lock_shop_doors(buildings, role_assignments, rng)
     _place_surface_villagers(site, size_class, rng)
     _place_working_folk(site, size_class, rng)
+    _place_watch(site, size_class, rng)
     _connect_cross_building_doors(site, cluster_plans)
     return site
 
@@ -1997,6 +1998,17 @@ TOWN_WORKER_COUNT: dict[str, tuple[int, int]] = {
     "town": (4, 7),
     "city": (8, 14),
 }
+# The watch: guards walk patrol loops everywhere; a crier announces
+# the hour in towns and cities; a captain leads only in cities
+# (design/town_life.md).
+TOWN_GUARD_COUNT: dict[str, tuple[int, int]] = {
+    "hamlet": (0, 1),
+    "village": (1, 2),
+    "town": (2, 3),
+    "city": (4, 6),
+}
+TOWN_HAS_CRIER: frozenset[str] = frozenset({"town", "city"})
+TOWN_HAS_CAPTAIN: frozenset[str] = frozenset({"city"})
 TOWN_PICKPOCKET_COUNT: dict[str, int] = {
     "hamlet": 0,
     "village": 0,
@@ -2129,3 +2141,100 @@ def _place_working_folk(
                 "home": rng.choice(anchor_pool),
             }},
         ))
+
+
+def _patrol_loop(
+    surface: "Level", streets: list[tuple[int, int]],
+) -> list[tuple[int, int]]:
+    """A rectangular patrol loop: the street tiles nearest the four
+    quadrant points, so the watch circles the town."""
+    w, h = surface.width, surface.height
+    targets = (
+        (w * 0.25, h * 0.25), (w * 0.75, h * 0.25),
+        (w * 0.75, h * 0.75), (w * 0.25, h * 0.75),
+    )
+    loop: list[tuple[int, int]] = []
+    for tx, ty in targets:
+        nearest = min(
+            streets,
+            key=lambda s: (s[0] - tx) ** 2 + (s[1] - ty) ** 2,
+        )
+        if nearest not in loop:
+            loop.append(nearest)
+    return loop
+
+
+def _nearest_loop_index(
+    loop: list[tuple[int, int]], spot: tuple[int, int],
+) -> int:
+    best_i, best_d = 0, None
+    for i, (wx, wy) in enumerate(loop):
+        d = max(abs(wx - spot[0]), abs(wy - spot[1]))
+        if best_d is None or d < best_d:
+            best_i, best_d = i, d
+    return best_i
+
+
+def _place_watch(
+    site: Site, size_class: str, rng: random.Random,
+) -> None:
+    """Place the town watch — guards (everywhere), a crier
+    (town/city), a captain (city) — on patrol loops.
+
+    Each patroller spawns on a distinct open street tile and carries
+    a ``patrol_waypoints`` spec (a shared rectangular loop) plus the
+    cursor of its nearest waypoint, so the watch spreads around the
+    circuit. The game spawner turns the spec into a ``PatrolRoute``.
+    See ``design/town_life.md``.
+    """
+    surface = site.surface
+    streets: list[tuple[int, int]] = []
+    for x, y, tile in surface.iter_world():
+        if tile.surface_type != SurfaceType.STREET:
+            continue
+        if not tile.walkable or tile.feature is not None:
+            continue
+        streets.append((x, y))
+    if not streets:
+        return
+    loop = _patrol_loop(surface, streets)
+    if len(loop) < 2:
+        return
+
+    rng.shuffle(streets)
+    used: set[tuple[int, int]] = set()
+    cursor = 0
+
+    def _take() -> tuple[int, int] | None:
+        nonlocal cursor
+        while cursor < len(streets):
+            spot = streets[cursor]
+            cursor += 1
+            if spot in used:
+                continue
+            used.add(spot)
+            return spot
+        return None
+
+    def _place(entity_id: str) -> None:
+        spot = _take()
+        if spot is None:
+            return
+        surface.entities.append(EntityPlacement(
+            entity_type="creature", entity_id=entity_id,
+            x=spot[0], y=spot[1],
+            extra={
+                "patrol_waypoints": [list(p) for p in loop],
+                "patrol_cursor": _nearest_loop_index(loop, spot),
+                "patrol_loop": True,
+            },
+        ))
+
+    lo, hi = TOWN_GUARD_COUNT.get(size_class, (0, 0))
+    guard_count = rng.randint(lo, hi) if hi > 0 else 0
+    for _ in range(guard_count):
+        _place("town_guard")
+    if size_class in TOWN_HAS_CRIER:
+        _place("town_crier")
+    if size_class in TOWN_HAS_CAPTAIN:
+        _place("watch_captain")
