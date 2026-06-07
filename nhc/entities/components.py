@@ -212,6 +212,28 @@ class DailyRoutine:
 
 
 @dataclass
+class PatrolRoute:
+    """Per-NPC state for the `patrol` behavior.
+
+    A patroller (town guard, crier) walks ``waypoints`` in order,
+    looping when ``loop`` is set, pausing a beat at each. ``cursor``
+    is the index of the waypoint currently being walked toward.
+
+    The route is interruptible: ``divert_x`` / ``divert_y`` carry a
+    one-off incident target the patroller breaks off to investigate;
+    on arrival the diversion clears and the route resumes from the
+    nearest waypoint. ``pause_remaining`` counts down a short hold at
+    a waypoint (or after investigating). See ``design/town_life.md``.
+    """
+    waypoints: list[tuple[int, int]] = field(default_factory=list)
+    cursor: int = 0
+    loop: bool = True
+    divert_x: int | None = None
+    divert_y: int | None = None
+    pause_remaining: int = 0
+
+
+@dataclass
 class Thief:
     """Per-NPC state for the `thief` behavior.
 

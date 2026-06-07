@@ -39,7 +39,7 @@ HUMANOID_FACTIONS: frozenset[str] = frozenset({
 # accidentally cut down villagers, shopkeepers, or disguised
 # pickpockets on the way through a crowded street.
 PEACEFUL_BEHAVIORS: frozenset[str] = frozenset({
-    "idle", "errand", "thief",
+    "idle", "errand", "thief", "patrol",
 })
 
 # Maximum chase distance per behavior type
@@ -50,6 +50,7 @@ CHASE_RADIUS: dict[str, int] = {
     "shrieker": 5,  # detection range; shrieker never moves
     "errand": 0,    # town villagers never chase
     "thief": 0,     # pickpockets wander + lift; never combat
+    "patrol": 0,    # guards/crier walk routes; never hunt the player
 }
 
 # Tile features an errand NPC will not step onto. Door tiles
@@ -446,6 +447,131 @@ def _decide_thief_action(
     return PickpocketAction(actor=entity_id, target=player_id)
 
 
+# How long a patroller pauses (scanning) at a waypoint or after
+# investigating a diversion before moving on.
+_PATROL_PAUSE_RANGE = (1, 3)
+
+
+def divert_patrol(
+    world: "World", entity_id: int, x: int, y: int,
+) -> None:
+    """Break a patroller off its route to investigate ``(x, y)``.
+
+    The patroller paths to the incident next tick and resumes from
+    the nearest waypoint on arrival. Used by the event director when
+    an incident needs the watch to converge. No-op if the entity has
+    no :class:`PatrolRoute`.
+    """
+    route = world.get_component(entity_id, "PatrolRoute")
+    if route is not None:
+        route.divert_x, route.divert_y = x, y
+        route.pause_remaining = 0
+
+
+def _advance_cursor(route) -> int:
+    """Next waypoint index, wrapping when ``loop`` is set and
+    clamping to the last waypoint otherwise."""
+    nxt = route.cursor + 1
+    if nxt >= len(route.waypoints):
+        return 0 if route.loop else len(route.waypoints) - 1
+    return nxt
+
+
+def _nearest_waypoint_index(route, pos) -> int:
+    """Index of the waypoint closest to ``pos`` (chebyshev)."""
+    best_i, best_d = 0, None
+    for i, (wx, wy) in enumerate(route.waypoints):
+        d = max(abs(wx - pos.x), abs(wy - pos.y))
+        if best_d is None or d < best_d:
+            best_i, best_d = i, d
+    return best_i
+
+
+def _patrol_step_toward(
+    entity_id: int, world: "World", level: "Level", pos: "Position",
+    target_xy: tuple[int, int],
+) -> "Action | None":
+    """One A* step toward ``target_xy``, or ``None`` if unreachable.
+
+    Shares the errand walkability rules so patrollers stay on the
+    surface (no stepping onto door / stair tiles that would whisk
+    them off-screen)."""
+    from nhc.core.actions import MoveAction
+
+    def is_walkable(x: int, y: int) -> bool:
+        if (x, y) == target_xy:
+            tile = level.tile_at(x, y)
+            if not tile or not tile.walkable:
+                return False
+            return tile.feature not in _ERRAND_BLOCKING_FEATURES
+        return _errand_walkable(world, level, x, y, entity_id)
+
+    edge_blocks = None
+    if level.interior_edges:
+        from nhc.dungeon.edges import edge_blocks_movement
+
+        def edge_blocks(a, b):
+            return edge_blocks_movement(level, a, b)
+
+    path = astar(
+        (pos.x, pos.y), target_xy, is_walkable, edge_blocks=edge_blocks,
+    )
+    if not path:
+        return None
+    nx, ny = path[0]
+    return MoveAction(actor=entity_id, dx=nx - pos.x, dy=ny - pos.y)
+
+
+def _decide_patrol_action(
+    entity_id: int,
+    world: "World",
+    level: "Level",
+    player_id: int,
+) -> "Action | None":
+    """Tick a patrol NPC: investigate a diversion, else walk the
+    waypoint loop, pausing a beat at each."""
+    from nhc.core.actions import HoldAction
+
+    route = world.get_component(entity_id, "PatrolRoute")
+    pos = world.get_component(entity_id, "Position")
+    if not route or not pos or not route.waypoints:
+        return HoldAction(actor=entity_id)
+
+    if route.pause_remaining > 0:
+        route.pause_remaining -= 1
+        return HoldAction(actor=entity_id)
+
+    # Interrupt: investigate the incident, then rejoin the route.
+    if route.divert_x is not None and route.divert_y is not None:
+        target = (route.divert_x, route.divert_y)
+        if (pos.x, pos.y) == target:
+            route.divert_x = route.divert_y = None
+            route.cursor = _nearest_waypoint_index(route, pos)
+            lo, hi = _PATROL_PAUSE_RANGE
+            route.pause_remaining = get_rng().randint(lo, hi)
+            return HoldAction(actor=entity_id)
+        step = _patrol_step_toward(entity_id, world, level, pos, target)
+        if step is None:
+            # Unreachable incident — give up and resume the route.
+            route.divert_x = route.divert_y = None
+            return HoldAction(actor=entity_id)
+        return step
+
+    target = route.waypoints[route.cursor]
+    if (pos.x, pos.y) == target:
+        route.cursor = _advance_cursor(route)
+        lo, hi = _PATROL_PAUSE_RANGE
+        route.pause_remaining = get_rng().randint(lo, hi)
+        return HoldAction(actor=entity_id)
+
+    step = _patrol_step_toward(entity_id, world, level, pos, target)
+    if step is None:
+        # Skip an unreachable waypoint so the patrol never freezes.
+        route.cursor = _advance_cursor(route)
+        return HoldAction(actor=entity_id)
+    return step
+
+
 def decide_action(
     entity_id: int,
     world: "World",
@@ -484,6 +610,12 @@ def decide_action(
     # Pickpockets wander like villagers but lift on adjacency.
     if ai.behavior == "thief":
         return _decide_thief_action(
+            entity_id, world, level, player_id,
+        )
+
+    # Guards / crier walk a waypoint loop; never engage the player.
+    if ai.behavior == "patrol":
+        return _decide_patrol_action(
             entity_id, world, level, player_id,
         )
 
