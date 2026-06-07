@@ -8,7 +8,6 @@ rendering order or implementation details.
 
 import re
 
-import pytest
 from shapely.geometry import Point
 
 from nhc.dungeon.model import (
@@ -17,7 +16,7 @@ from nhc.dungeon.model import (
     TempleShape, Terrain, Tile,
 )
 from nhc.rendering._ir_helpers import (
-    BG, CELL, FLOOR_COLOR, FLOOR_STONE_FILL, GRID_WIDTH,
+    BG, CELL, FLOOR_COLOR, GRID_WIDTH,
     HATCH_UNDERLAY, PADDING, WALL_WIDTH,
 )
 from nhc.rendering.svg import render_floor_svg_from_ir
@@ -297,34 +296,12 @@ class TestHybridArcDirection:
         above = sum(1 for v in vals if v > mid)
         return "min" if below > above else "max"
 
-    @pytest.mark.skip(
-        reason="NIR5: gapped-outline gating moved into the StrokeOp "
-        "cuts vector rather than ad-hoc multi-subpath SVG paths. "
-        "Test needs rewriting against StrokeOp.cuts."
-    )
-    def test_hybrid_doorless_opening_gaps_outline(self):
-        """Hybrid with doorless corridor has gapped wall outline.
-
-        Gap handling converts the hybrid outline into a polyline
-        (arc approximated by many straight segments) so the gap can
-        be traced uniformly with the polygon-with-gaps pipeline.
-        The gapped wall path must therefore be open (no Z) and
-        contain multiple subpaths (multiple M commands)."""
-        shape = HybridShape(CircleShape(), RectShape(), "horizontal")
-        level, room = _make_shaped_level(
-            shape, room_w=9, room_h=10,
-            corridor_side="north")
-        svg = render_floor_svg_from_ir(level)
-        wall_paths = re.findall(
-            r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width="5', svg)
-        has_gapped = any(
-            p.count("M") >= 2 and "Z" not in p
-            for p in wall_paths
-        )
-        assert has_gapped, (
-            "Hybrid wall outline must be open and contain multiple "
-            f"subpaths at a corridor opening; got: {wall_paths}"
-        )
+    # test_hybrid_doorless_opening_gaps_outline was dropped in the v5
+    # cut: it asserted the SVG-path shape of gapped outlines (open
+    # path with multiple M subpaths), but v5 moved doorless-opening
+    # gating into the StrokeOp.cuts vector rather than ad-hoc
+    # multi-subpath SVG paths, so the path-shape assertion no longer
+    # describes the pipeline.
 
     def test_hybrid_west_corridor_on_diagonal_keeps_arc_short(self):
         """Regression: a west-side corridor whose wall lies on the
@@ -435,11 +412,6 @@ class TestLayerOrder:
         svg = render_floor_svg_from_ir(level, seed=42)
         assert HATCH_UNDERLAY in svg
 
-    @pytest.mark.skip(
-        reason="NIR5: hatch underlay color and op order changed; the "
-        "v4 HATCH_UNDERLAY constant no longer matches the v5 HatchOp "
-        "rasteriser output. Test needs an updated baseline."
-    )
     def test_hatching_before_walls(self):
         """Hatching appears before wall strokes in the SVG.
 
@@ -636,30 +608,24 @@ class TestGridStructure:
         assert all_d.count("M") >= 10
 
 
-@pytest.mark.skip(
-    reason="NIR5: floor-detail palette uses the v5 Stone family seam "
-    "color (#665536) rather than the v4 FLOOR_STONE_FILL (#E8D5B8). "
-    "Tests pin a v4 color and need rewriting against the v5 palette."
-)
 class TestFloorDetailIndependentOfShape:
-    """Cracks, stones, and scratches must appear on all floor tiles
-    regardless of room shape.  Floor decoration is a property of
-    the tile, not the room geometry."""
+    """Scratches must appear on all floor tiles regardless of room
+    shape — floor decoration is a property of the tile, not the room
+    geometry.
+
+    The companion stone-coverage tests were dropped in the v5 cut:
+    they pinned the v4 ``FLOOR_STONE_FILL`` colour, which v5 replaced
+    with an emergent Stone-family seam colour not exposed as a stable
+    constant. Stone emission is covered by the IR byte-parity gate
+    (tests/unit/test_floor_ir.py); the scratch tests survive because
+    they key off the structural ``y-scratch`` / low-opacity marker
+    rather than a palette colour."""
 
     def _render_large_room(self, shape, seed=42):
         level, room = _make_shaped_level(
             shape, room_w=15, room_h=15)
         svg = render_floor_svg_from_ir(level, seed=seed)
         return svg
-
-    def _assert_stones(self, shape):
-        for seed in range(30):
-            svg = self._render_large_room(shape, seed)
-            if FLOOR_STONE_FILL in svg:
-                return
-        assert False, (
-            f"No floor stones in {shape.type_name} room across 30 seeds"
-        )
 
     def _assert_scratches(self, shape):
         for seed in range(50):
@@ -669,24 +635,6 @@ class TestFloorDetailIndependentOfShape:
         assert False, (
             f"No scratches in {shape.type_name} room across 50 seeds"
         )
-
-    def test_stones_in_rect_room(self):
-        self._assert_stones(RectShape())
-
-    def test_stones_in_circle_room(self):
-        self._assert_stones(CircleShape())
-
-    def test_stones_in_cross_room(self):
-        self._assert_stones(CrossShape())
-
-    def test_stones_in_octagon_room(self):
-        self._assert_stones(OctagonShape())
-
-    def test_stones_in_pill_room(self):
-        self._assert_stones(PillShape())
-
-    def test_stones_in_temple_room(self):
-        self._assert_stones(TempleShape(flat_side="south"))
 
     def test_scratches_in_rect_room(self):
         self._assert_scratches(RectShape())
@@ -706,51 +654,6 @@ class TestFloorDetailIndependentOfShape:
     def test_scratches_in_temple_room(self):
         self._assert_scratches(TempleShape(flat_side="south"))
 
-    def test_detail_on_corridor_opening_tile(self):
-        """Corridor opening tiles get floor detail via the
-        unclipped corridor detail path (not the dungeon polygon)."""
-        level, room = _make_shaped_level(
-            CircleShape(), room_w=11, room_h=11,
-            corridor_side="east")
-        floor = room.floor_tiles()
-        cy = room.rect.y + room.rect.height // 2
-        ex = max(fx for fx, fy in floor if fy == cy) + 1
-        # Corridor opening tile is a corridor tile rendered
-        # without polygon clipping — verify it gets detail
-        tile = level.tile_at(ex, cy)
-        assert (
-            tile is not None
-            and tile.surface_type == SurfaceType.CORRIDOR
-        ), (
-            f"Tile ({ex},{cy}) should be a corridor tile"
-        )
-        # Render with many seeds to hit detail RNG
-        for seed in range(30):
-            svg = render_floor_svg_from_ir(level, seed=seed)
-            if FLOOR_STONE_FILL in svg:
-                return
-        pytest.fail("No floor detail found on corridor opening tile")
-
-    def test_stones_on_corridor_tiles(self):
-        """Floor stones appear on corridor tiles."""
-        for seed in range(50):
-            # Long corridor to increase chances
-            level, room = _make_shaped_level(
-                RectShape(), room_w=5, room_h=5,
-                corridor_side="east")
-            # Extend corridor further
-            cy = room.rect.y + room.rect.height // 2
-            ex = room.rect.x2 + 1
-            for x in range(ex, ex + 10):
-                if level.in_bounds(x, cy):
-                    level.set_tile(x, cy, Tile(
-                        terrain=Terrain.FLOOR,
-                        surface_type=SurfaceType.CORRIDOR))
-            svg = render_floor_svg_from_ir(level, seed=seed)
-            if FLOOR_STONE_FILL in svg:
-                return
-        assert False, "No floor stones on corridor tiles across 50 seeds"
-
     def test_scratches_on_corridor_tiles(self):
         """Scratches appear on corridor tiles."""
         for seed in range(50):
@@ -768,16 +671,3 @@ class TestFloorDetailIndependentOfShape:
             if "y-scratch" in svg or 'opacity="0.45"' in svg:
                 return
         assert False, "No scratches on corridor tiles across 50 seeds"
-
-    def test_stones_on_doorless_opening_tile(self):
-        """Floor stones appear on doorless opening tiles."""
-        for seed in range(50):
-            level, room = _make_shaped_level(
-                CircleShape(), room_w=11, room_h=11,
-                corridor_side="east")
-            svg = render_floor_svg_from_ir(level, seed=seed)
-            if FLOOR_STONE_FILL in svg:
-                return
-        assert False, (
-            "No floor stones on doorless opening across 50 seeds"
-        )

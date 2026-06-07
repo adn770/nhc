@@ -170,12 +170,18 @@ class TestTerrainTintSVG:
 # ── Phase 3: Terrain detail SVG tests ──────────────────────────
 
 
-@pytest.mark.skip(
-    reason="NIR5: terrain-detail tint check depends on the deferred "
-    "TerrainTintOp → V5PaintOp(Liquid) translator (see §'Deferred "
-    "polish for post-cut')."
-)
 class TestTerrainDetailSVG:
+    # test_floor_tiles_no_terrain_detail and
+    # test_terrain_tiles_skip_standard_detail were dropped in the v5
+    # cut: they asserted the absence of v4 terrain-detail groups /
+    # the v4 FLOOR_STONE_FILL colour, which v5 never emits, so the
+    # checks became vacuous.
+
+    @pytest.mark.skip(
+        reason="NIR5: terrain-detail tint check depends on the deferred "
+        "TerrainTintOp → V5PaintOp(Liquid) translator (see §'Deferred "
+        "polish for post-cut')."
+    )
     def test_grass_tiles_get_only_tint_no_blade_detail(self):
         """Grass renders as a flat tint -- the per-tile blade
         strokes were dropping ~half of the terrain_detail layer
@@ -190,25 +196,6 @@ class TestTerrainDetailSVG:
         # Tint still ships on the terrain_tints layer.
         grass_tint = get_palette("dungeon").grass.tint.lower()
         assert grass_tint in svg.lower()
-
-    def test_floor_tiles_no_terrain_detail(self):
-        """Standard FLOOR tiles should not get terrain detail marks."""
-        level = _make_terrain_level(Terrain.FLOOR)
-        svg = render_floor_svg_from_ir(level, seed=42)
-        assert "terrain-water" not in svg
-        assert "terrain-grass" not in svg
-
-    def test_terrain_tiles_skip_standard_detail(self):
-        """WATER/GRASS tiles should not get standard cracks/stones."""
-        level = _make_terrain_level(Terrain.WATER)
-        svg_water = render_floor_svg_from_ir(level, seed=42)
-        level2 = _make_terrain_level(Terrain.FLOOR)
-        svg_floor = render_floor_svg_from_ir(level2, seed=42)
-        # Count floor stone elements (brown ellipses) — water SVG
-        # should have fewer since terrain tiles skip standard detail
-        water_stones = svg_water.lower().count("#e8d5b8")
-        floor_stones = svg_floor.lower().count("#e8d5b8")
-        assert water_stones <= floor_stones
 
     def test_deterministic_terrain_rendering(self):
         level = _make_terrain_level(Terrain.WATER)

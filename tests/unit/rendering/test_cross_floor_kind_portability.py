@@ -22,15 +22,12 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from nhc.dungeon.generators.cellular import CaveShape
 from nhc.dungeon.model import (
-    Level, Rect, Room, SurfaceType, Terrain, Tile,
+    Level, Rect, Room, Terrain, Tile,
 )
 from nhc.rendering.ir.dump import dump
 from nhc.rendering.ir_emitter import build_floor_ir
-from nhc.rendering.svg import render_floor_svg_from_ir
 
 
 # v5 ``V5FixtureKind`` enum names (per design/map_ir_v5.md §7).
@@ -223,41 +220,10 @@ class TestWaterPortability:
         assert _v5_stamp_decorator_bit_set(level, _V5_BIT_RIPPLES)
 
 
-# ── Cobblestone on every floor kind ──────────────────────────
-
-
-@pytest.mark.skip(
-    reason="NIR5: cobblestone color (#8A7A6A) is the v4 stroke; "
-    "v5 emits Stone family Cobblestone style with a different "
-    "palette. Test needs an updated v5 baseline."
-)
-class TestCobblestonePortability:
-    _COBBLE = '#8A7A6A'  # canonical stroke colour
-
-    def test_street_paints_on_dungeon(self) -> None:
-        level = _floor_grid(6, 6)
-        level.tile_at(3, 3).surface_type = SurfaceType.STREET
-        svg = render_floor_svg_from_ir(level)
-        assert self._COBBLE in svg
-
-    def test_paved_paints_on_building_interior(self) -> None:
-        level = _floor_grid(6, 6)
-        level.building_id = "b1"
-        level.tile_at(3, 3).surface_type = SurfaceType.PAVED
-        svg = render_floor_svg_from_ir(level)
-        assert self._COBBLE in svg
-
-    def test_street_paints_on_cave(self) -> None:
-        level = _floor_grid(6, 6)
-        level.rooms = [Room(
-            id="cave1",
-            rect=Rect(0, 0, 6, 6),
-            shape=CaveShape(tiles={
-                (x, y) for y in range(6) for x in range(6)
-            }),
-        )]
-        level.tile_at(3, 3).surface_type = SurfaceType.STREET
-        svg = render_floor_svg_from_ir(level, seed=11)
-        assert self._COBBLE in svg
+# Cobblestone-portability tests were dropped in the v5 cut: they
+# pinned the v4 stroke colour (#8A7A6A), which v5 replaced with an
+# emergent Stone-family Cobblestone palette that is not exposed as a
+# stable constant. Surface emission is covered by the IR byte-parity
+# gate (tests/unit/test_floor_ir.py) instead.
 
 

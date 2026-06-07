@@ -13,7 +13,7 @@ import math
 import pytest
 
 from nhc.dungeon.model import (
-    Level, Rect, Room, SurfaceType, Terrain, Tile,
+    Level, Rect, Room, Terrain, Tile,
 )
 from nhc.rendering.svg import render_floor_svg_from_ir
 
@@ -48,134 +48,15 @@ def _wood_palette_for_test(
     return _wood_palette_for_room(seed + 99, room_id)
 
 
-@pytest.mark.skip(
-    reason="NIR5: surface-tile palette colors moved into the v5 Earth "
-    "/ Stone family tables. Tests pin v4 palette tints (#8A7A6A "
-    "cobblestone, #7BA87B grass) and need rewriting against v5."
-)
-class TestSurfaceTypeStreetRendering:
-    def test_surface_type_street_triggers_cobblestone(self):
-        level = _blank_level()
-        level.tile_at(5, 5).surface_type = SurfaceType.STREET
-        svg = render_floor_svg_from_ir(level, seed=42)
-        # Cobblestone stroke colour is the canonical street marker.
-        assert "#8A7A6A" in svg
-
-    def test_no_surface_means_no_cobblestones(self):
-        level = _blank_level()
-        # Leave every tile with surface_type = NONE.
-        svg = render_floor_svg_from_ir(level, seed=42)
-        # Without any street tile, the cobblestone group does not appear.
-        assert "#8A7A6A" not in svg
-
-    def test_street_surface_renders_idempotently(self):
-        level = _blank_level()
-        level.tile_at(3, 3).surface_type = SurfaceType.STREET
-        svg = render_floor_svg_from_ir(level, seed=42)
-        assert "#8A7A6A" in svg
-
-    def test_non_street_surface_types_do_not_render_cobbles(self):
-        level = _blank_level()
-        # FIELD, GARDEN, PALISADE, FORTIFICATION must not pick up the
-        # street renderer; their own renderers land in later
-        # milestones.
-        for st in (
-            SurfaceType.FIELD,
-            SurfaceType.GARDEN,
-            SurfaceType.PALISADE,
-            SurfaceType.FORTIFICATION,
-        ):
-            tile = Tile(terrain=Terrain.FLOOR, surface_type=st)
-            level.set_tile(4, 4, tile)
-        svg = render_floor_svg_from_ir(level, seed=42)
-        assert "#8A7A6A" not in svg
-
-
-@pytest.mark.skip(
-    reason="NIR5: field-tile palette uses v5 Earth.Grass + Stone seam "
-    "colors instead of the v4 #7BA87B grass tint and FIELD_STONE_FILL."
-)
-class TestFieldSurface:
-    def test_field_tile_emits_green_tint(self):
-        """Phase 3b moved field tiles to ``Terrain.GRASS`` so the
-        theme grass tint paints under the scattered-stone overlay."""
-        from nhc.rendering.terrain_palette import get_palette
-        level = _blank_level()
-        level.tile_at(4, 4).terrain = Terrain.GRASS
-        level.tile_at(4, 4).surface_type = SurfaceType.FIELD
-        svg = render_floor_svg_from_ir(level, seed=42)
-        grass_tint = get_palette("dungeon").grass.tint
-        assert grass_tint in svg
-
-    def test_field_tile_emits_stones(self):
-        """Fields are lightly scattered with visible stones."""
-        from nhc.rendering._floor_detail import (
-            FIELD_STONE_FILL,
-        )
-        level = _blank_level(20, 20)
-        for _x, _y, tile in level.iter_world():
-            tile.terrain = Terrain.GRASS
-            tile.surface_type = SurfaceType.FIELD
-        svg = render_floor_svg_from_ir(level, seed=42)
-        # Over 400 field tiles, the stone probability should produce
-        # several visible stones.
-        assert FIELD_STONE_FILL in svg
-
-    def test_field_surface_skips_cobblestones(self):
-        """Field tiles never get the street's cobblestone style."""
-        level = _blank_level()
-        level.tile_at(5, 5).terrain = Terrain.GRASS
-        level.tile_at(5, 5).surface_type = SurfaceType.FIELD
-        svg = render_floor_svg_from_ir(level, seed=42)
-        assert "#8A7A6A" not in svg
-
-
-@pytest.mark.skip(
-    reason="NIR5: garden-tile palette pins v4 #7BA87B grass tint; "
-    "v5 emits the Earth.Grass family color instead."
-)
-class TestGardenSurface:
-    def test_garden_tile_emits_green_tint(self):
-        """Phase 3a moved garden tiles to ``Terrain.GRASS`` so the
-        theme grass tint paints under the hoe-row overlay."""
-        from nhc.rendering.terrain_palette import get_palette
-        level = _blank_level()
-        level.tile_at(4, 4).terrain = Terrain.GRASS
-        level.tile_at(4, 4).surface_type = SurfaceType.GARDEN
-        svg = render_floor_svg_from_ir(level, seed=42)
-        grass_tint = get_palette("dungeon").grass.tint
-        assert grass_tint in svg
-
-    def test_garden_tile_does_not_emit_hoe_rows(self):
-        """Garden tiles render as a flat green tint -- the previous
-        per-tile hoe-row stroke decorator was removed because at
-        scale the random oblique lines read as scribble noise."""
-        level = _blank_level(20, 20)
-        for _x, _y, tile in level.iter_world():
-            tile.terrain = Terrain.GRASS
-            tile.surface_type = SurfaceType.GARDEN
-        svg = render_floor_svg_from_ir(level, seed=42)
-        # Old GARDEN_LINE_STROKE colour. If it ever reappears the
-        # hoe-row scribble noise has come back.
-        assert "#4A6A3A" not in svg
-
-    def test_garden_surface_skips_cobblestones(self):
-        level = _blank_level()
-        level.tile_at(5, 5).terrain = Terrain.GRASS
-        level.tile_at(5, 5).surface_type = SurfaceType.GARDEN
-        svg = render_floor_svg_from_ir(level, seed=42)
-        assert "#8A7A6A" not in svg
-
-    def test_garden_surface_skips_field_stones(self):
-        """Gardens use lines, not stones -- the field stone marker
-        should not appear when only GARDEN tiles are present."""
-        from nhc.rendering._floor_detail import FIELD_STONE_FILL
-        level = _blank_level(10, 10)
-        for _x, _y, tile in level.iter_world():
-            tile.terrain = Terrain.GRASS
-            tile.surface_type = SurfaceType.GARDEN
-        svg = render_floor_svg_from_ir(level, seed=42)
-        assert FIELD_STONE_FILL not in svg
+# The street / field / garden surface-rendering tests were dropped
+# in the v5 cut. They pinned v4 palette constants (#8A7A6A
+# cobblestone, #7BA87B grass tint, FIELD_STONE_FILL) or asserted the
+# absence of those same v4 colours; v5 routes surface colours through
+# emergent Earth/Stone family tables not exposed as Python constants,
+# so the positive assertions broke and the absence assertions became
+# vacuous. Surface emission is covered by the IR byte-parity gate
+# (tests/unit/test_floor_ir.py). The palette *data* still has unit
+# coverage in TestTerrainPalette / TestFieldVsGardenPalette below.
 
 
 class TestFieldVsGardenPalette:
@@ -194,15 +75,14 @@ class TestFieldVsGardenPalette:
         assert g >= r and g >= b
 
 
-@pytest.mark.skip(
-    reason="NIR5: town-theme grass tint pins the v4 palette tint "
-    "(#88C878). v5 routes town surface tints through the Earth.Grass "
-    "family table; test needs an updated baseline."
-)
 class TestTownGrassTint:
     """Town theme paints grass / garden tiles in a brighter, more
     opaque green than the muted dungeon palette so the open-air
     parts of a town read as lawn rather than washed-out parchment.
+
+    The SVG-emission test was dropped in the v5 cut (it pinned the v4
+    town grass tint, now routed through an emergent Earth.Grass family
+    table); the palette *data* invariant below is the durable part.
     """
 
     def test_town_palette_grass_is_brighter_than_dungeon(self):
@@ -217,18 +97,6 @@ class TestTownGrassTint:
         # opaque so the wash actually reads as green.
         assert _green(town.tint) > _green(dungeon.tint)
         assert town.tint_opacity > dungeon.tint_opacity
-
-    def test_town_grass_tile_emits_town_tint(self):
-        from nhc.dungeon.model import LevelMetadata
-        from nhc.rendering.terrain_palette import get_palette
-        level = _blank_level()
-        level.metadata = LevelMetadata(theme="town")
-        level.tile_at(4, 4).terrain = Terrain.GRASS
-        level.tile_at(4, 4).surface_type = SurfaceType.FIELD
-        level.tile_at(5, 5).terrain = Terrain.GRASS
-        level.tile_at(5, 5).surface_type = SurfaceType.GARDEN
-        svg = render_floor_svg_from_ir(level, seed=42)
-        assert get_palette("town").grass.tint in svg
 
 
 class TestWoodInteriorFloor:
@@ -257,19 +125,10 @@ class TestWoodInteriorFloor:
         svg = render_floor_svg_from_ir(level, seed=42)
         assert seam_stroke in svg
 
-    @pytest.mark.skip(
-        reason="NIR5: v4 WOOD_FLOOR_FILL / _wood_palette absence check "
-        "no longer applies; v5 paints stone floors with the Stone "
-        "family palette and never emits Wood-family colors."
-    )
-    def test_stone_floor_has_no_wood_colors(self):
-        from nhc.rendering._floor_detail import WOOD_FLOOR_FILL
-        seam_stroke = _wood_palette_for_test(seed=42)[3]
-        level = _blank_level()
-        assert level.interior_floor == "stone"
-        svg = render_floor_svg_from_ir(level, seed=42)
-        assert WOOD_FLOOR_FILL not in svg
-        assert seam_stroke not in svg
+    # test_stone_floor_has_no_wood_colors was dropped in the v5 cut:
+    # it asserted the absence of v4 wood colours (WOOD_FLOOR_FILL /
+    # _wood_palette seam), which v5 never emits at all, so the check
+    # became vacuous.
 
 class TestWoodParquetConstants:
     def test_plank_width_is_quarter_tile(self):
@@ -286,12 +145,15 @@ class TestWoodParquetConstants:
         assert math.isclose(WOOD_PLANK_LENGTH_MAX, CELL * 2.5)
 
 
-@pytest.mark.skip(
-    reason="NIR5: wood-grain effect uses the v5 Wood family's 60-entry "
+_WOOD_GRAIN_PENDING = (
+    "NIR5: wood-grain effect uses the v5 Wood family's 60-entry "
     "palette (Phase 2.3 sub-pattern lift pending). v4 _wood_palette "
     "colors no longer match the v5 painter output."
 )
+
+
 class TestWoodGrainEffect:
+    @pytest.mark.skip(reason=_WOOD_GRAIN_PENDING)
     def test_grain_light_colour_present(self):
         grain_light = _wood_palette_for_test(seed=42)[1]
         level = _blank_level(20, 6)
@@ -299,6 +161,7 @@ class TestWoodGrainEffect:
         svg = render_floor_svg_from_ir(level, seed=42)
         assert grain_light in svg
 
+    @pytest.mark.skip(reason=_WOOD_GRAIN_PENDING)
     def test_grain_dark_colour_present(self):
         grain_dark = _wood_palette_for_test(seed=42)[2]
         level = _blank_level(20, 6)

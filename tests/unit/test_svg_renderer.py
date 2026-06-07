@@ -2,8 +2,6 @@
 
 import re
 
-import pytest
-
 from shapely.geometry import Point, box
 
 from nhc.dungeon.model import (
@@ -11,7 +9,7 @@ from nhc.dungeon.model import (
 )
 from nhc.rendering._dungeon_polygon import _room_shapely_polygon
 from nhc.rendering._floor_detail import _render_floor_grid
-from nhc.rendering._ir_helpers import CELL, FLOOR_STONE_FILL, PADDING
+from nhc.rendering._ir_helpers import CELL, PADDING
 from nhc.rendering.svg import render_floor_svg_from_ir
 
 
@@ -139,26 +137,6 @@ class TestSVGOutput:
         svg2 = render_floor_svg_from_ir(level, seed=2)
         assert svg1 != svg2
 
-    @pytest.mark.skip(
-        reason="NIR5: floor stone fill (#E8D5B8) is the v4 "
-        "FLOOR_STONE_FILL; v5 emits the Stone family seam color."
-    )
-    def test_floor_stones_soft_brown_fill(self):
-        """Floor stones are filled with soft brown, not hollow."""
-        # Use a larger room and a seed that produces stones
-        level = Level.create_empty("t", "T", depth=1,
-                                   width=20, height=20)
-        for y in range(1, 19):
-            for x in range(1, 19):
-                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
-        level.rooms.append(Room(id="r", rect=Rect(1, 1, 18, 18)))
-        # Try several seeds until we get a stone
-        for seed in range(50):
-            svg = render_floor_svg_from_ir(level, seed=seed)
-            if FLOOR_STONE_FILL in svg:
-                break
-        assert FLOOR_STONE_FILL in svg, "No floor stone found in any seed"
-
     def test_floor_stones_match_hatching_stroke_style(self):
         """Floor stones use same stroke color as hatching stones."""
         level = Level.create_empty("t", "T", depth=1,
@@ -174,32 +152,6 @@ class TestSVGOutput:
         # Both hatching and floor stones use #666666 stroke
         assert 'stroke="#666666"' in svg
 
-    @pytest.mark.skip(
-        reason="NIR5: stone-cluster heuristic searches for v4 stone "
-        "geometry / colors which the v5 painter no longer emits."
-    )
-    def test_floor_stone_clusters(self):
-        """Some tiles have clusters of 3 stones close together."""
-        level = Level.create_empty("t", "T", depth=1,
-                                   width=30, height=30)
-        for y in range(1, 29):
-            for x in range(1, 29):
-                level.set_tile(x, y, Tile(terrain=Terrain.FLOOR))
-        level.rooms.append(Room(id="r", rect=Rect(1, 1, 28, 28)))
-        # With ~784 floor tiles and ~3% cluster chance, we should
-        # reliably get at least one cluster across a few seeds
-        found_cluster = False
-        for seed in range(20):
-            svg = render_floor_svg_from_ir(level, seed=seed)
-            # A cluster adds 3 ellipses; count brown-filled ellipses
-            count = svg.count(f'fill="{FLOOR_STONE_FILL}"')
-            # Singles add 1, clusters add 3 — if total >= 3 we likely
-            # have at least one cluster (or 3 singles, but with 784
-            # tiles and low single chance this proves clusters exist)
-            if count >= 4:
-                found_cluster = True
-                break
-        assert found_cluster, "No stone cluster found in any seed"
 
 class TestRoomShapelyPolygon:
     """_room_shapely_polygon must return a polygon for every room type,
