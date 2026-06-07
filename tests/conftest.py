@@ -28,6 +28,36 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(autouse=True)
+def _sandbox_game_dirs(tmp_path_factory, monkeypatch):
+    """Redirect default game/server paths into a temp sandbox.
+
+    Several code paths fall back to *real* user directories when no
+    explicit location is configured:
+
+    - the autosave system uses ``~/.nhc/saves`` via
+      ``_DEFAULT_DIR``/``_DEFAULT_PATH`` whenever ``save_dir`` is
+      ``None`` (an anonymous web game, or a ``Game`` built without a
+      save dir),
+    - the web server logs to ``~/src/nhc-server.log`` unless
+      ``NHC_SERVER_LOG`` is set.
+
+    Without this, a test exercising an anonymous game could *restore a
+    stray real save* (flaky), and any test building the Flask app would
+    append to — and the debug bundle would embed — the developer's real
+    log file. Pointing both at a per-test temp dir keeps the suite from
+    ever touching real state. Tests that need a specific location still
+    override these explicitly; their per-test ``monkeypatch`` wins."""
+    sandbox = tmp_path_factory.mktemp("game_sandbox")
+    saves = sandbox / "saves"
+    saves.mkdir()
+    monkeypatch.setattr("nhc.core.autosave._DEFAULT_DIR", saves)
+    monkeypatch.setattr(
+        "nhc.core.autosave._DEFAULT_PATH", saves / "autosave.nhc")
+    monkeypatch.setenv("NHC_SERVER_LOG", str(sandbox / "nhc-server.log"))
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _reset_i18n_to_english():
     """Reset i18n to English before every test.
 
