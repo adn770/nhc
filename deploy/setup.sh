@@ -88,6 +88,47 @@ CADDYFILE
     fi
 }
 
+# Install the host-side remote-deploy agent used by the admin panel's
+# Update button.  A systemd path unit watches ${DATA_DIR}/.deploy-request
+# (dropped by POST /api/admin/update from inside the unprivileged
+# container) and triggers a oneshot service that runs update.sh as the
+# repo-owning user.  The service file is generated here so the user,
+# HOME and repo path match this host.  Idempotent.
+install_deploy_agent() {
+    local deploy_user deploy_home
+    deploy_user="$(stat -c '%U' "${REPO_DIR}")"
+    deploy_home="$(getent passwd "${deploy_user}" | cut -d: -f6)"
+    [[ -z "${deploy_user}" || -z "${deploy_home}" ]] && \
+        fail "Could not resolve the repo owner for the deploy agent."
+
+    cp "${SCRIPT_DIR}/nhc-deploy.path" \
+        /etc/systemd/system/nhc-deploy.path
+    cat > /etc/systemd/system/nhc-deploy.service <<UNIT
+[Unit]
+Description=NHC remote deploy agent (git pull + rebuild + restart)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=${deploy_user}
+Environment=HOME=${deploy_home}
+Environment=NHC_DATA_DIR=${DATA_DIR}
+WorkingDirectory=${REPO_DIR}
+ExecStart=${REPO_DIR}/deploy/remote-update.sh
+UNIT
+
+    # update.sh restarts the container via passwordless sudo; grant
+    # the deploy user exactly that one command, nothing more.
+    echo "${deploy_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ${SERVICE_NAME}" \
+        > /etc/sudoers.d/nhc-deploy
+    chmod 440 /etc/sudoers.d/nhc-deploy
+
+    systemctl daemon-reload
+    systemctl enable --now nhc-deploy.path
+    ok "Remote-deploy agent installed (nhc-deploy.path watching ${DATA_DIR})"
+}
+
 # ── Pre-flight checks ──────────────────────────────────────
 if [[ $EUID -ne 0 ]]; then
     fail "This script must be run as root (sudo)."
@@ -155,6 +196,9 @@ if $UPDATE_ONLY; then
             warn "Could not detect Caddy domain — skipping Caddyfile rewrite."
         fi
     fi
+
+    info "Installing remote-deploy agent..."
+    install_deploy_agent
 
     info "Reloading systemd daemon..."
     systemctl daemon-reload
@@ -361,6 +405,10 @@ CONF
     systemctl restart caddy
     ok "Caddy enabled and started."
 fi
+
+# ── Install remote-deploy agent ─────────────────────────────
+info "Installing remote-deploy agent..."
+install_deploy_agent
 
 # ── Enable and start NHC ────────────────────────────────────
 info "Reloading systemd daemon..."

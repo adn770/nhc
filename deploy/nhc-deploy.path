@@ -1,0 +1,13 @@
+[Unit]
+Description=Watch for NHC remote-deploy requests from the admin panel
+
+[Path]
+# The admin endpoint (POST /api/admin/update) drops this marker into
+# the persistent /var/nhc volume; its appearance starts the oneshot
+# nhc-deploy.service, which runs the deploy as the repo-owning user.
+# The service deletes the marker, so a later request re-triggers it.
+PathExists=/var/nhc/.deploy-request
+Unit=nhc-deploy.service
+
+[Install]
+WantedBy=multi-user.target

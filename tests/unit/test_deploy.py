@@ -326,3 +326,81 @@ class TestWasmBuild:
         assert match.group(1).strip() == "false", (
             f"wasm-pack wasm-opt must be false, got: {match.group(1)!r}"
         )
+
+
+class TestRemoteDeployAgent:
+    """The admin panel's Update button drops a marker file that a
+    host-side systemd path unit watches; the triggered service runs
+    update.sh as the repo owner. Validates the units, the agent
+    script, and that setup.sh installs and enables them."""
+
+    @pytest.fixture()
+    def path_unit(self):
+        return (DEPLOY_DIR / "nhc-deploy.path").read_text()
+
+    @pytest.fixture()
+    def agent(self):
+        return (DEPLOY_DIR / "remote-update.sh").read_text()
+
+    @pytest.fixture()
+    def setup(self):
+        return (DEPLOY_DIR / "setup.sh").read_text()
+
+    def test_path_unit_exists(self):
+        assert (DEPLOY_DIR / "nhc-deploy.path").is_file()
+
+    def test_path_watches_request_marker(self, path_unit):
+        assert "PathExists=/var/nhc/.deploy-request" in path_unit
+
+    def test_path_triggers_deploy_service(self, path_unit):
+        assert "Unit=nhc-deploy.service" in path_unit
+
+    def test_path_install_target(self, path_unit):
+        assert "WantedBy=multi-user.target" in path_unit
+
+    def test_agent_exists_and_executable(self):
+        path = DEPLOY_DIR / "remote-update.sh"
+        assert path.is_file()
+        assert path.stat().st_mode & 0o111, "remote-update.sh must be executable"
+
+    def test_agent_has_shebang(self, agent):
+        assert agent.startswith("#!/")
+
+    def test_agent_does_not_abort_on_error(self, agent):
+        """A failed build must be recorded, not aborted — so no -e."""
+        assert "set -uo pipefail" in agent
+        assert "set -euo pipefail" not in agent
+        assert "set -e\n" not in agent
+
+    def test_agent_consumes_marker(self, agent):
+        assert 'rm -f "${REQUEST}"' in agent
+
+    def test_agent_records_status(self, agent):
+        assert ".deploy-status" in agent
+        assert "running" in agent
+        assert "success" in agent
+        assert "failed" in agent
+
+    def test_agent_runs_update_script(self, agent):
+        assert "update.sh" in agent
+
+    def test_setup_installs_path_unit(self, setup):
+        assert "nhc-deploy.path" in setup
+
+    def test_setup_generates_service_running_agent(self, setup):
+        assert "nhc-deploy.service" in setup
+        assert "remote-update.sh" in setup
+
+    def test_setup_enables_path_watcher(self, setup):
+        assert "systemctl enable --now nhc-deploy.path" in setup
+
+    def test_setup_grants_scoped_sudo(self, setup):
+        """The deploy user gets passwordless sudo for ONLY the
+        container restart update.sh needs — nothing broader."""
+        assert "/etc/sudoers.d/nhc-deploy" in setup
+        assert "NOPASSWD: /usr/bin/systemctl restart" in setup
+
+    def test_setup_invokes_agent_install_in_both_flows(self, setup):
+        """install_deploy_agent must run on both fresh setup and
+        --update so existing deployments pick the agent up."""
+        assert setup.count("install_deploy_agent") >= 3  # def + 2 calls

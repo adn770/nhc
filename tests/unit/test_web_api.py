@@ -227,6 +227,111 @@ class TestTTSAuth:
             assert resp.status_code == 429
 
 
+class TestAdminUpdate:
+    """The admin Update button drops a marker file that a host-side
+    systemd path unit watches; the endpoint never runs the deploy
+    itself (the container is unprivileged). The GET endpoint reports
+    progress the host agent records in ``.deploy-status``.
+    """
+
+    _TOKEN = "admin-secret"
+
+    def _app(self, tmp_path):
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path, auth_required=True,
+            trust_proxy=True,
+        )
+        app = create_app(config, auth_token=self._TOKEN)
+        app.config["TESTING"] = True
+        return app
+
+    def test_post_writes_request_marker(self, tmp_path):
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            resp = c.post(f"/api/admin/update?token={self._TOKEN}")
+            assert resp.status_code == 200
+            assert resp.get_json()["state"] == "requested"
+            assert (tmp_path / ".deploy-request").exists()
+
+    def test_get_reports_idle_initially(self, tmp_path):
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            resp = c.get(f"/api/admin/update?token={self._TOKEN}")
+            assert resp.status_code == 200
+            assert resp.get_json()["state"] == "idle"
+
+    def test_get_reports_requested_when_marker_present(self, tmp_path):
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            c.post(f"/api/admin/update?token={self._TOKEN}")
+            resp = c.get(f"/api/admin/update?token={self._TOKEN}")
+            assert resp.status_code == 200
+            assert resp.get_json()["state"] == "requested"
+
+    def test_get_returns_status_file_contents(self, tmp_path):
+        (tmp_path / ".deploy-status").write_text(json.dumps({
+            "state": "success", "git_sha": "abc1234",
+            "message": "done", "updated_at": 123,
+        }))
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            resp = c.get(f"/api/admin/update?token={self._TOKEN}")
+            data = resp.get_json()
+            assert data["state"] == "success"
+            assert data["git_sha"] == "abc1234"
+
+    def test_running_status_takes_precedence_over_marker(self, tmp_path):
+        """A consumed marker may briefly coexist with a running build;
+        the in-flight run must win so the UI stays on 'running'."""
+        (tmp_path / ".deploy-status").write_text(
+            json.dumps({"state": "running"}))
+        (tmp_path / ".deploy-request").write_text("{}")
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            resp = c.get(f"/api/admin/update?token={self._TOKEN}")
+            assert resp.get_json()["state"] == "running"
+
+    def test_fresh_marker_overrides_stale_success(self, tmp_path):
+        """A new request after a prior success reads as 'requested'."""
+        (tmp_path / ".deploy-status").write_text(
+            json.dumps({"state": "success"}))
+        (tmp_path / ".deploy-request").write_text("{}")
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            resp = c.get(f"/api/admin/update?token={self._TOKEN}")
+            assert resp.get_json()["state"] == "requested"
+
+    def test_post_conflict_when_already_requested(self, tmp_path):
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            c.post(f"/api/admin/update?token={self._TOKEN}")
+            resp = c.post(f"/api/admin/update?token={self._TOKEN}")
+            assert resp.status_code == 409
+
+    def test_post_conflict_when_running(self, tmp_path):
+        (tmp_path / ".deploy-status").write_text(
+            json.dumps({"state": "running"}))
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            resp = c.post(f"/api/admin/update?token={self._TOKEN}")
+            assert resp.status_code == 409
+
+    def test_post_allowed_after_success(self, tmp_path):
+        (tmp_path / ".deploy-status").write_text(
+            json.dumps({"state": "success"}))
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            resp = c.post(f"/api/admin/update?token={self._TOKEN}")
+            assert resp.status_code == 200
+            assert (tmp_path / ".deploy-request").exists()
+
+    def test_requires_admin_token(self, tmp_path):
+        app = self._app(tmp_path)
+        with app.test_client() as c:
+            assert c.post("/api/admin/update").status_code in (401, 403)
+            assert c.get("/api/admin/update").status_code in (401, 403)
+
+
 class TestAdminTokenOnly:
     """The admin panel is gated by the admin token alone — the LAN
     allowlist was removed, so a valid token grants access from any

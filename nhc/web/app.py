@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import atexit
 import collections
+import json
 import logging
 import multiprocessing
 import os
@@ -675,6 +676,75 @@ def create_app(
             as_attachment=True,
             download_name="nhc-debug-bundle.tar.gz",
         )
+
+    # ── Remote update (git pull + rebuild + redeploy) ───────
+    # The container is unprivileged (read-only rootfs, no docker
+    # socket), so it cannot deploy itself. Instead the admin drops
+    # a marker file in the persistent volume; a host-side systemd
+    # path unit (deploy/nhc-deploy.path) watches it and runs
+    # deploy/update.sh, recording progress in ``.deploy-status``.
+
+    def _deploy_paths():
+        """Return (request marker, status file) Paths, or (None, None)
+        when no data dir is configured (update unavailable)."""
+        if not config.data_dir:
+            return None, None
+        return (config.data_dir / ".deploy-request",
+                config.data_dir / ".deploy-status")
+
+    def _deploy_status_payload():
+        """Collapse marker + status file into a single state.
+
+        ``running`` (host build in flight) wins over a pending marker;
+        a fresh marker overrides a stale ``success``/``failed``.
+        """
+        req, status = _deploy_paths()
+        data: dict = {}
+        has_status = bool(status and status.exists())
+        if has_status:
+            try:
+                data = json.loads(status.read_text())
+            except (ValueError, OSError):
+                data = {}
+        state = data.get("state", "idle")
+        if req and req.exists() and state != "running":
+            state = "requested"
+        elif not has_status:
+            state = "idle"
+        data["state"] = state
+        return data
+
+    @app.route("/api/admin/update", methods=["GET"])
+    @_admin_auth
+    def admin_update_status():
+        req, _ = _deploy_paths()
+        if not req:
+            return jsonify({"state": "unavailable"})
+        return jsonify(_deploy_status_payload())
+
+    @app.route("/api/admin/update", methods=["POST"])
+    @_admin_auth
+    def admin_request_update():
+        req, _ = _deploy_paths()
+        if not req:
+            return jsonify(
+                {"error": "update unavailable (no data dir)"}
+            ), 503
+        current = _deploy_status_payload()
+        if current["state"] in ("requested", "running"):
+            return jsonify(
+                {"error": "deploy already in progress", **current}
+            ), 409
+        try:
+            req.write_text(
+                json.dumps({"requested_at": int(time.time())})
+            )
+        except OSError as exc:
+            return jsonify(
+                {"error": f"could not request update: {exc}"}
+            ), 500
+        logger.info("Admin requested remote update (marker written)")
+        return jsonify({"state": "requested"})
 
     # ── Player routes (player token) ────────────────────────
 

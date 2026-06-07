@@ -54,6 +54,13 @@
       align-items: center; margin-bottom: 16px;
     }
     .status-bar span { color: #888; font-size: 12px; }
+    .toolbar { display: flex; gap: 8px; align-items: center; }
+    #deploy-status {
+      font-size: 12px; display: none; margin-right: 4px;
+    }
+    #deploy-status.running { color: #e6c07b; }
+    #deploy-status.failed { color: #e06c75; }
+    button:disabled { opacity: 0.5; cursor: default; }
     #toast {
       position: fixed; bottom: 20px; right: 20px;
       background: #98c379; color: #1a1a2e; padding: 8px 16px;
@@ -66,7 +73,12 @@
 
   <div class="status-bar">
     <span id="status-text">Loading...</span>
-    <button onclick="refresh()">Refresh</button>
+    <div class="toolbar">
+      <span id="deploy-status"></span>
+      <button onclick="downloadBundle()">Download Bundle</button>
+      <button id="update-btn" onclick="triggerUpdate()">Update</button>
+      <button onclick="refresh()">Refresh</button>
+    </div>
   </div>
 
   <h2>Register Player</h2>
@@ -79,18 +91,6 @@
     <button onclick="copyLink()" style="margin-left:8px">Copy</button>
   </div>
 
-  <h2>Players</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th><th>Player ID</th><th>Status</th>
-        <th>Save</th><th>Created</th><th>Last Seen</th>
-        <th>Session</th><th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="players-body"></tbody>
-  </table>
-
   <h2>Active Sessions</h2>
   <table>
     <thead>
@@ -102,8 +102,17 @@
     <tbody id="sessions-body"></tbody>
   </table>
 
-  <h2>Debug Tools</h2>
-  <button onclick="downloadBundle()">Download Debug Bundle</button>
+  <h2>Players</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th><th>Player ID</th><th>Status</th>
+        <th>Save</th><th>Created</th><th>Last Seen</th>
+        <th>Session</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="players-body"></tbody>
+  </table>
 
   <div id="toast"></div>
 
@@ -322,6 +331,87 @@ function downloadBundle() {
   window.location.href = "/api/admin/debug-bundle";
 }
 
+// ── Remote update (git pull + rebuild + redeploy) ──────────
+let deployPoll = null;
+
+function setUpdateUI(state, msg) {
+  const btn = document.getElementById("update-btn");
+  const busy = state === "requested" || state === "running";
+  btn.disabled = busy;
+  btn.textContent = busy ? "Updating…" : "Update";
+  const el = document.getElementById("deploy-status");
+  el.className = state || "";
+  if (state === "requested" || state === "running" || state === "failed") {
+    el.textContent = `deploy: ${state}${msg ? " — " + msg : ""}`;
+    el.style.display = "inline";
+  } else {
+    el.style.display = "none";
+  }
+}
+
+function stopDeployPoll() {
+  if (deployPoll) { clearInterval(deployPoll); deployPoll = null; }
+}
+
+async function pollDeploy() {
+  if (deployPoll) return;
+  const tick = async () => {
+    let data;
+    try {
+      const resp = await fetch("/api/admin/update");
+      if (!resp.ok) return;  // transient (container restart) — keep polling
+      data = await resp.json();
+    } catch (e) {
+      return;  // network blip while the service restarts; keep polling
+    }
+    setUpdateUI(data.state, data.message);
+    if (data.state === "success") {
+      toast(`Update complete${data.git_sha ? " (" + data.git_sha + ")" : ""}`);
+      stopDeployPoll();
+      refresh();
+    } else if (data.state === "failed") {
+      toast(`Update failed: ${data.message || "see deploy log"}`);
+      stopDeployPoll();
+    } else if (data.state === "idle" || data.state === "unavailable") {
+      stopDeployPoll();
+    }
+  };
+  deployPoll = setInterval(tick, 3000);
+  tick();
+}
+
+async function triggerUpdate() {
+  if (!confirm(
+      "Pull latest code, rebuild, and redeploy now?\n\n" +
+      "The server will briefly restart while the new image starts."))
+    return;
+  let resp;
+  try {
+    resp = await fetch("/api/admin/update", {method: "POST"});
+  } catch (e) { toast("Update request failed"); return; }
+  if (resp.status === 409) { toast("Deploy already in progress"); pollDeploy(); return; }
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    toast(err.error || "Update request failed");
+    return;
+  }
+  toast("Update requested — rebuilding…");
+  setUpdateUI("requested");
+  pollDeploy();
+}
+
+// Reflect an in-progress deploy on page load without toasting.
+async function checkDeploy() {
+  let data;
+  try {
+    const resp = await fetch("/api/admin/update");
+    if (!resp.ok) return;
+    data = await resp.json();
+  } catch (e) { return; }
+  setUpdateUI(data.state, data.message);
+  if (data.state === "requested" || data.state === "running") pollDeploy();
+}
+
 function copyLink() {
   const a = document.getElementById("new-link");
   const text = a.href;
@@ -353,6 +443,7 @@ async function refresh() {
 
 // Init
 refresh();
+checkDeploy();
 setInterval(refresh, 10000);
 </script>
 </body>
