@@ -31,10 +31,6 @@ _FIXTURE_ROOT = (
 )
 
 
-@pytest.mark.skip(
-    reason="NIR4: committed fixture .nir files still carry the NIR3 "
-    "file_identifier; fixture regeneration is task #10."
-)
 @pytest.mark.parametrize("descriptor", all_descriptors())
 def test_floor_ir_buffer_matches_fixture(descriptor: str) -> None:
     from nhc.rendering.ir_emitter import build_floor_ir
