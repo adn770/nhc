@@ -575,6 +575,41 @@ class Game:
         if after is not before:
             self._announce_hour(after)
 
+    def _run_town_events(self, cell) -> None:
+        """Roll and stage this visit's town spectacle.
+
+        Clears any leftover event entities from a prior visit, rolls
+        the director deterministically from the site seed, day and
+        current segment, emits the log lines, and spawns the extra
+        entities live (tagged ``EventSpawn``) so they never accumulate
+        on the cached surface. See ``design/town_life.md``.
+        """
+        from nhc.sites._town_events import roll_town_events
+
+        self._clear_event_spawns()
+        size_class = getattr(cell.dungeon, "size_class", None)
+        if size_class is None:
+            return
+        segment = self.hex_world.time
+        rng = random.Random(
+            (self.seed or 0) ^ hash((
+                self.level.id, self.hex_world.day, segment.value,
+            )) & 0xFFFFFFFF
+        )
+        result = roll_town_events(self.level, size_class, segment, rng)
+        for key in result.messages:
+            self.renderer.add_message(t(key))
+        if result.placements:
+            self._spawn_level_entities(result.placements)
+
+    def _clear_event_spawns(self) -> None:
+        """Destroy transient event entities on the current level."""
+        level_id = self.level.id if self.level else None
+        for eid, _ in list(self.world.query("EventSpawn")):
+            pos = self.world.get_component(eid, "Position")
+            if pos is None or pos.level_id == level_id:
+                self.world.destroy_entity(eid)
+
     def _announce_hour(self, segment: "TimeOfDay") -> None:
         """Emit the crier's hour call when the slow-drift clock
         crosses into a new segment and a town crier is present on the
@@ -1936,6 +1971,8 @@ class Game:
             self._place_expedition_henchmen(
                 is_settlement=kind == "town",
             )
+            if kind == "town":
+                self._run_town_events(cell)
             self._update_fov()
             self._notify_floor_change(depth)
             return True
@@ -2002,6 +2039,8 @@ class Game:
         )
         self._place_player_on_surface()
         self._place_expedition_henchmen(is_settlement=is_settlement)
+        if kind == "town":
+            self._run_town_events(cell)
         self._update_fov()
         self._notify_floor_change(depth)
         return True
@@ -3420,9 +3459,13 @@ class Game:
         )
         self.renderer.add_message(intro)
 
-    def _spawn_level_entities(self) -> None:
-        """Spawn all entities defined in the level file."""
-        for placement in self.level.entities:
+    def _spawn_level_entities(self, placements=None) -> None:
+        """Spawn entities from ``placements`` (default: the level's own
+        list). The event director passes a transient list so its
+        extras spawn live without being cached on the surface."""
+        if placements is None:
+            placements = self.level.entities
+        for placement in placements:
             try:
                 if placement.entity_type == "creature":
                     # Adventurers use level-scaled factory
@@ -3476,6 +3519,9 @@ class Game:
                             cursor=placement.extra.get("patrol_cursor", 0),
                             loop=placement.extra.get("patrol_loop", True),
                         )
+                    if placement.extra.get("event_spawn"):
+                        from nhc.entities.components import EventSpawn
+                        components["EventSpawn"] = EventSpawn()
                 elif placement.entity_type == "item":
                     components = EntityRegistry.get_item(placement.entity_id)
                     # Roll gold dice if present

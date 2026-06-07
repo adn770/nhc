@@ -1707,6 +1707,9 @@ town:
     midday: "Un pregoner crida l'hora del migdia."
     evening: "Un pregoner crida l'hora del vespre."
     night: "Un pregoner crida l'hora de la mitjanit."
+  event:
+    market_day: "És dia de mercat — la plaça bull de parades i compradors."
+    procession: "Una processó serpenteja pels carrers."
 
 
 action:

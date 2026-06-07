@@ -212,6 +212,14 @@ class DailyRoutine:
 
 
 @dataclass
+class EventSpawn:
+    """Marker: a transient entity spawned by the town event director
+    (market-day vendors, a procession). Cleared and re-rolled on each
+    town entry so events never accumulate. See ``design/town_life.md``.
+    """
+
+
+@dataclass
 class Crier:
     """Marker: a town crier who calls out each time-of-day segment as
     the slow-drift site clock crosses it. See ``design/town_life.md``.

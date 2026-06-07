@@ -1564,6 +1564,9 @@ town:
     midday: "A town crier calls out the midday hour."
     evening: "A town crier calls out the evening hour."
     night: "A town crier calls out the midnight hour."
+  event:
+    market_day: "It is market day — the plaza bustles with stalls and shoppers."
+    procession: "A procession winds through the streets."
 
 
 action:
