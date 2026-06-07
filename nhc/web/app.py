@@ -279,6 +279,24 @@ def create_app(
         return bool(session.game.god_mode
                     or getattr(session.game, "tester_mode", False))
 
+    def _exports_dir(create: bool = True) -> Path:
+        """Resolve the directory for debug exports.
+
+        Prefers ``<data_dir>/exports`` so a configured server (and the
+        whole test suite, which always sets a tmp ``data_dir``) never
+        writes to a CWD-relative path. Falls back to ``debug/exports``
+        only when no ``data_dir`` is set — the dev/MCP default that the
+        IR-query tools default-discover. Pass ``create=False`` to read
+        an existing location without creating it.
+        """
+        if config.data_dir:
+            out = config.data_dir / "exports"
+        else:
+            out = Path("debug/exports")
+        if create:
+            out.mkdir(parents=True, exist_ok=True)
+        return out
+
     def _get_player_id() -> str:
         """Get current player_id from auth context or request body."""
         pid = getattr(g, "player_id", "") or ""
@@ -646,7 +664,7 @@ def create_app(
                 tar.add(str(log_file), arcname="nhc.log")
 
             # 2. Debug exports
-            exports_dir = Path("debug/exports")
+            exports_dir = _exports_dir(create=False)
             if exports_dir.exists():
                 for f in exports_dir.iterdir():
                     if f.is_file():
@@ -1622,8 +1640,7 @@ def create_app(
             "level": _serialize_level(game.level),
             "ecs": _serialize_entities(game.world),
         }
-        out = Path("debug/exports")
-        out.mkdir(parents=True, exist_ok=True)
+        out = _exports_dir()
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = out / f"game_state_{ts}.json"
         path.write_text(_json.dumps(data, indent=2))
@@ -1656,8 +1673,7 @@ def create_app(
             "doors": client._gather_doors(level),
             "debug": client._gather_debug_data(level, game.world),
         }
-        out = Path("debug/exports")
-        out.mkdir(parents=True, exist_ok=True)
+        out = _exports_dir()
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = out / f"layer_state_{ts}.json"
         path.write_text(_json.dumps(data, indent=2))
@@ -1680,8 +1696,7 @@ def create_app(
             "turn": game.turn,
             **client._gather_hatch_debug(game.level),
         }
-        out = Path("debug/exports")
-        out.mkdir(parents=True, exist_ok=True)
+        out = _exports_dir()
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = out / f"hatch_debug_{ts}.json"
         path.write_text(_json.dumps(data, indent=2))
@@ -1699,8 +1714,7 @@ def create_app(
         client = session.game.renderer
         if not client.floor_svg:
             return jsonify({"error": "no SVG"}), 404
-        out = Path("debug/exports")
-        out.mkdir(parents=True, exist_ok=True)
+        out = _exports_dir()
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = out / f"map_{ts}.svg"
         path.write_text(client.floor_svg)
@@ -1738,8 +1752,7 @@ def create_app(
             entry.ir_json = dump(entry.nir)
             _persist_ir_if_live(session, svg_id, entry)
         from datetime import datetime
-        out = Path("debug/exports")
-        out.mkdir(parents=True, exist_ok=True)
+        out = _exports_dir()
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         nir_path = out / f"floor_ir_{ts}.nir"
         json_path = out / f"floor_ir_{ts}.json"

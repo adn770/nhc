@@ -1366,12 +1366,13 @@ class TestFloorIRArtefactsDiskWiring:
         assert resp.status_code == 404
 
     def test_export_floor_ir_writes_nir_and_json(
-        self, client_with_data_dir, tmp_path, monkeypatch,
+        self, client_with_data_dir,
     ):
         """Phase 2.4.1: god-mode POST writes floor_ir_<ts>.nir +
-        .json into debug/exports/ so the MCP tools can default-
-        discover the latest export without an explicit path."""
-        monkeypatch.chdir(tmp_path)
+        .json so the MCP tools can default-discover the latest
+        export. With a data_dir configured the export lands under
+        ``<data_dir>/exports`` rather than the CWD-relative
+        ``debug/exports``."""
         sid, session, _svg_id = self._start_dungeon_game(
             client_with_data_dir, god_mode=True,
         )
@@ -1384,6 +1385,10 @@ class TestFloorIRArtefactsDiskWiring:
         json_path = Path(payload["path_json"])
         assert nir_path.exists()
         assert json_path.exists()
+        config = client_with_data_dir.application.config["NHC_CONFIG"]
+        exports = config.data_dir / "exports"
+        assert nir_path.parent == exports
+        assert json_path.parent == exports
         # Bytes round-trip the cached IR — same source as .nir route.
         assert nir_path.read_bytes()[4:8] == b"NIR5"
         # JSON dump is canonical and parseable.
@@ -1392,9 +1397,8 @@ class TestFloorIRArtefactsDiskWiring:
         assert "regions" in parsed
 
     def test_export_floor_ir_404_for_non_god_mode(
-        self, client_with_data_dir, tmp_path, monkeypatch,
+        self, client_with_data_dir,
     ):
-        monkeypatch.chdir(tmp_path)
         sid, _session, _svg_id = self._start_dungeon_game(
             client_with_data_dir,
         )
@@ -1406,9 +1410,8 @@ class TestFloorIRArtefactsDiskWiring:
         assert resp.status_code == 404
 
     def test_export_floor_ir_404_for_unknown_session(
-        self, client_with_data_dir, tmp_path, monkeypatch,
+        self, client_with_data_dir,
     ):
-        monkeypatch.chdir(tmp_path)
         resp = client_with_data_dir.post(
             "/api/game/no-such-sid/export/floor_ir",
         )
@@ -1637,6 +1640,60 @@ class TestHenchmenEndpoint:
         assert sheet["hp"] == 12
         assert sheet["max_hp"] == 18
         assert sheet["equipment"]["weapon"]["name"] == "long sword"
+
+
+class TestExportsDir:
+    """Export endpoints write under ``<data_dir>/exports`` when a
+    data_dir is configured, and fall back to the CWD-relative
+    ``debug/exports`` (the dev/MCP default) only when it is not.
+    Either way they must never write to a real repo path during a
+    test run with a data_dir."""
+
+    def _start(self, c):
+        token, _pid = _register_player(c)
+        resp = c.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+        session = c.application.config["SESSIONS"].get(sid)
+        session.game.set_god_mode(True)
+        return sid
+
+    def test_export_uses_data_dir_when_configured(
+            self, client_with_data_dir):
+        sid = self._start(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/export/game_state",
+        )
+        assert resp.status_code == 200
+        config = client_with_data_dir.application.config["NHC_CONFIG"]
+        path = Path(resp.get_json()["path"])
+        assert path.parent == config.data_dir / "exports"
+        assert path.exists()
+
+    def test_export_falls_back_to_debug_exports(self, tmp_path, monkeypatch):
+        """No data_dir → CWD-relative debug/exports (dev default).
+
+        chdir into a tmp dir so the fallback never pollutes the repo.
+        Without a data_dir there is no player registry, so use an
+        anonymous game and grant god mode directly."""
+        monkeypatch.chdir(tmp_path)
+        config = WebConfig(max_sessions=2)  # no data_dir
+        app = create_app(config)
+        app.config["TESTING"] = True
+        with app.test_client() as c:
+            resp = c.post("/api/game/new", json={"world": "dungeon"})
+            assert resp.status_code == 201
+            sid = resp.get_json()["session_id"]
+            session = c.application.config["SESSIONS"].get(sid)
+            session.game.set_god_mode(True)
+            resp = c.post(f"/api/game/{sid}/export/game_state")
+            assert resp.status_code == 200
+            path = Path(resp.get_json()["path"])
+            assert path.parent == Path("debug/exports")
+            assert (tmp_path / "debug" / "exports").is_dir()
 
 
 class TestReportEndpoint:
