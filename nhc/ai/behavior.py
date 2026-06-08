@@ -234,26 +234,29 @@ def _pick_errand_destination(
     anchor = (eff.x, eff.y) if eff is not None else None
     anchor_weight = eff.weight if eff is not None else 0.0
 
-    for y in range(level.height):
-        for x in range(level.width):
-            if (x, y) == (pos.x, pos.y):
+    # Iterate in world coordinates: building-floor levels are anchored
+    # via origin_x / origin_y, so a raw 0-based range would fall
+    # outside the grid and leave a resident with no candidates (it
+    # would idle forever). ``iter_world`` yields global (x, y).
+    for x, y, _tile in level.iter_world():
+        if (x, y) == (pos.x, pos.y):
+            continue
+        if not _errand_walkable(world, level, x, y, entity_id):
+            continue
+        candidates.append((x, y))
+        if anchor is not None:
+            ax, ay = anchor
+            if max(abs(x - ax), abs(y - ay)) <= 3:
+                anchor_near.append((x, y))
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = x + dx, y + dy
+            ntile = level.tile_at(nx, ny)
+            if ntile is None:
                 continue
-            if not _errand_walkable(world, level, x, y, entity_id):
-                continue
-            candidates.append((x, y))
-            if anchor is not None:
-                ax, ay = anchor
-                if max(abs(x - ax), abs(y - ay)) <= 3:
-                    anchor_near.append((x, y))
-            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                nx, ny = x + dx, y + dy
-                if not (0 <= nx < level.width
-                        and 0 <= ny < level.height):
-                    continue
-                feat = level.tile_at(nx, ny).feature
-                if feat is not None and feat.startswith("door_"):
-                    door_adjacent.append((x, y))
-                    break
+            feat = ntile.feature
+            if feat is not None and feat.startswith("door_"):
+                door_adjacent.append((x, y))
+                break
     if not candidates:
         return None
     if (anchor_weight > 0.0
