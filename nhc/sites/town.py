@@ -708,6 +708,7 @@ def assemble_town(
     )
     _place_service_npcs(buildings, role_assignments, rng)
     _place_building_residents(buildings, role_assignments, rng)
+    _place_building_clutter(buildings, role_assignments, rng)
     _place_surface_adventurers(site, role_assignments, rng)
     _lock_shop_doors(buildings, role_assignments, rng)
     _place_surface_villagers(site, size_class, rng)
@@ -1684,6 +1685,101 @@ def _place_building_residents(
                 floor.entities.append(EntityPlacement(
                     entity_type="creature", entity_id="villager",
                     x=x, y=y,
+                ))
+
+
+# Lootable container entity ids — placed as features whose factory
+# carries the LootTable, so they spawn already stocked.
+_CONTAINER_IDS: frozenset[str] = frozenset({"barrel", "chest", "crate"})
+# Mundane clutter sprinkled per building floor (capped by free tiles).
+_CLUTTER_PER_FLOOR = (0, 3)
+# Role-aware scatter pools: ``(entity_type, entity_id, weight)``. Homes
+# lean to food and household objects; shops and inns to storage crates
+# and barrels; the temple to candles and incense.
+_CLUTTER_POOLS: dict[str, list[tuple[str, str, int]]] = {
+    "residential": [
+        ("item", "bread", 3),
+        ("item", "apple", 3),
+        ("item", "cheese", 2),
+        ("item", "candles", 3),
+        ("item", "bucket", 2),
+        ("item", "sack", 2),
+        ("item", "pots_and_pans", 2),
+        ("item", "mirror", 1),
+        ("feature", "barrel", 1),
+        ("feature", "chest", 1),
+    ],
+    "shop": [
+        ("feature", "crate", 4),
+        ("feature", "barrel", 3),
+        ("item", "sack", 2),
+        ("item", "candles", 2),
+        ("item", "bucket", 1),
+    ],
+    "inn": [
+        ("feature", "barrel", 3),
+        ("item", "cheese", 2),
+        ("item", "bread", 2),
+        ("item", "pots_and_pans", 2),
+        ("item", "candles", 2),
+        ("feature", "crate", 1),
+    ],
+    "temple": [
+        ("item", "candles", 4),
+        ("item", "incense", 2),
+        ("item", "bell", 1),
+        ("feature", "chest", 1),
+    ],
+}
+
+
+def _clutter_pool_for_role(role: str) -> list[tuple[str, str, int]]:
+    """Weighted scatter pool for a building role.
+
+    Reserved buildings (``stable`` / ``training``) get an empty pool —
+    no clutter — mirroring ``_NO_RESIDENT_ROLES``. Unknown roles fall
+    back to the residential mix.
+    """
+    if role in _NO_RESIDENT_ROLES:
+        return []
+    return _CLUTTER_POOLS.get(role, _CLUTTER_POOLS["residential"])
+
+
+def _place_building_clutter(
+    buildings: list[Building],
+    role_assignments: dict[str, str],
+    rng: random.Random,
+) -> None:
+    """Scatter mundane objects, food and lootable containers through
+    building interiors so a home feels lived-in and a shop's back room
+    feels stocked.
+
+    Placement is role-aware (see ``_CLUTTER_POOLS``) and lands each
+    piece on a distinct walkable, feature-free tile that no resident or
+    service NPC already occupies — so containers never block a doorway
+    and nothing stacks on a villager. See ``design/town_life.md``.
+    """
+    lo, hi = _CLUTTER_PER_FLOOR
+    for b in buildings:
+        role = role_assignments.get(b.id, "residential")
+        pool = _clutter_pool_for_role(role)
+        if not pool:
+            continue
+        choices = [(et, eid) for (et, eid, _w) in pool]
+        weights = [w for (_et, _eid, w) in pool]
+        for floor in b.floors:
+            occupied = {(e.x, e.y) for e in floor.entities}
+            tiles = [
+                t for t in _usable_floor_tiles(floor) if t not in occupied
+            ]
+            if not tiles:
+                continue
+            rng.shuffle(tiles)
+            n = min(rng.randint(lo, hi), len(tiles))
+            for (x, y) in tiles[:n]:
+                etype, eid = rng.choices(choices, weights=weights, k=1)[0]
+                floor.entities.append(EntityPlacement(
+                    entity_type=etype, entity_id=eid, x=x, y=y,
                 ))
 
 
