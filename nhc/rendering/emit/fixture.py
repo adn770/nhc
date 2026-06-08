@@ -58,6 +58,20 @@ def _wrap(fixture_op: FixtureOpT) -> OpEntryT:
     return entry
 
 
+# Canopy height per fixture kind: lower paints first (underneath),
+# higher paints last (on top). The painter walks ops[] linearly and
+# later ops win (map_ir_v5.md §10.4), so vegetation must stack by how
+# tall it grows — flowers on the ground, bushes at shrub height, trees
+# raising a canopy over both. Kinds left out default to 0 (ground
+# fixtures: stairs, wells, fountains) and keep their emit order below
+# the vegetation that overhangs them.
+_FIXTURE_HEIGHT: dict[int, int] = {
+    FixtureKind.Flower: 1,
+    FixtureKind.Bush: 2,
+    FixtureKind.Tree: 3,
+}
+
+
 def _make_fixture_op(
     *, region_ref: str, kind: int, anchors: list[AnchorT], seed: int,
 ) -> FixtureOpT:
@@ -235,6 +249,13 @@ def emit_fixtures(builder: Any) -> list[OpEntryT]:
             anchors=flower_anchors,
             seed=seed,
         )))
+
+    # Stable-sort by canopy height so taller features paint last and
+    # cover the shorter ones planted beneath them (e.g. a tree's canopy
+    # over a flower bed). Python's sort is stable, so ground fixtures
+    # (height 0) keep their relative emit order and free-tree ops stay
+    # ahead of grove ops within the Tree tier.
+    result.sort(key=lambda e: _FIXTURE_HEIGHT.get(e.op.kind, 0))
 
     return result
 
